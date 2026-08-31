@@ -1,0 +1,81 @@
+name: Frontend CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: frontend-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  flutter:
+    name: Shared quality and Android build
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Install checksum-verified Flutter 3.47.2
+        shell: bash
+        run: |
+          archive="$RUNNER_TEMP/flutter_linux_3.47.2-stable.tar.xz"
+          curl --fail --silent --show-error --location \
+            "https://storage.googleapis.com/flutter_infra_release/releases/stable/linux/flutter_linux_3.47.2-stable.tar.xz" \
+            --output "$archive"
+          echo "447878859d01ca9bfdb99a85f245af07ed8a15fedcd9d189c4749e8e92d1f185  $archive" | sha256sum --check
+          tar --extract --xz --file "$archive" --directory "$RUNNER_TEMP"
+          echo "$RUNNER_TEMP/flutter/bin" >> "$GITHUB_PATH"
+      - name: Resolve locked dependencies
+        run: |
+          flutter config --no-analytics
+          flutter pub get --enforce-lockfile
+      - name: Format and analyze
+        run: |
+          dart format --output=none --set-exit-if-changed lib test integration_test
+          flutter analyze
+      - name: Test and enforce coverage
+        shell: bash
+        run: |
+          flutter test --coverage
+          awk -F: '
+            /^LF:/{found += $2}
+            /^LH:/{hit += $2}
+            END {
+              coverage = found == 0 ? 0 : (100 * hit / found)
+              printf "Flutter line coverage: %.2f%%\n", coverage
+              if (coverage < 80) exit 1
+            }
+          ' coverage/lcov.info
+      - name: Build debug Android APK
+        run: flutter build apk --debug
+
+  windows:
+    name: Windows native tests and build
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Install checksum-verified Flutter 3.47.2
+        shell: pwsh
+        run: |
+          $archive = Join-Path $env:RUNNER_TEMP "flutter_windows_3.47.2-stable.zip"
+          Invoke-WebRequest -Uri "https://storage.googleapis.com/flutter_infra_release/releases/stable/windows/flutter_windows_3.47.2-stable.zip" -OutFile $archive
+          $actualHash = (Get-FileHash -Algorithm SHA256 -LiteralPath $archive).Hash.ToLowerInvariant()
+          if ($actualHash -ne "37934f2128a55d77a38baba12fd611157ed23a47bf7d2b7d17e9e84da118409d") {
+            throw "Flutter archive checksum mismatch."
+          }
+          Expand-Archive -LiteralPath $archive -DestinationPath $env:RUNNER_TEMP
+          Add-Content -Path $env:GITHUB_PATH -Value (Join-Path $env:RUNNER_TEMP "flutter\bin")
+      - name: Resolve locked dependencies
+        run: |
+          flutter config --no-analytics
+          flutter pub get --enforce-lockfile
+      - name: Format and analyze
+        run: |
+          dart format --output=none --set-exit-if-changed lib test integration_test
+          flutter analyze
+      - name: Run native tests and restore normal bundle
+        shell: pwsh
+        run: .\tool\test_windows_and_restore.ps1

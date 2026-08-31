@@ -7,7 +7,6 @@ Shared Android and Windows Flutter client for the manual-first Finance AI applic
 Use Flutter 3.47.2 / Dart 3.13.2 from the repository root:
 
 ```powershell
-Set-Location frontend
 .\tool\verify_shared.ps1
 .\tool\build_android.ps1
 .\tool\test_windows_and_restore.ps1
@@ -24,13 +23,14 @@ Native Windows integration tests temporarily place their headless test harness i
 Android emulators use `http://10.0.2.2:8000` by default; Windows uses `http://127.0.0.1:8000`. Override the endpoint at build or run time for a physical phone, another PC, or a future intermediary server:
 
 ```powershell
-..\.tools\flutter\bin\flutter.bat run --dart-define=FINANCE_AI_API_BASE_URL=http://10.0.2.2:8000
-..\.tools\flutter\bin\flutter.bat run -d windows --dart-define=FINANCE_AI_API_BASE_URL=https://api.example.com
+.\.tools\flutter\bin\flutter.bat run --dart-define=FINANCE_AI_API_BASE_URL=http://10.0.2.2:8000
+.\.tools\flutter\bin\flutter.bat run -d windows --dart-define=FINANCE_AI_API_BASE_URL=https://api.example.com
 ```
 
-From the repository root, the fully isolated Flutter/API/PostgreSQL test is:
+The fully isolated Flutter/API/PostgreSQL test is orchestrated by the sibling `NullCorvus/finance-ai` project repository:
 
 ```powershell
+Set-Location ..\finance-ai
 docker compose --profile integration run --rm flutter-integration
 ```
 
@@ -41,3 +41,5 @@ The integration image verifies Register → Login → session restoration → Lo
 Registration, Login, restoration, and Logout failures display a stable error code and a `Copy error details` action. The copied report contains safe diagnostic context and deliberately excludes email, password, and credential values. Future client features must use the shared components in `lib/core/diagnostics/`.
 
 The access credential exists only in application memory. Only the rotating renewable credential is stored through `flutter_secure_storage`; Android backups are disabled and Windows uses the native credential store.
+
+The API implementation lives in `NullCorvus/finance-ai-backend`; this client depends only on its versioned OpenAPI contract and configured base URL.
