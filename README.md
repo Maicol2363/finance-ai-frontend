@@ -42,4 +42,4 @@ Registration, Login, restoration, and Logout failures display a stable error cod
 
 The access credential exists only in application memory. Only the rotating renewable credential is stored through `flutter_secure_storage`; Android backups are disabled and Windows uses the native credential store.
 
-The API implementation lives in `NullCorvus/finance-ai-backend`; this client depends only on its versioned OpenAPI contract and configured base URL.
+The API implementation lives in `Maicol2363/finance-ai-backend`; this client depends only on its versioned OpenAPI contract and configured base URL.

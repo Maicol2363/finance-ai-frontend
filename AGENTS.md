@@ -1,6 +1,6 @@
 # Finance AI Frontend Agent Guide
 
-This repository owns the shared Flutter client for Android and Windows, native platform runners, secure client storage, and frontend tests. Product requirements and architecture decisions live in `NullCorvus/finance-ai`; the API and OpenAPI contract live in `NullCorvus/finance-ai-backend`.
+This repository owns the shared Flutter client for Android and Windows, native platform runners, secure client storage, and frontend tests. Product requirements and architecture decisions live in `NullCorvus/finance-ai`; the API and OpenAPI contract live in `Maicol2363/finance-ai-backend`.
 
 ## Mandatory copyable diagnostics
 
