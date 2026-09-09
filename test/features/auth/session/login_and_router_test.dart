@@ -1,4 +1,6 @@
 import 'package:finance_ai/app.dart';
+import 'package:finance_ai/features/accounts/data/accounts_repository.dart';
+import 'package:finance_ai/features/accounts/domain/account_models.dart';
 import 'package:finance_ai/features/auth/session/data/auth_session_repository.dart';
 import 'package:finance_ai/features/auth/session/data/secure_credential_store.dart';
 import 'package:finance_ai/features/auth/session/domain/session_models.dart';
@@ -78,11 +80,49 @@ class WidgetAuthRepository implements AuthSessionRepository {
   }
 }
 
+class WidgetAccountsRepository implements AccountsRepository {
+  @override
+  Future<AccountListResult> list({required bool includeInactive}) async {
+    return AccountListResult(
+      accounts: const [],
+      suggestedCurrencyCode: 'COP',
+      supportedCurrencies: const [
+        CurrencySummary(
+          id: 1,
+          code: 'COP',
+          name: 'Colombian Peso',
+          decimals: 2,
+        ),
+      ],
+      accountTypes: AccountType.values,
+    );
+  }
+
+  @override
+  Future<Account> get(int accountId) => throw UnimplementedError();
+
+  @override
+  Future<Account> create(AccountCreateCommand command) =>
+      throw UnimplementedError();
+
+  @override
+  Future<Account> update(int accountId, AccountUpdateCommand command) =>
+      throw UnimplementedError();
+
+  @override
+  Future<Account> setActive(int accountId, {required bool isActive}) =>
+      throw UnimplementedError();
+
+  @override
+  Future<void> deleteAccount(int accountId) => throw UnimplementedError();
+}
+
 Widget appWith(WidgetAuthRepository repository, MemoryStore store) {
   return ProviderScope(
     overrides: [
       authSessionRepositoryProvider.overrideWithValue(repository),
       secureCredentialStoreProvider.overrideWithValue(store),
+      accountsRepositoryProvider.overrideWithValue(WidgetAccountsRepository()),
     ],
     child: const FinanceApp(),
   );
@@ -148,8 +188,15 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byKey(const Key('home-title')), findsOneWidget);
+    expect(find.byKey(const Key('home-accounts-button')), findsOneWidget);
     expect(find.textContaining('person@example.com'), findsOneWidget);
     expect(store.value, renewable);
+
+    await tester.tap(find.byKey(const Key('home-accounts-button')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('accounts-list')), findsOneWidget);
+    await tester.tap(find.byTooltip('Back to home'));
+    await tester.pumpAndSettle();
 
     await tester.tap(find.byKey(const Key('logout-button')));
     await tester.pumpAndSettle();

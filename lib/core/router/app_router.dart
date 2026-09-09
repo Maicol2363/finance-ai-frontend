@@ -5,6 +5,9 @@ import '../../features/auth/login/presentation/login_screen.dart';
 import '../../features/auth/register/presentation/register_screen.dart';
 import '../../features/auth/session/application/auth_session_state.dart';
 import '../../features/auth/session/presentation/session_bootstrap_screen.dart';
+import '../../features/accounts/presentation/account_detail_screen.dart';
+import '../../features/accounts/presentation/account_form_screen.dart';
+import '../../features/accounts/presentation/accounts_screen.dart';
 import '../../features/home/presentation/home_screen.dart';
 
 GoRouter createAppRouter({
@@ -25,9 +28,13 @@ GoRouter createAppRouter({
               return location == '/bootstrap' ? null : '/bootstrap';
             }
             if (session.isAuthenticated) {
-              return location == '/home' ? null : '/home';
+              final authenticatedDestination =
+                  location == '/home' || location.startsWith('/accounts');
+              return authenticatedDestination ? null : '/home';
             }
-            if (location == '/home' || location == '/bootstrap') {
+            if (location == '/home' ||
+                location.startsWith('/accounts') ||
+                location == '/bootstrap') {
               return '/login';
             }
             return null;
@@ -57,6 +64,37 @@ GoRouter createAppRouter({
         path: '/home',
         name: 'home',
         builder: (context, state) => const HomeScreen(),
+      ),
+      GoRoute(
+        path: '/accounts',
+        name: 'accounts',
+        builder: (context, state) => const AccountsScreen(),
+        routes: [
+          GoRoute(
+            path: 'new',
+            name: 'account-new',
+            builder: (context, state) => const AccountFormScreen(),
+          ),
+          GoRoute(
+            path: ':accountId',
+            name: 'account-detail',
+            builder: (context, state) => AccountDetailScreen(
+              accountId:
+                  int.tryParse(state.pathParameters['accountId'] ?? '') ?? 0,
+            ),
+            routes: [
+              GoRoute(
+                path: 'edit',
+                name: 'account-edit',
+                builder: (context, state) => AccountFormScreen(
+                  accountId:
+                      int.tryParse(state.pathParameters['accountId'] ?? '') ??
+                      0,
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     ],
   );
