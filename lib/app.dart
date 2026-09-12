@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import 'core/router/app_router.dart';
 import 'core/theme/app_theme.dart';
+import 'features/accounts/application/accounts_controller.dart';
 import 'features/auth/session/application/auth_session_controller.dart';
 import 'features/auth/session/application/auth_session_state.dart';
 
@@ -34,7 +35,12 @@ class _FinanceAppState extends ConsumerState<FinanceApp> {
     _routerRefresh = routerRefresh;
     _authSubscription = ref.listenManual<AuthSessionState>(
       authSessionControllerProvider,
-      (previous, next) => routerRefresh.notifyRouter(),
+      (previous, next) {
+        if (previous?.user?.id != next.user?.id) {
+          ref.invalidate(accountsControllerProvider);
+        }
+        routerRefresh.notifyRouter();
+      },
     );
     _router = createAppRouter(
       initialLocation: '/bootstrap',
