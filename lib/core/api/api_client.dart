@@ -77,6 +77,27 @@ class FinanceApiClient {
     return _send(method: 'GET', path: path, bearerCredential: bearerCredential);
   }
 
+  Future<ApiResponse> patchJson(
+    String path,
+    Map<String, Object?> body, {
+    String? bearerCredential,
+  }) {
+    return _send(
+      method: 'PATCH',
+      path: path,
+      body: body,
+      bearerCredential: bearerCredential,
+    );
+  }
+
+  Future<ApiResponse> deleteRequest(String path, {String? bearerCredential}) {
+    return _send(
+      method: 'DELETE',
+      path: path,
+      bearerCredential: bearerCredential,
+    );
+  }
+
   Future<ApiResponse> _send({
     required String method,
     required String path,

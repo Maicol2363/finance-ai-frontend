@@ -1,4 +1,8 @@
 import 'package:finance_ai/app.dart';
+import 'package:finance_ai/features/accounts/application/accounts_controller.dart';
+import 'package:finance_ai/features/accounts/application/accounts_state.dart';
+import 'package:finance_ai/features/accounts/data/accounts_repository.dart';
+import 'package:finance_ai/features/accounts/domain/account_models.dart';
 import 'package:finance_ai/features/auth/session/data/auth_session_repository.dart';
 import 'package:finance_ai/features/auth/session/data/secure_credential_store.dart';
 import 'package:finance_ai/features/auth/session/domain/session_models.dart';
@@ -78,11 +82,49 @@ class WidgetAuthRepository implements AuthSessionRepository {
   }
 }
 
+class WidgetAccountsRepository implements AccountsRepository {
+  @override
+  Future<AccountListResult> list({required bool includeInactive}) async {
+    return AccountListResult(
+      accounts: const [],
+      suggestedCurrencyCode: 'COP',
+      supportedCurrencies: const [
+        CurrencySummary(
+          id: 1,
+          code: 'COP',
+          name: 'Colombian Peso',
+          decimals: 2,
+        ),
+      ],
+      accountTypes: AccountType.values,
+    );
+  }
+
+  @override
+  Future<Account> get(int accountId) => throw UnimplementedError();
+
+  @override
+  Future<Account> create(AccountCreateCommand command) =>
+      throw UnimplementedError();
+
+  @override
+  Future<Account> update(int accountId, AccountUpdateCommand command) =>
+      throw UnimplementedError();
+
+  @override
+  Future<Account> setActive(int accountId, {required bool isActive}) =>
+      throw UnimplementedError();
+
+  @override
+  Future<void> deleteAccount(int accountId) => throw UnimplementedError();
+}
+
 Widget appWith(WidgetAuthRepository repository, MemoryStore store) {
   return ProviderScope(
     overrides: [
       authSessionRepositoryProvider.overrideWithValue(repository),
       secureCredentialStoreProvider.overrideWithValue(store),
+      accountsRepositoryProvider.overrideWithValue(WidgetAccountsRepository()),
     ],
     child: const FinanceApp(),
   );
@@ -136,6 +178,9 @@ void main() {
     final store = MemoryStore();
     await tester.pumpWidget(appWith(WidgetAuthRepository(), store));
     await tester.pumpAndSettle();
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(FinanceApp)),
+    );
     await tester.enterText(
       find.byKey(const Key('login-email-input')),
       'person@example.com',
@@ -148,14 +193,30 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byKey(const Key('home-title')), findsOneWidget);
+    expect(find.byKey(const Key('home-accounts-button')), findsOneWidget);
     expect(find.textContaining('person@example.com'), findsOneWidget);
     expect(store.value, renewable);
+
+    await tester.tap(find.byKey(const Key('home-accounts-button')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('accounts-list')), findsOneWidget);
+    expect(
+      container.read(accountsControllerProvider).listStatus,
+      AccountsLoadStatus.ready,
+    );
+    await tester.tap(find.byTooltip('Back to home'));
+    await tester.pumpAndSettle();
 
     await tester.tap(find.byKey(const Key('logout-button')));
     await tester.pumpAndSettle();
     expect(find.text('Welcome back'), findsOneWidget);
     expect(find.byKey(const Key('home-title')), findsNothing);
     expect(store.value, isNull);
+    expect(
+      container.read(accountsControllerProvider).listStatus,
+      AccountsLoadStatus.initial,
+    );
+    expect(container.read(accountsControllerProvider).result, isNull);
   });
 
   testWidgets('generic invalid credentials remain safe and editable', (
