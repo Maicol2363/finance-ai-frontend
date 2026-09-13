@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../auth/session/application/auth_session_controller.dart';
 import '../../auth/session/application/auth_session_state.dart';
@@ -56,6 +57,13 @@ class HomeScreen extends ConsumerWidget {
                         'The budgeting forms will be added in the next stories. They will work manually first; optional AI assistance will use the same forms later.',
                       ),
                     ),
+                  ),
+                  const SizedBox(height: 16),
+                  FilledButton.icon(
+                    key: const Key('open-income-sources-button'),
+                    onPressed: () => context.push('/income-sources'),
+                    icon: const Icon(Icons.category_outlined),
+                    label: const Text('Manage income sources'),
                   ),
                   if (state.status == AuthSessionStatus.loggingOut) ...[
                     const SizedBox(height: 24),

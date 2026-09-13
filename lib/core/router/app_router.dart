@@ -6,6 +6,10 @@ import '../../features/auth/register/presentation/register_screen.dart';
 import '../../features/auth/session/application/auth_session_state.dart';
 import '../../features/auth/session/presentation/session_bootstrap_screen.dart';
 import '../../features/home/presentation/home_screen.dart';
+import '../../features/income_sources/presentation/income_sources_screen.dart';
+
+const _authenticatedRoutes = {'/home', '/income-sources'};
+const _protectedRoutes = {'/home', '/bootstrap', '/income-sources'};
 
 GoRouter createAppRouter({
   String initialLocation = '/register',
@@ -25,9 +29,9 @@ GoRouter createAppRouter({
               return location == '/bootstrap' ? null : '/bootstrap';
             }
             if (session.isAuthenticated) {
-              return location == '/home' ? null : '/home';
+              return _authenticatedRoutes.contains(location) ? null : '/home';
             }
-            if (location == '/home' || location == '/bootstrap') {
+            if (_protectedRoutes.contains(location)) {
               return '/login';
             }
             return null;
@@ -57,6 +61,11 @@ GoRouter createAppRouter({
         path: '/home',
         name: 'home',
         builder: (context, state) => const HomeScreen(),
+      ),
+      GoRoute(
+        path: '/income-sources',
+        name: 'incomeSources',
+        builder: (context, state) => const IncomeSourcesScreen(),
       ),
     ],
   );
