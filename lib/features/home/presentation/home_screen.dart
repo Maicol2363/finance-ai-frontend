@@ -65,6 +65,13 @@ class HomeScreen extends ConsumerWidget {
                     icon: const Icon(Icons.account_balance_wallet_outlined),
                     label: const Text('Manage accounts'),
                   ),
+                  const SizedBox(height: 12),
+                  FilledButton.tonalIcon(
+                    key: const Key('home-categories-button'),
+                    onPressed: () => context.go('/categories'),
+                    icon: const Icon(Icons.category_outlined),
+                    label: const Text('Manage categories'),
+                  ),
                   if (state.status == AuthSessionStatus.loggingOut) ...[
                     const SizedBox(height: 24),
                     Semantics(
