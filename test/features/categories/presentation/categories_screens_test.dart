@@ -156,6 +156,24 @@ void main() {
     expect(find.text('Categories'), findsOneWidget);
   });
 
+  testWidgets('invalid category name shows a copyable safe diagnostic', (
+    tester,
+  ) async {
+    final repository = WidgetCategoriesRepository();
+    await pumpCategories(tester, repository, '/categories/new');
+
+    final saveButton = find.byKey(const Key('category-save-button'));
+    await tester.drag(find.byType(ListView), const Offset(0, -400));
+    await tester.pumpAndSettle();
+    await tester.tap(saveButton);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Error code: category_invalid'), findsOneWidget);
+    expect(find.byKey(const Key('copy-error-details-button')), findsOneWidget);
+    expect(find.text('Category name is required.'), findsOneWidget);
+    expect(repository.saved, isNull);
+  });
+
   testWidgets('editing can permanently delete after confirmation', (
     tester,
   ) async {

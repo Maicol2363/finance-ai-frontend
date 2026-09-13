@@ -55,14 +55,19 @@ class CategoriesController extends Notifier<CategoriesState> {
     if (state.isSaving) return CategoryMutationOutcome.ignored;
     final normalized = name.trim();
     if (normalized.isEmpty || normalized.runes.length > 100) {
+      final message = normalized.isEmpty
+          ? 'Category name is required.'
+          : 'Category name must be 100 characters or fewer.';
       state = state.copyWith(
         fieldErrors: {
-          'name': [
-            normalized.isEmpty
-                ? 'Category name is required.'
-                : 'Category name must be 100 characters or fewer.',
-          ],
+          'name': [message],
         },
+        mutationDiagnostic: ErrorDiagnostic.capture(
+          code: 'category_invalid',
+          operation: 'validate_category',
+          userMessage: 'Please correct the highlighted category name.',
+          technicalReason: 'local_validation_failure',
+        ),
       );
       return CategoryMutationOutcome.invalid;
     }
@@ -77,14 +82,12 @@ class CategoriesController extends Notifier<CategoriesState> {
       icon: icon,
     );
     try {
-      if (categoryId == null) {
-        await ref.read(categoriesRepositoryProvider).create(command);
-      } else {
-        await ref
-            .read(categoriesRepositoryProvider)
-            .update(categoryId, command);
-      }
-      await _refreshAfterMutation();
+      final saved = categoryId == null
+          ? await ref.read(categoriesRepositoryProvider).create(command)
+          : await ref
+                .read(categoriesRepositoryProvider)
+                .update(categoryId, command);
+      _acceptSaved(saved);
       return CategoryMutationOutcome.success;
     } on InvalidSessionFailure catch (failure) {
       _reject(
@@ -140,7 +143,7 @@ class CategoriesController extends Notifier<CategoriesState> {
     );
     try {
       await ref.read(categoriesRepositoryProvider).deleteCategory(categoryId);
-      await _refreshAfterMutation();
+      _acceptDeleted(categoryId);
       return CategoryMutationOutcome.success;
     } on CategoryFailure catch (failure) {
       await _rejectFailure(failure, 'delete_category');
@@ -152,7 +155,10 @@ class CategoriesController extends Notifier<CategoriesState> {
     return CategoryMutationOutcome.failure;
   }
 
-  void clearFieldError(String field) => state = state.withoutFieldError(field);
+  void clearFieldError(String field) {
+    final next = state.withoutFieldError(field);
+    state = next.copyWith(clearMutationDiagnostic: next.fieldErrors.isEmpty);
+  }
 
   void clearMutationFeedback() {
     if (state.isSaving) return;
@@ -168,6 +174,52 @@ class CategoriesController extends Notifier<CategoriesState> {
       result: result,
       loadStatus: CategoriesLoadStatus.ready,
       mutationStatus: CategoryMutationStatus.idle,
+      clearMutationDiagnostic: true,
+    );
+  }
+
+  void _acceptSaved(Category saved) {
+    final current = state.result;
+    final categories =
+        [...?current?.categories.where((item) => item.id != saved.id), saved]
+          ..sort((left, right) {
+            final order = left.sortOrder.compareTo(right.sortOrder);
+            return order == 0 ? left.id.compareTo(right.id) : order;
+          });
+    state = state.copyWith(
+      result: CategoryListResult(
+        categories: List.unmodifiable(categories),
+        supportedColors: current?.supportedColors ?? CategoryColor.values,
+        supportedIcons: current?.supportedIcons ?? CategoryIcon.values,
+      ),
+      loadStatus: CategoriesLoadStatus.ready,
+      mutationStatus: CategoryMutationStatus.idle,
+      fieldErrors: const {},
+      clearDiagnostic: true,
+      clearMutationDiagnostic: true,
+    );
+  }
+
+  void _acceptDeleted(int categoryId) {
+    final current = state.result;
+    state = state.copyWith(
+      result: current == null
+          ? CategoryListResult(
+              categories: const [],
+              supportedColors: CategoryColor.values,
+              supportedIcons: CategoryIcon.values,
+            )
+          : CategoryListResult(
+              categories: List.unmodifiable(
+                current.categories.where((item) => item.id != categoryId),
+              ),
+              supportedColors: current.supportedColors,
+              supportedIcons: current.supportedIcons,
+            ),
+      loadStatus: CategoriesLoadStatus.ready,
+      mutationStatus: CategoryMutationStatus.idle,
+      fieldErrors: const {},
+      clearDiagnostic: true,
       clearMutationDiagnostic: true,
     );
   }

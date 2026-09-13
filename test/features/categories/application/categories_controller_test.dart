@@ -27,12 +27,14 @@ CategoryListResult result([List<Category>? values]) => CategoryListResult(
 class FakeCategoriesRepository implements CategoriesRepository {
   CategoryListResult current = result();
   Object? failure;
+  Object? listFailure;
   Completer<Category>? pendingCreate;
   int listCalls = 0;
 
   @override
   Future<CategoryListResult> list() async {
     listCalls += 1;
+    if (listFailure case final value?) throw value;
     if (failure case final value?) throw value;
     return current;
   }
@@ -152,6 +154,12 @@ void main() {
       container.read(categoriesControllerProvider).fieldErrors,
       contains('name'),
     );
+    final validationReport = container
+        .read(categoriesControllerProvider)
+        .mutationDiagnostic
+        ?.clipboardText;
+    expect(validationReport, contains('Error code: category_invalid'));
+    expect(validationReport, contains('Operation: validate_category'));
     controller.clearFieldError('name');
     final first = controller.save(
       name: 'Food',
@@ -172,6 +180,40 @@ void main() {
     ]);
     pending.complete(category(id: 3, name: 'Food', order: 2));
     expect(await first, CategoryMutationOutcome.success);
+  });
+
+  test('confirmed save succeeds without a second list request', () async {
+    final repository = FakeCategoriesRepository();
+    final container = containerFor(repository);
+    addTearDown(container.dispose);
+    final controller = container.read(categoriesControllerProvider.notifier);
+
+    await controller.load();
+    repository.listFailure = const CategoryFailure(
+      code: 'network_unavailable',
+      userMessage: 'Could not refresh.',
+    );
+
+    final outcome = await controller.save(
+      name: 'Food',
+      color: CategoryColor.orange,
+      icon: CategoryIcon.food,
+    );
+
+    expect(outcome, CategoryMutationOutcome.success);
+    expect(repository.listCalls, 1);
+    expect(
+      container
+          .read(categoriesControllerProvider)
+          .result
+          ?.categoryById(3)
+          ?.name,
+      'Food',
+    );
+    expect(
+      container.read(categoriesControllerProvider).mutationDiagnostic,
+      isNull,
+    );
   });
 
   test('safe failure diagnostics never copy category form values', () async {
