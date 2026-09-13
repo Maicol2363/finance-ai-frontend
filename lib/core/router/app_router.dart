@@ -5,11 +5,13 @@ import '../../features/auth/login/presentation/login_screen.dart';
 import '../../features/auth/register/presentation/register_screen.dart';
 import '../../features/auth/session/application/auth_session_state.dart';
 import '../../features/auth/session/presentation/session_bootstrap_screen.dart';
+import '../../features/accounts/presentation/account_detail_screen.dart';
+import '../../features/accounts/presentation/account_form_screen.dart';
+import '../../features/accounts/presentation/accounts_screen.dart';
 import '../../features/home/presentation/home_screen.dart';
 import '../../features/income_sources/presentation/income_sources_screen.dart';
-
-const _authenticatedRoutes = {'/home', '/income-sources'};
-const _protectedRoutes = {'/home', '/bootstrap', '/income-sources'};
+import '../../features/categories/presentation/categories_screen.dart';
+import '../../features/categories/presentation/category_form_screen.dart';
 
 GoRouter createAppRouter({
   String initialLocation = '/register',
@@ -29,9 +31,18 @@ GoRouter createAppRouter({
               return location == '/bootstrap' ? null : '/bootstrap';
             }
             if (session.isAuthenticated) {
-              return _authenticatedRoutes.contains(location) ? null : '/home';
+              final authenticatedDestination =
+                  location == '/home' ||
+                  location.startsWith('/accounts') ||
+                  location.startsWith('/categories') ||
+                  location == '/income-sources';
+              return authenticatedDestination ? null : '/home';
             }
-            if (_protectedRoutes.contains(location)) {
+            if (location == '/home' ||
+                location.startsWith('/accounts') ||
+                location.startsWith('/categories') ||
+                location == '/income-sources' ||
+                location == '/bootstrap') {
               return '/login';
             }
             return null;
@@ -66,6 +77,57 @@ GoRouter createAppRouter({
         path: '/income-sources',
         name: 'incomeSources',
         builder: (context, state) => const IncomeSourcesScreen(),
+      ),
+      GoRoute(
+        path: '/categories',
+        name: 'categories',
+        builder: (context, state) => const CategoriesScreen(),
+        routes: [
+          GoRoute(
+            path: 'new',
+            name: 'category-new',
+            builder: (context, state) => const CategoryFormScreen(),
+          ),
+          GoRoute(
+            path: ':categoryId/edit',
+            name: 'category-edit',
+            builder: (context, state) => CategoryFormScreen(
+              categoryId:
+                  int.tryParse(state.pathParameters['categoryId'] ?? '') ?? 0,
+            ),
+          ),
+        ],
+      ),
+      GoRoute(
+        path: '/accounts',
+        name: 'accounts',
+        builder: (context, state) => const AccountsScreen(),
+        routes: [
+          GoRoute(
+            path: 'new',
+            name: 'account-new',
+            builder: (context, state) => const AccountFormScreen(),
+          ),
+          GoRoute(
+            path: ':accountId',
+            name: 'account-detail',
+            builder: (context, state) => AccountDetailScreen(
+              accountId:
+                  int.tryParse(state.pathParameters['accountId'] ?? '') ?? 0,
+            ),
+            routes: [
+              GoRoute(
+                path: 'edit',
+                name: 'account-edit',
+                builder: (context, state) => AccountFormScreen(
+                  accountId:
+                      int.tryParse(state.pathParameters['accountId'] ?? '') ??
+                      0,
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     ],
   );

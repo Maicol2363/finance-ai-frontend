@@ -94,7 +94,7 @@ class HttpIncomeSourcesRepository implements IncomeSourcesRepository {
     required int id,
   }) async {
     final response = await _send(
-      () => _apiClient.deleteJson(
+      () => _apiClient.deleteRequest(
         '$_basePath/$id',
         bearerCredential: accessCredential,
       ),

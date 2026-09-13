@@ -2,6 +2,12 @@
 
 This repository owns the shared Flutter client for Android and Windows, native platform runners, secure client storage, and frontend tests. Product requirements and architecture decisions live in `NullCorvus/finance-ai`; the API and OpenAPI contract live in `Maicol2363/finance-ai-backend`.
 
+## Branch workflow
+
+- Start story branches from `develop` and target `develop` in feature pull requests.
+- Merge `develop` into `main` only for fully tested, release-ready work.
+- Preserve completed feature branches unless the team explicitly chooses to remove them.
+
 ## Mandatory copyable diagnostics
 
 - Every user-visible failure uses the shared diagnostic contract and copy UI under `lib/core/diagnostics/`.

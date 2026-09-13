@@ -90,7 +90,20 @@ class FinanceApiClient {
     );
   }
 
-  Future<ApiResponse> deleteJson(String path, {String? bearerCredential}) {
+  Future<ApiResponse> putJson(
+    String path,
+    Map<String, Object?> body, {
+    String? bearerCredential,
+  }) {
+    return _send(
+      method: 'PUT',
+      path: path,
+      body: body,
+      bearerCredential: bearerCredential,
+    );
+  }
+
+  Future<ApiResponse> deleteRequest(String path, {String? bearerCredential}) {
     return _send(
       method: 'DELETE',
       path: path,
