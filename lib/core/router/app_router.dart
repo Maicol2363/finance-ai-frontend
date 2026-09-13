@@ -9,6 +9,7 @@ import '../../features/accounts/presentation/account_detail_screen.dart';
 import '../../features/accounts/presentation/account_form_screen.dart';
 import '../../features/accounts/presentation/accounts_screen.dart';
 import '../../features/home/presentation/home_screen.dart';
+import '../../features/income_sources/presentation/income_sources_screen.dart';
 import '../../features/categories/presentation/categories_screen.dart';
 import '../../features/categories/presentation/category_form_screen.dart';
 
@@ -33,12 +34,14 @@ GoRouter createAppRouter({
               final authenticatedDestination =
                   location == '/home' ||
                   location.startsWith('/accounts') ||
-                  location.startsWith('/categories');
+                  location.startsWith('/categories') ||
+                  location == '/income-sources';
               return authenticatedDestination ? null : '/home';
             }
             if (location == '/home' ||
                 location.startsWith('/accounts') ||
                 location.startsWith('/categories') ||
+                location == '/income-sources' ||
                 location == '/bootstrap') {
               return '/login';
             }
@@ -69,6 +72,11 @@ GoRouter createAppRouter({
         path: '/home',
         name: 'home',
         builder: (context, state) => const HomeScreen(),
+      ),
+      GoRoute(
+        path: '/income-sources',
+        name: 'incomeSources',
+        builder: (context, state) => const IncomeSourcesScreen(),
       ),
       GoRoute(
         path: '/categories',

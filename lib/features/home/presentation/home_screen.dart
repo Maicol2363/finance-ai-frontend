@@ -72,6 +72,13 @@ class HomeScreen extends ConsumerWidget {
                     icon: const Icon(Icons.category_outlined),
                     label: const Text('Manage categories'),
                   ),
+                  const SizedBox(height: 12),
+                  FilledButton.tonalIcon(
+                    key: const Key('open-income-sources-button'),
+                    onPressed: () => context.push('/income-sources'),
+                    icon: const Icon(Icons.savings_outlined),
+                    label: const Text('Manage income sources'),
+                  ),
                   if (state.status == AuthSessionStatus.loggingOut) ...[
                     const SizedBox(height: 24),
                     Semantics(
