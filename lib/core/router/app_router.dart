@@ -50,6 +50,9 @@ GoRouter createAppRouter({
               return location == '/bootstrap' ? null : '/bootstrap';
             }
             if (session.isAuthenticated) {
+              if (location == '/bootstrap') {
+                return '/home';
+              }
               return _isProtected(location) ? null : '/home';
             }
             return _isProtected(location) ? '/login' : null;
