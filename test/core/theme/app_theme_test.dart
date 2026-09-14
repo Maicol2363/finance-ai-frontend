@@ -43,5 +43,21 @@ void main() {
     expect(container.read(themeControllerProvider), ThemeMode.light);
     final preferences = await SharedPreferences.getInstance();
     expect(preferences.getString(themePreferenceKey), 'light');
+    expect(container.read(themeDiagnosticProvider), isNull);
   });
+
+  test(
+    'theme controller captures safe diagnostic when storage throws',
+    () async {
+      SharedPreferences.setMockInitialValues({});
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+
+      final notifier = container.read(themeControllerProvider.notifier);
+      final success = await notifier.setDark(true);
+      expect(success, isTrue);
+      expect(container.read(themeControllerProvider), ThemeMode.dark);
+      expect(container.read(themeDiagnosticProvider), isNull);
+    },
+  );
 }

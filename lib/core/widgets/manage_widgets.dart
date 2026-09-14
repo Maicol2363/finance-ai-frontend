@@ -97,6 +97,7 @@ class SettingsRow extends StatelessWidget {
                   ),
                 ),
               ),
+              const SizedBox(width: 8),
               if (value != null)
                 Text(
                   value!,
@@ -107,9 +108,13 @@ class SettingsRow extends StatelessWidget {
                   ),
                 )
               else if (subtitle != null)
-                Text(
-                  subtitle!,
-                  style: TextStyle(fontSize: 11, color: palette.muted),
+                Flexible(
+                  child: Text(
+                    subtitle!,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(fontSize: 11, color: palette.muted),
+                  ),
                 ),
               if (onTap != null) ...[
                 const SizedBox(width: 6),

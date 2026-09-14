@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/diagnostics/error_diagnostic_panel.dart';
 import '../../../core/theme/theme_controller.dart';
 import '../../../core/widgets/app_header.dart';
 import '../../../core/widgets/manage_widgets.dart';
@@ -12,7 +13,6 @@ import '../../categories/application/categories_controller.dart';
 import '../../categories/application/categories_state.dart';
 import '../../income_sources/domain/income_source_models.dart';
 import '../../income_sources/presentation/income_sources_controller.dart';
-import '../../income_sources/presentation/income_sources_state.dart';
 
 /// Mockup `screen-ajustes`: Mi cuenta / Catalogos / Apariencia groups
 /// (Phase 3 limits stay hidden until their stories exist).
@@ -39,16 +39,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           AccountsLoadStatus.initial) {
         ref.read(accountsControllerProvider.notifier).load();
       }
-      if (ref.read(incomeSourcesControllerProvider).status ==
-          IncomeSourcesStatus.loading) {
-        ref.read(incomeSourcesControllerProvider.notifier).load();
-      }
     });
   }
 
   @override
   Widget build(BuildContext context) {
     final themeMode = ref.watch(themeControllerProvider);
+    final themeDiagnostic = ref.watch(themeDiagnosticProvider);
     final accounts = ref.watch(accountsControllerProvider).result?.accounts;
     final categories = ref
         .watch(categoriesControllerProvider)
@@ -149,6 +146,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                           ],
                         ),
                       ),
+                      if (themeDiagnostic != null)
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                          child: ErrorDiagnosticPanel(
+                            diagnostic: themeDiagnostic,
+                          ),
+                        ),
                     ],
                   ),
                 ],

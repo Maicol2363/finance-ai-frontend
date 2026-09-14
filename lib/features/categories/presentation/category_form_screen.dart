@@ -177,27 +177,37 @@ class _CategoryFormScreenState extends ConsumerState<CategoryFormScreen> {
             .map(
               (color) => Tooltip(
                 message: color.label,
-                child: GestureDetector(
-                  key: Key('category-color-${color.name}'),
-                  onTap: state.isSaving
-                      ? null
-                      : () => setState(() => _color = color),
-                  child: Container(
-                    width: 34,
-                    height: 34,
-                    decoration: BoxDecoration(
-                      color: color.value,
-                      shape: BoxShape.circle,
-                      border: color == _color
-                          ? Border.all(
-                              color: Theme.of(context).colorScheme.onSurface,
-                              width: 2,
+                child: Semantics(
+                  selected: color == _color,
+                  button: true,
+                  label: color.label,
+                  child: InkWell(
+                    key: Key('category-color-${color.name}'),
+                    customBorder: const CircleBorder(),
+                    onTap: state.isSaving
+                        ? null
+                        : () => setState(() => _color = color),
+                    child: Container(
+                      width: 34,
+                      height: 34,
+                      decoration: BoxDecoration(
+                        color: color.value,
+                        shape: BoxShape.circle,
+                        border: color == _color
+                            ? Border.all(
+                                color: Theme.of(context).colorScheme.onSurface,
+                                width: 2,
+                              )
+                            : null,
+                      ),
+                      child: color == _color
+                          ? const Icon(
+                              Icons.check,
+                              size: 18,
+                              color: Colors.white,
                             )
                           : null,
                     ),
-                    child: color == _color
-                        ? const Icon(Icons.check, size: 18, color: Colors.white)
-                        : null,
                   ),
                 ),
               ),
@@ -213,32 +223,38 @@ class _CategoryFormScreenState extends ConsumerState<CategoryFormScreen> {
             .map(
               (icon) => Tooltip(
                 message: icon.label,
-                child: GestureDetector(
-                  key: Key('category-icon-${icon.name}'),
-                  onTap: state.isSaving
-                      ? null
-                      : () => setState(() => _icon = icon),
-                  child: Container(
-                    width: 44,
-                    height: 44,
-                    decoration: BoxDecoration(
-                      color: icon == _icon
-                          ? context.palette.primarySoft
-                          : context.palette.soft,
-                      borderRadius: BorderRadius.circular(12),
-                      border: icon == _icon
-                          ? Border.all(
-                              color: context.palette.primary,
-                              width: 1.6,
-                            )
-                          : null,
-                    ),
-                    child: Icon(
-                      icon.value,
-                      size: 20,
-                      color: icon == _icon
-                          ? context.palette.primary
-                          : context.palette.muted,
+                child: Semantics(
+                  selected: icon == _icon,
+                  button: true,
+                  label: icon.label,
+                  child: InkWell(
+                    key: Key('category-icon-${icon.name}'),
+                    borderRadius: BorderRadius.circular(12),
+                    onTap: state.isSaving
+                        ? null
+                        : () => setState(() => _icon = icon),
+                    child: Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: icon == _icon
+                            ? context.palette.primarySoft
+                            : context.palette.soft,
+                        borderRadius: BorderRadius.circular(12),
+                        border: icon == _icon
+                            ? Border.all(
+                                color: context.palette.primary,
+                                width: 1.6,
+                              )
+                            : null,
+                      ),
+                      child: Icon(
+                        icon.value,
+                        size: 20,
+                        color: icon == _icon
+                            ? context.palette.primary
+                            : context.palette.muted,
+                      ),
                     ),
                   ),
                 ),
