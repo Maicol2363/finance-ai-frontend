@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import 'core/router/app_router.dart';
 import 'core/theme/app_theme.dart';
+import 'core/theme/theme_controller.dart';
 import 'features/accounts/application/accounts_controller.dart';
 import 'features/auth/session/application/auth_session_controller.dart';
 import 'features/auth/session/application/auth_session_state.dart';
@@ -26,6 +27,7 @@ class _FinanceAppState extends ConsumerState<FinanceApp> {
   @override
   void initState() {
     super.initState();
+    ref.read(themeControllerProvider.notifier).load();
     final providedRouter = widget.router;
     if (providedRouter != null) {
       _router = providedRouter;
@@ -57,6 +59,8 @@ class _FinanceAppState extends ConsumerState<FinanceApp> {
       title: 'Finance AI',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light(),
+      darkTheme: AppTheme.dark(),
+      themeMode: ref.watch(themeControllerProvider),
       routerConfig: _router,
     );
   }

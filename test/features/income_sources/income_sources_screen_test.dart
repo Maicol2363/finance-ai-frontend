@@ -100,7 +100,7 @@ void main() {
 
     await tester.tap(find.byKey(const Key('income-source-delete-1')));
     await tester.pumpAndSettle();
-    expect(find.text('Delete income source'), findsOneWidget);
+    expect(find.text('Eliminar fuente de ingreso'), findsOneWidget);
 
     await tester.tap(find.byKey(const Key('income-source-delete-confirm')));
     await tester.pumpAndSettle();

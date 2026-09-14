@@ -3,6 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/diagnostics/error_diagnostic_panel.dart';
+import '../../../core/widgets/app_header.dart';
+import '../../../core/widgets/manage_widgets.dart';
+import '../../../core/widgets/theme_toggle_button.dart';
 import '../application/categories_controller.dart';
 import '../application/categories_state.dart';
 import '../domain/category_models.dart';
@@ -34,83 +37,103 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
     final controller = ref.read(categoriesControllerProvider.notifier);
     final categories = state.result?.categories;
     return Scaffold(
-      appBar: AppBar(
-        leading: IconButton(
-          tooltip: 'Back to home',
-          onPressed: () => context.go('/home'),
-          icon: const Icon(Icons.arrow_back),
-        ),
-        title: const Text('Categories'),
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        key: const Key('categories-add-button'),
-        onPressed: state.result == null || state.isSaving
-            ? null
-            : () => context.go('/categories/new'),
-        icon: const Icon(Icons.add),
-        label: const Text('New category'),
-      ),
       body: SafeArea(
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 760),
-            child: Column(
-              children: [
-                if (state.loadStatus == CategoriesLoadStatus.loading)
-                  const LinearProgressIndicator(
-                    semanticsLabel: 'Loading categories',
-                  ),
-                if (state.diagnostic case final diagnostic?)
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
-                    child: Column(
-                      children: [
-                        ErrorDiagnosticPanel(diagnostic: diagnostic),
-                        const SizedBox(height: 8),
-                        OutlinedButton.icon(
-                          onPressed: controller.load,
-                          icon: const Icon(Icons.refresh),
-                          label: const Text('Retry'),
+        child: Column(
+          children: [
+            AppHeader(
+              title: 'Categorías',
+              subtitle: 'Clasifica tus gastos',
+              leading: HeaderIconButton(
+                icon: Icons.arrow_back,
+                tooltip: 'Volver',
+                onPressed: () => context.go('/home'),
+              ),
+              actions: const [ThemeToggleButton()],
+            ),
+            Expanded(
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 760),
+                  child: Column(
+                    children: [
+                      if (state.loadStatus == CategoriesLoadStatus.loading)
+                        const LinearProgressIndicator(
+                          semanticsLabel: 'Cargando categorías',
                         ),
-                      ],
-                    ),
-                  ),
-                if (state.mutationDiagnostic case final diagnostic?)
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
-                    child: ErrorDiagnosticPanel(diagnostic: diagnostic),
-                  ),
-                Expanded(
-                  child: categories == null
-                      ? const Center(child: CircularProgressIndicator())
-                      : categories.isEmpty
-                      ? const _EmptyCategories()
-                      : RefreshIndicator(
-                          onRefresh: controller.load,
-                          child: ReorderableListView.builder(
-                            key: const Key('categories-list'),
-                            padding: const EdgeInsets.fromLTRB(20, 16, 20, 100),
-                            buildDefaultDragHandles: false,
-                            itemCount: categories.length,
-                            onReorderItem: state.isSaving
-                                ? (_, _) {}
-                                : (oldIndex, newIndex) =>
-                                      _reorder(categories, oldIndex, newIndex),
-                            itemBuilder: (context, index) => _CategoryCard(
-                              key: ValueKey(categories[index].id),
-                              category: categories[index],
-                              index: index,
-                              count: categories.length,
-                              disabled: state.isSaving,
-                              onMove: (offset) =>
-                                  _move(categories, index, offset),
-                            ),
+                      if (state.diagnostic case final diagnostic?)
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                          child: Column(
+                            children: [
+                              ErrorDiagnosticPanel(diagnostic: diagnostic),
+                              const SizedBox(height: 8),
+                              OutlinedButton.icon(
+                                onPressed: controller.load,
+                                icon: const Icon(Icons.refresh),
+                                label: const Text('Reintentar'),
+                              ),
+                            ],
                           ),
                         ),
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+                        child: CatalogAddButton(
+                          key: const Key('categories-add-button'),
+                          label: 'Agregar categoría',
+                          hint: 'Color e ícono opcionales',
+                          onPressed: state.result == null || state.isSaving
+                              ? null
+                              : () => context.go('/categories/new'),
+                        ),
+                      ),
+                      if (state.mutationDiagnostic case final diagnostic?)
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                          child: ErrorDiagnosticPanel(diagnostic: diagnostic),
+                        ),
+                      Expanded(
+                        child: categories == null
+                            ? const Center(child: CircularProgressIndicator())
+                            : categories.isEmpty
+                            ? const _EmptyCategories()
+                            : RefreshIndicator(
+                                onRefresh: controller.load,
+                                child: ReorderableListView.builder(
+                                  key: const Key('categories-list'),
+                                  padding: const EdgeInsets.fromLTRB(
+                                    16,
+                                    8,
+                                    16,
+                                    100,
+                                  ),
+                                  buildDefaultDragHandles: false,
+                                  itemCount: categories.length,
+                                  onReorderItem: state.isSaving
+                                      ? (_, _) {}
+                                      : (oldIndex, newIndex) => _reorder(
+                                          categories,
+                                          oldIndex,
+                                          newIndex,
+                                        ),
+                                  itemBuilder: (context, index) =>
+                                      _CategoryCard(
+                                        key: ValueKey(categories[index].id),
+                                        category: categories[index],
+                                        index: index,
+                                        count: categories.length,
+                                        disabled: state.isSaving,
+                                        onMove: (offset) =>
+                                            _move(categories, index, offset),
+                                      ),
+                                ),
+                              ),
+                      ),
+                    ],
+                  ),
                 ),
-              ],
+              ),
             ),
-          ),
+          ],
         ),
       ),
     );
@@ -149,47 +172,43 @@ class _CategoryCard extends StatelessWidget {
   final ValueChanged<int> onMove;
 
   @override
-  Widget build(BuildContext context) => Card(
-    margin: const EdgeInsets.only(bottom: 12),
-    clipBehavior: Clip.antiAlias,
-    child: ListTile(
-      key: Key('category-card-${category.id}'),
-      onTap: disabled
-          ? null
-          : () => context.go('/categories/${category.id}/edit'),
-      leading: CircleAvatar(
-        backgroundColor: category.color.value.withValues(alpha: 0.16),
-        foregroundColor: category.color.value,
-        child: Icon(category.icon.value),
-      ),
-      title: Text(category.name),
-      subtitle: Text('Position ${index + 1}'),
-      trailing: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          IconButton(
+  Widget build(BuildContext context) => ManageCard(
+    children: [
+      ManageRow(
+        rowKey: Key('category-card-${category.id}'),
+        icon: category.icon.value,
+        swatchColor: category.color.value,
+        title: category.name,
+        subtitle: 'Posición ${index + 1}',
+        onTap: disabled
+            ? null
+            : () => context.go('/categories/${category.id}/edit'),
+        trailing: [
+          ManageActionButton(
             key: Key('category-up-${category.id}'),
-            tooltip: 'Move ${category.name} up',
+            tooltip: 'Mover ${category.name} arriba',
+            icon: Icons.keyboard_arrow_up,
             onPressed: disabled || index == 0 ? null : () => onMove(-1),
-            icon: const Icon(Icons.keyboard_arrow_up),
           ),
-          IconButton(
+          const SizedBox(width: 6),
+          ManageActionButton(
             key: Key('category-down-${category.id}'),
-            tooltip: 'Move ${category.name} down',
+            tooltip: 'Mover ${category.name} abajo',
+            icon: Icons.keyboard_arrow_down,
             onPressed: disabled || index == count - 1 ? null : () => onMove(1),
-            icon: const Icon(Icons.keyboard_arrow_down),
           ),
+          const SizedBox(width: 6),
           ReorderableDragStartListener(
             index: index,
             enabled: !disabled,
-            child: const Padding(
-              padding: EdgeInsets.all(12),
-              child: Icon(Icons.drag_handle, semanticLabel: 'Drag to reorder'),
+            child: const ManageActionButton(
+              tooltip: 'Arrastrar para reordenar',
+              icon: Icons.drag_handle,
             ),
           ),
         ],
       ),
-    ),
+    ],
   );
 }
 
@@ -208,13 +227,13 @@ class _EmptyCategories extends StatelessWidget {
       ),
       const SizedBox(height: 16),
       Text(
-        'Create a category to classify expenses',
+        'Crea una categoría para clasificar tus gastos',
         style: Theme.of(context).textTheme.titleLarge,
         textAlign: TextAlign.center,
       ),
       const SizedBox(height: 8),
       const Text(
-        'New expenses will require a category. There is no selectable Uncategorized option.',
+        'Los nuevos gastos requerirán una categoría. No hay opción «Sin categoría».',
         textAlign: TextAlign.center,
       ),
     ],

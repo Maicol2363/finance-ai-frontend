@@ -22,6 +22,8 @@ final accessCredentialProvider = Provider<String?>(
 );
 
 class IncomeSourcesController extends Notifier<IncomeSourcesState> {
+  bool _inFlight = false;
+
   @override
   IncomeSourcesState build() {
     Future<void>.microtask(load);
@@ -31,46 +33,55 @@ class IncomeSourcesController extends Notifier<IncomeSourcesState> {
   String? _credential() => ref.read(accessCredentialProvider);
 
   Future<void> load() async {
-    final credential = _credential();
-    if (credential == null) {
-      state = IncomeSourcesState(
-        status: IncomeSourcesStatus.failure,
-        diagnostic: _diagnostic(
-          code: 'authentication_required',
-          operation: 'list_income_sources',
-          userMessage: 'Please log in again to manage income sources.',
-          technicalReason: 'missing_access_credential',
-        ),
-      );
+    if (_inFlight) {
       return;
     }
-    state = state.copyWith(
-      status: IncomeSourcesStatus.loading,
-      clearDiagnostic: true,
-    );
+    _inFlight = true;
     try {
-      final items = await ref
-          .read(incomeSourcesRepositoryProvider)
-          .list(accessCredential: credential);
-      state = IncomeSourcesState(
-        status: IncomeSourcesStatus.ready,
-        items: items,
+      final credential = _credential();
+      if (credential == null) {
+        state = IncomeSourcesState(
+          status: IncomeSourcesStatus.failure,
+          diagnostic: _diagnostic(
+            code: 'authentication_required',
+            operation: 'list_income_sources',
+            userMessage:
+                'Inicia sesión de nuevo para gestionar tus fuentes de ingreso.',
+            technicalReason: 'missing_access_credential',
+          ),
+        );
+        return;
+      }
+      state = state.copyWith(
+        status: IncomeSourcesStatus.loading,
+        clearDiagnostic: true,
       );
-    } on IncomeSourcesFailure catch (failure) {
-      state = IncomeSourcesState(
-        status: IncomeSourcesStatus.failure,
-        diagnostic: _diagnosticFor(failure, operation: 'list_income_sources'),
-      );
-    } on Object {
-      state = IncomeSourcesState(
-        status: IncomeSourcesStatus.failure,
-        diagnostic: _diagnostic(
-          code: 'unexpected_client_error',
-          operation: 'list_income_sources',
-          userMessage: 'Income sources could not be loaded. Please try again.',
-          technicalReason: 'unclassified_client_failure',
-        ),
-      );
+      try {
+        final items = await ref
+            .read(incomeSourcesRepositoryProvider)
+            .list(accessCredential: credential);
+        state = IncomeSourcesState(
+          status: IncomeSourcesStatus.ready,
+          items: items,
+        );
+      } on IncomeSourcesFailure catch (failure) {
+        state = IncomeSourcesState(
+          status: IncomeSourcesStatus.failure,
+          diagnostic: _diagnosticFor(failure, operation: 'list_income_sources'),
+        );
+      } on Object {
+        state = IncomeSourcesState(
+          status: IncomeSourcesStatus.failure,
+          diagnostic: _diagnostic(
+            code: 'unexpected_client_error',
+            operation: 'list_income_sources',
+            userMessage: 'No se pudieron cargar las fuentes de ingreso. Inténtalo de nuevo.',
+            technicalReason: 'unclassified_client_failure',
+          ),
+        );
+      }
+    } finally {
+      _inFlight = false;
     }
   }
 
@@ -113,7 +124,7 @@ class IncomeSourcesController extends Notifier<IncomeSourcesState> {
           code: 'unexpected_client_error',
           operation: 'delete_income_source',
           userMessage:
-              'The income source could not be deleted. Please try again.',
+              'No se pudo eliminar la fuente de ingreso. Inténtalo de nuevo.',
           technicalReason: 'unclassified_client_failure',
         ),
       );
@@ -157,8 +168,7 @@ class IncomeSourcesController extends Notifier<IncomeSourcesState> {
         diagnostic: _diagnostic(
           code: 'unexpected_client_error',
           operation: operation,
-          userMessage:
-              'The operation could not be completed. Please try again.',
+          userMessage: 'La operación no se pudo completar. Inténtalo de nuevo.',
           technicalReason: 'unclassified_client_failure',
         ),
       );

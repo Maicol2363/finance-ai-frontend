@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../../core/diagnostics/error_diagnostic_panel.dart';
+import '../../../../core/widgets/app_header.dart';
+import '../../../../core/widgets/manage_widgets.dart';
+import '../../../../core/widgets/theme_toggle_button.dart';
 import '../domain/income_source_models.dart';
 import 'income_sources_controller.dart';
 import 'income_sources_state.dart';
@@ -27,63 +31,88 @@ class _IncomeSourcesScreenState extends ConsumerState<IncomeSourcesScreen> {
   Widget build(BuildContext context) {
     final state = ref.watch(incomeSourcesControllerProvider);
     final controller = ref.read(incomeSourcesControllerProvider.notifier);
-    final nameError = state.fieldErrors['name']?.first;
     return Scaffold(
-      appBar: AppBar(title: const Text('Income Sources')),
       body: SafeArea(
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 720),
-            child: Padding(
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  if (state.diagnostic != null) ...[
-                    ErrorDiagnosticPanel(diagnostic: state.diagnostic!),
-                    const SizedBox(height: 16),
-                  ],
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(
-                        child: TextField(
-                          key: const Key('income-source-name-field'),
-                          controller: _nameController,
-                          decoration: InputDecoration(
-                            labelText: 'New income source',
-                            errorText: nameError,
-                          ),
-                          onSubmitted: (_) => _add(controller),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      FilledButton(
-                        key: const Key('income-source-add-button'),
-                        style: FilledButton.styleFrom(
-                          minimumSize: const Size(64, 52),
-                        ),
-                        onPressed: state.busy ? null : () => _add(controller),
-                        child: const Text('Add'),
-                      ),
-                    ],
+        child: Column(
+          children: [
+            AppHeader(
+              title: 'Fuentes de ingreso',
+              subtitle: 'Nombra de dónde viene tu dinero',
+              leading: HeaderIconButton(
+                icon: Icons.arrow_back,
+                tooltip: 'Volver',
+                onPressed: () {
+                  if (context.canPop()) {
+                    context.pop();
+                  } else {
+                    context.go('/home');
+                  }
+                },
+              ),
+              actions: const [ThemeToggleButton()],
+            ),
+            Expanded(
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 720),
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        if (state.diagnostic != null) ...[
+                          ErrorDiagnosticPanel(diagnostic: state.diagnostic!),
+                          const SizedBox(height: 12),
+                        ],
+                        _addCard(state, controller),
+                        const SizedBox(height: 16),
+                        Expanded(child: _body(state, controller)),
+                      ],
+                    ),
                   ),
-                  const SizedBox(height: 16),
-                  Expanded(child: _body(state, controller)),
-                ],
+                ),
               ),
             ),
-          ),
+          ],
         ),
       ),
     );
   }
 
-  Future<void> _add(IncomeSourcesController controller) async {
-    final created = await controller.add(_nameController.text);
-    if (created) {
-      _nameController.clear();
-    }
+  Widget _addCard(
+    IncomeSourcesState state,
+    IncomeSourcesController controller,
+  ) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        border: Border.all(color: Theme.of(context).colorScheme.outline),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const FieldLabel('Nueva fuente', uppercase: false, topSpacing: 0),
+          TextField(
+            key: const Key('income-source-name-field'),
+            controller: _nameController,
+            enabled: !state.busy,
+            decoration: InputDecoration(
+              hintText: 'Salario, Freelance, Otros…',
+              errorText: state.fieldErrors['name']?.firstOrNull,
+            ),
+            onSubmitted: (_) => _add(controller),
+          ),
+          const SizedBox(height: 12),
+          FilledButton(
+            key: const Key('income-source-add-button'),
+            onPressed: state.busy ? null : () => _add(controller),
+            child: const Text('Agregar'),
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _body(IncomeSourcesState state, IncomeSourcesController controller) {
@@ -95,52 +124,65 @@ class _IncomeSourcesScreenState extends ConsumerState<IncomeSourcesScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text('Income sources are unavailable.'),
+            const Text('Las fuentes de ingreso no están disponibles.'),
             const SizedBox(height: 12),
             OutlinedButton(
               key: const Key('income-source-retry-button'),
               onPressed: controller.load,
-              child: const Text('Retry'),
+              child: const Text('Reintentar'),
             ),
           ],
         ),
       );
     }
     if (state.items.isEmpty) {
-      return const Center(child: Text('No income sources yet. Add one above.'));
+      return const Center(
+        child: Text('Aún no hay fuentes de ingreso. Agrega una arriba.'),
+      );
     }
-    return ListView.separated(
-      itemCount: state.items.length,
-      separatorBuilder: (_, _) => const Divider(height: 1),
-      itemBuilder: (context, index) {
-        final source = state.items[index];
-        return ListTile(
-          key: Key('income-source-tile-${source.id}'),
-          title: Text(source.name),
-          trailing: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              IconButton(
-                key: Key('income-source-rename-${source.id}'),
-                tooltip: 'Rename',
-                icon: const Icon(Icons.edit),
-                onPressed: state.busy
-                    ? null
-                    : () => _rename(controller, source),
+    return ListView(
+      padding: const EdgeInsets.only(bottom: 24),
+      children: [
+        ManageCard(
+          children: [
+            for (final source in state.items)
+              ManageRow(
+                rowKey: Key('income-source-tile-${source.id}'),
+                icon: Icons.savings_outlined,
+                title: source.name,
+                subtitle: 'Fuente de ingreso',
+                trailing: [
+                  ManageActionButton(
+                    key: Key('income-source-rename-${source.id}'),
+                    tooltip: 'Renombrar',
+                    icon: Icons.edit_outlined,
+                    onPressed: state.busy
+                        ? null
+                        : () => _rename(controller, source),
+                  ),
+                  const SizedBox(width: 6),
+                  ManageActionButton(
+                    key: Key('income-source-delete-${source.id}'),
+                    tooltip: 'Eliminar',
+                    icon: Icons.delete_outline,
+                    destructive: true,
+                    onPressed: state.busy
+                        ? null
+                        : () => _confirmDelete(controller, source),
+                  ),
+                ],
               ),
-              IconButton(
-                key: Key('income-source-delete-${source.id}'),
-                tooltip: 'Delete',
-                icon: const Icon(Icons.delete_outline),
-                onPressed: state.busy
-                    ? null
-                    : () => _confirmDelete(controller, source),
-              ),
-            ],
-          ),
-        );
-      },
+          ],
+        ),
+      ],
     );
+  }
+
+  Future<void> _add(IncomeSourcesController controller) async {
+    final created = await controller.add(_nameController.text);
+    if (created) {
+      _nameController.clear();
+    }
   }
 
   Future<void> _rename(
@@ -165,20 +207,20 @@ class _IncomeSourcesScreenState extends ConsumerState<IncomeSourcesScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Delete income source'),
+        title: const Text('Eliminar fuente de ingreso'),
         content: Text(
-          'Permanently delete "${source.name}"? Historical transactions keep the source cleared.',
+          '¿Eliminar “${source.name}” de forma permanente? El historial conservará la fuente sin nombre.',
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('Cancel'),
+            child: const Text('Cancelar'),
           ),
           FilledButton(
             key: const Key('income-source-delete-confirm'),
             style: FilledButton.styleFrom(minimumSize: const Size(64, 52)),
             onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: const Text('Delete'),
+            child: const Text('Eliminar'),
           ),
         ],
       ),
@@ -217,23 +259,23 @@ class _RenameIncomeSourceDialogState extends State<_RenameIncomeSourceDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('Rename income source'),
+      title: const Text('Renombrar fuente de ingreso'),
       content: TextField(
         key: const Key('income-source-rename-field'),
         controller: _controller,
         autofocus: true,
-        decoration: const InputDecoration(labelText: 'Name'),
+        decoration: const InputDecoration(hintText: 'Nuevo nombre'),
       ),
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancel'),
+          child: const Text('Cancelar'),
         ),
         FilledButton(
           key: const Key('income-source-rename-confirm'),
           style: FilledButton.styleFrom(minimumSize: const Size(64, 52)),
           onPressed: () => Navigator.of(context).pop(_controller.text),
-          child: const Text('Save'),
+          child: const Text('Guardar'),
         ),
       ],
     );

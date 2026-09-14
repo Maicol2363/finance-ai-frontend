@@ -186,7 +186,7 @@ void main() {
       await tester.tap(find.byKey(const Key('register-submit-button')));
       await tester.pumpAndSettle();
 
-      expect(find.text('Welcome back'), findsOneWidget);
+      expect(find.text('Bienvenido de nuevo'), findsOneWidget);
       expect(find.byKey(const Key('register-success-message')), findsOneWidget);
     },
     skip: defaultTargetPlatform != TargetPlatform.windows,
@@ -296,7 +296,7 @@ void main() {
 
     await tester.tap(find.byKey(const Key('logout-button')));
     await tester.pumpAndSettle();
-    expect(find.text('Welcome back'), findsOneWidget);
+    expect(find.text('Bienvenido de nuevo'), findsOneWidget);
     expect(find.byKey(const Key('home-title')), findsNothing);
     expect(store.value, isNull);
   }, skip: defaultTargetPlatform != TargetPlatform.windows);

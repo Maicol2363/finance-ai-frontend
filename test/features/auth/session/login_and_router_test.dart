@@ -137,7 +137,7 @@ void main() {
       await tester.pumpWidget(appWith(WidgetAuthRepository(), MemoryStore()));
       await tester.pumpAndSettle();
 
-      expect(find.text('Welcome back'), findsOneWidget);
+      expect(find.text('Iniciar sesión'), findsOneWidget);
       expect(find.byKey(const Key('login-email-input')), findsOneWidget);
       expect(find.byKey(const Key('login-password-input')), findsOneWidget);
       expect(
@@ -209,7 +209,7 @@ void main() {
 
     await tester.tap(find.byKey(const Key('logout-button')));
     await tester.pumpAndSettle();
-    expect(find.text('Welcome back'), findsOneWidget);
+    expect(find.text('Iniciar sesión'), findsOneWidget);
     expect(find.byKey(const Key('home-title')), findsNothing);
     expect(store.value, isNull);
     expect(
@@ -264,8 +264,32 @@ void main() {
 
       await tester.tap(find.byKey(const Key('restore-clear-button')));
       await tester.pumpAndSettle();
-      expect(find.text('Welcome back'), findsOneWidget);
+      expect(find.text('Iniciar sesión'), findsOneWidget);
       expect(store.value, isNull);
+    },
+  );
+  testWidgets(
+    'login lays out at the mockup phone size in light and dark without overflow',
+    (tester) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      await tester.pumpWidget(appWith(WidgetAuthRepository(), MemoryStore()));
+      await tester.pumpAndSettle();
+
+      expect(tester.takeException(), isNull);
+      expect(find.text('Finance AI'), findsOneWidget);
+      expect(find.text('Tu dinero, más claro.'), findsOneWidget);
+      expect(find.byKey(const Key('login-submit-button')), findsOneWidget);
+
+      await tester.tap(find.byKey(const Key('theme-toggle-button')));
+      await tester.pumpAndSettle();
+
+      expect(tester.takeException(), isNull);
+      expect(find.text('Tu dinero, más claro.'), findsOneWidget);
+      expect(find.byKey(const Key('login-submit-button')), findsOneWidget);
     },
   );
 }

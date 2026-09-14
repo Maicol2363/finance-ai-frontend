@@ -1,17 +1,36 @@
 import 'package:flutter/foundation.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../features/accounts/presentation/account_detail_screen.dart';
+import '../../features/accounts/presentation/account_form_screen.dart';
+import '../../features/accounts/presentation/accounts_screen.dart';
 import '../../features/auth/login/presentation/login_screen.dart';
 import '../../features/auth/register/presentation/register_screen.dart';
 import '../../features/auth/session/application/auth_session_state.dart';
 import '../../features/auth/session/presentation/session_bootstrap_screen.dart';
-import '../../features/accounts/presentation/account_detail_screen.dart';
-import '../../features/accounts/presentation/account_form_screen.dart';
-import '../../features/accounts/presentation/accounts_screen.dart';
-import '../../features/home/presentation/home_screen.dart';
-import '../../features/income_sources/presentation/income_sources_screen.dart';
 import '../../features/categories/presentation/categories_screen.dart';
 import '../../features/categories/presentation/category_form_screen.dart';
+import '../../features/home/presentation/home_screen.dart';
+import '../../features/income_sources/presentation/income_sources_screen.dart';
+import '../../features/settings/presentation/settings_screen.dart';
+import 'app_shell.dart';
+
+const _authenticatedRoots = <String>[
+  '/home',
+  '/settings',
+  '/accounts',
+  '/categories',
+  '/income-sources',
+];
+
+bool _isProtected(String location) {
+  if (location == '/bootstrap') {
+    return true;
+  }
+  return _authenticatedRoots.any(
+    (root) => location == root || location.startsWith('$root/'),
+  );
+}
 
 GoRouter createAppRouter({
   String initialLocation = '/register',
@@ -31,21 +50,12 @@ GoRouter createAppRouter({
               return location == '/bootstrap' ? null : '/bootstrap';
             }
             if (session.isAuthenticated) {
-              final authenticatedDestination =
-                  location == '/home' ||
-                  location.startsWith('/accounts') ||
-                  location.startsWith('/categories') ||
-                  location == '/income-sources';
-              return authenticatedDestination ? null : '/home';
+              if (location == '/bootstrap') {
+                return '/home';
+              }
+              return _isProtected(location) ? null : '/home';
             }
-            if (location == '/home' ||
-                location.startsWith('/accounts') ||
-                location.startsWith('/categories') ||
-                location == '/income-sources' ||
-                location == '/bootstrap') {
-              return '/login';
-            }
-            return null;
+            return _isProtected(location) ? '/login' : null;
           },
     routes: [
       GoRoute(
@@ -68,10 +78,29 @@ GoRouter createAppRouter({
           return LoginScreen(registrationConfirmation: confirmation);
         },
       ),
-      GoRoute(
-        path: '/home',
-        name: 'home',
-        builder: (context, state) => const HomeScreen(),
+      StatefulShellRoute.indexedStack(
+        builder: (context, state, navigationShell) =>
+            AppShell(navigationShell: navigationShell),
+        branches: [
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/home',
+                name: 'home',
+                builder: (context, state) => const HomeScreen(),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/settings',
+                name: 'settings',
+                builder: (context, state) => const SettingsScreen(),
+              ),
+            ],
+          ),
+        ],
       ),
       GoRoute(
         path: '/income-sources',
