@@ -169,7 +169,9 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                                 uppercase: false,
                               ),
                               TextField(
-                                key: const Key('register-confirmation-input'),
+                                key: const Key(
+                                  'register-password-confirmation-input',
+                                ),
                                 controller: _confirmationController,
                                 focusNode: _confirmationFocus,
                                 enabled: !state.isSubmitting,

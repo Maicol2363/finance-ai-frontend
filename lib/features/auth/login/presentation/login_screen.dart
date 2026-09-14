@@ -66,7 +66,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
                             Text(
-                              'Iniciar sesión',
+                              'Bienvenido de nuevo',
                               style: TextStyle(
                                 fontSize: 18,
                                 fontWeight: FontWeight.w700,

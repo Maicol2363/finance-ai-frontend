@@ -81,8 +81,8 @@ void main() {
       findsOneWidget,
     );
     expect(find.byKey(const Key('register-submit-button')), findsOneWidget);
-    expect(find.byTooltip('Show password'), findsOneWidget);
-    expect(find.byTooltip('Show password confirmation'), findsOneWidget);
+    expect(find.byTooltip('Mostrar contraseña'), findsOneWidget);
+    expect(find.byTooltip('Mostrar confirmación'), findsOneWidget);
 
     TextField passwordField = tester.widget(
       find.byKey(const Key('register-password-input')),
@@ -96,7 +96,7 @@ void main() {
       find.byKey(const Key('register-password-input')),
     );
     expect(passwordField.obscureText, isFalse);
-    expect(find.byTooltip('Hide password'), findsOneWidget);
+    expect(find.byTooltip('Ocultar contraseña'), findsOneWidget);
   });
 
   testWidgets('shows all local guidance without sending a request', (
@@ -140,7 +140,7 @@ void main() {
         find.byKey(const Key('register-submit-button')),
       );
       expect(button.onPressed, isNull);
-      expect(find.bySemanticsLabel('Creating account'), findsOneWidget);
+      expect(find.bySemanticsLabel('Creando cuenta'), findsOneWidget);
       await tester.tap(
         find.byKey(const Key('register-submit-button')),
         warnIfMissed: false,
@@ -272,9 +272,9 @@ void main() {
     await tester.tap(find.byKey(const Key('register-submit-button')));
     await tester.pumpAndSettle();
 
-    expect(find.text('Welcome back'), findsOneWidget);
+    expect(find.text('Iniciar sesión'), findsOneWidget);
     expect(find.byKey(const Key('register-success-message')), findsOneWidget);
-    expect(find.textContaining('Manual entry works'), findsOneWidget);
+    expect(find.textContaining('Accede para ver'), findsOneWidget);
     expect(find.byKey(const Key('register-password-input')), findsNothing);
     expect(repository.requests, hasLength(1));
   });

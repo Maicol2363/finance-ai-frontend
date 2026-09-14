@@ -38,7 +38,8 @@ class IncomeSourcesController extends Notifier<IncomeSourcesState> {
         diagnostic: _diagnostic(
           code: 'authentication_required',
           operation: 'list_income_sources',
-          userMessage: 'Please log in again to manage income sources.',
+          userMessage:
+              'Inicia sesión de nuevo para gestionar tus fuentes de ingreso.',
           technicalReason: 'missing_access_credential',
         ),
       );
@@ -67,7 +68,7 @@ class IncomeSourcesController extends Notifier<IncomeSourcesState> {
         diagnostic: _diagnostic(
           code: 'unexpected_client_error',
           operation: 'list_income_sources',
-          userMessage: 'Income sources could not be loaded. Please try again.',
+          userMessage: 'No se pudieron cargar las fuentes de ingreso. Inténtalo de nuevo.',
           technicalReason: 'unclassified_client_failure',
         ),
       );
@@ -113,7 +114,7 @@ class IncomeSourcesController extends Notifier<IncomeSourcesState> {
           code: 'unexpected_client_error',
           operation: 'delete_income_source',
           userMessage:
-              'The income source could not be deleted. Please try again.',
+              'No se pudo eliminar la fuente de ingreso. Inténtalo de nuevo.',
           technicalReason: 'unclassified_client_failure',
         ),
       );
@@ -157,8 +158,7 @@ class IncomeSourcesController extends Notifier<IncomeSourcesState> {
         diagnostic: _diagnostic(
           code: 'unexpected_client_error',
           operation: operation,
-          userMessage:
-              'The operation could not be completed. Please try again.',
+          userMessage: 'La operación no se pudo completar. Inténtalo de nuevo.',
           technicalReason: 'unclassified_client_failure',
         ),
       );
