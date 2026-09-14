@@ -2,6 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/theme/app_palette.dart';
+import '../../../core/widgets/app_header.dart';
+import '../../../core/widgets/manage_widgets.dart';
+import '../../../core/widgets/theme_toggle_button.dart';
 import '../../auth/session/application/auth_session_controller.dart';
 import '../../auth/session/application/auth_session_state.dart';
 
@@ -10,86 +14,133 @@ class HomeScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final palette = context.palette;
     final state = ref.watch(authSessionControllerProvider);
     final controller = ref.read(authSessionControllerProvider.notifier);
     final user = state.user;
     return PopScope(
       canPop: false,
       child: Scaffold(
-        appBar: AppBar(
-          title: const Text('Budget Home'),
-          actions: [
-            TextButton.icon(
-              key: const Key('logout-button'),
-              onPressed: state.status == AuthSessionStatus.loggingOut
-                  ? null
-                  : controller.logout,
-              icon: const Icon(Icons.logout),
-              label: const Text('Logout'),
-            ),
-            const SizedBox(width: 8),
-          ],
-        ),
         body: SafeArea(
-          child: Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 720),
-              child: ListView(
-                padding: const EdgeInsets.all(24),
-                children: [
-                  Text(
-                    'Your secure session is active',
-                    key: const Key('home-title'),
-                    style: Theme.of(context).textTheme.headlineMedium,
+          child: Column(
+            children: [
+              AppHeader(
+                title: 'Inicio',
+                subtitle: 'Tu dinero, más claro',
+                actions: [
+                  const ThemeToggleButton(),
+                  IconButton(
+                    key: const Key('logout-button'),
+                    tooltip: 'Cerrar sesión',
+                    onPressed: state.status == AuthSessionStatus.loggingOut
+                        ? null
+                        : controller.logout,
+                    icon: const Icon(Icons.logout),
                   ),
-                  const SizedBox(height: 12),
-                  Text(
-                    user == null
-                        ? 'Authenticated account'
-                        : '${user.email} · ${user.preferredCurrency}',
-                    key: const Key('home-user-context'),
-                  ),
-                  const SizedBox(height: 24),
-                  const Card(
-                    child: Padding(
-                      padding: EdgeInsets.all(20),
-                      child: Text(
-                        'The budgeting forms will be added in the next stories. They will work manually first; optional AI assistance will use the same forms later.',
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  FilledButton.icon(
-                    key: const Key('home-accounts-button'),
-                    onPressed: () => context.go('/accounts'),
-                    icon: const Icon(Icons.account_balance_wallet_outlined),
-                    label: const Text('Manage accounts'),
-                  ),
-                  const SizedBox(height: 12),
-                  FilledButton.tonalIcon(
-                    key: const Key('home-categories-button'),
-                    onPressed: () => context.go('/categories'),
-                    icon: const Icon(Icons.category_outlined),
-                    label: const Text('Manage categories'),
-                  ),
-                  const SizedBox(height: 12),
-                  FilledButton.tonalIcon(
-                    key: const Key('open-income-sources-button'),
-                    onPressed: () => context.push('/income-sources'),
-                    icon: const Icon(Icons.savings_outlined),
-                    label: const Text('Manage income sources'),
-                  ),
-                  if (state.status == AuthSessionStatus.loggingOut) ...[
-                    const SizedBox(height: 24),
-                    Semantics(
-                      liveRegion: true,
-                      label: 'Logging out',
-                      child: const LinearProgressIndicator(),
-                    ),
-                  ],
                 ],
               ),
-            ),
+              Expanded(
+                child: Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 720),
+                    child: ListView(
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(18),
+                          decoration: BoxDecoration(
+                            color: palette.primarySoft,
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Tu sesión está activa',
+                                key: const Key('home-title'),
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w700,
+                                  color: palette.text,
+                                ),
+                              ),
+                              const SizedBox(height: 6),
+                              Text(
+                                user == null
+                                    ? 'Cuenta autenticada'
+                                    : '${user.email} · ${user.preferredCurrency}',
+                                key: const Key('home-user-context'),
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: palette.muted,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SectionTitle('Catálogos'),
+                        SettingsGroup(
+                          children: [
+                            ManageRow(
+                              rowKey: const Key('home-categories-button'),
+                              title: 'Categorías',
+                              subtitle: 'Clasifica tus gastos',
+                              icon: Icons.category_outlined,
+                              trailing: const [
+                                Icon(Icons.chevron_right, size: 18),
+                              ],
+                              onTap: () => context.go('/categories'),
+                            ),
+                            ManageRow(
+                              rowKey: const Key('open-income-sources-button'),
+                              title: 'Fuentes de ingreso',
+                              subtitle: 'Nombra de dónde viene tu dinero',
+                              icon: Icons.savings_outlined,
+                              trailing: const [
+                                Icon(Icons.chevron_right, size: 18),
+                              ],
+                              onTap: () => context.push('/income-sources'),
+                            ),
+                          ],
+                        ),
+                        const SectionTitle('Mi cuenta'),
+                        SettingsGroup(
+                          children: [
+                            ManageRow(
+                              rowKey: const Key('home-accounts-button'),
+                              title: 'Cuentas y saldos',
+                              subtitle: 'Dónde está tu dinero',
+                              icon: Icons.account_balance_wallet_outlined,
+                              trailing: const [
+                                Icon(Icons.chevron_right, size: 18),
+                              ],
+                              onTap: () => context.go('/accounts'),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Los formularios de presupuesto llegarán en las próximas historias. Funcionarán primero de forma manual; la asistencia opcional con IA usará los mismos formularios.',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: palette.muted,
+                            height: 1.45,
+                          ),
+                        ),
+                        if (state.status == AuthSessionStatus.loggingOut) ...[
+                          const SizedBox(height: 24),
+                          Semantics(
+                            liveRegion: true,
+                            label: 'Cerrando sesión',
+                            child: const LinearProgressIndicator(),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       ),
