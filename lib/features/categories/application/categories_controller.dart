@@ -56,8 +56,8 @@ class CategoriesController extends Notifier<CategoriesState> {
     final normalized = name.trim();
     if (normalized.isEmpty || normalized.runes.length > 100) {
       final message = normalized.isEmpty
-          ? 'Category name is required.'
-          : 'Category name must be 100 characters or fewer.';
+          ? 'El nombre de la categoría es obligatorio.'
+          : 'El nombre no puede superar los 100 caracteres.';
       state = state.copyWith(
         fieldErrors: {
           'name': [message],
@@ -65,7 +65,7 @@ class CategoriesController extends Notifier<CategoriesState> {
         mutationDiagnostic: ErrorDiagnostic.capture(
           code: 'category_invalid',
           operation: 'validate_category',
-          userMessage: 'Please correct the highlighted category name.',
+          userMessage: 'Corrige el nombre de la categoría.',
           technicalReason: 'local_validation_failure',
         ),
       );
@@ -270,7 +270,7 @@ class CategoriesController extends Notifier<CategoriesState> {
   ErrorDiagnostic _unexpected(String operation) => ErrorDiagnostic.capture(
     code: 'unexpected_client_error',
     operation: operation,
-    userMessage: 'The operation could not be completed. Please try again.',
+    userMessage: 'La operación no se pudo completar. Inténtalo de nuevo.',
     technicalReason: 'unclassified_client_failure',
   );
 }

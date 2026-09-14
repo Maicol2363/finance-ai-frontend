@@ -123,11 +123,11 @@ void main() {
 
     expect(find.byKey(const Key('categories-list')), findsOneWidget);
     expect(find.text('Needs'), findsOneWidget);
-    expect(find.text('Position 1'), findsOneWidget);
+    expect(find.text('Posición 1'), findsOneWidget);
     await tester.tap(find.byKey(const Key('category-down-1')));
     await tester.pumpAndSettle();
     expect(repository.reordered, [2, 1]);
-    expect(find.text('Position 1'), findsOneWidget);
+    expect(find.text('Posición 1'), findsOneWidget);
   });
 
   testWidgets('create form previews and saves selected appearance', (
@@ -141,11 +141,11 @@ void main() {
       'Food',
     );
     await tester.tap(find.byKey(const Key('category-color-orange')));
-    await tester.tap(find.byKey(const Key('category-icon-field')));
+    await tester.ensureVisible(find.byKey(const Key('category-icon-food')));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Food').last);
+    await tester.tap(find.byKey(const Key('category-icon-food')));
     await tester.pumpAndSettle();
-    await tester.drag(find.byType(ListView), const Offset(0, -400));
+    await tester.ensureVisible(find.byKey(const Key('category-save-button')));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('category-save-button')));
     await tester.pumpAndSettle();
@@ -153,7 +153,7 @@ void main() {
     expect(repository.saved?.name, 'Food');
     expect(repository.saved?.color, CategoryColor.orange);
     expect(repository.saved?.icon, CategoryIcon.food);
-    expect(find.text('Categories'), findsOneWidget);
+    expect(find.text('Categorías'), findsOneWidget);
   });
 
   testWidgets('invalid category name shows a copyable safe diagnostic', (
@@ -170,7 +170,10 @@ void main() {
 
     expect(find.text('Error code: category_invalid'), findsOneWidget);
     expect(find.byKey(const Key('copy-error-details-button')), findsOneWidget);
-    expect(find.text('Category name is required.'), findsOneWidget);
+    expect(
+      find.text('El nombre de la categoría es obligatorio.'),
+      findsOneWidget,
+    );
     expect(repository.saved, isNull);
   });
 
@@ -183,19 +186,25 @@ void main() {
     expect(find.text('Needs'), findsWidgets);
     await tester.tap(find.byKey(const Key('category-delete-button')));
     await tester.pumpAndSettle();
-    expect(find.text('Delete category?'), findsOneWidget);
-    expect(find.textContaining('Category deleted'), findsOneWidget);
+    expect(find.text('¿Eliminar categoría?'), findsOneWidget);
+    expect(find.textContaining('Categoría eliminada'), findsOneWidget);
     await tester.tap(find.byKey(const Key('category-confirm-delete-button')));
     await tester.pumpAndSettle();
 
     expect(repository.current.categoryById(1), isNull);
-    expect(find.text('Categories'), findsOneWidget);
+    expect(find.text('Categorías'), findsOneWidget);
   });
 
   testWidgets('empty list explains required classification', (tester) async {
     final repository = WidgetCategoriesRepository()..current = result([]);
     await pumpCategories(tester, repository, '/categories');
-    expect(find.text('Create a category to classify expenses'), findsOneWidget);
-    expect(find.textContaining('no selectable Uncategorized'), findsOneWidget);
+    expect(
+      find.text('Crea una categoría para clasificar tus gastos'),
+      findsOneWidget,
+    );
+    expect(
+      find.textContaining('No hay opción «Sin categoría»'),
+      findsOneWidget,
+    );
   });
 }

@@ -15,7 +15,17 @@ extension CategoryColorVisuals on CategoryColor {
     CategoryColor.gray => Colors.blueGrey,
   };
 
-  String get label => name[0].toUpperCase() + name.substring(1);
+  String get label => switch (this) {
+    CategoryColor.blue => 'Azul',
+    CategoryColor.green => 'Verde',
+    CategoryColor.orange => 'Naranja',
+    CategoryColor.purple => 'Morado',
+    CategoryColor.pink => 'Rosa',
+    CategoryColor.red => 'Rojo',
+    CategoryColor.teal => 'Turquesa',
+    CategoryColor.yellow => 'Amarillo',
+    CategoryColor.gray => 'Gris',
+  };
 }
 
 extension CategoryIconVisuals on CategoryIcon {
@@ -36,18 +46,18 @@ extension CategoryIconVisuals on CategoryIcon {
   };
 
   String get label => switch (this) {
-    CategoryIcon.essentials => 'Essentials',
-    CategoryIcon.wants => 'Wants',
-    CategoryIcon.food => 'Food',
-    CategoryIcon.transport => 'Transport',
-    CategoryIcon.home => 'Home',
-    CategoryIcon.health => 'Health',
-    CategoryIcon.education => 'Education',
-    CategoryIcon.entertainment => 'Entertainment',
-    CategoryIcon.shopping => 'Shopping',
-    CategoryIcon.bills => 'Bills',
-    CategoryIcon.travel => 'Travel',
-    CategoryIcon.gift => 'Gift',
-    CategoryIcon.other => 'Other',
+    CategoryIcon.essentials => 'Esenciales',
+    CategoryIcon.wants => 'Gustos',
+    CategoryIcon.food => 'Comida',
+    CategoryIcon.transport => 'Transporte',
+    CategoryIcon.home => 'Hogar',
+    CategoryIcon.health => 'Salud',
+    CategoryIcon.education => 'Educación',
+    CategoryIcon.entertainment => 'Entretenimiento',
+    CategoryIcon.shopping => 'Compras',
+    CategoryIcon.bills => 'Facturas',
+    CategoryIcon.travel => 'Viajes',
+    CategoryIcon.gift => 'Regalos',
+    CategoryIcon.other => 'Otros',
   };
 }

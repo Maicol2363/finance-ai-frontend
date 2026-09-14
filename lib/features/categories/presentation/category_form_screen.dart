@@ -3,6 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/diagnostics/error_diagnostic_panel.dart';
+import '../../../core/theme/app_palette.dart';
+import '../../../core/widgets/app_header.dart';
+import '../../../core/widgets/manage_widgets.dart';
+import '../../../core/widgets/theme_toggle_button.dart';
 import '../application/categories_controller.dart';
 import '../application/categories_state.dart';
 import '../domain/category_models.dart';
@@ -58,56 +62,66 @@ class _CategoryFormScreenState extends ConsumerState<CategoryFormScreen> {
     return PopScope(
       canPop: !state.isSaving,
       child: Scaffold(
-        appBar: AppBar(
-          leading: IconButton(
-            tooltip: 'Back to categories',
-            onPressed: state.isSaving ? null : () => context.go('/categories'),
-            icon: const Icon(Icons.arrow_back),
-          ),
-          title: Text(
-            widget.categoryId == null ? 'New category' : 'Edit category',
-          ),
-          actions: [
-            if (widget.categoryId != null && category != null)
-              IconButton(
-                key: const Key('category-delete-button'),
-                tooltip: 'Delete category',
-                onPressed: state.isSaving
-                    ? null
-                    : () => _confirmDelete(category),
-                icon: const Icon(Icons.delete_outline),
-              ),
-          ],
-        ),
         body: SafeArea(
-          child: Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 620),
-              child: ListView(
-                padding: const EdgeInsets.fromLTRB(24, 20, 24, 40),
-                children: [
-                  if (state.loadStatus == CategoriesLoadStatus.loading)
-                    const LinearProgressIndicator(
-                      semanticsLabel: 'Loading category',
+          child: Column(
+            children: [
+              AppHeader(
+                title: widget.categoryId == null
+                    ? 'Nueva categoría'
+                    : 'Editar categoría',
+                subtitle: 'Nombre, color e ícono',
+                leading: HeaderIconButton(
+                  icon: Icons.arrow_back,
+                  tooltip: 'Volver a categorías',
+                  onPressed: state.isSaving
+                      ? null
+                      : () => context.go('/categories'),
+                ),
+                actions: [
+                  if (widget.categoryId != null && category != null)
+                    IconButton(
+                      key: const Key('category-delete-button'),
+                      tooltip: 'Eliminar categoría',
+                      onPressed: state.isSaving
+                          ? null
+                          : () => _confirmDelete(category),
+                      icon: const Icon(Icons.delete_outline),
                     ),
-                  if (state.diagnostic case final diagnostic?) ...[
-                    ErrorDiagnosticPanel(diagnostic: diagnostic),
-                    const SizedBox(height: 12),
-                    OutlinedButton.icon(
-                      onPressed: ref
-                          .read(categoriesControllerProvider.notifier)
-                          .load,
-                      icon: const Icon(Icons.refresh),
-                      label: const Text('Retry'),
-                    ),
-                  ],
-                  if (missing)
-                    const Text('This category is no longer available.')
-                  else if (_initialized)
-                    _form(state, category),
+                  const ThemeToggleButton(),
                 ],
               ),
-            ),
+              Expanded(
+                child: Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 620),
+                    child: ListView(
+                      padding: const EdgeInsets.fromLTRB(16, 4, 16, 40),
+                      children: [
+                        if (state.loadStatus == CategoriesLoadStatus.loading)
+                          const LinearProgressIndicator(
+                            semanticsLabel: 'Cargando categoría',
+                          ),
+                        if (state.diagnostic case final diagnostic?) ...[
+                          ErrorDiagnosticPanel(diagnostic: diagnostic),
+                          const SizedBox(height: 12),
+                          OutlinedButton.icon(
+                            onPressed: ref
+                                .read(categoriesControllerProvider.notifier)
+                                .load,
+                            icon: const Icon(Icons.refresh),
+                            label: const Text('Reintentar'),
+                          ),
+                        ],
+                        if (missing)
+                          const Text('Esta categoría ya no está disponible.')
+                        else if (_initialized)
+                          _form(state, category),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       ),
@@ -119,17 +133,22 @@ class _CategoryFormScreenState extends ConsumerState<CategoryFormScreen> {
     children: [
       Text(
         category == null
-            ? 'Create a category that matches how you understand your spending.'
-            : 'Update the name and visual style used throughout the app.',
-        style: Theme.of(context).textTheme.bodyLarge,
+            ? 'Crea una categoría que refleje cómo entiendes tus gastos.'
+            : 'Actualiza el nombre y el estilo visual que se usa en la app.',
+        style: TextStyle(
+          fontSize: 12,
+          color: Theme.of(context).colorScheme.onSurfaceVariant,
+          height: 1.45,
+        ),
       ),
-      const SizedBox(height: 24),
+      const SizedBox(height: 20),
       _preview(),
-      const SizedBox(height: 24),
+      const SizedBox(height: 20),
       if (state.mutationDiagnostic case final diagnostic?) ...[
         ErrorDiagnosticPanel(diagnostic: diagnostic),
-        const SizedBox(height: 20),
+        const SizedBox(height: 18),
       ],
+      const FieldLabel('Nombre', uppercase: false, topSpacing: 0),
       TextField(
         key: const Key('category-name-field'),
         controller: _nameController,
@@ -138,9 +157,9 @@ class _CategoryFormScreenState extends ConsumerState<CategoryFormScreen> {
         maxLength: 100,
         textInputAction: TextInputAction.done,
         decoration: InputDecoration(
-          labelText: 'Category name',
-          hintText: 'Food, Transport, Health…',
+          hintText: 'Comida, Transporte, Salud…',
           errorText: state.fieldErrors['name']?.firstOrNull,
+          counterText: '',
         ),
         onChanged: (_) {
           ref
@@ -150,84 +169,108 @@ class _CategoryFormScreenState extends ConsumerState<CategoryFormScreen> {
         },
         onSubmitted: (_) => _submit(),
       ),
-      const SizedBox(height: 16),
-      Text('Color', style: Theme.of(context).textTheme.titleSmall),
-      const SizedBox(height: 8),
+      const FieldLabel('Color', uppercase: false),
       Wrap(
-        spacing: 8,
-        runSpacing: 8,
+        spacing: 10,
+        runSpacing: 10,
         children: (state.result?.supportedColors ?? CategoryColor.values)
             .map(
-              (color) => ChoiceChip(
-                key: Key('category-color-${color.name}'),
-                selected: color == _color,
-                avatar: CircleAvatar(backgroundColor: color.value),
-                label: Text(color.label),
-                onSelected: state.isSaving
-                    ? null
-                    : (_) => setState(() => _color = color),
-              ),
-            )
-            .toList(growable: false),
-      ),
-      const SizedBox(height: 20),
-      DropdownButtonFormField<CategoryIcon>(
-        key: const Key('category-icon-field'),
-        initialValue: _icon,
-        decoration: const InputDecoration(labelText: 'Icon'),
-        items: (state.result?.supportedIcons ?? CategoryIcon.values)
-            .map(
-              (icon) => DropdownMenuItem(
-                value: icon,
-                child: Row(
-                  children: [
-                    Icon(icon.value),
-                    const SizedBox(width: 12),
-                    Text(icon.label),
-                  ],
+              (color) => Tooltip(
+                message: color.label,
+                child: GestureDetector(
+                  key: Key('category-color-${color.name}'),
+                  onTap: state.isSaving
+                      ? null
+                      : () => setState(() => _color = color),
+                  child: Container(
+                    width: 34,
+                    height: 34,
+                    decoration: BoxDecoration(
+                      color: color.value,
+                      shape: BoxShape.circle,
+                      border: color == _color
+                          ? Border.all(
+                              color: Theme.of(context).colorScheme.onSurface,
+                              width: 2,
+                            )
+                          : null,
+                    ),
+                    child: color == _color
+                        ? const Icon(Icons.check, size: 18, color: Colors.white)
+                        : null,
+                  ),
                 ),
               ),
             )
             .toList(growable: false),
-        onChanged: state.isSaving
-            ? null
-            : (value) {
-                if (value != null) setState(() => _icon = value);
-              },
       ),
-      const SizedBox(height: 28),
+      const FieldLabel('Ícono', uppercase: false),
+      Wrap(
+        key: const Key('category-icon-field'),
+        spacing: 10,
+        runSpacing: 10,
+        children: (state.result?.supportedIcons ?? CategoryIcon.values)
+            .map(
+              (icon) => Tooltip(
+                message: icon.label,
+                child: GestureDetector(
+                  key: Key('category-icon-${icon.name}'),
+                  onTap: state.isSaving
+                      ? null
+                      : () => setState(() => _icon = icon),
+                  child: Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: icon == _icon
+                          ? context.palette.primarySoft
+                          : context.palette.soft,
+                      borderRadius: BorderRadius.circular(12),
+                      border: icon == _icon
+                          ? Border.all(
+                              color: context.palette.primary,
+                              width: 1.6,
+                            )
+                          : null,
+                    ),
+                    child: Icon(
+                      icon.value,
+                      size: 20,
+                      color: icon == _icon
+                          ? context.palette.primary
+                          : context.palette.muted,
+                    ),
+                  ),
+                ),
+              ),
+            )
+            .toList(growable: false),
+      ),
+      const SizedBox(height: 26),
       FilledButton(
         key: const Key('category-save-button'),
         onPressed: state.isSaving ? null : _submit,
         child: state.isSaving
             ? const SizedBox.square(
-                dimension: 24,
+                dimension: 22,
                 child: CircularProgressIndicator(strokeWidth: 2.5),
               )
-            : Text(category == null ? 'Save category' : 'Save changes'),
+            : Text(category == null ? 'Guardar categoría' : 'Guardar cambios'),
       ),
     ],
   );
 
-  Widget _preview() => Semantics(
-    label:
-        'Category preview ${_nameController.text.trim().isEmpty ? 'New category' : _nameController.text.trim()}',
-    child: Card(
-      color: _color.value.withValues(alpha: 0.12),
-      child: ListTile(
-        leading: CircleAvatar(
-          backgroundColor: _color.value,
-          foregroundColor: Colors.white,
-          child: Icon(_icon.value),
-        ),
-        title: Text(
-          _nameController.text.trim().isEmpty
-              ? 'New category'
-              : _nameController.text.trim(),
-        ),
-        subtitle: const Text('Preview'),
+  Widget _preview() => ManageCard(
+    children: [
+      ManageRow(
+        icon: _icon.value,
+        swatchColor: _color.value,
+        title: _nameController.text.trim().isEmpty
+            ? 'Nueva categoría'
+            : _nameController.text.trim(),
+        subtitle: 'Vista previa',
       ),
-    ),
+    ],
   );
 
   void _initialize(Category? category) {
@@ -261,19 +304,19 @@ class _CategoryFormScreenState extends ConsumerState<CategoryFormScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Delete category?'),
+        title: const Text('¿Eliminar categoría?'),
         content: Text(
-          'Delete “${category.name}” permanently? The name can be reused. Future expense history will show “Category deleted” when this category was used.',
+          '¿Eliminar “${category.name}” de forma permanente? El nombre se puede reutilizar. El historial de gastos mostrará “Categoría eliminada” cuando se haya usado.',
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
+            child: const Text('Cancelar'),
           ),
           FilledButton(
             key: const Key('category-confirm-delete-button'),
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Delete'),
+            child: const Text('Eliminar'),
           ),
         ],
       ),
