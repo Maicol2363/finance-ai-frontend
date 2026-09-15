@@ -216,21 +216,29 @@ class DashedRoundedBorderPainter extends CustomPainter {
       ..style = PaintingStyle.stroke
       ..strokeWidth = strokeWidth
       ..strokeCap = StrokeCap.round;
+
+    // Performance optimization: Accumulate all extracted dash segments into
+    // a single Path object and issue a single canvas.drawPath call, reducing
+    // Canvas draw calls from O(N) to O(1) per widget repaint.
+    final dashPath = Path();
     for (final metric in path.computeMetrics()) {
       var distance = 0.0;
       while (distance < metric.length) {
         final next = (distance + dashLength).clamp(0.0, metric.length);
-        canvas.drawPath(metric.extractPath(distance, next), paint);
+        dashPath.addPath(metric.extractPath(distance, next), Offset.zero);
         distance = next + gapLength;
       }
     }
+    canvas.drawPath(dashPath, paint);
   }
 
   @override
   bool shouldRepaint(covariant DashedRoundedBorderPainter oldDelegate) =>
       oldDelegate.color != color ||
       oldDelegate.radius != radius ||
-      oldDelegate.dashLength != dashLength;
+      oldDelegate.dashLength != dashLength ||
+      oldDelegate.gapLength != gapLength ||
+      oldDelegate.strokeWidth != strokeWidth;
 }
 
 /// Mockup `.manage-card`: rounded card stacking catalog rows.
