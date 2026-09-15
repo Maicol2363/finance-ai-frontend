@@ -395,7 +395,7 @@ class ManageActionButton extends StatelessWidget {
     final enabled = onPressed != null;
     final iconColor = enabled
         ? (destructive ? palette.discard : palette.muted)
-        : palette.muted.withOpacity(0.38);
+        : palette.muted.withValues(alpha: 0.38);
 
     return Tooltip(
       message: tooltip,
