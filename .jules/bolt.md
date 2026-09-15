@@ -1,0 +1,3 @@
+## 2026-03-31 - Micro-optimizing UI container lists in small widget trees
+**Learning:** Attempting micro-optimizations like `List.generate` instead of standard `for` loops or pre-allocating widget lists in small container widgets (`SettingsGroup`, `ManageCard`) does not yield measurable performance benefits in Flutter and introduces unnecessary complexity. Additionally, adding short-circuit checks like `if (children.isEmpty) return const SizedBox.shrink();` can alter UI container semantics/styling.
+**Action:** Avoid micro-optimizations on small UI component rendering passes. Focus optimizations on identified performance bottlenecks with measurable impact.
