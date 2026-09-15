@@ -1,0 +1,3 @@
+## 2026-09-15 - Semantics and Visual Feedback for Custom Interactive Controls
+**Learning:** Custom interactive Flutter controls built with InkWell or GestureDetector (like list action buttons or segmented controls) do not automatically expose accessibility properties (button role, enabled status, selection state) or visual disabled states unless explicitly wrapped with `Semantics` and given reduced opacity/disabled styling.
+**Action:** Always wrap custom interactive controls in `Semantics(button: true, enabled: enabled, selected: isSelected, label: ...)` and reduce icon/text opacity when disabled.

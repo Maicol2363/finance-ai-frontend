@@ -392,21 +392,27 @@ class ManageActionButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
+    final enabled = onPressed != null;
+    final iconColor = enabled
+        ? (destructive ? palette.discard : palette.muted)
+        : palette.muted.withOpacity(0.38);
+
     return Tooltip(
       message: tooltip,
-      child: Material(
-        color: palette.soft,
-        borderRadius: BorderRadius.circular(8),
-        child: InkWell(
-          onTap: onPressed,
+      child: Semantics(
+        button: true,
+        enabled: enabled,
+        label: tooltip,
+        child: Material(
+          color: palette.soft,
           borderRadius: BorderRadius.circular(8),
-          child: SizedBox(
-            width: 30,
-            height: 30,
-            child: Icon(
-              icon,
-              size: 16,
-              color: destructive ? palette.discard : palette.muted,
+          child: InkWell(
+            onTap: onPressed,
+            borderRadius: BorderRadius.circular(8),
+            child: SizedBox(
+              width: 30,
+              height: 30,
+              child: Icon(icon, size: 16, color: iconColor),
             ),
           ),
         ),
@@ -443,29 +449,34 @@ class SegmentedControl extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           for (var index = 0; index < labels.length; index++)
-            GestureDetector(
-              key: keyPrefix == null ? null : Key('$keyPrefix-$index'),
-              onTap: () => onChanged(index),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 180),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 6,
-                ),
-                decoration: BoxDecoration(
-                  color: index == selectedIndex
-                      ? palette.primary
-                      : Colors.transparent,
-                  borderRadius: BorderRadius.circular(7),
-                ),
-                child: Text(
-                  labels[index],
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
+            Semantics(
+              button: true,
+              selected: index == selectedIndex,
+              label: labels[index],
+              child: GestureDetector(
+                key: keyPrefix == null ? null : Key('$keyPrefix-$index'),
+                onTap: () => onChanged(index),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 180),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
                     color: index == selectedIndex
-                        ? palette.onPrimary
-                        : palette.muted,
+                        ? palette.primary
+                        : Colors.transparent,
+                    borderRadius: BorderRadius.circular(7),
+                  ),
+                  child: Text(
+                    labels[index],
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: index == selectedIndex
+                          ? palette.onPrimary
+                          : palette.muted,
+                    ),
                   ),
                 ),
               ),
