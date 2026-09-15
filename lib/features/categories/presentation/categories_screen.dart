@@ -108,7 +108,7 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
                                   ),
                                   buildDefaultDragHandles: false,
                                   itemCount: categories.length,
-                                  onReorderItem: state.isSaving
+                                  onReorder: state.isSaving
                                       ? (_, _) {}
                                       : (oldIndex, newIndex) => _reorder(
                                           categories,

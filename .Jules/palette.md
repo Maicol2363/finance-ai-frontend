@@ -1,0 +1,3 @@
+## 2026-03-02 - Flutter Custom Controls Semantics & Interactive Feedback
+**Learning:** In Flutter, wrapping custom controls like `SegmentedControl` with `Semantics(button: true, selected: index == selectedIndex)` while letting `Text` child provide the label avoids duplicate label concatenation (`"Label\nLabel"`). Using `Material` + `InkWell` inside `Semantics` provides both keyboard focusability and ink ripple visual feedback.
+**Action:** When creating or refining custom interactive widgets, use `Semantics(button: true, selected: ...)` around `Material` and `InkWell` without redundantly supplying `label: ...` when a child `Text` widget is already present.
