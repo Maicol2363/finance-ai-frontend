@@ -72,23 +72,33 @@ class HeaderIconButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
+    final enabled = onPressed != null;
+    final iconColor = enabled
+        ? palette.text
+        : palette.muted.withValues(alpha: 0.38);
+
     return Tooltip(
       message: tooltip,
-      child: Material(
-        color: palette.card,
-        borderRadius: BorderRadius.circular(10),
-        child: InkWell(
-          onTap: onPressed,
+      child: Semantics(
+        button: true,
+        enabled: enabled,
+        label: tooltip,
+        child: Material(
+          color: palette.card,
           borderRadius: BorderRadius.circular(10),
-          child: Container(
-            width: 34,
-            height: 34,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              border: Border.all(color: palette.line),
-              borderRadius: BorderRadius.circular(10),
+          child: InkWell(
+            onTap: onPressed,
+            borderRadius: BorderRadius.circular(10),
+            child: Container(
+              width: 34,
+              height: 34,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                border: Border.all(color: palette.line),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(icon, size: 18, color: iconColor),
             ),
-            child: Icon(icon, size: 18, color: palette.text),
           ),
         ),
       ),
