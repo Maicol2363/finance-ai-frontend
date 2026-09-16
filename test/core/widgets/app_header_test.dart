@@ -30,30 +30,31 @@ void main() {
   });
 
   group('HeaderIconButton', () {
-    testWidgets('renders tooltip, semantics, icon, and handles tap when enabled', (
-      tester,
-    ) async {
-      var tapped = false;
-      await tester.pumpWidget(
-        MaterialApp(
-          theme: AppTheme.light(),
-          home: Scaffold(
-            body: HeaderIconButton(
-              icon: Icons.close,
-              tooltip: 'Cerrar',
-              onPressed: () => tapped = true,
+    testWidgets(
+      'renders tooltip, semantics, icon, and handles tap when enabled',
+      (tester) async {
+        var tapped = false;
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: AppTheme.light(),
+            home: Scaffold(
+              body: HeaderIconButton(
+                icon: Icons.close,
+                tooltip: 'Cerrar',
+                onPressed: () => tapped = true,
+              ),
             ),
           ),
-        ),
-      );
+        );
 
-      expect(find.byIcon(Icons.close), findsOneWidget);
-      expect(find.byTooltip('Cerrar'), findsOneWidget);
-      expect(find.bySemanticsLabel('Cerrar'), findsWidgets);
+        expect(find.byIcon(Icons.close), findsOneWidget);
+        expect(find.byTooltip('Cerrar'), findsOneWidget);
+        expect(find.bySemanticsLabel('Cerrar'), findsWidgets);
 
-      await tester.tap(find.byType(HeaderIconButton));
-      expect(tapped, isTrue);
-    });
+        await tester.tap(find.byType(HeaderIconButton));
+        expect(tapped, isTrue);
+      },
+    );
 
     testWidgets('renders disabled state when onPressed is null', (
       tester,

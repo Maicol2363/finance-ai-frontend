@@ -73,8 +73,9 @@ class HeaderIconButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final palette = context.palette;
     final enabled = onPressed != null;
-    final iconColor =
-        enabled ? palette.text : palette.muted.withValues(alpha: 0.38);
+    final iconColor = enabled
+        ? palette.text
+        : palette.muted.withValues(alpha: 0.38);
 
     return Tooltip(
       message: tooltip,
