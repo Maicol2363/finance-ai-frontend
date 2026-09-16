@@ -30,7 +30,9 @@ class MoneyAmount {
   // Performance optimization: Cache compiled RegExp instances statically
   // to avoid re-compiling regular expression patterns on every MoneyAmount parse call.
   static final RegExp _apiPattern = RegExp(r'^(-?)(\d+)\.(\d{2})$');
-  static final RegExp _userInputPattern = RegExp(r'^(-?)(\d+)(?:[\.,](\d{0,2}))?$');
+  static final RegExp _userInputPattern = RegExp(
+    r'^(-?)(\d+)(?:[\.,](\d{0,2}))?$',
+  );
 
   factory MoneyAmount.fromMinorUnits(int minorUnits) {
     if (minorUnits.abs() > maximumMinorUnits) {
