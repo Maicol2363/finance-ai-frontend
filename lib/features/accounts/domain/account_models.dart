@@ -36,8 +36,14 @@ class MoneyAmount {
     return MoneyAmount._(minorUnits);
   }
 
+  // Performance optimization: Compile RegExp patterns once as static final fields
+  // rather than re-instantiating and compiling them on every API response parse
+  // and user input validation call.
+  static final _apiPattern = RegExp(r'^(-?)(\d+)\.(\d{2})$');
+  static final _userInputPattern = RegExp(r'^(-?)(\d+)(?:[\.,](\d{0,2}))?$');
+
   factory MoneyAmount.parseApi(String source) {
-    final match = RegExp(r'^(-?)(\d+)\.(\d{2})$').firstMatch(source);
+    final match = _apiPattern.firstMatch(source);
     if (match == null) {
       throw const FormatException('Invalid API money amount');
     }
@@ -52,8 +58,7 @@ class MoneyAmount {
 
   static MoneyAmount? tryParseUserInput(String source) {
     final normalized = source.trim();
-    final match = RegExp(r'^(-?)(\d+)(?:[\.,](\d{0,2}))?$')
-        .firstMatch(normalized);
+    final match = _userInputPattern.firstMatch(normalized);
     if (match == null) {
       return null;
     }
