@@ -118,4 +118,52 @@ void main() {
       expect(tapped, isTrue);
     });
   });
+
+  group('ManageActionButton', () {
+    testWidgets('renders with 1.0 opacity when enabled', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light(),
+          home: Scaffold(
+            body: ManageActionButton(
+              icon: Icons.edit,
+              tooltip: 'Edit item',
+              onPressed: () {},
+            ),
+          ),
+        ),
+      );
+
+      final opacityWidget = tester.widget<Opacity>(
+        find.descendant(
+          of: find.byType(ManageActionButton),
+          matching: find.byType(Opacity),
+        ),
+      );
+      expect(opacityWidget.opacity, equals(1.0));
+    });
+
+    testWidgets('renders with 0.5 opacity when disabled', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light(),
+          home: Scaffold(
+            body: const ManageActionButton(
+              icon: Icons.edit,
+              tooltip: 'Edit item',
+              onPressed: null,
+            ),
+          ),
+        ),
+      );
+
+      final opacityWidget = tester.widget<Opacity>(
+        find.descendant(
+          of: find.byType(ManageActionButton),
+          matching: find.byType(Opacity),
+        ),
+      );
+      expect(opacityWidget.opacity, equals(0.5));
+    });
+  });
 }

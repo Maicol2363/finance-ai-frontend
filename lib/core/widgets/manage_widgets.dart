@@ -411,16 +411,19 @@ class ManageActionButton extends StatelessWidget {
         button: true,
         enabled: enabled,
         label: tooltip,
-        child: Material(
-          color: palette.soft,
-          borderRadius: BorderRadius.circular(8),
-          child: InkWell(
-            onTap: onPressed,
+        child: Opacity(
+          opacity: enabled ? 1.0 : 0.5,
+          child: Material(
+            color: palette.soft,
             borderRadius: BorderRadius.circular(8),
-            child: SizedBox(
-              width: 30,
-              height: 30,
-              child: Icon(icon, size: 16, color: iconColor),
+            child: InkWell(
+              onTap: onPressed,
+              borderRadius: BorderRadius.circular(8),
+              child: SizedBox(
+                width: 30,
+                height: 30,
+                child: Icon(icon, size: 16, color: iconColor),
+              ),
             ),
           ),
         ),
