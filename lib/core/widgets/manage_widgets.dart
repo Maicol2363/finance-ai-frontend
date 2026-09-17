@@ -160,10 +160,7 @@ class CatalogAddButton extends StatelessWidget {
           child: CustomPaint(
             painter: DashedRoundedBorderPainter(color: color, radius: 12),
             child: Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 14,
-                vertical: 11,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
               child: Column(
                 children: [
                   Row(

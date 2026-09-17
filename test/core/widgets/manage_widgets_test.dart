@@ -118,30 +118,31 @@ void main() {
       expect(tapped, isTrue);
     });
 
-    testWidgets('CatalogAddButton exposes semantics and handles disabled state', (
-      tester,
-    ) async {
-      await tester.pumpWidget(
-        MaterialApp(
-          theme: AppTheme.light(),
-          home: const Scaffold(
-            body: CatalogAddButton(
-              label: 'Agregar categoría',
-              hint: 'Color e ícono opcionales',
-              onPressed: null,
+    testWidgets(
+      'CatalogAddButton exposes semantics and handles disabled state',
+      (tester) async {
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: AppTheme.light(),
+            home: const Scaffold(
+              body: CatalogAddButton(
+                label: 'Agregar categoría',
+                hint: 'Color e ícono opcionales',
+                onPressed: null,
+              ),
             ),
           ),
-        ),
-      );
+        );
 
-      final semantics = tester.getSemantics(find.byType(CatalogAddButton));
-      expect(semantics.label, contains('Agregar categoría'));
-      expect(semantics.hint, contains('Color e ícono opcionales'));
+        final semantics = tester.getSemantics(find.byType(CatalogAddButton));
+        expect(semantics.label, contains('Agregar categoría'));
+        expect(semantics.hint, contains('Color e ícono opcionales'));
 
-      final animatedOpacity = tester.widget<AnimatedOpacity>(
-        find.byType(AnimatedOpacity),
-      );
-      expect(animatedOpacity.opacity, equals(0.5));
-    });
+        final animatedOpacity = tester.widget<AnimatedOpacity>(
+          find.byType(AnimatedOpacity),
+        );
+        expect(animatedOpacity.opacity, equals(0.5));
+      },
+    );
   });
 }
