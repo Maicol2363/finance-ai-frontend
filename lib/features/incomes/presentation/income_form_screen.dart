@@ -208,16 +208,16 @@ class _IncomeFormScreenState extends ConsumerState<IncomeFormScreen> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-      appBar: AppBar(
-        leading: IconButton(
-          tooltip: 'Volver',
-          onPressed: () => context.go(
-            widget.incomeId == null ? '/incomes' : '/incomes/${widget.incomeId}',
-          ),
-          icon: const Icon(Icons.arrow_back),
+    appBar: AppBar(
+      leading: IconButton(
+        tooltip: 'Volver',
+        onPressed: () => context.go(
+          widget.incomeId == null ? '/incomes' : '/incomes/${widget.incomeId}',
         ),
-        title: Text(widget.incomeId == null ? 'Nuevo ingreso' : 'Editar ingreso'),
+        icon: const Icon(Icons.arrow_back),
       ),
+      title: Text(widget.incomeId == null ? 'Nuevo ingreso' : 'Editar ingreso'),
+    ),
     body: SafeArea(
       child: Center(
         child: ConstrainedBox(
