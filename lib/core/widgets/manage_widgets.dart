@@ -149,39 +149,48 @@ class CatalogAddButton extends StatelessWidget {
     return Semantics(
       button: true,
       enabled: enabled,
-      child: InkWell(
-        onTap: onPressed,
-        borderRadius: BorderRadius.circular(12),
-        child: CustomPaint(
-          painter: DashedRoundedBorderPainter(color: color, radius: 12),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
-            child: Column(
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.add, size: 16, color: color),
-                    const SizedBox(width: 6),
-                    Text(
-                      label,
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: color,
+      label: label,
+      hint: hint,
+      child: AnimatedOpacity(
+        duration: const Duration(milliseconds: 150),
+        opacity: enabled ? 1.0 : 0.5,
+        child: InkWell(
+          onTap: onPressed,
+          borderRadius: BorderRadius.circular(12),
+          child: CustomPaint(
+            painter: DashedRoundedBorderPainter(color: color, radius: 12),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 14,
+                vertical: 11,
+              ),
+              child: Column(
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.add, size: 16, color: color),
+                      const SizedBox(width: 6),
+                      Text(
+                        label,
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: color,
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (hint != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 2),
+                      child: Text(
+                        hint!,
+                        style: TextStyle(fontSize: 10.5, color: palette.muted),
                       ),
                     ),
-                  ],
-                ),
-                if (hint != null)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 2),
-                    child: Text(
-                      hint!,
-                      style: TextStyle(fontSize: 10.5, color: palette.muted),
-                    ),
-                  ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
