@@ -461,29 +461,32 @@ class SegmentedControl extends StatelessWidget {
               button: true,
               selected: index == selectedIndex,
               label: labels[index],
-              child: GestureDetector(
-                key: keyPrefix == null ? null : Key('$keyPrefix-$index'),
-                onTap: () => onChanged(index),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 180),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 6,
-                  ),
-                  decoration: BoxDecoration(
-                    color: index == selectedIndex
-                        ? palette.primary
-                        : Colors.transparent,
-                    borderRadius: BorderRadius.circular(7),
-                  ),
-                  child: Text(
-                    labels[index],
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  key: keyPrefix == null ? null : Key('$keyPrefix-$index'),
+                  onTap: () => onChanged(index),
+                  borderRadius: BorderRadius.circular(7),
+                  child: Ink(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
                       color: index == selectedIndex
-                          ? palette.onPrimary
-                          : palette.muted,
+                          ? palette.primary
+                          : Colors.transparent,
+                      borderRadius: BorderRadius.circular(7),
+                    ),
+                    child: Text(
+                      labels[index],
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: index == selectedIndex
+                            ? palette.onPrimary
+                            : palette.muted,
+                      ),
                     ),
                   ),
                 ),

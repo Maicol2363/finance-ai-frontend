@@ -117,5 +117,31 @@ void main() {
       await tester.tap(find.text('Test Add'));
       expect(tapped, isTrue);
     });
+
+    testWidgets('SegmentedControl renders labels with InkWell and triggers onChanged', (
+      tester,
+    ) async {
+      int? selected;
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light(),
+          home: Scaffold(
+            body: SegmentedControl(
+              keyPrefix: 'theme',
+              labels: const ['Claro', 'Oscuro'],
+              selectedIndex: 0,
+              onChanged: (index) => selected = index,
+            ),
+          ),
+        ),
+      );
+
+      expect(find.text('Claro'), findsOneWidget);
+      expect(find.text('Oscuro'), findsOneWidget);
+      expect(find.byType(InkWell), findsNWidgets(2));
+
+      await tester.tap(find.byKey(const Key('theme-1')));
+      expect(selected, equals(1));
+    });
   });
 }
