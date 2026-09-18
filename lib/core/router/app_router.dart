@@ -10,6 +10,10 @@ import '../../features/auth/session/application/auth_session_state.dart';
 import '../../features/auth/session/presentation/session_bootstrap_screen.dart';
 import '../../features/categories/presentation/categories_screen.dart';
 import '../../features/categories/presentation/category_form_screen.dart';
+import '../../features/expenses/presentation/expense_detail_screen.dart';
+import '../../features/expenses/presentation/expense_form_screen.dart';
+import '../../features/expenses/presentation/expenses_screen.dart';
+import '../../features/expenses/presentation/history_screen.dart';
 import '../../features/home/presentation/home_screen.dart';
 import '../../features/income_sources/presentation/income_sources_screen.dart';
 import '../../features/settings/presentation/settings_screen.dart';
@@ -20,6 +24,8 @@ const _authenticatedRoots = <String>[
   '/settings',
   '/accounts',
   '/categories',
+  '/expenses',
+  '/history',
   '/income-sources',
 ];
 
@@ -126,6 +132,37 @@ GoRouter createAppRouter({
             ),
           ),
         ],
+      ),
+      GoRoute(
+        path: '/expenses',
+        name: 'expenses',
+        builder: (context, state) => const ExpensesScreen(),
+        routes: [
+          GoRoute(
+            path: ':expenseId',
+            name: 'expense-detail',
+            builder: (context, state) => ExpenseDetailScreen(
+              expenseId:
+                  int.tryParse(state.pathParameters['expenseId'] ?? '') ?? 0,
+            ),
+            routes: [
+              GoRoute(
+                path: 'edit',
+                name: 'expense-edit',
+                builder: (context, state) => ExpenseFormScreen(
+                  expenseId:
+                      int.tryParse(state.pathParameters['expenseId'] ?? '') ??
+                      0,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+      GoRoute(
+        path: '/history',
+        name: 'history',
+        builder: (context, state) => const HistoryScreen(),
       ),
       GoRoute(
         path: '/accounts',

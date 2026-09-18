@@ -1,0 +1,35 @@
+{
+    "id":  1,
+    "transaction_id":  1,
+    "receipt_id":  1,
+    "name":  "Groceries",
+    "amount":  "25.00",
+    "quantity":  "1.000",
+    "unit_price":  "25.00",
+    "note":  "Weekly food",
+    "category":  {
+                     "id":  4,
+                     "name":  "Food"
+                 },
+    "receipt_name":  "Market",
+    "receipt_note":  "Household purchase",
+    "store":  "Market",
+    "description":  "Purchase at Market",
+    "occurred_at":  "2026-09-18T17:22:16.130499Z",
+    "status":  "confirmed",
+    "capture_source":  "manual",
+    "account_id":  1,
+    "account_name":  "Cash",
+    "account_is_active":  true,
+    "currency":  {
+                     "id":  1,
+                     "code":  "COP",
+                     "name":  "Colombian Peso",
+                     "decimals":  2
+                 },
+    "currency_code":  "COP",
+    "created_at":  "2026-09-18T17:22:19.985717Z",
+    "updated_at":  "2026-09-18T17:22:19.985717Z",
+    "receipt_image":  "receipt.jpg",
+    "image_path":  "expense.jpg"
+}

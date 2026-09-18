@@ -116,6 +116,27 @@ class HomeScreen extends ConsumerWidget {
                               ],
                               onTap: () => context.go('/accounts'),
                             ),
+                            ManageRow(
+                              rowKey: const Key('home-expenses-button'),
+                              title: 'Gastos',
+                              subtitle:
+                                  'Consulta, corrige y elimina tus gastos',
+                              icon: Icons.receipt_long_outlined,
+                              trailing: const [
+                                Icon(Icons.chevron_right, size: 18),
+                              ],
+                              onTap: () => context.go('/expenses'),
+                            ),
+                            ManageRow(
+                              rowKey: const Key('home-history-button'),
+                              title: 'Historial',
+                              subtitle: 'Gastos, ingresos y transferencias',
+                              icon: Icons.history_outlined,
+                              trailing: const [
+                                Icon(Icons.chevron_right, size: 18),
+                              ],
+                              onTap: () => context.go('/history'),
+                            ),
                           ],
                         ),
                         const SizedBox(height: 4),
