@@ -30,8 +30,9 @@ class MoneyAmount {
   // Cache compiled RegExp instances to eliminate repeated pattern compilation
   // on every API response parsing and form input validation.
   static final RegExp _apiPattern = RegExp(r'^(-?)(\d+)\.(\d{2})$');
-  static final RegExp _userInputPattern =
-      RegExp(r'^(-?)(\d+)(?:[\.,](\d{0,2}))?$');
+  static final RegExp _userInputPattern = RegExp(
+    r'^(-?)(\d+)(?:[\.,](\d{0,2}))?$',
+  );
 
   factory MoneyAmount.fromMinorUnits(int minorUnits) {
     if (minorUnits.abs() > maximumMinorUnits) {
