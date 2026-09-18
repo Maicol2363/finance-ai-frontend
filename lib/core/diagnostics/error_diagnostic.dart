@@ -64,6 +64,10 @@ class ErrorDiagnostic {
     'Privacy: form values and secrets are intentionally excluded.',
   ].join('\n');
 
+  // Cache compiled RegExp instances to eliminate repeated pattern compilation.
+  static final RegExp _trailingSlashPattern = RegExp(r'/$');
+  static final RegExp _whitespacePattern = RegExp(r'[\r\n\t]+');
+
   static String _safeApiLocation(String value) {
     try {
       final uri = Uri.parse(value.trim());
@@ -82,14 +86,14 @@ class ErrorDiagnostic {
         host: uri.host,
         port: defaultPort ? null : uri.port,
         path: uri.path,
-      ).toString().replaceFirst(RegExp(r'/$'), '');
+      ).toString().replaceFirst(_trailingSlashPattern, '');
     } on FormatException {
       return 'configured-but-hidden';
     }
   }
 
   static String _singleLine(String value, {required String fallback}) {
-    final sanitized = value.replaceAll(RegExp(r'[\r\n\t]+'), ' ').trim();
+    final sanitized = value.replaceAll(_whitespacePattern, ' ').trim();
     if (sanitized.isEmpty) {
       return fallback;
     }
