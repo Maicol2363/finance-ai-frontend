@@ -118,9 +118,7 @@ void main() {
       expect(tapped, isTrue);
     });
 
-    testWidgets('SegmentedControl renders labels with InkWell and triggers onChanged', (
-      tester,
-    ) async {
+    testWidgets('SegmentedControl works', (tester) async {
       int? selected;
       await tester.pumpWidget(
         MaterialApp(
