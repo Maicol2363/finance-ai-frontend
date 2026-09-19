@@ -183,7 +183,7 @@ class HistoryController extends Notifier<HistoryState> {
     return ErrorDiagnostic.capture(
       code: 'unexpected_client_error',
       operation: operation,
-      userMessage: 'The operation could not be completed. Please try again.',
+      userMessage: 'La operación no se pudo completar. Inténtalo de nuevo.',
       technicalReason: 'unclassified_client_failure',
     );
   }
