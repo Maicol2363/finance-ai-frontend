@@ -40,7 +40,7 @@ class HttpExpensesRepository implements ExpensesRepository {
           '/api/v1/expenses?page=$page&page_size=$pageSize',
           bearerCredential: accessCredential,
         ),
-        operationMessage: 'We could not load your expenses. Check your connection and try again.',
+        operationMessage: 'No pudimos cargar tus gastos. Revisa tu conexión e inténtalo de nuevo.',
       );
       if (response.statusCode == 200) {
         try {
@@ -61,7 +61,7 @@ class HttpExpensesRepository implements ExpensesRepository {
           '/api/v1/expenses/$expenseId',
           bearerCredential: accessCredential,
         ),
-        operationMessage: 'We could not load this expense. Check your connection and try again.',
+        operationMessage: 'No pudimos cargar este gasto. Revisa tu conexión e inténtalo de nuevo.',
       );
       if (response.statusCode == 200) {
         return _decodeExpense(response);
@@ -79,7 +79,7 @@ class HttpExpensesRepository implements ExpensesRepository {
           command.toJson(),
           bearerCredential: accessCredential,
         ),
-        operationMessage: 'We could not confirm whether the expense was updated. Refresh expenses before trying again.',
+        operationMessage: 'No pudimos confirmar si el gasto se actualizó. Actualiza los gastos antes de reintentar.',
         isMutation: true,
       );
       if (response.statusCode == 200) {
@@ -97,7 +97,7 @@ class HttpExpensesRepository implements ExpensesRepository {
           '/api/v1/expenses/$expenseId',
           bearerCredential: accessCredential,
         ),
-        operationMessage: 'We could not confirm whether the expense was deleted. Refresh expenses before trying again.',
+        operationMessage: 'No pudimos confirmar si el gasto se eliminó. Actualiza los gastos antes de reintentar.',
         isMutation: true,
       );
       if (response.statusCode == 204) {
@@ -122,7 +122,7 @@ class HttpExpensesRepository implements ExpensesRepository {
           '/api/v1/history?$query',
           bearerCredential: accessCredential,
         ),
-        operationMessage: 'We could not load your history. Check your connection and try again.',
+        operationMessage: 'No pudimos cargar tu historial. Revisa tu conexión e inténtalo de nuevo.',
       );
       if (response.statusCode == 200) {
         try {
@@ -148,7 +148,7 @@ class HttpExpensesRepository implements ExpensesRepository {
       throw ExpenseFailure(
         code: invalidResponse ? 'unexpected_response' : 'network_unavailable',
         userMessage: invalidResponse
-            ? 'The service returned an unexpected response. Please try again.'
+            ? 'El servicio devolvió una respuesta inesperada. Inténtalo de nuevo.'
             : operationMessage,
         correlationId: failure.correlationId,
         technicalReason: failure.safeReason,
@@ -177,7 +177,7 @@ class HttpExpensesRepository implements ExpensesRepository {
     return ExpenseFailure(
       code: 'unexpected_response',
       userMessage:
-          'The service returned an unexpected response. Please try again.',
+          'El servicio devolvió una respuesta inesperada. Inténtalo de nuevo.',
       correlationId: response.correlationId ?? 'unavailable',
       technicalReason: technicalReason,
     );
@@ -193,16 +193,16 @@ class HttpExpensesRepository implements ExpensesRepository {
       );
     }
     final known = switch (problem.code) {
-      'expense_not_found' => 'This expense is no longer available.',
+      'expense_not_found' => 'Este gasto ya no está disponible.',
       'expense_not_editable' =>
-        'Only confirmed expenses can be edited or deleted.',
+        'Solo los gastos confirmados se pueden editar o eliminar.',
       'expense_account_invalid' =>
-        'Select an active account with the expense currency and try again.',
+        'Elige una cuenta activa con la moneda del gasto e inténtalo de nuevo.',
       'expense_category_not_found' =>
-        'Select one of your categories and try again.',
+        'Elige una de tus categorías e inténtalo de nuevo.',
       'history_filter_invalid' =>
-        'Please correct the selected history filters.',
-      'request_invalid' => 'Please correct the highlighted fields.',
+        'Corrige los filtros del historial seleccionados.',
+      'request_invalid' => 'Corrige los campos marcados.',
       _ => null,
     };
     return ExpenseFailure(
@@ -212,7 +212,7 @@ class HttpExpensesRepository implements ExpensesRepository {
                 : 'unexpected_response'
           : problem.code,
       userMessage:
-          known ?? '$operation could not be completed. Please try again.',
+          known ?? 'La operación no se pudo completar. Inténtalo de nuevo.',
       fieldErrors: Map.unmodifiable(problem.fieldErrors),
       correlationId: problem.correlationId,
       technicalReason: 'http_${response.statusCode}',
@@ -226,7 +226,7 @@ class HttpExpensesRepository implements ExpensesRepository {
       return ApiProblem(
         status: response.statusCode,
         code: 'unexpected_response',
-        detail: 'The request could not be completed.',
+        detail: 'La solicitud no se pudo completar.',
         correlationId: response.correlationId ?? 'unavailable',
       );
     }

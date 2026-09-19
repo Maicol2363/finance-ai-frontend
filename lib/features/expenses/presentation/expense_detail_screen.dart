@@ -50,11 +50,11 @@ class _ExpenseDetailScreenState extends ConsumerState<ExpenseDetailScreen> {
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(
-          tooltip: 'Back to expenses',
+          tooltip: 'Volver a gastos',
           onPressed: () => context.go('/expenses'),
           icon: const Icon(Icons.arrow_back),
         ),
-        title: const Text('Expense details'),
+        title: const Text('Detalle del gasto'),
       ),
       body: SafeArea(
         child: Center(
@@ -66,7 +66,7 @@ class _ExpenseDetailScreenState extends ConsumerState<ExpenseDetailScreen> {
                 if (state.detailStatus == ExpenseDetailStatus.loading) ...[
                   Semantics(
                     liveRegion: true,
-                    label: 'Loading expense details',
+                    label: 'Cargando el detalle del gasto',
                     child: const LinearProgressIndicator(),
                   ),
                   const SizedBox(height: 20),
@@ -77,7 +77,7 @@ class _ExpenseDetailScreenState extends ConsumerState<ExpenseDetailScreen> {
                   OutlinedButton.icon(
                     onPressed: () => controller.loadDetail(widget.expenseId),
                     icon: const Icon(Icons.refresh),
-                    label: const Text('Retry'),
+                    label: const Text('Reintentar'),
                   ),
                   const SizedBox(height: 20),
                 ],
@@ -91,13 +91,13 @@ class _ExpenseDetailScreenState extends ConsumerState<ExpenseDetailScreen> {
                         : () =>
                               context.go('/expenses/${widget.expenseId}/edit'),
                     icon: const Icon(Icons.edit_outlined),
-                    label: const Text('Edit expense'),
+                    label: const Text('Editar gasto'),
                   ),
                   if (!expense.isEditable)
                     const Padding(
                       padding: EdgeInsets.only(top: 8),
                       child: Text(
-                        'Only confirmed expenses can be edited or deleted.',
+                        'Solo los gastos confirmados se pueden editar o eliminar.',
                       ),
                     ),
                   const SizedBox(height: 12),
@@ -110,14 +110,14 @@ class _ExpenseDetailScreenState extends ConsumerState<ExpenseDetailScreen> {
                         ? null
                         : () => _confirmDeletion(expense),
                     icon: const Icon(Icons.delete_outline),
-                    label: const Text('Delete expense permanently'),
+                    label: const Text('Eliminar gasto definitivamente'),
                   ),
                 ],
                 if (state.isSaving) ...[
                   const SizedBox(height: 20),
                   Semantics(
                     liveRegion: true,
-                    label: 'Saving expense changes',
+                    label: 'Guardando los cambios del gasto',
                     child: const LinearProgressIndicator(),
                   ),
                 ],
@@ -130,7 +130,7 @@ class _ExpenseDetailScreenState extends ConsumerState<ExpenseDetailScreen> {
                   FilledButton.icon(
                     onPressed: controller.resolveUncertainMutation,
                     icon: const Icon(Icons.sync),
-                    label: const Text('Refresh before trying again'),
+                    label: const Text('Actualizar antes de reintentar'),
                   ),
                 ],
               ],
@@ -145,14 +145,14 @@ class _ExpenseDetailScreenState extends ConsumerState<ExpenseDetailScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Delete this expense permanently?'),
+        title: const Text('¿Eliminar este gasto definitivamente?'),
         content: const Text(
-          'This removes the expense, its receipt, and its account movement. This cannot be undone.',
+          'Esto elimina el gasto, su recibo y su movimiento de cuenta. No se puede deshacer.',
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
+            child: const Text('Cancelar'),
           ),
           FilledButton(
             key: const Key('expense-confirm-delete-button'),
@@ -161,7 +161,7 @@ class _ExpenseDetailScreenState extends ConsumerState<ExpenseDetailScreen> {
               foregroundColor: Theme.of(context).colorScheme.onError,
             ),
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Delete permanently'),
+            child: const Text('Eliminar definitivamente'),
           ),
         ],
       ),
@@ -177,10 +177,16 @@ class _ExpenseDetailScreenState extends ConsumerState<ExpenseDetailScreen> {
     }
     context.go('/expenses');
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Expense permanently deleted.')),
+      const SnackBar(content: Text('Gasto eliminado definitivamente.')),
     );
   }
 }
+
+String _statusLabel(ExpenseStatus status) => switch (status) {
+  ExpenseStatus.pending => 'Pendiente',
+  ExpenseStatus.confirmed => 'Confirmado',
+  ExpenseStatus.voided => 'Anulado',
+};
 
 class _ExpenseDetails extends StatelessWidget {
   const _ExpenseDetails({required this.expense});
@@ -201,46 +207,46 @@ class _ExpenseDetails extends StatelessWidget {
             avatar: Icon(
               expense.isEditable ? Icons.check_circle_outline : Icons.lock,
             ),
-            label: Text(expense.isEditable ? 'Editable' : 'Not editable'),
+            label: Text(expense.isEditable ? 'Editable' : 'No editable'),
           ),
         ),
         const SizedBox(height: 20),
         Semantics(
           label: expense.amount.isNegative
-              ? 'Negative amount $amount'
-              : 'Amount $amount',
+              ? 'Monto negativo $amount'
+              : 'Monto $amount',
           child: ExcludeSemantics(
-            child: _DetailRow(label: 'Amount', value: amount),
+            child: _DetailRow(label: 'Monto', value: amount),
           ),
         ),
-        _DetailRow(label: 'Merchant', value: expense.receiptName),
-        _DetailRow(label: 'Store', value: expense.store),
+        _DetailRow(label: 'Comercio', value: expense.receiptName),
+        _DetailRow(label: 'Tienda', value: expense.store),
         _DetailRow(
-          label: 'Category',
-          value: expense.category?.name ?? 'Uncategorized',
+          label: 'Categoría',
+          value: expense.category?.name ?? 'Sin categoría',
         ),
         _DetailRow(
-          label: 'Account',
+          label: 'Cuenta',
           value:
-              '${expense.accountName}${expense.accountIsActive ? '' : ' · Inactive'}',
+              '${expense.accountName}${expense.accountIsActive ? '' : ' · Inactiva'}',
         ),
         _DetailRow(
-          label: 'Currency',
+          label: 'Moneda',
           value: '${expense.currency.code} · ${expense.currency.name}',
         ),
-        _DetailRow(label: 'Status', value: expense.status.name),
-        _DetailRow(label: 'Quantity', value: expense.quantity),
+        _DetailRow(label: 'Estado', value: _statusLabel(expense.status)),
+        _DetailRow(label: 'Cantidad', value: expense.quantity),
         if (expense.unitPrice != null)
           _DetailRow(
-            label: 'Unit price',
+            label: 'Precio unitario',
             value: expense.unitPrice!.formatWithCurrency(expense.currencyCode),
           ),
         if (expense.note != null)
-          _DetailRow(label: 'Note', value: expense.note!),
+          _DetailRow(label: 'Nota', value: expense.note!),
         if (expense.receiptNote != null)
-          _DetailRow(label: 'Receipt note', value: expense.receiptNote!),
+          _DetailRow(label: 'Nota del recibo', value: expense.receiptNote!),
         if (expense.description != null)
-          _DetailRow(label: 'Description', value: expense.description!),
+          _DetailRow(label: 'Descripción', value: expense.description!),
       ],
     );
   }

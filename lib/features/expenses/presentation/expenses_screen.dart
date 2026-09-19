@@ -40,11 +40,11 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen> {
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(
-          tooltip: 'Back to home',
+          tooltip: 'Volver al inicio',
           onPressed: () => context.go('/home'),
           icon: const Icon(Icons.arrow_back),
         ),
-        title: const Text('Expenses'),
+        title: const Text('Gastos'),
       ),
       body: SafeArea(
         child: Center(
@@ -60,7 +60,7 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen> {
                   if (isBusy) ...[
                     Semantics(
                       liveRegion: true,
-                      label: 'Loading expenses',
+                      label: 'Cargando gastos',
                       child: const LinearProgressIndicator(),
                     ),
                     const SizedBox(height: 16),
@@ -71,7 +71,7 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen> {
                     OutlinedButton.icon(
                       onPressed: controller.load,
                       icon: const Icon(Icons.refresh),
-                      label: const Text('Retry'),
+                      label: const Text('Reintentar'),
                     ),
                     const SizedBox(height: 16),
                   ],
@@ -92,7 +92,7 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen> {
                       key: const Key('expenses-load-more-button'),
                       onPressed: isBusy ? null : controller.loadMore,
                       icon: const Icon(Icons.expand_more),
-                      label: const Text('Load more expenses'),
+                      label: const Text('Cargar más gastos'),
                     ),
                   ],
                 ],
@@ -133,13 +133,13 @@ class _ExpensesEmptyState extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           Text(
-            'No expenses yet',
+            'Sin gastos todavía',
             style: Theme.of(context).textTheme.titleLarge,
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 8),
           const Text(
-            'Expenses appear here once they are registered. Pull down to refresh.',
+            'Tus gastos aparecerán aquí cuando se registren. Desliza hacia abajo para actualizar.',
             textAlign: TextAlign.center,
           ),
         ],
@@ -157,9 +157,9 @@ class _ExpenseCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final amount = expense.amount.formatWithCurrency(expense.currencyCode);
     final meaning = expense.amount.isNegative
-        ? 'Negative amount $amount'
-        : 'Amount $amount';
-    final statusLabel = expense.isEditable ? 'editable' : 'not editable';
+        ? 'Monto negativo $amount'
+        : 'Monto $amount';
+    final statusLabel = expense.isEditable ? 'editable' : 'no editable';
     return Semantics(
       container: true,
       button: true,

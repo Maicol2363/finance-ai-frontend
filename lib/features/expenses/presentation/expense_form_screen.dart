@@ -80,11 +80,11 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
       child: Scaffold(
         appBar: AppBar(
           leading: IconButton(
-            tooltip: 'Back to expense details',
+            tooltip: 'Volver al detalle del gasto',
             onPressed: state.isSaving ? null : _goBack,
             icon: const Icon(Icons.arrow_back),
           ),
-          title: const Text('Edit expense'),
+          title: const Text('Editar gasto'),
         ),
         body: SafeArea(
           child: Center(
@@ -96,7 +96,7 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
                   if (waitingForEdit) ...[
                     Semantics(
                       liveRegion: true,
-                      label: 'Loading expense form',
+                      label: 'Cargando el formulario del gasto',
                       child: const LinearProgressIndicator(),
                     ),
                     const SizedBox(height: 20),
@@ -107,7 +107,7 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
                     OutlinedButton.icon(
                       onPressed: () => controller.loadDetail(widget.expenseId),
                       icon: const Icon(Icons.refresh),
-                      label: const Text('Retry expense details'),
+                      label: const Text('Reintentar la carga del gasto'),
                     ),
                     const SizedBox(height: 20),
                   ],
@@ -133,7 +133,7 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Text(
-          'Correct the details of this confirmed expense. Clearing the note or category removes it.',
+          'Corrige los datos de este gasto confirmado. Borrar la nota o la categoría las elimina.',
           style: Theme.of(context).textTheme.bodyLarge,
         ),
         const SizedBox(height: 24),
@@ -149,7 +149,7 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
           textInputAction: TextInputAction.next,
           maxLength: 200,
           decoration: InputDecoration(
-            labelText: 'Expense name',
+            labelText: 'Nombre del gasto',
             errorText: _firstError(state, 'name'),
           ),
           onChanged: (_) => controller.clearFieldError('name'),
@@ -163,8 +163,8 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
           textInputAction: TextInputAction.next,
           decoration: InputDecoration(
-            labelText: 'Amount (${editExpense.currencyCode})',
-            helperText: 'Positive amount with up to two decimals.',
+            labelText: 'Monto (${editExpense.currencyCode})',
+            helperText: 'Monto positivo con hasta dos decimales.',
             errorText: _firstError(state, 'amount'),
           ),
           onChanged: (_) => controller.clearFieldError('amount'),
@@ -177,7 +177,7 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
           textInputAction: TextInputAction.next,
           maxLines: 3,
           decoration: InputDecoration(
-            labelText: 'Note',
+            labelText: 'Nota',
             errorText: _firstError(state, 'note'),
           ),
           onChanged: (_) => controller.clearFieldError('note'),
@@ -186,7 +186,7 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
           key: const Key('expense-clear-note'),
           contentPadding: EdgeInsets.zero,
           controlAffinity: ListTileControlAffinity.leading,
-          title: const Text('Remove the note'),
+          title: const Text('Quitar la nota'),
           value: _clearNote,
           onChanged: formEnabled
               ? (value) => setState(() => _clearNote = value ?? false)
@@ -199,7 +199,7 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
           textInputAction: TextInputAction.next,
           maxLength: 150,
           decoration: InputDecoration(
-            labelText: 'Merchant',
+            labelText: 'Comercio',
             errorText: _firstError(state, 'receipt_name'),
           ),
           onChanged: (_) => controller.clearFieldError('receipt_name'),
@@ -211,7 +211,7 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
           enabled: formEnabled,
           textInputAction: TextInputAction.next,
           maxLines: 2,
-          decoration: const InputDecoration(labelText: 'Receipt note'),
+          decoration: const InputDecoration(labelText: 'Nota del recibo'),
         ),
         const SizedBox(height: 12),
         TextField(
@@ -220,7 +220,7 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
           enabled: formEnabled,
           textInputAction: TextInputAction.next,
           maxLines: 2,
-          decoration: const InputDecoration(labelText: 'Description'),
+          decoration: const InputDecoration(labelText: 'Descripción'),
         ),
         const SizedBox(height: 12),
         TextField(
@@ -229,9 +229,9 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
           enabled: formEnabled,
           keyboardType: TextInputType.number,
           decoration: InputDecoration(
-            labelText: 'Account ID',
+            labelText: 'ID de cuenta',
             helperText:
-                'Current account: ${editExpense.accountName}. Same currency required.',
+                'Cuenta actual: ${editExpense.accountName}. Se requiere la misma moneda.',
             errorText: _firstError(state, 'account_id'),
           ),
           onChanged: (_) => controller.clearFieldError('account_id'),
@@ -243,9 +243,9 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
           enabled: formEnabled && !_clearCategory,
           keyboardType: TextInputType.number,
           decoration: InputDecoration(
-            labelText: 'Category ID',
+            labelText: 'ID de categoría',
             helperText:
-                'Current: ${editExpense.category?.name ?? 'Uncategorized'}.',
+                'Actual: ${editExpense.category?.name ?? 'Sin categoría'}.',
             errorText: _firstError(state, 'category_id'),
           ),
           onChanged: (_) => controller.clearFieldError('category_id'),
@@ -254,17 +254,17 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
           key: const Key('expense-clear-category'),
           contentPadding: EdgeInsets.zero,
           controlAffinity: ListTileControlAffinity.leading,
-          title: const Text('Remove the category'),
+          title: const Text('Quitar la categoría'),
           value: _clearCategory,
           onChanged: formEnabled
               ? (value) => setState(() => _clearCategory = value ?? false)
               : null,
         ),
-        const Text('Date'),
+        const Text('Fecha'),
         const SizedBox(height: 4),
         Text(
           _occurredAt == null
-              ? 'Unchanged'
+              ? 'Sin cambios'
               : '${_occurredAt!.toUtc().year.toString().padLeft(4, '0')}-'
                     '${_occurredAt!.toUtc().month.toString().padLeft(2, '0')}-'
                     '${_occurredAt!.toUtc().day.toString().padLeft(2, '0')}',
@@ -275,7 +275,7 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
           key: const Key('expense-date-button'),
           onPressed: formEnabled ? () => _pickDate(editExpense) : null,
           icon: const Icon(Icons.calendar_today_outlined),
-          label: const Text('Change date'),
+          label: const Text('Cambiar fecha'),
         ),
         const SizedBox(height: 16),
         FilledButton(
@@ -284,20 +284,20 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
           child: state.isSaving
               ? Semantics(
                   liveRegion: true,
-                  label: 'Saving expense',
+                  label: 'Guardando el gasto',
                   child: const SizedBox.square(
                     dimension: 24,
                     child: CircularProgressIndicator(strokeWidth: 2.5),
                   ),
                 )
-              : const Text('Save changes'),
+              : const Text('Guardar cambios'),
         ),
         if (state.requiresMutationReview) ...[
           const SizedBox(height: 12),
           OutlinedButton.icon(
             onPressed: controller.resolveUncertainMutation,
             icon: const Icon(Icons.sync),
-            label: const Text('Refresh expenses before trying again'),
+            label: const Text('Actualizar los gastos antes de reintentar'),
           ),
         ],
       ],
@@ -378,7 +378,7 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
     if (outcome == ExpenseMutationOutcome.success) {
       context.go('/expenses/${widget.expenseId}');
       ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('Expense updated.')));
+          .showSnackBar(const SnackBar(content: Text('Gasto actualizado.')));
       return;
     }
     if (outcome == ExpenseMutationOutcome.invalid ||

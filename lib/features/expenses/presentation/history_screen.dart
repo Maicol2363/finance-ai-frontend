@@ -57,11 +57,11 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(
-          tooltip: 'Back to home',
+          tooltip: 'Volver al inicio',
           onPressed: () => context.go('/home'),
           icon: const Icon(Icons.arrow_back),
         ),
-        title: const Text('History'),
+        title: const Text('Historial'),
       ),
       body: SafeArea(
         child: Center(
@@ -79,8 +79,8 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                     controller: _searchController,
                     textInputAction: TextInputAction.search,
                     decoration: const InputDecoration(
-                      labelText: 'Search',
-                      hintText: 'Merchant, note, or description…',
+                      labelText: 'Buscar',
+                      hintText: 'Comercio, nota o descripción…',
                       prefixIcon: Icon(Icons.search),
                     ),
                     onSubmitted: (_) => _applyFilters(),
@@ -92,13 +92,15 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                         child: DropdownButtonFormField<TransactionType?>(
                           key: const Key('history-type-field'),
                           initialValue: _selectedType,
-                          decoration: const InputDecoration(labelText: 'Type'),
+                          decoration: const InputDecoration(labelText: 'Tipo'),
                           items: [
-                            const DropdownMenuItem(child: Text('All types')),
+                            const DropdownMenuItem(
+                              child: Text('Todos los tipos'),
+                            ),
                             ...TransactionType.values.map(
                               (type) => DropdownMenuItem(
                                 value: type,
-                                child: Text(type.name),
+                                child: Text(_typeLabel(type)),
                               ),
                             ),
                           ],
@@ -112,14 +114,16 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                           key: const Key('history-period-field'),
                           initialValue: _selectedPeriod,
                           decoration: const InputDecoration(
-                            labelText: 'Period',
+                            labelText: 'Periodo',
                           ),
                           items: [
-                            const DropdownMenuItem(child: Text('All time')),
+                            const DropdownMenuItem(
+                              child: Text('Todo el periodo'),
+                            ),
                             ...HistoryPeriod.values.map(
                               (period) => DropdownMenuItem(
                                 value: period,
-                                child: Text(period.name),
+                                child: Text(_periodLabel(period)),
                               ),
                             ),
                           ],
@@ -140,7 +144,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                             icon: const Icon(Icons.calendar_today_outlined),
                             label: Text(
                               _startDate == null
-                                  ? 'Start date'
+                                  ? 'Fecha inicial'
                                   : _formatDate(_startDate!),
                             ),
                           ),
@@ -153,7 +157,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                             icon: const Icon(Icons.calendar_today_outlined),
                             label: Text(
                               _endDate == null
-                                  ? 'End date'
+                                  ? 'Fecha final'
                                   : _formatDate(_endDate!),
                             ),
                           ),
@@ -170,7 +174,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                           controller: _accountIdController,
                           keyboardType: TextInputType.number,
                           decoration: const InputDecoration(
-                            labelText: 'Account ID',
+                            labelText: 'ID de cuenta',
                           ),
                         ),
                       ),
@@ -181,7 +185,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                           controller: _categoryIdController,
                           keyboardType: TextInputType.number,
                           decoration: const InputDecoration(
-                            labelText: 'Category ID',
+                            labelText: 'ID de categoría',
                           ),
                         ),
                       ),
@@ -192,13 +196,13 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                     key: const Key('history-apply-button'),
                     onPressed: isBusy ? null : _applyFilters,
                     icon: const Icon(Icons.filter_alt_outlined),
-                    label: const Text('Apply filters'),
+                    label: const Text('Aplicar filtros'),
                   ),
                   const SizedBox(height: 16),
                   if (isBusy) ...[
                     Semantics(
                       liveRegion: true,
-                      label: 'Loading history',
+                      label: 'Cargando el historial',
                       child: const LinearProgressIndicator(),
                     ),
                     const SizedBox(height: 16),
@@ -209,7 +213,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                     OutlinedButton.icon(
                       onPressed: controller.load,
                       icon: const Icon(Icons.refresh),
-                      label: const Text('Retry'),
+                      label: const Text('Reintentar'),
                     ),
                     const SizedBox(height: 16),
                   ],
@@ -230,7 +234,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                       key: const Key('history-load-more-button'),
                       onPressed: isBusy ? null : controller.loadMore,
                       icon: const Icon(Icons.expand_more),
-                      label: const Text('Load more history'),
+                      label: const Text('Cargar más historial'),
                     ),
                   ],
                 ],
@@ -292,6 +296,22 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
   }
 }
 
+String _typeLabel(TransactionType type) => switch (type) {
+  TransactionType.expense => 'Gasto',
+  TransactionType.income => 'Ingreso',
+  TransactionType.transfer => 'Transferencia',
+};
+
+String _periodLabel(HistoryPeriod period) => switch (period) {
+  HistoryPeriod.week => 'Semana',
+  HistoryPeriod.weekly => 'Semanal',
+  HistoryPeriod.month => 'Mes',
+  HistoryPeriod.monthly => 'Mensual',
+  HistoryPeriod.custom => 'Personalizado',
+};
+
+String _itemsLabel(int count) => count == 1 ? '1 elemento' : '$count elementos';
+
 class _HistoryLoadingPlaceholder extends StatelessWidget {
   const _HistoryLoadingPlaceholder();
 
@@ -320,13 +340,13 @@ class _HistoryEmptyState extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           Text(
-            'No entries match these filters',
+            'Sin resultados para estos filtros',
             style: Theme.of(context).textTheme.titleLarge,
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 8),
           const Text(
-            'Try a different search or a wider period.',
+            'Prueba otra búsqueda o un periodo más amplio.',
             textAlign: TextAlign.center,
           ),
         ],
@@ -343,11 +363,12 @@ class _HistoryCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final primary = item.movements.isEmpty ? null : item.movements.first;
-    final title = item.expense?.store ?? item.description ?? item.type.name;
+    final title =
+        item.expense?.store ?? item.description ?? _typeLabel(item.type);
     final subtitle = [
-      item.type.name,
+      _typeLabel(item.type),
       if (item.incomeSource != null) item.incomeSource!,
-      if (item.expense != null) '${item.expense!.items.length} items',
+      if (item.expense != null) _itemsLabel(item.expense!.items.length),
     ].join(' · ');
     return Card(
       key: Key('history-card-${item.id}'),

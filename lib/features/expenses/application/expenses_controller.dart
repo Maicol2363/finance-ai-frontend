@@ -297,45 +297,47 @@ class ExpensesController extends Notifier<ExpensesState> {
     if (name != null) {
       normalizedName = name.trim();
       if (normalizedName.isEmpty) {
-        errors['name'] = ['Use a non-empty name.'];
+        errors['name'] = ['Usa un nombre no vacío.'];
       } else if (normalizedName.runes.length > 200) {
-        errors['name'] = ['Name must be 200 characters or fewer.'];
+        errors['name'] = ['El nombre debe tener 200 caracteres o menos.'];
       }
     }
     MoneyAmount? amount;
     if (amountInput != null) {
       amount = MoneyAmount.tryParseUserInput(amountInput);
       if (amount == null || amount.isNegative || amount.minorUnits == 0) {
-        errors['amount'] = ['Enter a valid positive amount.'];
+        errors['amount'] = ['Ingresa un monto positivo válido.'];
       }
     }
     if (note != null && note.runes.length > 5000) {
-      errors['note'] = ['Note must be 5000 characters or fewer.'];
+      errors['note'] = ['La nota debe tener 5000 caracteres o menos.'];
     }
     String? normalizedReceiptName;
     if (receiptName != null) {
       normalizedReceiptName = receiptName.trim();
       if (normalizedReceiptName.isEmpty) {
-        errors['receipt_name'] = ['Use a non-empty merchant name.'];
+        errors['receipt_name'] = ['Usa un nombre de comercio no vacío.'];
       } else if (normalizedReceiptName.runes.length > 150) {
         errors['receipt_name'] = [
-          'Merchant name must be 150 characters or fewer.',
+          'El comercio debe tener 150 caracteres o menos.',
         ];
       }
     }
     if (receiptNote != null && receiptNote.runes.length > 5000) {
       errors['receipt_note'] = [
-        'Receipt note must be 5000 characters or fewer.',
+        'La nota del recibo debe tener 5000 caracteres o menos.',
       ];
     }
     if (categoryId != null && categoryId < 1) {
-      errors['category_id'] = ['Select one of your categories.'];
+      errors['category_id'] = ['Elige una de tus categorías.'];
     }
     if (accountId != null && accountId < 1) {
-      errors['account_id'] = ['Select an active account.'];
+      errors['account_id'] = ['Elige una cuenta activa.'];
     }
     if (description != null && description.runes.length > 500) {
-      errors['description'] = ['Description must be 500 characters or fewer.'];
+      errors['description'] = [
+        'La descripción debe tener 500 caracteres o menos.',
+      ];
     }
     final touched =
         name != null ||
@@ -350,7 +352,7 @@ class ExpensesController extends Notifier<ExpensesState> {
         occurredAt != null ||
         description != null;
     if (!touched) {
-      errors['request'] = ['Change at least one field before saving.'];
+      errors['request'] = ['Cambia al menos un campo antes de guardar.'];
     }
     if (errors.isNotEmpty) {
       state = state.copyWith(
@@ -359,7 +361,7 @@ class ExpensesController extends Notifier<ExpensesState> {
         mutationDiagnostic: ErrorDiagnostic.capture(
           code: 'expense_invalid',
           operation: 'validate_expense',
-          userMessage: 'Please correct the highlighted fields.',
+          userMessage: 'Corrige los campos marcados.',
           technicalReason: 'client_validation',
         ),
       );
@@ -609,7 +611,7 @@ class ExpensesController extends Notifier<ExpensesState> {
     return ErrorDiagnostic.capture(
       code: 'unexpected_client_error',
       operation: operation,
-      userMessage: 'The operation could not be completed. Please try again.',
+      userMessage: 'La operación no se pudo completar. Inténtalo de nuevo.',
       technicalReason: 'unclassified_client_failure',
     );
   }

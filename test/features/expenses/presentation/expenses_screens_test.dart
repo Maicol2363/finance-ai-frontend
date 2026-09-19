@@ -159,7 +159,7 @@ void main() {
     await tester.tap(find.byKey(const Key('expense-card-7')));
     await tester.pumpAndSettle();
 
-    expect(find.text('Expense details'), findsOneWidget);
+    expect(find.text('Detalle del gasto'), findsOneWidget);
     expect(find.text('Groceries'), findsOneWidget);
     await tester.scrollUntilVisible(
       find.byKey(const Key('expense-edit-button')),
@@ -178,7 +178,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('expense-delete-button')));
     await tester.pumpAndSettle();
-    expect(find.text('Delete this expense permanently?'), findsOneWidget);
+    expect(find.text('¿Eliminar este gasto definitivamente?'), findsOneWidget);
 
     await tester.tap(find.byKey(const Key('expense-confirm-delete-button')));
     await tester.pumpAndSettle();
@@ -215,7 +215,7 @@ void main() {
 
     expect(repository.lastCommand?.name, 'Updated groceries');
     expect(repository.lastCommand?.amount?.toApiString(), '30.00');
-    expect(find.text('Expense details'), findsOneWidget);
+    expect(find.text('Detalle del gasto'), findsOneWidget);
   });
 
   testWidgets('history renders entries and applies the search filter', (
@@ -244,6 +244,6 @@ void main() {
     final repository = WidgetExpensesRepository()..historyItems = [];
     await pumpExpensesApp(tester, repository, initialLocation: '/history');
 
-    expect(find.text('No entries match these filters'), findsOneWidget);
+    expect(find.text('Sin resultados para estos filtros'), findsOneWidget);
   });
 }
