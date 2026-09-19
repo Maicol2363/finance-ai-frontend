@@ -107,6 +107,16 @@ class HomeScreen extends ConsumerWidget {
                         SettingsGroup(
                           children: [
                             ManageRow(
+                              rowKey: const Key('home-incomes-button'),
+                              title: 'Ingresos',
+                              subtitle: 'Registra y consulta dinero recibido',
+                              icon: Icons.trending_up,
+                              trailing: const [
+                                Icon(Icons.chevron_right, size: 18),
+                              ],
+                              onTap: () => context.go('/incomes'),
+                            ),
+                            ManageRow(
                               rowKey: const Key('home-accounts-button'),
                               title: 'Cuentas y saldos',
                               subtitle: 'Dónde está tu dinero',

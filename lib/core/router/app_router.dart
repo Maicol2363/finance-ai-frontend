@@ -16,6 +16,9 @@ import '../../features/expenses/presentation/expenses_screen.dart';
 import '../../features/expenses/presentation/history_screen.dart';
 import '../../features/home/presentation/home_screen.dart';
 import '../../features/income_sources/presentation/income_sources_screen.dart';
+import '../../features/incomes/presentation/income_detail_screen.dart';
+import '../../features/incomes/presentation/income_form_screen.dart';
+import '../../features/incomes/presentation/income_list_screen.dart';
 import '../../features/settings/presentation/settings_screen.dart';
 import 'app_shell.dart';
 
@@ -27,6 +30,7 @@ const _authenticatedRoots = <String>[
   '/expenses',
   '/history',
   '/income-sources',
+  '/incomes',
 ];
 
 bool _isProtected(String location) {
@@ -112,6 +116,36 @@ GoRouter createAppRouter({
         path: '/income-sources',
         name: 'incomeSources',
         builder: (context, state) => const IncomeSourcesScreen(),
+      ),
+      GoRoute(
+        path: '/incomes',
+        name: 'incomes',
+        builder: (context, state) => const IncomeListScreen(),
+        routes: [
+          GoRoute(
+            path: 'new',
+            name: 'income-new',
+            builder: (context, state) => const IncomeFormScreen(),
+          ),
+          GoRoute(
+            path: ':incomeId',
+            name: 'income-detail',
+            builder: (context, state) => IncomeDetailScreen(
+              incomeId:
+                  int.tryParse(state.pathParameters['incomeId'] ?? '') ?? 0,
+            ),
+            routes: [
+              GoRoute(
+                path: 'edit',
+                name: 'income-edit',
+                builder: (context, state) => IncomeFormScreen(
+                  incomeId:
+                      int.tryParse(state.pathParameters['incomeId'] ?? '') ?? 0,
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
       GoRoute(
         path: '/categories',
