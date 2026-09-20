@@ -895,6 +895,125 @@ class _ExpenseCreateScreenState extends ConsumerState<ExpenseCreateScreen> {
                       ],
                     ),
                   ],
+                  if (!isIncome) ...[
+                    const SizedBox(height: 16),
+                    Text(
+                      'Categoría',
+                      style: TextStyle(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w700,
+                        color: palette.muted,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        InkWell(
+                          key: const Key('expense-category-chip-none'),
+                          borderRadius: BorderRadius.circular(10),
+                          onTap: formEnabled
+                              ? () {
+                                  setState(() => _selectedCategoryId = null);
+                                  controller.clearFieldError('category_id');
+                                }
+                              : null,
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 150),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 9,
+                            ),
+                            decoration: BoxDecoration(
+                              color: _selectedCategoryId == null
+                                  ? palette.primary
+                                  : palette.card,
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(
+                                color: _selectedCategoryId == null
+                                    ? palette.primary
+                                    : palette.line,
+                              ),
+                            ),
+                            child: Text(
+                              'Sin categoría',
+                              style: TextStyle(
+                                fontSize: 12.5,
+                                fontWeight: FontWeight.w600,
+                                color: _selectedCategoryId == null
+                                    ? Colors.white
+                                    : palette.text,
+                              ),
+                            ),
+                          ),
+                        ),
+                        for (final cat in _categories)
+                          InkWell(
+                            key: Key('expense-category-chip-${cat.id}'),
+                            borderRadius: BorderRadius.circular(10),
+                            onTap: formEnabled
+                                ? () {
+                                    setState(() => _selectedCategoryId = cat.id);
+                                    controller.clearFieldError('category_id');
+                                  }
+                                : null,
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 150),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 14,
+                                vertical: 9,
+                              ),
+                              decoration: BoxDecoration(
+                                color: _selectedCategoryId == cat.id
+                                    ? palette.primary
+                                    : palette.card,
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(
+                                  color: _selectedCategoryId == cat.id
+                                      ? palette.primary
+                                      : palette.line,
+                                ),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    cat.icon.value,
+                                    size: 15,
+                                    color: _selectedCategoryId == cat.id
+                                        ? Colors.white
+                                        : cat.color.value,
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    cat.name,
+                                    style: TextStyle(
+                                      fontSize: 12.5,
+                                      fontWeight: FontWeight.w600,
+                                      color: _selectedCategoryId == cat.id
+                                          ? Colors.white
+                                          : palette.text,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ActionChip(
+                          key: const Key('expense-create-new-category-chip'),
+                          avatar: const Icon(Icons.add, size: 16),
+                          label: const Text('Nueva categoría'),
+                          onPressed: formEnabled
+                              ? () async {
+                                  await context.push('/categories/new');
+                                  _loadOptions();
+                                }
+                              : null,
+                        ),
+                      ],
+                    ),
+                  ],
                   const SizedBox(height: 16),
 
                   // =================== DETALLES OPCIONALES COLAPSADOS ===================
