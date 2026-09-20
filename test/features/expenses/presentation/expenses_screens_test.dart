@@ -7,6 +7,8 @@ import 'package:finance_ai/features/categories/domain/category_models.dart';
 import 'package:finance_ai/features/expenses/data/expenses_repository.dart';
 import 'package:finance_ai/features/expenses/domain/expense_models.dart';
 import 'package:finance_ai/features/expenses/domain/history_models.dart';
+import 'package:finance_ai/features/incomes/data/incomes_repository.dart';
+import 'package:finance_ai/features/incomes/domain/income_models.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -228,10 +230,45 @@ class FakeCategoriesRepository implements CategoriesRepository {
   Future<void> deleteCategory(int categoryId) async {}
 }
 
+class FakeIncomesRepository implements IncomesRepository {
+  IncomeWriteCommand? lastCreateCommand;
+
+  @override
+  Future<Income> create(IncomeWriteCommand command) async {
+    lastCreateCommand = command;
+    return Income(
+      id: 99,
+      accountId: command.accountId,
+      amount: command.amount,
+      date: command.date,
+      description: command.description,
+      incomeSourceId: command.incomeSourceId,
+      incomeSourceName: 'Salario',
+      accountName: 'Cash',
+      currencyCode: 'COP',
+    );
+  }
+
+  @override
+  Future<void> delete(int incomeId) async {}
+
+  @override
+  Future<Income> get(int incomeId) async => throw UnimplementedError();
+
+  @override
+  Future<List<Income>> list({int? accountId}) async => [];
+
+  @override
+  Future<Income> update(int incomeId, IncomeWriteCommand command) async =>
+      throw UnimplementedError();
+}
+
 Future<void> pumpExpensesApp(
   WidgetTester tester,
   WidgetExpensesRepository repository, {
   String initialLocation = '/expenses',
+  AccountsRepository? accountsRepository,
+  IncomesRepository? incomesRepository,
 }) async {
   final router = createAppRouter(initialLocation: initialLocation);
   addTearDown(router.dispose);
@@ -239,9 +276,14 @@ Future<void> pumpExpensesApp(
     ProviderScope(
       overrides: [
         expensesRepositoryProvider.overrideWithValue(repository),
-        accountsRepositoryProvider.overrideWithValue(FakeAccountsRepository()),
+        accountsRepositoryProvider.overrideWithValue(
+          accountsRepository ?? FakeAccountsRepository(),
+        ),
         categoriesRepositoryProvider.overrideWithValue(
           FakeCategoriesRepository(),
+        ),
+        incomesRepositoryProvider.overrideWithValue(
+          incomesRepository ?? FakeIncomesRepository(),
         ),
       ],
       child: FinanceApp(router: router),
@@ -284,6 +326,8 @@ void main() {
 
     expect(find.byKey(const Key('expenses-create-fab')), findsOneWidget);
     await tester.tap(find.byKey(const Key('expenses-create-fab')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('expenses-wheel-manual')));
     await tester.pumpAndSettle();
 
     expect(find.text('Registrar gasto'), findsWidgets);
@@ -399,4 +443,79 @@ void main() {
 
     expect(find.text('Sin resultados para estos filtros'), findsOneWidget);
   });
+
+  testWidgets('segmented control switches to income and creates income', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(800, 2400);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+
+    final repository = WidgetExpensesRepository();
+    final incomesRepo = FakeIncomesRepository();
+    await pumpExpensesApp(
+      tester,
+      repository,
+      incomesRepository: incomesRepo,
+      initialLocation: '/expenses/new',
+    );
+
+    expect(find.byKey(const Key('segment-gasto')), findsOneWidget);
+    expect(find.byKey(const Key('segment-ingreso')), findsOneWidget);
+
+    // Switch to income
+    await tester.tap(find.byKey(const Key('segment-ingreso')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Registrar ingreso'), findsWidgets);
+    expect(find.text('CUENTA DE DESTINO'), findsOneWidget);
+
+    // Enter amount
+    await tester.enterText(
+      find.byKey(const Key('expense-create-amount-field')),
+      '1500000.00',
+    );
+    await tester.pumpAndSettle();
+
+    // Submit income
+    await tester.tap(find.byKey(const Key('income-create-submit-button')));
+    await tester.pumpAndSettle();
+
+    expect(incomesRepo.lastCreateCommand?.amount.toApiString(), '1500000.00');
+    expect(incomesRepo.lastCreateCommand?.accountId, 11);
+  });
+
+  testWidgets('empty accounts shows helper message and quick create button', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(800, 2400);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+
+    final repository = WidgetExpensesRepository();
+    await pumpExpensesApp(
+      tester,
+      repository,
+      accountsRepository: EmptyAccountsRepository(),
+      initialLocation: '/expenses/new',
+    );
+
+    expect(find.text('No tienes cuentas registradas'), findsOneWidget);
+    expect(
+      find.byKey(const Key('expense-create-account-button')),
+      findsOneWidget,
+    );
+  });
+}
+
+class EmptyAccountsRepository extends FakeAccountsRepository {
+  @override
+  Future<AccountListResult> list({bool includeInactive = false}) async {
+    return const AccountListResult(
+      accounts: [],
+      suggestedCurrencyCode: 'COP',
+      supportedCurrencies: [cop],
+      accountTypes: [AccountType.cash],
+    );
+  }
 }

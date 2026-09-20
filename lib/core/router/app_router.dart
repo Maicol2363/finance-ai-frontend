@@ -10,6 +10,7 @@ import '../../features/auth/session/application/auth_session_state.dart';
 import '../../features/auth/session/presentation/session_bootstrap_screen.dart';
 import '../../features/categories/presentation/categories_screen.dart';
 import '../../features/categories/presentation/category_form_screen.dart';
+import '../../features/dashboard/presentation/dashboard_screen.dart';
 import '../../features/expenses/presentation/expense_create_screen.dart';
 import '../../features/expenses/presentation/expense_detail_screen.dart';
 import '../../features/expenses/presentation/expense_form_screen.dart';
@@ -25,6 +26,7 @@ import 'app_shell.dart';
 
 const _authenticatedRoots = <String>[
   '/home',
+  '/dashboard',
   '/settings',
   '/accounts',
   '/categories',
@@ -99,6 +101,15 @@ GoRouter createAppRouter({
                 path: '/home',
                 name: 'home',
                 builder: (context, state) => const HomeScreen(),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/dashboard',
+                name: 'dashboard',
+                builder: (context, state) => const DashboardScreen(),
               ),
             ],
           ),

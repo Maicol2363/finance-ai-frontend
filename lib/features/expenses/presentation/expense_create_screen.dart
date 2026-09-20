@@ -5,21 +5,31 @@ import 'package:go_router/go_router.dart';
 import '../../../core/diagnostics/error_diagnostic.dart';
 import '../../../core/diagnostics/error_diagnostic_panel.dart';
 import '../../../core/theme/app_palette.dart';
+import '../../../core/widgets/manage_widgets.dart';
 import '../../accounts/data/accounts_repository.dart';
 import '../../accounts/domain/account_models.dart';
+import '../../auth/session/application/auth_session_controller.dart';
 import '../../categories/data/categories_repository.dart';
 import '../../categories/domain/category_models.dart';
+import '../../income_sources/data/income_sources_repository.dart';
+import '../../income_sources/domain/income_source_models.dart';
+import '../../incomes/data/incomes_repository.dart';
+import '../../incomes/domain/income_models.dart';
 import '../application/expenses_controller.dart';
 import '../application/expenses_state.dart';
+
+enum MovementType { expense, income }
 
 class ExpenseCreateOptions {
   const ExpenseCreateOptions({
     required this.accounts,
     required this.categories,
+    required this.incomeSources,
   });
 
   final List<Account> accounts;
   final List<Category> categories;
+  final List<IncomeSource> incomeSources;
 }
 
 final expenseCreateOptionsProvider =
@@ -31,9 +41,20 @@ final expenseCreateOptionsProvider =
         final categoriesResult = await ref
             .read(categoriesRepositoryProvider)
             .list();
+        List<IncomeSource> sources = const [];
+        try {
+          sources = await ref
+              .read(authSessionControllerProvider.notifier)
+              .runProtected(
+                (access) => ref
+                    .read(incomeSourcesRepositoryProvider)
+                    .list(accessCredential: access),
+              );
+        } catch (_) {}
         return ExpenseCreateOptions(
           accounts: accountsResult.accounts,
           categories: categoriesResult.categories,
+          incomeSources: sources,
         );
       };
     });
@@ -47,21 +68,30 @@ class ExpenseCreateScreen extends ConsumerStatefulWidget {
 }
 
 class _ExpenseCreateScreenState extends ConsumerState<ExpenseCreateScreen> {
+  MovementType _type = MovementType.expense;
+
   final _merchantController = TextEditingController();
   final _amountController = TextEditingController();
   final _noteController = TextEditingController();
+  final _customSourceController = TextEditingController();
   final _merchantFocus = FocusNode();
   final _amountFocus = FocusNode();
 
   List<Account> _accounts = const [];
   List<Category> _categories = const [];
+  List<IncomeSource> _incomeSources = const [];
   int? _selectedAccountId;
   int? _selectedCategoryId;
+  int? _selectedSourceId;
+  String? _selectedSourceName;
   DateTime _occurredAt = DateTime.now();
 
   bool _loadingOptions = true;
   bool _showOptionalDetails = false;
+  bool _isSavingIncome = false;
+  Map<String, List<String>> _incomeFieldErrors = const {};
   ErrorDiagnostic? _loadDiagnostic;
+  ErrorDiagnostic? _incomeDiagnostic;
 
   @override
   void initState() {
@@ -78,6 +108,7 @@ class _ExpenseCreateScreenState extends ConsumerState<ExpenseCreateScreen> {
     _merchantController.dispose();
     _amountController.dispose();
     _noteController.dispose();
+    _customSourceController.dispose();
     _merchantFocus.dispose();
     _amountFocus.dispose();
     super.dispose();
@@ -94,10 +125,18 @@ class _ExpenseCreateScreenState extends ConsumerState<ExpenseCreateScreen> {
       setState(() {
         _accounts = options.accounts;
         _categories = options.categories;
-        _selectedAccountId = options.accounts
-            .where((a) => a.isActive)
-            .firstOrNull
-            ?.id;
+        _incomeSources = options.incomeSources;
+        if (_selectedAccountId == null ||
+            !_accounts.any((a) => a.id == _selectedAccountId)) {
+          _selectedAccountId = options.accounts
+              .where((a) => a.isActive)
+              .firstOrNull
+              ?.id;
+        }
+        if (_selectedSourceId == null && options.incomeSources.isNotEmpty) {
+          _selectedSourceId = options.incomeSources.first.id;
+          _selectedSourceName = options.incomeSources.first.name;
+        }
         _loadingOptions = false;
       });
     } on Object {
@@ -108,7 +147,7 @@ class _ExpenseCreateScreenState extends ConsumerState<ExpenseCreateScreen> {
           code: 'expense_options_unavailable',
           operation: 'load_expense_create_options',
           userMessage:
-              'No pudimos cargar tus cuentas y categorías. Inténtalo de nuevo.',
+              'No pudimos cargar tus cuentas y catálogos. Inténtalo de nuevo.',
           technicalReason: 'form_options_failure',
         );
       });
@@ -138,6 +177,14 @@ class _ExpenseCreateScreenState extends ConsumerState<ExpenseCreateScreen> {
   }
 
   Future<void> _save() async {
+    if (_type == MovementType.income) {
+      await _saveIncome();
+    } else {
+      await _saveExpense();
+    }
+  }
+
+  Future<void> _saveExpense() async {
     final controller = ref.read(expensesControllerProvider.notifier);
     final outcome = await controller.create(
       accountId: _selectedAccountId,
@@ -149,11 +196,81 @@ class _ExpenseCreateScreenState extends ConsumerState<ExpenseCreateScreen> {
     );
     if (!mounted) return;
     if (outcome == ExpenseMutationOutcome.success) {
-      context.go('/expenses');
+      context.go('/home');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Gasto registrado exitosamente.')),
+      );
+    }
+  }
+
+  Future<void> _saveIncome() async {
+    if (_isSavingIncome) return;
+    final errors = <String, List<String>>{};
+    final account = _accounts
+        .where((a) => a.id == _selectedAccountId)
+        .firstOrNull;
+    if (account == null || !account.isActive) {
+      errors['account_id'] = ['Selecciona una cuenta activa.'];
+    }
+    final amount = MoneyAmount.tryParseUserInput(_amountController.text);
+    if (amount == null || amount.minorUnits <= 0) {
+      errors['amount'] = [
+        'Ingresa un monto positivo con máximo dos decimales.',
+      ];
+    }
+    if (errors.isNotEmpty) {
+      setState(() {
+        _incomeFieldErrors = errors;
+      });
+      return;
+    }
+    setState(() {
+      _isSavingIncome = true;
+      _incomeFieldErrors = const {};
+      _incomeDiagnostic = null;
+    });
+
+    final sourceText = _customSourceController.text.trim().isNotEmpty
+        ? _customSourceController.text.trim()
+        : _selectedSourceName ?? 'Ingreso';
+
+    final command = IncomeWriteCommand(
+      accountId: account!.id,
+      amount: amount!,
+      date: _occurredAt,
+      description: _merchantController.text.trim().isNotEmpty
+          ? _merchantController.text.trim()
+          : sourceText,
+      incomeSourceId: _selectedSourceId,
+    );
+
+    try {
+      final repository = ref.read(incomesRepositoryProvider);
+      await repository.create(command);
+      if (!mounted) return;
+      ref.read(incomeRevisionProvider.notifier).changed();
+      context.go('/home');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Ingreso registrado exitosamente.')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _isSavingIncome = false;
+        _incomeDiagnostic = ErrorDiagnostic.capture(
+          code: 'income_save_failed',
+          operation: 'save_income',
+          userMessage: 'No pudimos guardar el ingreso. Inténtalo de nuevo.',
+          technicalReason: e.toString(),
+        );
+      });
     }
   }
 
   String? _firstError(ExpensesState state, String field) {
+    if (_type == MovementType.income) {
+      return _incomeFieldErrors[field]?.firstOrNull;
+    }
     return state.fieldErrors[field]?.firstOrNull;
   }
 
@@ -170,7 +287,7 @@ class _ExpenseCreateScreenState extends ConsumerState<ExpenseCreateScreen> {
       case AccountType.creditCard:
         return '💳';
       case AccountType.other:
-        return '🪙';
+        return '◈';
     }
   }
 
@@ -179,8 +296,9 @@ class _ExpenseCreateScreenState extends ConsumerState<ExpenseCreateScreen> {
     final palette = context.palette;
     final state = ref.watch(expensesControllerProvider);
     final controller = ref.read(expensesControllerProvider.notifier);
+    final isSaving = state.isSaving || _isSavingIncome;
     final formEnabled =
-        !state.isSaving && !state.requiresMutationReview && !_loadingOptions;
+        !isSaving && !state.requiresMutationReview && !_loadingOptions;
 
     final selectedAccount = _accounts
         .where((a) => a.id == _selectedAccountId)
@@ -189,16 +307,18 @@ class _ExpenseCreateScreenState extends ConsumerState<ExpenseCreateScreen> {
         ? '\$'
         : '\$';
 
+    final isIncome = _type == MovementType.income;
+
     return PopScope(
-      canPop: !state.isSaving,
+      canPop: !isSaving,
       child: Scaffold(
         appBar: AppBar(
           leading: IconButton(
-            tooltip: 'Volver a gastos',
-            onPressed: state.isSaving ? null : () => context.go('/expenses'),
+            tooltip: 'Volver al inicio',
+            onPressed: isSaving ? null : () => context.go('/home'),
             icon: const Icon(Icons.arrow_back),
           ),
-          title: const Text('Registrar gasto'),
+          title: Text(isIncome ? 'Registrar ingreso' : 'Registrar gasto'),
         ),
         body: SafeArea(
           child: Center(
@@ -207,12 +327,114 @@ class _ExpenseCreateScreenState extends ConsumerState<ExpenseCreateScreen> {
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(20, 12, 20, 40),
                 children: [
-                  if (_loadingOptions || state.isSaving) ...[
+                  // =================== SEGMENTED TOGGLE (GASTO / INGRESO) ===================
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 16),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: palette.soft,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      padding: const EdgeInsets.all(3),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: InkWell(
+                              key: const Key('segment-gasto'),
+                              onTap: formEnabled
+                                  ? () => setState(
+                                      () => _type = MovementType.expense)
+                                  : null,
+                              borderRadius: BorderRadius.circular(10),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 10,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: !isIncome
+                                      ? palette.card
+                                      : Colors.transparent,
+                                  borderRadius: BorderRadius.circular(10),
+                                  boxShadow: !isIncome
+                                      ? const [
+                                          BoxShadow(
+                                            color: Color(0x0A0F172A),
+                                            blurRadius: 4,
+                                            offset: Offset(0, 1),
+                                          ),
+                                        ]
+                                      : null,
+                                ),
+                                child: Center(
+                                  child: Text(
+                                    'Gasto',
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w700,
+                                      color: !isIncome
+                                          ? palette.text
+                                          : palette.muted,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                          Expanded(
+                            child: InkWell(
+                              key: const Key('segment-ingreso'),
+                              onTap: formEnabled
+                                  ? () => setState(
+                                      () => _type = MovementType.income)
+                                  : null,
+                              borderRadius: BorderRadius.circular(10),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 10,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: isIncome
+                                      ? palette.card
+                                      : Colors.transparent,
+                                  borderRadius: BorderRadius.circular(10),
+                                  boxShadow: isIncome
+                                      ? const [
+                                          BoxShadow(
+                                            color: Color(0x0A0F172A),
+                                            blurRadius: 4,
+                                            offset: Offset(0, 1),
+                                          ),
+                                        ]
+                                      : null,
+                                ),
+                                child: Center(
+                                  child: Text(
+                                    'Ingreso',
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w700,
+                                      color: isIncome
+                                          ? palette.income
+                                          : palette.muted,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+
+                  if (_loadingOptions || isSaving) ...[
                     Semantics(
                       liveRegion: true,
                       label: _loadingOptions
-                          ? 'Cargando opciones del gasto'
-                          : 'Registrando gasto',
+                          ? 'Cargando opciones'
+                          : (isIncome
+                              ? 'Registrando ingreso'
+                              : 'Registrando gasto'),
                       child: const LinearProgressIndicator(),
                     ),
                     const SizedBox(height: 16),
@@ -231,8 +453,12 @@ class _ExpenseCreateScreenState extends ConsumerState<ExpenseCreateScreen> {
                     ErrorDiagnosticPanel(diagnostic: diagnostic),
                     const SizedBox(height: 16),
                   ],
+                  if (_incomeDiagnostic case final diagnostic?) ...[
+                    ErrorDiagnosticPanel(diagnostic: diagnostic),
+                    const SizedBox(height: 16),
+                  ],
 
-                  // HERO AMOUNT BOX (Estilo Mockup)
+                  // =================== HERO AMOUNT BOX ===================
                   Container(
                     decoration: BoxDecoration(
                       color: palette.card,
@@ -259,11 +485,11 @@ class _ExpenseCreateScreenState extends ConsumerState<ExpenseCreateScreen> {
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
                         Text(
-                          currencySymbol,
+                          isIncome ? '+ $currencySymbol' : currencySymbol,
                           style: TextStyle(
-                            fontSize: 30,
+                            fontSize: 28,
                             fontWeight: FontWeight.w800,
-                            color: palette.text,
+                            color: isIncome ? palette.income : palette.text,
                           ),
                         ),
                         const SizedBox(width: 8),
@@ -280,7 +506,7 @@ class _ExpenseCreateScreenState extends ConsumerState<ExpenseCreateScreen> {
                             style: TextStyle(
                               fontSize: 32,
                               fontWeight: FontWeight.w800,
-                              color: palette.text,
+                              color: isIncome ? palette.income : palette.text,
                             ),
                             decoration: InputDecoration(
                               hintText: '0',
@@ -297,8 +523,14 @@ class _ExpenseCreateScreenState extends ConsumerState<ExpenseCreateScreen> {
                               contentPadding: EdgeInsets.zero,
                               filled: false,
                             ),
-                            onChanged: (_) =>
-                                controller.clearFieldError('amount'),
+                            onChanged: (_) {
+                              controller.clearFieldError('amount');
+                              setState(() {
+                                _incomeFieldErrors =
+                                    Map.from(_incomeFieldErrors)
+                                      ..remove('amount');
+                              });
+                            },
                           ),
                         ),
                       ],
@@ -316,35 +548,167 @@ class _ExpenseCreateScreenState extends ConsumerState<ExpenseCreateScreen> {
                   ],
                   const SizedBox(height: 14),
 
-                  // COMERCIO O DESCRIPCIÓN (Estilo Mockup)
-                  Text(
-                    '¿EN QUÉ GASTASTE? / COMERCIO',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 0.4,
-                      color: palette.muted,
+                  // =================== CONCEPTO O FUENTE DE INGRESO ===================
+                  if (isIncome) ...[
+                    Text(
+                      'FUENTE DE INGRESO',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0.4,
+                        color: palette.muted,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 6),
-                  TextField(
-                    key: const Key('expense-create-merchant-field'),
-                    controller: _merchantController,
-                    focusNode: _merchantFocus,
-                    enabled: formEnabled,
-                    textInputAction: TextInputAction.next,
-                    maxLength: 150,
-                    decoration: InputDecoration(
-                      hintText: 'ej. Almuerzo, D1, Taxi, Café...',
-                      errorText: _firstError(state, 'merchant'),
+                    const SizedBox(height: 6),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        if (_incomeSources.isNotEmpty)
+                          for (final source in _incomeSources)
+                            InkWell(
+                              borderRadius: BorderRadius.circular(10),
+                              onTap: formEnabled
+                                  ? () {
+                                      setState(() {
+                                        _selectedSourceId = source.id;
+                                        _selectedSourceName = source.name;
+                                        _customSourceController.clear();
+                                      });
+                                    }
+                                  : null,
+                              child: AnimatedContainer(
+                                duration: const Duration(milliseconds: 150),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 14,
+                                  vertical: 9,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: _selectedSourceId == source.id
+                                      ? palette.primary
+                                      : palette.card,
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(
+                                    color: _selectedSourceId == source.id
+                                        ? palette.primary
+                                        : palette.line,
+                                  ),
+                                ),
+                                child: Text(
+                                  '💼 ${source.name}',
+                                  style: TextStyle(
+                                    fontSize: 12.5,
+                                    fontWeight: FontWeight.w600,
+                                    color: _selectedSourceId == source.id
+                                        ? Colors.white
+                                        : palette.text,
+                                  ),
+                                ),
+                              ),
+                            )
+                        else ...[
+                          for (final defaultName in [
+                            'Salario',
+                            'Freelance',
+                            'Transferencia',
+                            'Regalo',
+                          ])
+                            InkWell(
+                              borderRadius: BorderRadius.circular(10),
+                              onTap: formEnabled
+                                  ? () {
+                                      setState(() {
+                                        _selectedSourceName = defaultName;
+                                        _selectedSourceId = null;
+                                        _customSourceController.clear();
+                                      });
+                                    }
+                                  : null,
+                              child: AnimatedContainer(
+                                duration: const Duration(milliseconds: 150),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 14,
+                                  vertical: 9,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: _selectedSourceName == defaultName
+                                      ? palette.primary
+                                      : palette.card,
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(
+                                    color: _selectedSourceName == defaultName
+                                        ? palette.primary
+                                        : palette.line,
+                                  ),
+                                ),
+                                child: Text(
+                                  defaultName == 'Salario'
+                                      ? '💼 Salario'
+                                      : (defaultName == 'Freelance'
+                                          ? '💻 Freelance'
+                                          : (defaultName == 'Transferencia'
+                                              ? '🔄 Transferencia'
+                                              : '🎁 Regalo')),
+                                  style: TextStyle(
+                                    fontSize: 12.5,
+                                    fontWeight: FontWeight.w600,
+                                    color: _selectedSourceName == defaultName
+                                        ? Colors.white
+                                        : palette.text,
+                                  ),
+                                ),
+                              ),
+                            ),
+                        ],
+                      ],
                     ),
-                    onChanged: (_) => controller.clearFieldError('merchant'),
-                  ),
-                  const SizedBox(height: 10),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: _customSourceController,
+                      enabled: formEnabled,
+                      decoration: const InputDecoration(
+                        hintText: 'O escribe otra fuente de ingreso...',
+                      ),
+                      onChanged: (text) {
+                        if (text.isNotEmpty) {
+                          setState(() {
+                            _selectedSourceId = null;
+                            _selectedSourceName = text;
+                          });
+                        }
+                      },
+                    ),
+                  ] else ...[
+                    Text(
+                      '¿EN QUÉ GASTASTE? / COMERCIO',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0.4,
+                        color: palette.muted,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    TextField(
+                      key: const Key('expense-create-merchant-field'),
+                      controller: _merchantController,
+                      focusNode: _merchantFocus,
+                      enabled: formEnabled,
+                      textInputAction: TextInputAction.next,
+                      maxLength: 150,
+                      decoration: InputDecoration(
+                        hintText: 'ej. Almuerzo, D1, Taxi, Café...',
+                        errorText: _firstError(state, 'merchant'),
+                      ),
+                      onChanged: (_) =>
+                          controller.clearFieldError('merchant'),
+                    ),
+                  ],
+                  const SizedBox(height: 12),
 
-                  // CUENTA DE PAGO - CHIPS (Estilo Mockup)
+                  // =================== CUENTA DE PAGO / DESTINO ===================
                   Text(
-                    'CUENTA DE PAGO',
+                    isIncome ? 'CUENTA DE DESTINO' : 'CUENTA DE PAGO',
                     style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w700,
@@ -363,56 +727,135 @@ class _ExpenseCreateScreenState extends ConsumerState<ExpenseCreateScreen> {
                       ),
                     ),
                   ],
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: [
-                      for (final account in _accounts)
-                        InkWell(
-                          key: Key('expense-account-chip-${account.id}'),
-                          borderRadius: BorderRadius.circular(10),
-                          onTap: formEnabled
-                              ? () {
-                                  setState(
-                                    () => _selectedAccountId = account.id,
-                                  );
-                                  controller.clearFieldError('account_id');
-                                }
-                              : null,
-                          child: AnimatedContainer(
-                            duration: const Duration(milliseconds: 150),
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 14,
-                              vertical: 9,
+
+                  // Si no hay cuentas (y ya terminamos de cargar), mostramos un card con el botón para crearla directamente
+                  if (!_loadingOptions && _accounts.isEmpty) ...[
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 12,
+                      ),
+                      decoration: BoxDecoration(
+                        color: palette.soft,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: palette.line),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.account_balance_wallet_outlined,
+                            size: 22,
+                            color: palette.primary,
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'No tienes cuentas registradas',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w700,
+                                    color: palette.text,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  'Crea una cuenta (Efectivo, Bancolombia, etc.) para registrar movimientos.',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: palette.muted,
+                                  ),
+                                ),
+                              ],
                             ),
-                            decoration: BoxDecoration(
-                              color: _selectedAccountId == account.id
-                                  ? palette.primary
-                                  : palette.card,
-                              borderRadius: BorderRadius.circular(10),
-                              border: Border.all(
-                                color: _selectedAccountId == account.id
-                                    ? palette.primary
-                                    : palette.line,
+                          ),
+                          const SizedBox(width: 8),
+                          FilledButton.tonal(
+                            key: const Key('expense-create-account-button'),
+                            style: FilledButton.styleFrom(
+                              minimumSize: const Size(60, 36),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 8,
                               ),
                             ),
-                            child: Text(
-                              '${_accountIcon(account.type)} ${account.name}',
-                              style: TextStyle(
-                                fontSize: 12.5,
-                                fontWeight: FontWeight.w600,
+                            onPressed: () async {
+                              await context.push('/accounts/new');
+                              _loadOptions();
+                            },
+                            child: const Text('＋ Crear'),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ] else if (!_loadingOptions) ...[
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        for (final account in _accounts)
+                          InkWell(
+                            key: Key('expense-account-chip-${account.id}'),
+                            borderRadius: BorderRadius.circular(10),
+                            onTap: formEnabled
+                                ? () {
+                                    setState(
+                                      () => _selectedAccountId = account.id,
+                                    );
+                                    controller.clearFieldError('account_id');
+                                    setState(() {
+                                      _incomeFieldErrors =
+                                          Map.from(_incomeFieldErrors)
+                                            ..remove('account_id');
+                                    });
+                                  }
+                                : null,
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 150),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 14,
+                                vertical: 9,
+                              ),
+                              decoration: BoxDecoration(
                                 color: _selectedAccountId == account.id
-                                    ? Colors.white
-                                    : palette.text,
+                                    ? palette.primary
+                                    : palette.card,
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(
+                                  color: _selectedAccountId == account.id
+                                      ? palette.primary
+                                      : palette.line,
+                                ),
+                              ),
+                              child: Text(
+                                '${_accountIcon(account.type)} ${account.name}',
+                                style: TextStyle(
+                                  fontSize: 12.5,
+                                  fontWeight: FontWeight.w600,
+                                  color: _selectedAccountId == account.id
+                                      ? Colors.white
+                                      : palette.text,
+                                ),
                               ),
                             ),
                           ),
+                        // Chip para agregar otra cuenta rápidamente
+                        ActionChip(
+                          avatar: const Icon(Icons.add, size: 16),
+                          label: const Text('Nueva'),
+                          onPressed: () async {
+                            await context.push('/accounts/new');
+                            _loadOptions();
+                          },
                         ),
-                    ],
-                  ),
+                      ],
+                    ),
+                  ],
                   const SizedBox(height: 16),
 
-                  // DETALLES OPCIONALES COLAPSADOS (AC-3)
+                  // =================== DETALLES OPCIONALES COLAPSADOS ===================
                   InkWell(
                     key: const Key('expense-create-optional-toggle'),
                     borderRadius: BorderRadius.circular(8),
@@ -427,7 +870,9 @@ class _ExpenseCreateScreenState extends ConsumerState<ExpenseCreateScreen> {
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Text(
-                            'Detalles opcionales (categoría, fecha, nota)',
+                            isIncome
+                                ? 'Detalles opcionales (fecha, nota)'
+                                : 'Detalles opcionales (categoría, fecha, nota)',
                             style: TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.w700,
@@ -448,58 +893,55 @@ class _ExpenseCreateScreenState extends ConsumerState<ExpenseCreateScreen> {
                   if (_showOptionalDetails) ...[
                     Material(
                       color: palette.soft2,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14),
-                        side: BorderSide(color: palette.line),
-                      ),
+                      borderRadius: BorderRadius.circular(14),
                       child: Padding(
                         padding: const EdgeInsets.all(14),
                         child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
-                            DropdownButtonFormField<int?>(
-                              key: const Key('expense-create-category-field'),
-                              initialValue: _selectedCategoryId,
-                              decoration: InputDecoration(
-                                labelText: 'Categoría (opcional)',
-                                errorText: _firstError(state, 'category_id'),
-                              ),
-                              items: [
-                                const DropdownMenuItem(
-                                  value: null,
-                                  child: Text('Sin categorizar'),
+                            if (!isIncome) ...[
+                              DropdownButtonFormField<int?>(
+                                key: const Key(
+                                  'expense-create-category-field',
                                 ),
-                                for (final cat in _categories)
-                                  DropdownMenuItem(
-                                    value: cat.id,
-                                    child: Text(cat.name),
+                                initialValue: _selectedCategoryId,
+                                decoration: const InputDecoration(
+                                  labelText: 'Categoría (opcional)',
+                                ),
+                                items: [
+                                  const DropdownMenuItem(
+                                    value: null,
+                                    child: Text('Sin categorizar'),
                                   ),
-                              ],
-                              onChanged: formEnabled
-                                  ? (value) {
-                                      setState(
-                                        () => _selectedCategoryId = value,
-                                      );
-                                      controller.clearFieldError('category_id');
-                                    }
-                                  : null,
-                            ),
-                            const SizedBox(height: 12),
-                            Material(
-                              color: Colors.transparent,
-                              child: ListTile(
-                                contentPadding: EdgeInsets.zero,
-                                title: const Text('Fecha del gasto'),
-                                subtitle: Text(
-                                  '${_occurredAt.year}-${_occurredAt.month.toString().padLeft(2, '0')}-${_occurredAt.day.toString().padLeft(2, '0')}',
-                                ),
-                                trailing: IconButton(
-                                  icon: const Icon(
+                                  ..._categories.map(
+                                    (cat) => DropdownMenuItem(
+                                      value: cat.id,
+                                      child: Text(cat.name),
+                                    ),
+                                  ),
+                                ],
+                                onChanged: formEnabled
+                                    ? (val) => setState(
+                                        () => _selectedCategoryId = val)
+                                    : null,
+                              ),
+                              const SizedBox(height: 12),
+                            ],
+                            InkWell(
+                              key: const Key('expense-create-date-field'),
+                              onTap: formEnabled ? _pickDate : null,
+                              borderRadius: BorderRadius.circular(8),
+                              child: InputDecorator(
+                                decoration: const InputDecoration(
+                                  labelText: 'Fecha',
+                                  suffixIcon: Icon(
                                     Icons.calendar_today_outlined,
                                   ),
-                                  onPressed: formEnabled ? _pickDate : null,
                                 ),
-                                onTap: formEnabled ? _pickDate : null,
+                                child: Text(
+                                  '${_occurredAt.year}-${_occurredAt.month.toString().padLeft(2, '0')}-${_occurredAt.day.toString().padLeft(2, '0')}',
+                                  style: TextStyle(color: palette.text),
+                                ),
                               ),
                             ),
                             const SizedBox(height: 12),
@@ -507,37 +949,43 @@ class _ExpenseCreateScreenState extends ConsumerState<ExpenseCreateScreen> {
                               key: const Key('expense-create-note-field'),
                               controller: _noteController,
                               enabled: formEnabled,
-                              textInputAction: TextInputAction.done,
-                              maxLines: 2,
                               maxLength: 5000,
-                              decoration: InputDecoration(
+                              maxLines: 2,
+                              decoration: const InputDecoration(
                                 labelText: 'Nota (opcional)',
-                                hintText:
-                                    'Detalles adicionales sobre la compra',
-                                errorText: _firstError(state, 'note'),
+                                hintText: 'Observación o motivo...',
                               ),
-                              onChanged: (_) =>
-                                  controller.clearFieldError('note'),
                             ),
                           ],
                         ),
                       ),
                     ),
+                    const SizedBox(height: 14),
                   ],
 
                   const SizedBox(height: 20),
+
+                  // =================== BOTÓN DE GUARDAR ===================
                   FilledButton.icon(
-                    key: const Key('expense-create-submit-button'),
+                    key: isIncome
+                        ? const Key('income-create-submit-button')
+                        : const Key('expense-create-submit-button'),
                     onPressed: formEnabled ? _save : null,
-                    icon: state.isSaving
-                        ? const SizedBox(
-                            width: 18,
-                            height: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Icon(Icons.check),
+                    style: FilledButton.styleFrom(
+                      backgroundColor:
+                          isIncome ? palette.income : palette.primary,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    icon: const Icon(Icons.check, size: 20),
                     label: Text(
-                      state.isSaving ? 'Guardando...' : 'Registrar gasto',
+                      isIncome ? 'Registrar ingreso' : 'Registrar gasto',
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
                   ),
                 ],

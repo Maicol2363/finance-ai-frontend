@@ -247,6 +247,7 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen>
               },
             ),
             _WheelBubble(
+              key: const Key('expenses-wheel-manual'),
               right: 160,
               bottom: 25,
               icon: '✎',
@@ -273,10 +274,7 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen>
                 backgroundColor: palette.primary,
                 foregroundColor: Colors.white,
                 shape: const CircleBorder(),
-                onPressed: () {
-                  // Direct navigation to maintain seamless test and user workflow
-                  context.go('/expenses/new');
-                },
+                onPressed: _toggleWheel,
                 child: AnimatedRotation(
                   turns: _isWheelOpen ? 0.125 : 0.0, // 45 degrees
                   duration: const Duration(milliseconds: 200),
@@ -293,6 +291,7 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen>
 
 class _WheelBubble extends StatelessWidget {
   const _WheelBubble({
+    super.key,
     required this.right,
     required this.bottom,
     required this.icon,
