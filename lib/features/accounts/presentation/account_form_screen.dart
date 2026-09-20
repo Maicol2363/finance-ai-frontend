@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/diagnostics/error_diagnostic_panel.dart';
+import '../../../core/formatters/money_formatter.dart';
 import '../application/accounts_controller.dart';
 import '../application/accounts_state.dart';
 import '../domain/account_models.dart';
@@ -20,7 +21,7 @@ class AccountFormScreen extends ConsumerStatefulWidget {
 
 class _AccountFormScreenState extends ConsumerState<AccountFormScreen> {
   final _nameController = TextEditingController();
-  final _openingBalanceController = TextEditingController(text: '0.00');
+  final _openingBalanceController = TextEditingController(text: '0');
   final _nameFocus = FocusNode();
   final _openingBalanceFocus = FocusNode();
   AccountType? _selectedType;
@@ -80,11 +81,11 @@ class _AccountFormScreenState extends ConsumerState<AccountFormScreen> {
       child: Scaffold(
         appBar: AppBar(
           leading: IconButton(
-            tooltip: 'Back to accounts',
+            tooltip: 'Volver a cuentas',
             onPressed: state.isSaving ? null : _goBack,
             icon: const Icon(Icons.arrow_back),
           ),
-          title: Text(widget.isEditing ? 'Edit account' : 'New account'),
+          title: Text(widget.isEditing ? 'Editar cuenta' : 'Nueva cuenta'),
         ),
         body: SafeArea(
           child: Center(
@@ -96,7 +97,7 @@ class _AccountFormScreenState extends ConsumerState<AccountFormScreen> {
                   if (waitingForEdit || waitingForOptions) ...[
                     Semantics(
                       liveRegion: true,
-                      label: 'Loading account form',
+                      label: 'Cargando formulario de cuenta',
                       child: const LinearProgressIndicator(),
                     ),
                     const SizedBox(height: 20),
@@ -107,7 +108,7 @@ class _AccountFormScreenState extends ConsumerState<AccountFormScreen> {
                     OutlinedButton.icon(
                       onPressed: controller.load,
                       icon: const Icon(Icons.refresh),
-                      label: const Text('Retry account options'),
+                      label: const Text('Reintentar opciones de cuenta'),
                     ),
                     const SizedBox(height: 20),
                   ],
@@ -119,7 +120,7 @@ class _AccountFormScreenState extends ConsumerState<AccountFormScreen> {
                         onPressed: () =>
                             controller.loadDetail(widget.accountId!),
                         icon: const Icon(Icons.refresh),
-                        label: const Text('Retry account details'),
+                        label: const Text('Reintentar detalles de la cuenta'),
                       ),
                       const SizedBox(height: 20),
                     ],
@@ -155,8 +156,8 @@ class _AccountFormScreenState extends ConsumerState<AccountFormScreen> {
       children: [
         Text(
           widget.isEditing
-              ? 'Keep the place where your money is tracked up to date.'
-              : 'Add Cash, a bank, digital wallet, savings product, credit card, or another account.',
+              ? 'Mantén al día la cuenta donde registras tu dinero.'
+              : 'Agrega efectivo, un banco, billetera digital, producto de ahorro, tarjeta de crédito u otra cuenta.',
           style: Theme.of(context).textTheme.bodyLarge,
         ),
         const SizedBox(height: 24),
@@ -172,8 +173,8 @@ class _AccountFormScreenState extends ConsumerState<AccountFormScreen> {
           textInputAction: TextInputAction.next,
           maxLength: 100,
           decoration: InputDecoration(
-            labelText: 'Account name',
-            hintText: 'Cash, Nequi, Bancolombia…',
+            labelText: 'Nombre de la cuenta',
+            hintText: 'Efectivo, Nequi, Bancolombia…',
             errorText: _firstError(state, 'name'),
           ),
           onChanged: (_) => controller.clearFieldError('name'),
@@ -183,7 +184,7 @@ class _AccountFormScreenState extends ConsumerState<AccountFormScreen> {
           key: const Key('account-type-field'),
           initialValue: _selectedType,
           decoration: InputDecoration(
-            labelText: 'Account type',
+            labelText: 'Tipo de cuenta',
             errorText: _firstError(state, 'type'),
           ),
           items: options.accountTypes
@@ -204,10 +205,10 @@ class _AccountFormScreenState extends ConsumerState<AccountFormScreen> {
           key: const Key('account-currency-field'),
           initialValue: _selectedCurrency,
           decoration: InputDecoration(
-            labelText: 'Currency',
+            labelText: 'Moneda',
             helperText: currencyLocked
                 ? 'Currency is locked after confirmed account activity.'
-                : 'The suggestion is editable and never changes saved accounts.',
+                : 'La sugerencia es editable y no modifica cuentas guardadas.',
             errorText: _firstError(state, 'currency_code'),
           ),
           items: options.supportedCurrencies
@@ -235,11 +236,14 @@ class _AccountFormScreenState extends ConsumerState<AccountFormScreen> {
             signed: true,
             decimal: true,
           ),
+          inputFormatters: const [
+            MoneyInputFormatter(allowNegative: true),
+          ],
           textInputAction: TextInputAction.done,
           decoration: InputDecoration(
-            labelText: 'Opening balance',
+            labelText: 'Saldo inicial',
             helperText:
-                'Use a minus sign for debt. Dot or comma decimals work.',
+                'Usa signo menos para deuda. Separa miles con punto.',
             errorText: _firstError(state, 'opening_balance'),
           ),
           onChanged: (_) => controller.clearFieldError('opening_balance'),
@@ -256,20 +260,20 @@ class _AccountFormScreenState extends ConsumerState<AccountFormScreen> {
           child: state.isSaving
               ? Semantics(
                   liveRegion: true,
-                  label: 'Saving account',
+                  label: 'Guardando cuenta',
                   child: const SizedBox.square(
                     dimension: 24,
                     child: CircularProgressIndicator(strokeWidth: 2.5),
                   ),
                 )
-              : Text(widget.isEditing ? 'Save changes' : 'Save account'),
+              : Text(widget.isEditing ? 'Guardar cambios' : 'Guardar cuenta'),
         ),
         if (state.requiresMutationReview) ...[
           const SizedBox(height: 12),
           OutlinedButton.icon(
             onPressed: controller.resolveUncertainMutation,
             icon: const Icon(Icons.sync),
-            label: const Text('Refresh accounts before trying again'),
+            label: const Text('Actualizar cuentas antes de reintentar'),
           ),
         ],
       ],
@@ -293,8 +297,9 @@ class _AccountFormScreenState extends ConsumerState<AccountFormScreen> {
       }
       if (editAccount != null) {
         _nameController.text = editAccount.name;
-        _openingBalanceController.text = editAccount.openingBalance
-            .toApiString();
+        _openingBalanceController.text = MoneyFormatter.formatInputAmount(
+          editAccount.openingBalance.minorUnits,
+        );
         _selectedType = editAccount.type;
         _selectedCurrency = editAccount.currency.code;
       } else {
@@ -325,14 +330,14 @@ class _AccountFormScreenState extends ConsumerState<AccountFormScreen> {
         name: _nameController.text,
         type: _selectedType,
         currencyCode: _selectedCurrency,
-        openingBalanceInput: _openingBalanceController.text,
+        openingBalanceInput: MoneyFormatter.clean(_openingBalanceController.text),
       );
     } else {
       outcome = await controller.create(
         name: _nameController.text,
         type: _selectedType,
         currencyCode: _selectedCurrency,
-        openingBalanceInput: _openingBalanceController.text,
+        openingBalanceInput: MoneyFormatter.clean(_openingBalanceController.text),
       );
     }
     if (!mounted) {

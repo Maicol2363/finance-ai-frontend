@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/diagnostics/error_diagnostic.dart';
 import '../../../core/diagnostics/error_diagnostic_panel.dart';
+import '../../../core/formatters/money_formatter.dart';
 import '../../../core/theme/app_palette.dart';
 import '../../../core/widgets/manage_widgets.dart';
 import '../../accounts/data/accounts_repository.dart';
@@ -227,7 +228,7 @@ class _ExpenseCreateScreenState extends ConsumerState<ExpenseCreateScreen> {
     final controller = ref.read(expensesControllerProvider.notifier);
     final outcome = await controller.create(
       accountId: _selectedAccountId,
-      amountInput: _amountController.text,
+      amountInput: MoneyFormatter.clean(_amountController.text),
       merchant: _merchantController.text,
       occurredAt: _occurredAt,
       categoryId: _selectedCategoryId,
@@ -251,7 +252,9 @@ class _ExpenseCreateScreenState extends ConsumerState<ExpenseCreateScreen> {
     if (account == null || !account.isActive) {
       errors['account_id'] = ['Selecciona una cuenta activa.'];
     }
-    final amount = MoneyAmount.tryParseUserInput(_amountController.text);
+    final amount = MoneyAmount.tryParseUserInput(
+      MoneyFormatter.clean(_amountController.text),
+    );
     if (amount == null || amount.minorUnits <= 0) {
       errors['amount'] = [
         'Ingresa un monto positivo con máximo dos decimales.',
@@ -541,6 +544,9 @@ class _ExpenseCreateScreenState extends ConsumerState<ExpenseCreateScreen> {
                             keyboardType: const TextInputType.numberWithOptions(
                               decimal: true,
                             ),
+                            inputFormatters: const [
+                              MoneyInputFormatter(allowNegative: false),
+                            ],
                             textInputAction: TextInputAction.next,
                             style: TextStyle(
                               fontSize: 32,

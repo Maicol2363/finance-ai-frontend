@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/diagnostics/error_diagnostic.dart';
+import '../../../core/formatters/money_formatter.dart';
 import '../../accounts/domain/account_models.dart';
 import '../../auth/session/domain/session_models.dart';
 import '../data/expenses_repository.dart';
@@ -345,7 +346,7 @@ class ExpensesController extends Notifier<ExpensesState> {
     if (amountInput == null || amountInput.trim().isEmpty) {
       errors['amount'] = ['Ingresa el monto del gasto.'];
     } else {
-      amount = MoneyAmount.tryParseUserInput(amountInput);
+      amount = MoneyAmount.tryParseUserInput(MoneyFormatter.clean(amountInput));
       if (amount == null || amount.isNegative || amount.minorUnits == 0) {
         errors['amount'] = ['Ingresa un monto positivo válido.'];
       }
@@ -404,7 +405,7 @@ class ExpensesController extends Notifier<ExpensesState> {
     }
     MoneyAmount? amount;
     if (amountInput != null) {
-      amount = MoneyAmount.tryParseUserInput(amountInput);
+      amount = MoneyAmount.tryParseUserInput(MoneyFormatter.clean(amountInput));
       if (amount == null || amount.isNegative || amount.minorUnits == 0) {
         errors['amount'] = ['Ingresa un monto positivo válido.'];
       }
