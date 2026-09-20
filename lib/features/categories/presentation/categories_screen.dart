@@ -44,7 +44,13 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
               leading: HeaderIconButton(
                 icon: Icons.arrow_back,
                 tooltip: 'Volver',
-                onPressed: () => context.go('/home'),
+                onPressed: () {
+                  if (context.canPop()) {
+                    context.pop();
+                  } else {
+                    context.go('/home');
+                  }
+                },
               ),
               actions: const [ThemeToggleButton()],
             ),

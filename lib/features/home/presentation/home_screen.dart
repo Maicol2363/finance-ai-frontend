@@ -133,7 +133,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             IconButton(
               key: const Key('home-search-button'),
               tooltip: 'Buscar en historial',
-              onPressed: () => context.go('/history'),
+              onPressed: () => context.push('/history'),
               icon: const Icon(Icons.search),
             ),
             const ThemeToggleButton(),
@@ -186,7 +186,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                           preferredCurrency: user?.preferredCurrency ?? 'COP',
                           items: result?.items ?? const [],
                           accountCount: accounts.length,
-                          onOpenAccounts: () => context.go('/accounts'),
+                          onOpenAccounts: () => context.push('/accounts'),
                         ),
 
                         // =================== RECENT MOVEMENTS ===================

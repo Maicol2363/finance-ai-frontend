@@ -57,8 +57,14 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(
-          tooltip: 'Volver al inicio',
-          onPressed: () => context.go('/home'),
+          tooltip: 'Volver',
+          onPressed: () {
+            if (context.canPop()) {
+              context.pop();
+            } else {
+              context.go('/home');
+            }
+          },
           icon: const Icon(Icons.arrow_back),
         ),
         title: const Text('Historial'),
