@@ -11,6 +11,7 @@ import '../../accounts/domain/account_models.dart';
 import '../../auth/session/application/auth_session_controller.dart';
 import '../../categories/data/categories_repository.dart';
 import '../../categories/domain/category_models.dart';
+import '../../categories/presentation/category_visuals.dart';
 import '../../income_sources/data/income_sources_repository.dart';
 import '../../income_sources/domain/income_source_models.dart';
 import '../../incomes/data/incomes_repository.dart';
@@ -843,12 +844,15 @@ class _ExpenseCreateScreenState extends ConsumerState<ExpenseCreateScreen> {
                           ),
                         // Chip para agregar otra cuenta rápidamente
                         ActionChip(
+                          key: const Key('expense-create-new-account-chip'),
                           avatar: const Icon(Icons.add, size: 16),
-                          label: const Text('Nueva'),
-                          onPressed: () async {
-                            await context.push('/accounts/new');
-                            _loadOptions();
-                          },
+                          label: const Text('Nueva cuenta'),
+                          onPressed: formEnabled
+                              ? () async {
+                                  await context.push('/accounts/new');
+                                  _loadOptions();
+                                }
+                              : null,
                         ),
                       ],
                     ),
@@ -900,30 +904,88 @@ class _ExpenseCreateScreenState extends ConsumerState<ExpenseCreateScreen> {
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
                             if (!isIncome) ...[
-                              DropdownButtonFormField<int?>(
-                                key: const Key(
-                                  'expense-create-category-field',
-                                ),
-                                initialValue: _selectedCategoryId,
-                                decoration: const InputDecoration(
-                                  labelText: 'Categoría (opcional)',
-                                ),
-                                items: [
-                                  const DropdownMenuItem(
-                                    value: null,
-                                    child: Text('Sin categorizar'),
-                                  ),
-                                  ..._categories.map(
-                                    (cat) => DropdownMenuItem(
-                                      value: cat.id,
-                                      child: Text(cat.name),
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: DropdownButtonFormField<int?>(
+                                      key: const Key(
+                                        'expense-create-category-field',
+                                      ),
+                                      value: _selectedCategoryId,
+                                      decoration: const InputDecoration(
+                                        labelText: 'Categoría (opcional)',
+                                      ),
+                                      items: [
+                                        const DropdownMenuItem(
+                                          value: null,
+                                          child: Text('Sin categorizar'),
+                                        ),
+                                        ..._categories.map(
+                                          (cat) => DropdownMenuItem(
+                                            value: cat.id,
+                                            child: Row(
+                                              children: [
+                                                Icon(cat.icon.value, size: 18),
+                                                const SizedBox(width: 8),
+                                                Text(cat.name),
+                                              ],
+                                            ),
+                                          ),
+                                        ),
+                                        DropdownMenuItem(
+                                          value: -999,
+                                          child: Row(
+                                            children: [
+                                              Icon(
+                                                Icons.add,
+                                                size: 16,
+                                                color: palette.primary,
+                                              ),
+                                              const SizedBox(width: 6),
+                                              Text(
+                                                '＋ Nueva categoría...',
+                                                style: TextStyle(
+                                                  color: palette.primary,
+                                                  fontWeight: FontWeight.w700,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
+                                      onChanged: formEnabled
+                                          ? (val) async {
+                                              if (val == -999) {
+                                                await context.push(
+                                                  '/categories/new',
+                                                );
+                                                _loadOptions();
+                                                return;
+                                              }
+                                              setState(
+                                                () => _selectedCategoryId = val,
+                                              );
+                                            }
+                                          : null,
                                     ),
                                   ),
+                                  const SizedBox(width: 8),
+                                  IconButton.filledTonal(
+                                    key: const Key(
+                                      'expense-create-new-category-button',
+                                    ),
+                                    tooltip: 'Crear nueva categoría',
+                                    icon: const Icon(Icons.add),
+                                    onPressed: formEnabled
+                                        ? () async {
+                                            await context.push(
+                                              '/categories/new',
+                                            );
+                                            _loadOptions();
+                                          }
+                                        : null,
+                                  ),
                                 ],
-                                onChanged: formEnabled
-                                    ? (val) => setState(
-                                        () => _selectedCategoryId = val)
-                                    : null,
                               ),
                               const SizedBox(height: 12),
                             ],

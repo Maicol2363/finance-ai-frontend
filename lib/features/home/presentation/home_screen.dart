@@ -762,7 +762,7 @@ class _HubEmptyState extends StatelessWidget {
             const Text('🧾', style: TextStyle(fontSize: 42)),
             const SizedBox(height: 12),
             Text(
-              'Sin movimientos recientes',
+              'Aún no tienes movimientos',
               style: TextStyle(
                 fontSize: 15,
                 fontWeight: FontWeight.w700,
@@ -771,7 +771,7 @@ class _HubEmptyState extends StatelessWidget {
             ),
             const SizedBox(height: 6),
             Text(
-              'Toca el botón + para registrar tu primer gasto o ingreso con la IA o manualmente.',
+              'Toca ＋ y elige cómo capturar: 📷 foto · 🎤 voz · T texto · ✎ manual — la IA prepara la vista previa y tú confirmas.',
               style: TextStyle(
                 fontSize: 12,
                 color: palette.muted,

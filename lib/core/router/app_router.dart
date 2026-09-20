@@ -182,7 +182,7 @@ GoRouter createAppRouter({
       GoRoute(
         path: '/expenses',
         name: 'expenses',
-        builder: (context, state) => const ExpensesScreen(),
+        builder: (context, state) => const HomeScreen(),
         routes: [
           GoRoute(
             path: 'new',

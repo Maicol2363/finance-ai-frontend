@@ -133,7 +133,7 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen>
                       ],
 
                       // Banner resumen rápido (Estilo Mockup)
-                      if (result != null && result.items.isNotEmpty)
+                      if (result != null)
                         _HubSummaryCard(items: result.items),
 
                       if (result == null &&
@@ -468,38 +468,63 @@ class _ExpensesEmptyState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 36, horizontal: 20),
-      child: Column(
-        children: [
-          Container(
-            width: 64,
-            height: 64,
-            decoration: BoxDecoration(
-              color: palette.primarySoft,
-              shape: BoxShape.circle,
-            ),
-            child: const Center(
-              child: Text('🧾', style: TextStyle(fontSize: 28)),
-            ),
-          ),
-          const SizedBox(height: 16),
-          Text(
-            'Aún no tienes movimientos',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w800,
-              color: palette.text,
-            ),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Toca ＋ y elige cómo capturar: 📷 foto · 🎤 voz · T texto · ✎ manual — la IA prepara la vista previa y tú confirmas.',
-            textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 12.5, color: palette.muted, height: 1.4),
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 20),
+      padding: const EdgeInsets.all(28),
+      decoration: BoxDecoration(
+        color: palette.card,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: palette.line),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x060F172A),
+            blurRadius: 10,
+            offset: Offset(0, 3),
           ),
         ],
+      ),
+      child: Center(
+        child: Column(
+          children: [
+            Container(
+              width: 64,
+              height: 64,
+              decoration: BoxDecoration(
+                color: palette.primarySoft,
+                shape: BoxShape.circle,
+              ),
+              child: const Center(
+                child: Text('🧾', style: TextStyle(fontSize: 28)),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Aún no tienes movimientos',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w800,
+                color: palette.text,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Toca ＋ y elige cómo capturar: 📷 foto · 🎤 voz · T texto · ✎ manual — la IA prepara la vista previa y tú confirmas.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 12.5,
+                color: palette.muted,
+                height: 1.4,
+              ),
+            ),
+            const SizedBox(height: 18),
+            FilledButton.icon(
+              onPressed: () => context.go('/expenses/new'),
+              icon: const Icon(Icons.add, size: 18),
+              label: const Text('Registrar gasto'),
+            ),
+          ],
+        ),
       ),
     );
   }

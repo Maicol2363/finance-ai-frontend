@@ -506,6 +506,43 @@ void main() {
       findsOneWidget,
     );
   });
+
+  testWidgets(
+    'create form displays category quick-add button and account quick-add chip',
+    (tester) async {
+      tester.view.physicalSize = const Size(800, 2400);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+
+      final repository = WidgetExpensesRepository();
+      await pumpExpensesApp(tester, repository, initialLocation: '/expenses/new');
+
+      expect(find.byKey(const Key('expense-create-new-account-chip')), findsOneWidget);
+
+      await tester.tap(find.byKey(const Key('expense-create-optional-toggle')));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const Key('expense-create-new-category-button')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('expense-create-category-field')),
+        findsOneWidget,
+      );
+    },
+  );
+
+  testWidgets(
+    'expenses hub renders styled empty state card with action button when no expenses',
+    (tester) async {
+      final repository = WidgetExpensesRepository()..expenses = [];
+      await pumpExpensesApp(tester, repository, initialLocation: '/expenses');
+
+      expect(find.text('Aún no tienes movimientos'), findsOneWidget);
+      expect(find.text('Registrar gasto'), findsWidgets);
+    },
+  );
 }
 
 class EmptyAccountsRepository extends FakeAccountsRepository {
