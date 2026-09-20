@@ -304,6 +304,8 @@ void main() {
       find.byKey(const Key('expense-create-amount-field')),
       '55.50',
     );
+    await tester.tap(find.byKey(const Key('expense-create-optional-toggle')));
+    await tester.pumpAndSettle();
     await tester.enterText(
       find.byKey(const Key('expense-create-note-field')),
       'Weekly grocery shopping',

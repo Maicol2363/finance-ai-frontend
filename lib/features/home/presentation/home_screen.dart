@@ -128,9 +128,9 @@ class HomeScreen extends ConsumerWidget {
                             ),
                             ManageRow(
                               rowKey: const Key('home-expenses-button'),
-                              title: 'Gastos',
+                              title: 'Gastos (Mockup Hub)',
                               subtitle:
-                                  'Consulta, corrige y elimina tus gastos',
+                                  'Balance, tarjetas con emojis y captura',
                               icon: Icons.receipt_long_outlined,
                               trailing: const [
                                 Icon(Icons.chevron_right, size: 18),

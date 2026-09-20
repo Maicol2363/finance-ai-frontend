@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/diagnostics/error_diagnostic.dart';
 import '../../../core/diagnostics/error_diagnostic_panel.dart';
+import '../../../core/theme/app_palette.dart';
 import '../../accounts/data/accounts_repository.dart';
 import '../../accounts/domain/account_models.dart';
 import '../../categories/data/categories_repository.dart';
@@ -59,6 +60,7 @@ class _ExpenseCreateScreenState extends ConsumerState<ExpenseCreateScreen> {
   DateTime _occurredAt = DateTime.now();
 
   bool _loadingOptions = true;
+  bool _showOptionalDetails = false;
   ErrorDiagnostic? _loadDiagnostic;
 
   @override
@@ -155,8 +157,26 @@ class _ExpenseCreateScreenState extends ConsumerState<ExpenseCreateScreen> {
     return state.fieldErrors[field]?.firstOrNull;
   }
 
+  String _accountIcon(AccountType type) {
+    switch (type) {
+      case AccountType.cash:
+        return '💵';
+      case AccountType.bank:
+        return '🏦';
+      case AccountType.digitalWallet:
+        return '🟣';
+      case AccountType.savings:
+        return '💰';
+      case AccountType.creditCard:
+        return '💳';
+      case AccountType.other:
+        return '🪙';
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final palette = context.palette;
     final state = ref.watch(expensesControllerProvider);
     final controller = ref.read(expensesControllerProvider.notifier);
     final formEnabled =
@@ -165,7 +185,9 @@ class _ExpenseCreateScreenState extends ConsumerState<ExpenseCreateScreen> {
     final selectedAccount = _accounts
         .where((a) => a.id == _selectedAccountId)
         .firstOrNull;
-    final currencyLabel = selectedAccount?.currency.code ?? 'COP';
+    final currencySymbol = selectedAccount?.currency.code == 'USD'
+        ? '\$'
+        : '\$';
 
     return PopScope(
       canPop: !state.isSaving,
@@ -183,7 +205,7 @@ class _ExpenseCreateScreenState extends ConsumerState<ExpenseCreateScreen> {
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 620),
               child: ListView(
-                padding: const EdgeInsets.fromLTRB(24, 20, 24, 40),
+                padding: const EdgeInsets.fromLTRB(20, 12, 20, 40),
                 children: [
                   if (_loadingOptions || state.isSaving) ...[
                     Semantics(
@@ -193,7 +215,7 @@ class _ExpenseCreateScreenState extends ConsumerState<ExpenseCreateScreen> {
                           : 'Registrando gasto',
                       child: const LinearProgressIndicator(),
                     ),
-                    const SizedBox(height: 20),
+                    const SizedBox(height: 16),
                   ],
                   if (_loadDiagnostic case final diagnostic?) ...[
                     ErrorDiagnosticPanel(diagnostic: diagnostic),
@@ -203,17 +225,108 @@ class _ExpenseCreateScreenState extends ConsumerState<ExpenseCreateScreen> {
                       icon: const Icon(Icons.refresh),
                       label: const Text('Reintentar carga de cuentas'),
                     ),
-                    const SizedBox(height: 20),
+                    const SizedBox(height: 16),
                   ],
                   if (state.mutationDiagnostic case final diagnostic?) ...[
                     ErrorDiagnosticPanel(diagnostic: diagnostic),
-                    const SizedBox(height: 20),
+                    const SizedBox(height: 16),
                   ],
-                  Text(
-                    'Registra un gasto indicando el comercio o lugar y el monto gastado.',
-                    style: Theme.of(context).textTheme.bodyLarge,
+
+                  // HERO AMOUNT BOX (Estilo Mockup)
+                  Container(
+                    decoration: BoxDecoration(
+                      color: palette.card,
+                      borderRadius: BorderRadius.circular(18),
+                      border: Border.all(
+                        color: _firstError(state, 'amount') != null
+                            ? palette.discard
+                            : palette.line,
+                      ),
+                      boxShadow: const [
+                        BoxShadow(
+                          color: Color(0x080F172A),
+                          blurRadius: 8,
+                          offset: Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 14,
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        Text(
+                          currencySymbol,
+                          style: TextStyle(
+                            fontSize: 30,
+                            fontWeight: FontWeight.w800,
+                            color: palette.text,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: TextField(
+                            key: const Key('expense-create-amount-field'),
+                            controller: _amountController,
+                            focusNode: _amountFocus,
+                            enabled: formEnabled,
+                            keyboardType: const TextInputType.numberWithOptions(
+                              decimal: true,
+                            ),
+                            textInputAction: TextInputAction.next,
+                            style: TextStyle(
+                              fontSize: 32,
+                              fontWeight: FontWeight.w800,
+                              color: palette.text,
+                            ),
+                            decoration: InputDecoration(
+                              hintText: '0',
+                              hintStyle: TextStyle(
+                                fontSize: 32,
+                                fontWeight: FontWeight.w700,
+                                color: palette.placeholder,
+                              ),
+                              border: InputBorder.none,
+                              enabledBorder: InputBorder.none,
+                              focusedBorder: InputBorder.none,
+                              errorBorder: InputBorder.none,
+                              focusedErrorBorder: InputBorder.none,
+                              contentPadding: EdgeInsets.zero,
+                              filled: false,
+                            ),
+                            onChanged: (_) =>
+                                controller.clearFieldError('amount'),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                  const SizedBox(height: 24),
+                  if (_firstError(state, 'amount') case final amountError?) ...[
+                    const SizedBox(height: 4),
+                    Padding(
+                      padding: const EdgeInsets.only(left: 4),
+                      child: Text(
+                        amountError,
+                        style: TextStyle(color: palette.discard, fontSize: 12),
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 14),
+
+                  // COMERCIO O DESCRIPCIÓN (Estilo Mockup)
+                  Text(
+                    '¿EN QUÉ GASTASTE? / COMERCIO',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0.4,
+                      color: palette.muted,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
                   TextField(
                     key: const Key('expense-create-merchant-field'),
                     controller: _merchantController,
@@ -222,106 +335,197 @@ class _ExpenseCreateScreenState extends ConsumerState<ExpenseCreateScreen> {
                     textInputAction: TextInputAction.next,
                     maxLength: 150,
                     decoration: InputDecoration(
-                      labelText: 'Comercio o lugar',
-                      hintText: 'Ej. Supermercado, Restaurante, Uber',
+                      hintText: 'ej. Almuerzo, D1, Taxi, Café...',
                       errorText: _firstError(state, 'merchant'),
                     ),
                     onChanged: (_) => controller.clearFieldError('merchant'),
                   ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    key: const Key('expense-create-amount-field'),
-                    controller: _amountController,
-                    focusNode: _amountFocus,
-                    enabled: formEnabled,
-                    keyboardType: const TextInputType.numberWithOptions(
-                      decimal: true,
+                  const SizedBox(height: 10),
+
+                  // CUENTA DE PAGO - CHIPS (Estilo Mockup)
+                  Text(
+                    'CUENTA DE PAGO',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0.4,
+                      color: palette.muted,
                     ),
-                    textInputAction: TextInputAction.next,
-                    decoration: InputDecoration(
-                      labelText: 'Monto ($currencyLabel)',
-                      hintText: '0.00',
-                      helperText: 'Monto positivo con hasta dos decimales.',
-                      errorText: _firstError(state, 'amount'),
-                    ),
-                    onChanged: (_) => controller.clearFieldError('amount'),
                   ),
-                  const SizedBox(height: 12),
-                  DropdownButtonFormField<int>(
-                    key: const Key('expense-create-account-field'),
-                    initialValue: _selectedAccountId,
-                    decoration: InputDecoration(
-                      labelText: 'Cuenta de pago',
-                      errorText: _firstError(state, 'account_id'),
+                  const SizedBox(height: 6),
+                  if (_firstError(state, 'account_id')
+                      case final accError?) ...[
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 6),
+                      child: Text(
+                        accError,
+                        style: TextStyle(color: palette.discard, fontSize: 12),
+                      ),
                     ),
-                    items: [
+                  ],
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
                       for (final account in _accounts)
-                        DropdownMenuItem(
-                          value: account.id,
-                          child: Text(
-                            '${account.name} (${account.currency.code})',
+                        InkWell(
+                          key: Key('expense-account-chip-${account.id}'),
+                          borderRadius: BorderRadius.circular(10),
+                          onTap: formEnabled
+                              ? () {
+                                  setState(
+                                    () => _selectedAccountId = account.id,
+                                  );
+                                  controller.clearFieldError('account_id');
+                                }
+                              : null,
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 150),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 9,
+                            ),
+                            decoration: BoxDecoration(
+                              color: _selectedAccountId == account.id
+                                  ? palette.primary
+                                  : palette.card,
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(
+                                color: _selectedAccountId == account.id
+                                    ? palette.primary
+                                    : palette.line,
+                              ),
+                            ),
+                            child: Text(
+                              '${_accountIcon(account.type)} ${account.name}',
+                              style: TextStyle(
+                                fontSize: 12.5,
+                                fontWeight: FontWeight.w600,
+                                color: _selectedAccountId == account.id
+                                    ? Colors.white
+                                    : palette.text,
+                              ),
+                            ),
                           ),
                         ),
                     ],
-                    onChanged: formEnabled
-                        ? (value) {
-                            setState(() => _selectedAccountId = value);
-                            controller.clearFieldError('account_id');
-                          }
-                        : null,
                   ),
-                  const SizedBox(height: 12),
-                  DropdownButtonFormField<int?>(
-                    key: const Key('expense-create-category-field'),
-                    initialValue: _selectedCategoryId,
-                    decoration: InputDecoration(
-                      labelText: 'Categoría (opcional)',
-                      errorText: _firstError(state, 'category_id'),
-                    ),
-                    items: [
-                      const DropdownMenuItem(
-                        value: null,
-                        child: Text('Sin categoría'),
+                  const SizedBox(height: 16),
+
+                  // DETALLES OPCIONALES COLAPSADOS (AC-3)
+                  InkWell(
+                    key: const Key('expense-create-optional-toggle'),
+                    borderRadius: BorderRadius.circular(8),
+                    onTap: () {
+                      setState(() {
+                        _showOptionalDetails = !_showOptionalDetails;
+                      });
+                    },
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            'Detalles opcionales (categoría, fecha, nota)',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: palette.muted,
+                            ),
+                          ),
+                          Icon(
+                            _showOptionalDetails
+                                ? Icons.keyboard_arrow_up
+                                : Icons.keyboard_arrow_down,
+                            size: 18,
+                            color: palette.muted,
+                          ),
+                        ],
                       ),
-                      for (final cat in _categories)
-                        DropdownMenuItem(value: cat.id, child: Text(cat.name)),
-                    ],
-                    onChanged: formEnabled
-                        ? (value) {
-                            setState(() => _selectedCategoryId = value);
-                            controller.clearFieldError('category_id');
-                          }
-                        : null,
-                  ),
-                  const SizedBox(height: 12),
-                  ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    title: const Text('Fecha del gasto'),
-                    subtitle: Text(
-                      '${_occurredAt.year}-${_occurredAt.month.toString().padLeft(2, '0')}-${_occurredAt.day.toString().padLeft(2, '0')}',
                     ),
-                    trailing: IconButton(
-                      icon: const Icon(Icons.calendar_today_outlined),
-                      onPressed: formEnabled ? _pickDate : null,
-                    ),
-                    onTap: formEnabled ? _pickDate : null,
                   ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    key: const Key('expense-create-note-field'),
-                    controller: _noteController,
-                    enabled: formEnabled,
-                    textInputAction: TextInputAction.done,
-                    maxLines: 2,
-                    maxLength: 5000,
-                    decoration: InputDecoration(
-                      labelText: 'Nota (opcional)',
-                      hintText: 'Detalles adicionales sobre la compra',
-                      errorText: _firstError(state, 'note'),
+                  if (_showOptionalDetails) ...[
+                    Material(
+                      color: palette.soft2,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                        side: BorderSide(color: palette.line),
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.all(14),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            DropdownButtonFormField<int?>(
+                              key: const Key('expense-create-category-field'),
+                              initialValue: _selectedCategoryId,
+                              decoration: InputDecoration(
+                                labelText: 'Categoría (opcional)',
+                                errorText: _firstError(state, 'category_id'),
+                              ),
+                              items: [
+                                const DropdownMenuItem(
+                                  value: null,
+                                  child: Text('Sin categorizar'),
+                                ),
+                                for (final cat in _categories)
+                                  DropdownMenuItem(
+                                    value: cat.id,
+                                    child: Text(cat.name),
+                                  ),
+                              ],
+                              onChanged: formEnabled
+                                  ? (value) {
+                                      setState(
+                                        () => _selectedCategoryId = value,
+                                      );
+                                      controller.clearFieldError('category_id');
+                                    }
+                                  : null,
+                            ),
+                            const SizedBox(height: 12),
+                            Material(
+                              color: Colors.transparent,
+                              child: ListTile(
+                                contentPadding: EdgeInsets.zero,
+                                title: const Text('Fecha del gasto'),
+                                subtitle: Text(
+                                  '${_occurredAt.year}-${_occurredAt.month.toString().padLeft(2, '0')}-${_occurredAt.day.toString().padLeft(2, '0')}',
+                                ),
+                                trailing: IconButton(
+                                  icon: const Icon(
+                                    Icons.calendar_today_outlined,
+                                  ),
+                                  onPressed: formEnabled ? _pickDate : null,
+                                ),
+                                onTap: formEnabled ? _pickDate : null,
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            TextField(
+                              key: const Key('expense-create-note-field'),
+                              controller: _noteController,
+                              enabled: formEnabled,
+                              textInputAction: TextInputAction.done,
+                              maxLines: 2,
+                              maxLength: 5000,
+                              decoration: InputDecoration(
+                                labelText: 'Nota (opcional)',
+                                hintText:
+                                    'Detalles adicionales sobre la compra',
+                                errorText: _firstError(state, 'note'),
+                              ),
+                              onChanged: (_) =>
+                                  controller.clearFieldError('note'),
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
-                    onChanged: (_) => controller.clearFieldError('note'),
-                  ),
-                  const SizedBox(height: 24),
+                  ],
+
+                  const SizedBox(height: 20),
                   FilledButton.icon(
                     key: const Key('expense-create-submit-button'),
                     onPressed: formEnabled ? _save : null,
@@ -331,7 +535,7 @@ class _ExpenseCreateScreenState extends ConsumerState<ExpenseCreateScreen> {
                             height: 18,
                             child: CircularProgressIndicator(strokeWidth: 2),
                           )
-                        : const Icon(Icons.save),
+                        : const Icon(Icons.check),
                     label: Text(
                       state.isSaving ? 'Guardando...' : 'Registrar gasto',
                     ),
