@@ -1,6 +1,9 @@
 import 'package:finance_ai/app.dart';
 import 'package:finance_ai/core/router/app_router.dart';
+import 'package:finance_ai/features/accounts/data/accounts_repository.dart';
 import 'package:finance_ai/features/accounts/domain/account_models.dart';
+import 'package:finance_ai/features/categories/data/categories_repository.dart';
+import 'package:finance_ai/features/categories/domain/category_models.dart';
 import 'package:finance_ai/features/expenses/data/expenses_repository.dart';
 import 'package:finance_ai/features/expenses/domain/expense_models.dart';
 import 'package:finance_ai/features/expenses/domain/history_models.dart';
@@ -13,6 +16,29 @@ const cop = CurrencySummary(
   code: 'COP',
   name: 'Colombian Peso',
   decimals: 2,
+);
+
+final testAccount = Account(
+  id: 11,
+  name: 'Cash',
+  type: AccountType.cash,
+  currency: cop,
+  balance: MoneyAmount.parseApi('100.00'),
+  openingBalance: MoneyAmount.parseApi('100.00'),
+  currencyIsLocked: false,
+  isActive: true,
+  createdAt: DateTime.utc(2026, 9, 1, 10, 0),
+  updatedAt: DateTime.utc(2026, 9, 1, 10, 0),
+);
+
+final testCategory = Category(
+  id: 3,
+  name: 'Food',
+  color: CategoryColor.red,
+  icon: CategoryIcon.food,
+  sortOrder: 1,
+  createdAt: DateTime.utc(2026, 9, 1, 10, 0),
+  updatedAt: DateTime.utc(2026, 9, 1, 10, 0),
 );
 
 Expense expense({int id = 7, String name = 'Groceries'}) => Expense(
@@ -79,6 +105,7 @@ class WidgetExpensesRepository implements ExpensesRepository {
   List<Expense> expenses;
   List<HistoryItem> historyItems;
   ExpenseUpdateCommand? lastCommand;
+  ExpenseCreateCommand? lastCreateCommand;
   final List<HistoryFilters> seenHistoryFilters = [];
 
   @override
@@ -93,6 +120,14 @@ class WidgetExpensesRepository implements ExpensesRepository {
       userMessage: 'This expense is no longer available.',
     ),
   );
+
+  @override
+  Future<Expense> create(ExpenseCreateCommand command) async {
+    lastCreateCommand = command;
+    final created = expense(id: 99, name: command.merchant);
+    expenses = [created, ...expenses];
+    return created;
+  }
 
   @override
   Future<Expense> update(int expenseId, ExpenseUpdateCommand command) async {
@@ -130,6 +165,69 @@ class WidgetExpensesRepository implements ExpensesRepository {
   }
 }
 
+class FakeAccountsRepository implements AccountsRepository {
+  @override
+  Future<AccountListResult> list({bool includeInactive = false}) async {
+    return AccountListResult(
+      accounts: [testAccount],
+      suggestedCurrencyCode: 'COP',
+      supportedCurrencies: const [cop],
+      accountTypes: const [AccountType.cash],
+    );
+  }
+
+  @override
+  Future<Account> get(int accountId) async => testAccount;
+
+  @override
+  Future<Account> create(AccountCreateCommand command) async => testAccount;
+
+  @override
+  Future<Account> update(int accountId, AccountUpdateCommand command) async =>
+      testAccount;
+
+  @override
+  Future<Account> setActive(int accountId, {required bool isActive}) async =>
+      testAccount;
+
+  @override
+  Future<void> deleteAccount(int accountId) async {}
+}
+
+class FakeCategoriesRepository implements CategoriesRepository {
+  @override
+  Future<CategoryListResult> list() async {
+    return CategoryListResult(
+      categories: [testCategory],
+      supportedColors: const [CategoryColor.red],
+      supportedIcons: const [CategoryIcon.food],
+    );
+  }
+
+  @override
+  Future<Category> get(int categoryId) async => testCategory;
+
+  @override
+  Future<Category> create(CategoryCreateCommand command) async => testCategory;
+
+  @override
+  Future<Category> update(
+    int categoryId,
+    CategoryUpdateCommand command,
+  ) async => testCategory;
+
+  @override
+  Future<CategoryListResult> reorder(List<int> categoryIds) async =>
+      CategoryListResult(
+        categories: [testCategory],
+        supportedColors: const [CategoryColor.red],
+        supportedIcons: const [CategoryIcon.food],
+      );
+
+  @override
+  Future<void> deleteCategory(int categoryId) async {}
+}
+
 Future<void> pumpExpensesApp(
   WidgetTester tester,
   WidgetExpensesRepository repository, {
@@ -139,7 +237,13 @@ Future<void> pumpExpensesApp(
   addTearDown(router.dispose);
   await tester.pumpWidget(
     ProviderScope(
-      overrides: [expensesRepositoryProvider.overrideWithValue(repository)],
+      overrides: [
+        expensesRepositoryProvider.overrideWithValue(repository),
+        accountsRepositoryProvider.overrideWithValue(FakeAccountsRepository()),
+        categoriesRepositoryProvider.overrideWithValue(
+          FakeCategoriesRepository(),
+        ),
+      ],
       child: FinanceApp(router: router),
     ),
   );
@@ -166,6 +270,53 @@ void main() {
       200,
     );
     expect(find.byKey(const Key('expense-edit-button')), findsOneWidget);
+  });
+
+  testWidgets('FAB navigates to create expense form and creates expense', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(800, 2400);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+
+    final repository = WidgetExpensesRepository();
+    await pumpExpensesApp(tester, repository);
+
+    expect(find.byKey(const Key('expenses-create-fab')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('expenses-create-fab')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Registrar gasto'), findsWidgets);
+    expect(
+      find.byKey(const Key('expense-create-merchant-field')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const Key('expense-create-amount-field')),
+      findsOneWidget,
+    );
+
+    await tester.enterText(
+      find.byKey(const Key('expense-create-merchant-field')),
+      'Supermarket Exito',
+    );
+    await tester.enterText(
+      find.byKey(const Key('expense-create-amount-field')),
+      '55.50',
+    );
+    await tester.enterText(
+      find.byKey(const Key('expense-create-note-field')),
+      'Weekly grocery shopping',
+    );
+
+    await tester.tap(find.byKey(const Key('expense-create-submit-button')));
+    await tester.pumpAndSettle();
+
+    expect(repository.lastCreateCommand?.merchant, 'Supermarket Exito');
+    expect(repository.lastCreateCommand?.amount.toApiString(), '55.50');
+    expect(repository.lastCreateCommand?.accountId, 11);
+    expect(repository.lastCreateCommand?.note, 'Weekly grocery shopping');
+    expect(find.byKey(const Key('expenses-list')), findsOneWidget);
   });
 
   testWidgets('delete asks for confirmation and returns to the list', (

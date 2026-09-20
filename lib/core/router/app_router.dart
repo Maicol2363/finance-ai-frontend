@@ -10,6 +10,7 @@ import '../../features/auth/session/application/auth_session_state.dart';
 import '../../features/auth/session/presentation/session_bootstrap_screen.dart';
 import '../../features/categories/presentation/categories_screen.dart';
 import '../../features/categories/presentation/category_form_screen.dart';
+import '../../features/expenses/presentation/expense_create_screen.dart';
 import '../../features/expenses/presentation/expense_detail_screen.dart';
 import '../../features/expenses/presentation/expense_form_screen.dart';
 import '../../features/expenses/presentation/expenses_screen.dart';
@@ -43,8 +44,8 @@ bool _isProtected(String location) {
 }
 
 GoRouter createAppRouter({
-  String initialLocation = '/register',
-  AuthSessionState Function()? authState,
+  String initialLocation = '/bootstrap',
+  ValueGetter<AuthSessionState>? authState,
   Listenable? refreshListenable,
 }) {
   return GoRouter(
@@ -172,6 +173,11 @@ GoRouter createAppRouter({
         name: 'expenses',
         builder: (context, state) => const ExpensesScreen(),
         routes: [
+          GoRoute(
+            path: 'new',
+            name: 'expense-new',
+            builder: (context, state) => const ExpenseCreateScreen(),
+          ),
           GoRoute(
             path: ':expenseId',
             name: 'expense-detail',

@@ -57,6 +57,11 @@ class FakeExpensesRepository implements ExpensesRepository {
   }
 
   @override
+  Future<Expense> create(ExpenseCreateCommand command) async {
+    throw UnimplementedError();
+  }
+
+  @override
   Future<Expense> update(int expenseId, ExpenseUpdateCommand command) async {
     throw UnimplementedError();
   }

@@ -46,6 +46,12 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen> {
         ),
         title: const Text('Gastos'),
       ),
+      floatingActionButton: FloatingActionButton.extended(
+        key: const Key('expenses-create-fab'),
+        onPressed: () => context.go('/expenses/new'),
+        icon: const Icon(Icons.add),
+        label: const Text('Registrar gasto'),
+      ),
       body: SafeArea(
         child: Center(
           child: ConstrainedBox(
