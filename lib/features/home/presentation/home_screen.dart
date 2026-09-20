@@ -3,15 +3,19 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/diagnostics/error_diagnostic_panel.dart';
+import '../../../core/formatters/money_formatter.dart';
 import '../../../core/theme/app_palette.dart';
 import '../../../core/widgets/theme_toggle_button.dart';
 import '../../accounts/application/accounts_controller.dart';
 import '../../accounts/application/accounts_state.dart';
+import '../../accounts/domain/account_models.dart';
 import '../../auth/session/application/auth_session_controller.dart';
 import '../../auth/session/application/auth_session_state.dart';
 import '../../expenses/application/expenses_controller.dart';
 import '../../expenses/application/expenses_state.dart';
 import '../../expenses/domain/expense_models.dart';
+import '../../incomes/data/incomes_repository.dart';
+import '../../incomes/domain/income_models.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -38,6 +42,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       if (accountsState.listStatus == AccountsLoadStatus.initial) {
         ref.read(accountsControllerProvider.notifier).load();
       }
+      ref.read(incomesListProvider);
     });
   }
 
@@ -110,6 +115,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     final accountsState = ref.watch(accountsControllerProvider);
     final accounts = accountsState.result?.accounts ?? const [];
 
+    final incomesAsync = ref.watch(incomesListProvider);
+    final incomes = incomesAsync.value ?? const [];
+
     return PopScope(
       canPop: false,
       child: Scaffold(
@@ -154,7 +162,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                 child: ConstrainedBox(
                   constraints: const BoxConstraints(maxWidth: 760),
                   child: RefreshIndicator(
-                    onRefresh: expensesController.load,
+                    onRefresh: () async {
+                      await Future.wait([
+                        expensesController.load(),
+                        ref.read(accountsControllerProvider.notifier).load(),
+                        ref.refresh(incomesListProvider.future),
+                      ]);
+                    },
                     child: ListView(
                       key: const Key('expenses-list'),
                       physics: const AlwaysScrollableScrollPhysics(),
@@ -185,7 +199,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                           userEmail: user?.email,
                           preferredCurrency: user?.preferredCurrency ?? 'COP',
                           items: result?.items ?? const [],
-                          accountCount: accounts.length,
+                          incomes: incomes,
+                          accounts: accounts,
                           onOpenAccounts: () => context.push('/accounts'),
                         ),
 
@@ -377,7 +392,8 @@ class _HubBalanceCard extends StatelessWidget {
     required this.userEmail,
     required this.preferredCurrency,
     required this.items,
-    required this.accountCount,
+    required this.incomes,
+    required this.accounts,
     required this.onOpenAccounts,
   });
 
@@ -385,17 +401,58 @@ class _HubBalanceCard extends StatelessWidget {
   final String? userEmail;
   final String preferredCurrency;
   final List<Expense> items;
-  final int accountCount;
+  final List<Income> incomes;
+  final List<Account> accounts;
   final VoidCallback onOpenAccounts;
 
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
+
     var totalExpenses = 0.0;
     for (final exp in items) {
       totalExpenses += double.tryParse(exp.amount.toApiString()) ?? 0.0;
     }
-    final currency = items.firstOrNull?.currencyCode ?? preferredCurrency;
+
+    var totalIncomes = 0.0;
+    for (final inc in incomes) {
+      totalIncomes += double.tryParse(inc.amount.toApiString()) ?? 0.0;
+    }
+
+    var totalOpeningBalance = 0.0;
+    for (final acc in accounts) {
+      if (acc.isActive) {
+        totalOpeningBalance +=
+            double.tryParse(acc.openingBalance.toApiString()) ?? 0.0;
+      }
+    }
+    // If no separate income transactions exist yet, count the starting balances as funds
+    if (totalIncomes == 0.0 && totalOpeningBalance > 0.0) {
+      totalIncomes = totalOpeningBalance;
+    }
+
+    var totalAccountsBalance = 0.0;
+    for (final acc in accounts) {
+      if (acc.isActive) {
+        totalAccountsBalance +=
+            double.tryParse(acc.balance.toApiString()) ?? 0.0;
+      }
+    }
+
+    final netBalance = totalIncomes - totalExpenses;
+    final currency = items.firstOrNull?.currencyCode ??
+        incomes.firstOrNull?.currencyCode ??
+        accounts.firstOrNull?.currency.code ??
+        preferredCurrency;
+
+    final isNegative = netBalance < 0;
+    final absBalance = netBalance.abs();
+    final balanceSign = isNegative ? '-' : '';
+    final formattedBalance = MoneyFormatter.formatWhole(absBalance.round());
+    final activeAccounts = accounts.where((a) => a.isActive).toList();
+    final activeCount = activeAccounts.length;
+    final formattedAccountsBalance =
+        MoneyFormatter.formatWhole(totalAccountsBalance.round());
 
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
@@ -439,7 +496,7 @@ class _HubBalanceCard extends StatelessWidget {
           ),
           const SizedBox(height: 6),
           Text(
-            '- \$ ${totalExpenses.toStringAsFixed(0).replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]}.')} $currency',
+            '$balanceSign\$ $formattedBalance $currency',
             style: TextStyle(
               fontSize: 24,
               fontWeight: FontWeight.w800,
@@ -481,7 +538,7 @@ class _HubBalanceCard extends StatelessWidget {
                       ),
                       const Spacer(),
                       Text(
-                        '+ \$ 0',
+                        '+ \$ ${MoneyFormatter.formatWhole(totalIncomes.round())}',
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w700,
@@ -524,7 +581,9 @@ class _HubBalanceCard extends StatelessWidget {
                       ),
                       const Spacer(),
                       Text(
-                        '- \$ ${totalExpenses.toStringAsFixed(0).replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]}.')}',
+                        totalExpenses > 0
+                            ? '- \$ ${MoneyFormatter.formatWhole(totalExpenses.round())}'
+                            : '- \$ 0',
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w700,
@@ -555,8 +614,8 @@ class _HubBalanceCard extends StatelessWidget {
                   ),
                   const SizedBox(width: 8),
                   Text(
-                    accountCount > 0
-                        ? '$accountCount ${accountCount == 1 ? 'cuenta activa' : 'cuentas activas'} · Ver saldos'
+                    activeCount > 0
+                        ? '$activeCount ${activeCount == 1 ? 'cuenta activa' : 'cuentas activas'} · \$ $formattedAccountsBalance $currency · Ver saldos'
                         : 'Gestionar cuentas y saldos',
                     style: TextStyle(
                       fontSize: 12,

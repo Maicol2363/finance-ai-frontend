@@ -543,6 +543,22 @@ void main() {
       expect(find.text('Registrar gasto'), findsWidgets);
     },
   );
+
+  testWidgets(
+    'expenses hub calculates and displays balance, incomes, and account balances',
+    (tester) async {
+      final repository = WidgetExpensesRepository()..expenses = [];
+      await pumpExpensesApp(tester, repository, initialLocation: '/home');
+
+      expect(find.text(r'$ 100 COP'), findsOneWidget);
+      expect(find.text(r'+ $ 100'), findsOneWidget);
+      expect(find.text(r'- $ 0'), findsOneWidget);
+      expect(
+        find.text(r'1 cuenta activa · $ 100 COP · Ver saldos'),
+        findsOneWidget,
+      );
+    },
+  );
 }
 
 class EmptyAccountsRepository extends FakeAccountsRepository {

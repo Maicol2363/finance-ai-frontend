@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/formatters/money_formatter.dart';
 import '../../../core/theme/app_palette.dart';
 import '../../../core/widgets/app_header.dart';
 import '../../../core/widgets/theme_toggle_button.dart';
@@ -9,6 +10,7 @@ import '../../accounts/application/accounts_controller.dart';
 import '../../accounts/application/accounts_state.dart';
 import '../../expenses/application/expenses_controller.dart';
 import '../../expenses/application/expenses_state.dart';
+import '../../incomes/data/incomes_repository.dart';
 
 class DashboardScreen extends ConsumerStatefulWidget {
   const DashboardScreen({super.key});
@@ -31,6 +33,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           AccountsLoadStatus.initial) {
         ref.read(accountsControllerProvider.notifier).load();
       }
+      ref.read(incomesListProvider);
     });
   }
 
@@ -40,10 +43,38 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     final expensesState = ref.watch(expensesControllerProvider);
     final expenses = expensesState.result?.items ?? const [];
 
+    final accountsState = ref.watch(accountsControllerProvider);
+    final accounts = accountsState.result?.accounts ?? const [];
+
+    final incomesAsync = ref.watch(incomesListProvider);
+    final incomes = incomesAsync.value ?? const [];
+
     var totalExpenses = 0.0;
     for (final exp in expenses) {
       totalExpenses += double.tryParse(exp.amount.toApiString()) ?? 0.0;
     }
+
+    var totalIncomes = 0.0;
+    for (final inc in incomes) {
+      totalIncomes += double.tryParse(inc.amount.toApiString()) ?? 0.0;
+    }
+
+    var totalOpeningBalance = 0.0;
+    for (final acc in accounts) {
+      if (acc.isActive) {
+        totalOpeningBalance +=
+            double.tryParse(acc.openingBalance.toApiString()) ?? 0.0;
+      }
+    }
+    if (totalIncomes == 0.0 && totalOpeningBalance > 0.0) {
+      totalIncomes = totalOpeningBalance;
+    }
+
+    final netBalance = totalIncomes - totalExpenses;
+    final isNegative = netBalance < 0;
+    final absBalance = netBalance.abs();
+    final balanceSign = isNegative ? '-' : '';
+    final formattedBalance = MoneyFormatter.formatWhole(absBalance.round());
 
     return Scaffold(
       body: SafeArea(
@@ -89,7 +120,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                             ),
                             const SizedBox(height: 6),
                             Text(
-                              '- \$ ${totalExpenses.toStringAsFixed(0).replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]}.')} COP',
+                              '$balanceSign\$ $formattedBalance COP',
                               style: TextStyle(
                                 fontSize: 26,
                                 fontWeight: FontWeight.w800,
@@ -134,7 +165,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                                         ),
                                         const SizedBox(height: 4),
                                         Text(
-                                          '+ \$ 0 COP',
+                                          '+ \$ ${MoneyFormatter.formatWhole(totalIncomes.round())} COP',
                                           style: TextStyle(
                                             fontSize: 14,
                                             fontWeight: FontWeight.w800,
@@ -180,7 +211,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                                         ),
                                         const SizedBox(height: 4),
                                         Text(
-                                          '- \$ ${totalExpenses.toStringAsFixed(0).replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]}.')} COP',
+                                          totalExpenses > 0
+                                              ? '- \$ ${MoneyFormatter.formatWhole(totalExpenses.round())} COP'
+                                              : '- \$ 0 COP',
                                           style: TextStyle(
                                             fontSize: 14,
                                             fontWeight: FontWeight.w800,

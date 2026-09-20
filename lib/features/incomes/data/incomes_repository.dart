@@ -24,6 +24,12 @@ class IncomeRevision extends Notifier<int> {
   void changed() => state += 1;
 }
 
+final incomesListProvider = FutureProvider<List<Income>>((ref) async {
+  ref.watch(incomeRevisionProvider);
+  final repository = ref.watch(incomesRepositoryProvider);
+  return repository.list();
+});
+
 abstract interface class IncomesRepository {
   Future<List<Income>> list({int? accountId});
   Future<Income> get(int incomeId);
