@@ -9,6 +9,7 @@ import '../../../core/widgets/manage_widgets.dart';
 import '../../accounts/data/accounts_repository.dart';
 import '../../accounts/domain/account_models.dart';
 import '../../auth/session/application/auth_session_controller.dart';
+import '../../auth/session/domain/session_models.dart';
 import '../../categories/data/categories_repository.dart';
 import '../../categories/domain/category_models.dart';
 import '../../categories/presentation/category_visuals.dart';
@@ -36,12 +37,21 @@ class ExpenseCreateOptions {
 final expenseCreateOptionsProvider =
     Provider<Future<ExpenseCreateOptions> Function()>((ref) {
       return () async {
-        final accountsResult = await ref
+        final accountsFuture = ref
             .read(accountsRepositoryProvider)
             .list(includeInactive: false);
-        final categoriesResult = await ref
+        final categoriesFuture = ref
             .read(categoriesRepositoryProvider)
             .list();
+
+        final accountsResult = await accountsFuture;
+        CategoryListResult? categoriesResult;
+        try {
+          categoriesResult = await categoriesFuture;
+        } catch (e) {
+          debugPrint('Warning: Failed to load categories: $e');
+        }
+
         List<IncomeSource> sources = const [];
         try {
           sources = await ref
@@ -52,9 +62,10 @@ final expenseCreateOptionsProvider =
                     .list(accessCredential: access),
               );
         } catch (_) {}
+
         return ExpenseCreateOptions(
           accounts: accountsResult.accounts,
-          categories: categoriesResult.categories,
+          categories: categoriesResult?.categories ?? const [],
           incomeSources: sources,
         );
       };
@@ -140,16 +151,43 @@ class _ExpenseCreateScreenState extends ConsumerState<ExpenseCreateScreen> {
         }
         _loadingOptions = false;
       });
-    } on Object {
+    } on Object catch (e, stack) {
+      debugPrint('Error loading expense create options: $e\n$stack');
       if (!mounted) return;
+      final (code, message, correlationId, reason) = switch (e) {
+        AccountFailure f => (
+            f.code,
+            f.userMessage,
+            f.correlationId,
+            f.technicalReason,
+          ),
+        CategoryFailure f => (
+            f.code,
+            f.userMessage,
+            f.correlationId,
+            f.technicalReason,
+          ),
+        InvalidSessionFailure f => (
+            f.code,
+            f.userMessage,
+            f.correlationId,
+            f.technicalReason,
+          ),
+        _ => (
+            'expense_options_unavailable',
+            'No pudimos cargar tus cuentas y catálogos. Inténtalo de nuevo.',
+            'unavailable',
+            e.toString(),
+          ),
+      };
       setState(() {
         _loadingOptions = false;
         _loadDiagnostic = ErrorDiagnostic.capture(
-          code: 'expense_options_unavailable',
+          code: code,
           operation: 'load_expense_create_options',
-          userMessage:
-              'No pudimos cargar tus cuentas y catálogos. Inténtalo de nuevo.',
-          technicalReason: 'form_options_failure',
+          userMessage: message,
+          correlationId: correlationId,
+          technicalReason: reason,
         );
       });
     }
