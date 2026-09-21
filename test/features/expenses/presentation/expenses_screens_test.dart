@@ -279,6 +279,9 @@ class FakeCategoriesRepository implements CategoriesRepository {
 }
 
 class FakeIncomesRepository implements IncomesRepository {
+  FakeIncomesRepository([this._incomes = const []]);
+
+  final List<Income> _incomes;
   IncomeWriteCommand? lastCreateCommand;
 
   @override
@@ -314,7 +317,7 @@ class FakeIncomesRepository implements IncomesRepository {
   );
 
   @override
-  Future<List<Income>> list({int? accountId}) async => [];
+  Future<List<Income>> list({int? accountId}) async => _incomes;
 
   @override
   Future<Income> update(int incomeId, IncomeWriteCommand command) async =>
@@ -830,6 +833,43 @@ void main() {
         find.text(r'1 cuenta activa · $ 100 COP · Ver saldos'),
         findsOneWidget,
       );
+    },
+  );
+
+  testWidgets(
+    'home screen displays unified recent movements (expenses and incomes) and opens income detail',
+    (tester) async {
+      final repository = WidgetExpensesRepository();
+      final testIncome = Income(
+        id: 42,
+        accountId: 11,
+        accountName: 'Cash',
+        currencyCode: 'COP',
+        amount: MoneyAmount.parseApi('500.00'),
+        date: DateTime.utc(2026, 9, 20),
+        description: 'Pago de nómina',
+        incomeSourceId: 1,
+        incomeSourceName: 'Trabajo',
+      );
+      final incomesRepository = FakeIncomesRepository([testIncome]);
+
+      await pumpExpensesApp(
+        tester,
+        repository,
+        initialLocation: '/home',
+        incomesRepository: incomesRepository,
+      );
+
+      expect(find.text('2 movimientos'), findsOneWidget);
+      expect(find.byKey(const Key('expense-card-7')), findsOneWidget);
+      expect(find.byKey(const Key('income-card-42')), findsOneWidget);
+      expect(find.text('Pago de nómina'), findsOneWidget);
+      expect(find.text('+ COP 500.00'), findsOneWidget);
+
+      await tester.tap(find.byKey(const Key('income-card-42')));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Detalle del ingreso'), findsOneWidget);
     },
   );
 }

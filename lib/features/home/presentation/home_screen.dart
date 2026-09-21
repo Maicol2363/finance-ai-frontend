@@ -119,6 +119,24 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     final incomesAsync = ref.watch(incomesListProvider);
     final incomes = incomesAsync.value ?? const [];
 
+    final expenses = result?.items ?? const <Expense>[];
+    final allMovements = <_HomeMovement>[
+      ...expenses.map(_ExpenseMovement.new),
+      ...incomes.map(_IncomeMovement.new),
+    ]..sort((a, b) {
+        final cmp = b.date.compareTo(a.date);
+        if (cmp != 0) return cmp;
+        final idA = switch (a) {
+          _ExpenseMovement(:final expense) => expense.id,
+          _IncomeMovement(:final income) => income.id,
+        };
+        final idB = switch (b) {
+          _ExpenseMovement(:final expense) => expense.id,
+          _IncomeMovement(:final income) => income.id,
+        };
+        return idB.compareTo(idA);
+      });
+
     return PopScope(
       canPop: false,
       child: Scaffold(
@@ -220,7 +238,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                                   color: palette.text,
                                 ),
                               ),
-                              if (result != null && result.items.isNotEmpty)
+                              if (result != null && allMovements.isNotEmpty)
                                 Container(
                                   padding: const EdgeInsets.symmetric(
                                     horizontal: 8,
@@ -231,7 +249,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                                     borderRadius: BorderRadius.circular(10),
                                   ),
                                   child: Text(
-                                    '${result.items.length} ${result.items.length == 1 ? 'movimiento' : 'movimientos'}',
+                                    '${allMovements.length} ${allMovements.length == 1 ? 'movimiento' : 'movimientos'}',
                                     style: TextStyle(
                                       fontSize: 11,
                                       fontWeight: FontWeight.w600,
@@ -252,14 +270,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                             child: Center(child: CircularProgressIndicator()),
                           ),
 
-                        if (result != null && result.items.isEmpty)
+                        if (result != null && allMovements.isEmpty)
                           MovementsEmptyState(
                             onRegister: () => context.push('/expenses/new'),
                           ),
 
-                        if (result != null && result.items.isNotEmpty)
-                          for (final expense in result.items) ...[
-                            _HubExpenseCard(expense: expense),
+                        if (result != null && allMovements.isNotEmpty)
+                          for (final movement in allMovements) ...[
+                            switch (movement) {
+                              _ExpenseMovement(:final expense) =>
+                                _HubExpenseCard(expense: expense),
+                              _IncomeMovement(:final income) =>
+                                _HubIncomeCard(income: income),
+                            },
                             const SizedBox(height: 10),
                           ],
 
@@ -636,6 +659,27 @@ class _HubBalanceCard extends StatelessWidget {
   }
 }
 
+sealed class _HomeMovement {
+  const _HomeMovement();
+  DateTime get date;
+}
+
+class _ExpenseMovement extends _HomeMovement {
+  const _ExpenseMovement(this.expense);
+  final Expense expense;
+
+  @override
+  DateTime get date => expense.occurredAt;
+}
+
+class _IncomeMovement extends _HomeMovement {
+  const _IncomeMovement(this.income);
+  final Income income;
+
+  @override
+  DateTime get date => income.date;
+}
+
 // =================== HUB EXPENSE CARD ===================
 class _HubExpenseCard extends StatelessWidget {
   const _HubExpenseCard({required this.expense});
@@ -782,6 +826,130 @@ class _HubExpenseCard extends StatelessWidget {
                   color: expense.amount.isNegative
                       ? palette.discard
                       : palette.text,
+                ),
+                textAlign: TextAlign.end,
+              ),
+              const SizedBox(width: 4),
+              Icon(Icons.chevron_right, size: 16, color: palette.muted),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// =================== HUB INCOME CARD ===================
+class _HubIncomeCard extends ConsumerWidget {
+  const _HubIncomeCard({required this.income});
+
+  final Income income;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final palette = context.palette;
+    final amount = income.amount.formatWithCurrency(income.currencyCode);
+    final title = income.description != null && income.description!.isNotEmpty
+        ? income.description!
+        : (income.incomeSourceName ?? 'Ingreso');
+
+    return Container(
+      decoration: BoxDecoration(
+        color: palette.card,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: palette.line),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x040F172A),
+            blurRadius: 4,
+            offset: Offset(0, 1),
+          ),
+        ],
+      ),
+      child: InkWell(
+        key: Key('income-card-${income.id}'),
+        borderRadius: BorderRadius.circular(14),
+        onTap: () async {
+          await context.push('/incomes/${income.id}');
+          if (context.mounted) {
+            ref.read(incomeRevisionProvider.notifier).changed();
+          }
+        },
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          child: Row(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: palette.incomeSoft,
+                  borderRadius: BorderRadius.circular(11),
+                ),
+                child: const Center(
+                  child: Text(
+                    '💰',
+                    style: TextStyle(fontSize: 20),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: TextStyle(
+                        fontSize: 14.5,
+                        fontWeight: FontWeight.w700,
+                        color: palette.text,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 1.5,
+                          ),
+                          decoration: BoxDecoration(
+                            color: palette.incomeSoft,
+                            borderRadius: BorderRadius.circular(5),
+                          ),
+                          child: Text(
+                            'ingreso',
+                            style: TextStyle(
+                              fontSize: 9.5,
+                              fontWeight: FontWeight.w700,
+                              color: palette.income,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            '${income.accountName}${income.incomeSourceName != null ? ' · ${income.incomeSourceName}' : ''}',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: palette.muted,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 10),
+              Text(
+                '+ $amount',
+                style: TextStyle(
+                  fontSize: 14.5,
+                  fontWeight: FontWeight.w800,
+                  color: palette.income,
                 ),
                 textAlign: TextAlign.end,
               ),
