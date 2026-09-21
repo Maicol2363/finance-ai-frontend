@@ -40,9 +40,7 @@ final expenseCreateOptionsProvider =
         final accountsFuture = ref
             .read(accountsRepositoryProvider)
             .list(includeInactive: false);
-        final categoriesFuture = ref
-            .read(categoriesRepositoryProvider)
-            .list();
+        final categoriesFuture = ref.read(categoriesRepositoryProvider).list();
 
         final accountsResult = await accountsFuture;
         CategoryListResult? categoriesResult;
@@ -156,29 +154,29 @@ class _ExpenseCreateScreenState extends ConsumerState<ExpenseCreateScreen> {
       if (!mounted) return;
       final (code, message, correlationId, reason) = switch (e) {
         AccountFailure f => (
-            f.code,
-            f.userMessage,
-            f.correlationId,
-            f.technicalReason,
-          ),
+          f.code,
+          f.userMessage,
+          f.correlationId,
+          f.technicalReason,
+        ),
         CategoryFailure f => (
-            f.code,
-            f.userMessage,
-            f.correlationId,
-            f.technicalReason,
-          ),
+          f.code,
+          f.userMessage,
+          f.correlationId,
+          f.technicalReason,
+        ),
         InvalidSessionFailure f => (
-            f.code,
-            f.userMessage,
-            f.correlationId,
-            f.technicalReason,
-          ),
+          f.code,
+          f.userMessage,
+          f.correlationId,
+          f.technicalReason,
+        ),
         _ => (
-            'expense_options_unavailable',
-            'No pudimos cargar tus cuentas y catálogos. Inténtalo de nuevo.',
-            'unavailable',
-            e.toString(),
-          ),
+          'expense_options_unavailable',
+          'No pudimos cargar tus cuentas y catálogos. Inténtalo de nuevo.',
+          'unavailable',
+          e.toString(),
+        ),
       };
       setState(() {
         _loadingOptions = false;
@@ -384,7 +382,8 @@ class _ExpenseCreateScreenState extends ConsumerState<ExpenseCreateScreen> {
                               key: const Key('segment-gasto'),
                               onTap: formEnabled
                                   ? () => setState(
-                                      () => _type = MovementType.expense)
+                                      () => _type = MovementType.expense,
+                                    )
                                   : null,
                               borderRadius: BorderRadius.circular(10),
                               child: Container(
@@ -426,7 +425,8 @@ class _ExpenseCreateScreenState extends ConsumerState<ExpenseCreateScreen> {
                               key: const Key('segment-ingreso'),
                               onTap: formEnabled
                                   ? () => setState(
-                                      () => _type = MovementType.income)
+                                      () => _type = MovementType.income,
+                                    )
                                   : null,
                               borderRadius: BorderRadius.circular(10),
                               child: Container(
@@ -474,8 +474,8 @@ class _ExpenseCreateScreenState extends ConsumerState<ExpenseCreateScreen> {
                       label: _loadingOptions
                           ? 'Cargando opciones'
                           : (isIncome
-                              ? 'Registrando ingreso'
-                              : 'Registrando gasto'),
+                                ? 'Registrando ingreso'
+                                : 'Registrando gasto'),
                       child: const LinearProgressIndicator(),
                     ),
                     const SizedBox(height: 16),
@@ -570,9 +570,9 @@ class _ExpenseCreateScreenState extends ConsumerState<ExpenseCreateScreen> {
                             onChanged: (_) {
                               controller.clearFieldError('amount');
                               setState(() {
-                                _incomeFieldErrors =
-                                    Map.from(_incomeFieldErrors)
-                                      ..remove('amount');
+                                _incomeFieldErrors = Map.from(
+                                  _incomeFieldErrors,
+                                )..remove('amount');
                               });
                             },
                           ),
@@ -689,10 +689,10 @@ class _ExpenseCreateScreenState extends ConsumerState<ExpenseCreateScreen> {
                                   defaultName == 'Salario'
                                       ? '💼 Salario'
                                       : (defaultName == 'Freelance'
-                                          ? '💻 Freelance'
-                                          : (defaultName == 'Transferencia'
-                                              ? '🔄 Transferencia'
-                                              : '🎁 Regalo')),
+                                            ? '💻 Freelance'
+                                            : (defaultName == 'Transferencia'
+                                                  ? '🔄 Transferencia'
+                                                  : '🎁 Regalo')),
                                   style: TextStyle(
                                     fontSize: 12.5,
                                     fontWeight: FontWeight.w600,
@@ -744,8 +744,7 @@ class _ExpenseCreateScreenState extends ConsumerState<ExpenseCreateScreen> {
                         hintText: 'ej. Almuerzo, D1, Taxi, Café...',
                         errorText: _firstError(state, 'merchant'),
                       ),
-                      onChanged: (_) =>
-                          controller.clearFieldError('merchant'),
+                      onChanged: (_) => controller.clearFieldError('merchant'),
                     ),
                   ],
                   const SizedBox(height: 12),
@@ -856,9 +855,9 @@ class _ExpenseCreateScreenState extends ConsumerState<ExpenseCreateScreen> {
                                     );
                                     controller.clearFieldError('account_id');
                                     setState(() {
-                                      _incomeFieldErrors =
-                                          Map.from(_incomeFieldErrors)
-                                            ..remove('account_id');
+                                      _incomeFieldErrors = Map.from(
+                                        _incomeFieldErrors,
+                                      )..remove('account_id');
                                     });
                                   }
                                 : null,
@@ -973,7 +972,9 @@ class _ExpenseCreateScreenState extends ConsumerState<ExpenseCreateScreen> {
                             borderRadius: BorderRadius.circular(10),
                             onTap: formEnabled
                                 ? () {
-                                    setState(() => _selectedCategoryId = cat.id);
+                                    setState(
+                                      () => _selectedCategoryId = cat.id,
+                                    );
                                     controller.clearFieldError('category_id');
                                   }
                                 : null,
@@ -1050,9 +1051,7 @@ class _ExpenseCreateScreenState extends ConsumerState<ExpenseCreateScreen> {
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Text(
-                            isIncome
-                                ? 'Detalles opcionales (fecha, nota)'
-                                : 'Detalles opcionales (categoría, fecha, nota)',
+                            isIncome ? 'Detalles opcionales (fecha, nota)' : 'Detalles opcionales (categoría, fecha, nota)',
                             style: TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.w700,
@@ -1210,8 +1209,9 @@ class _ExpenseCreateScreenState extends ConsumerState<ExpenseCreateScreen> {
                         : const Key('expense-create-submit-button'),
                     onPressed: formEnabled ? _save : null,
                     style: FilledButton.styleFrom(
-                      backgroundColor:
-                          isIncome ? palette.income : palette.primary,
+                      backgroundColor: isIncome
+                          ? palette.income
+                          : palette.primary,
                       padding: const EdgeInsets.symmetric(vertical: 14),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),

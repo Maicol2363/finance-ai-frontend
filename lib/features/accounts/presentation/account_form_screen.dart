@@ -246,14 +246,11 @@ class _AccountFormScreenState extends ConsumerState<AccountFormScreen> {
             signed: true,
             decimal: true,
           ),
-          inputFormatters: const [
-            MoneyInputFormatter(allowNegative: true),
-          ],
+          inputFormatters: const [MoneyInputFormatter(allowNegative: true)],
           textInputAction: TextInputAction.done,
           decoration: InputDecoration(
             labelText: 'Saldo inicial',
-            helperText:
-                'Usa signo menos para deuda. Separa miles con punto.',
+            helperText: 'Usa signo menos para deuda. Separa miles con punto.',
             errorText: _firstError(state, 'opening_balance'),
           ),
           onChanged: (_) => controller.clearFieldError('opening_balance'),
@@ -340,14 +337,18 @@ class _AccountFormScreenState extends ConsumerState<AccountFormScreen> {
         name: _nameController.text,
         type: _selectedType,
         currencyCode: _selectedCurrency,
-        openingBalanceInput: MoneyFormatter.clean(_openingBalanceController.text),
+        openingBalanceInput: MoneyFormatter.clean(
+          _openingBalanceController.text,
+        ),
       );
     } else {
       outcome = await controller.create(
         name: _nameController.text,
         type: _selectedType,
         currencyCode: _selectedCurrency,
-        openingBalanceInput: MoneyFormatter.clean(_openingBalanceController.text),
+        openingBalanceInput: MoneyFormatter.clean(
+          _openingBalanceController.text,
+        ),
       );
     }
     if (!mounted) {

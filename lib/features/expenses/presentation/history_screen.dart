@@ -445,4 +445,3 @@ class _HistoryCard extends ConsumerWidget {
     );
   }
 }
-

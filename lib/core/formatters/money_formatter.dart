@@ -37,7 +37,9 @@ class MoneyFormatter {
     );
 
     final showDecimals = !(cents == 0 && trimZeroDecimals);
-    final decimalStr = showDecimals ? ',${cents.toString().padLeft(2, '0')}' : '';
+    final decimalStr = showDecimals
+        ? ',${cents.toString().padLeft(2, '0')}'
+        : '';
     final sign = isNeg ? '-' : '';
 
     if (currencyCode != null) {
@@ -65,7 +67,9 @@ class MoneyFormatter {
     );
 
     final showDecimals = !(cents == 0 && trimZeroDecimals);
-    final decimalStr = showDecimals ? ',${cents.toString().padLeft(2, '0')}' : '';
+    final decimalStr = showDecimals
+        ? ',${cents.toString().padLeft(2, '0')}'
+        : '';
     final sign = isNeg ? '-' : '';
 
     return '$sign$formattedWhole$decimalStr';
@@ -137,10 +141,7 @@ class MoneyFormatter {
 /// A [TextInputFormatter] that formats numeric input with thousands separators
 /// (dots) and allows an optional decimal part (comma or dot) as the user types.
 class MoneyInputFormatter extends TextInputFormatter {
-  const MoneyInputFormatter({
-    this.allowNegative = false,
-    this.maxDecimals = 2,
-  });
+  const MoneyInputFormatter({this.allowNegative = false, this.maxDecimals = 2});
 
   final bool allowNegative;
   final int maxDecimals;
@@ -179,8 +180,12 @@ class MoneyInputFormatter extends TextInputFormatter {
     }
 
     if (decIndex != -1) {
-      integerPart = text.substring(0, decIndex).replaceAll(RegExp(r'[^\d]'), '');
-      decimalPart = text.substring(decIndex + 1).replaceAll(RegExp(r'[^\d]'), '');
+      integerPart = text
+          .substring(0, decIndex)
+          .replaceAll(RegExp(r'[^\d]'), '');
+      decimalPart = text
+          .substring(decIndex + 1)
+          .replaceAll(RegExp(r'[^\d]'), '');
       if (decimalPart.length > maxDecimals) {
         decimalPart = decimalPart.substring(0, maxDecimals);
       }
@@ -189,7 +194,9 @@ class MoneyInputFormatter extends TextInputFormatter {
     }
 
     if (integerPart.isEmpty && decimalPart == null) {
-      return isNegative ? const TextEditingValue(text: '-') : const TextEditingValue();
+      return isNegative
+          ? const TextEditingValue(text: '-')
+          : const TextEditingValue();
     }
 
     String formattedInteger = '';
@@ -204,7 +211,9 @@ class MoneyInputFormatter extends TextInputFormatter {
     if (isNegative) {
       buffer.write('-');
     }
-    buffer.write(formattedInteger.isEmpty && decimalPart != null ? '0' : formattedInteger);
+    buffer.write(
+      formattedInteger.isEmpty && decimalPart != null ? '0' : formattedInteger,
+    );
     if (decimalPart != null) {
       buffer.write(',');
       buffer.write(decimalPart);
@@ -218,9 +227,14 @@ class MoneyInputFormatter extends TextInputFormatter {
     } else {
       int digitsBeforeCursor = 0;
       final oldCommaIdx = newValue.text.indexOf(',');
-      final cursorAfterComma = oldCommaIdx != -1 && newValue.selection.baseOffset > oldCommaIdx;
+      final cursorAfterComma =
+          oldCommaIdx != -1 && newValue.selection.baseOffset > oldCommaIdx;
 
-      for (int i = 0; i < newValue.selection.baseOffset && i < newValue.text.length; i++) {
+      for (
+        int i = 0;
+        i < newValue.selection.baseOffset && i < newValue.text.length;
+        i++
+      ) {
         if (RegExp(r'\d').hasMatch(newValue.text[i])) {
           digitsBeforeCursor++;
         }

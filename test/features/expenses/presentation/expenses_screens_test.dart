@@ -100,7 +100,8 @@ HistoryItem historyItem({int id = 8, HistoryExpense? expense}) => HistoryItem(
       currencyCode: 'COP',
     ),
   ],
-  expense: expense ??
+  expense:
+      expense ??
       HistoryExpense(
         receiptId: 9,
         name: 'Market',
@@ -301,16 +302,16 @@ class FakeIncomesRepository implements IncomesRepository {
 
   @override
   Future<Income> get(int incomeId) async => Income(
-        id: incomeId,
-        accountId: 11,
-        accountName: 'Cash',
-        currencyCode: 'COP',
-        amount: MoneyAmount.parseApi('500.00'),
-        date: DateTime.utc(2026, 9, 18),
-        description: 'Salary payment',
-        incomeSourceId: 1,
-        incomeSourceName: 'Trabajo',
-      );
+    id: incomeId,
+    accountId: 11,
+    accountName: 'Cash',
+    currencyCode: 'COP',
+    amount: MoneyAmount.parseApi('500.00'),
+    date: DateTime.utc(2026, 9, 18),
+    description: 'Salary payment',
+    incomeSourceId: 1,
+    incomeSourceName: 'Trabajo',
+  );
 
   @override
   Future<List<Income>> list({int? accountId}) async => [];
@@ -614,9 +615,16 @@ void main() {
       addTearDown(tester.view.resetPhysicalSize);
 
       final repository = WidgetExpensesRepository();
-      await pumpExpensesApp(tester, repository, initialLocation: '/expenses/new');
+      await pumpExpensesApp(
+        tester,
+        repository,
+        initialLocation: '/expenses/new',
+      );
 
-      expect(find.byKey(const Key('expense-create-new-account-chip')), findsOneWidget);
+      expect(
+        find.byKey(const Key('expense-create-new-account-chip')),
+        findsOneWidget,
+      );
 
       await tester.tap(find.byKey(const Key('expense-create-optional-toggle')));
       await tester.pumpAndSettle();
@@ -695,9 +703,7 @@ void main() {
         find.byKey(const Key('expense-create-merchant-field')),
         'Almuerzo',
       );
-      await tester.tap(
-        find.byKey(const Key('expense-create-optional-toggle')),
-      );
+      await tester.tap(find.byKey(const Key('expense-create-optional-toggle')));
       await tester.pumpAndSettle();
 
       await tester.tap(

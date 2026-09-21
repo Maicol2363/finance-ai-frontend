@@ -30,16 +30,19 @@ void main() {
       expect(MoneyFormatter.formatInputAmount(1250), '12,50');
     });
 
-    test('clean normalizes formatted strings for MoneyAmount.tryParseUserInput', () {
-      expect(MoneyFormatter.clean('1.600.000'), '1600000');
-      expect(MoneyFormatter.clean('1.600.000,50'), '1600000.50');
-      expect(MoneyFormatter.clean('-1.600.000'), '-1600000');
-      expect(MoneyFormatter.clean('1600000'), '1600000');
-      expect(MoneyFormatter.clean('12.50'), '12.50');
-      expect(MoneyFormatter.clean('12,5'), '12.5');
-      expect(MoneyFormatter.clean('\$ 1.600.000'), '1600000');
-      expect(MoneyFormatter.clean('COP 1.600.000'), '1600000');
-    });
+    test(
+      'clean normalizes formatted strings for MoneyAmount.tryParseUserInput',
+      () {
+        expect(MoneyFormatter.clean('1.600.000'), '1600000');
+        expect(MoneyFormatter.clean('1.600.000,50'), '1600000.50');
+        expect(MoneyFormatter.clean('-1.600.000'), '-1600000');
+        expect(MoneyFormatter.clean('1600000'), '1600000');
+        expect(MoneyFormatter.clean('12.50'), '12.50');
+        expect(MoneyFormatter.clean('12,5'), '12.5');
+        expect(MoneyFormatter.clean('\$ 1.600.000'), '1600000');
+        expect(MoneyFormatter.clean('COP 1.600.000'), '1600000');
+      },
+    );
   });
 
   group('MoneyInputFormatter', () {
@@ -48,19 +51,28 @@ void main() {
     test('formats digits with dot thousands separators as user types', () {
       final v1 = formatter.formatEditUpdate(
         TextEditingValue.empty,
-        const TextEditingValue(text: '1600000', selection: TextSelection.collapsed(offset: 7)),
+        const TextEditingValue(
+          text: '1600000',
+          selection: TextSelection.collapsed(offset: 7),
+        ),
       );
       expect(v1.text, '1.600.000');
 
       final v2 = formatter.formatEditUpdate(
         const TextEditingValue(text: '1.600.000'),
-        const TextEditingValue(text: '1.600.000,5', selection: TextSelection.collapsed(offset: 11)),
+        const TextEditingValue(
+          text: '1.600.000,5',
+          selection: TextSelection.collapsed(offset: 11),
+        ),
       );
       expect(v2.text, '1.600.000,5');
 
       final v3 = formatter.formatEditUpdate(
         const TextEditingValue(text: '1.600.000,5'),
-        const TextEditingValue(text: '1.600.000,50', selection: TextSelection.collapsed(offset: 12)),
+        const TextEditingValue(
+          text: '1.600.000,50',
+          selection: TextSelection.collapsed(offset: 12),
+        ),
       );
       expect(v3.text, '1.600.000,50');
     });
@@ -68,7 +80,10 @@ void main() {
     test('converts typed dot to comma when user types dot at end', () {
       final v = formatter.formatEditUpdate(
         const TextEditingValue(text: '1.600.000'),
-        const TextEditingValue(text: '1.600.000.', selection: TextSelection.collapsed(offset: 10)),
+        const TextEditingValue(
+          text: '1.600.000.',
+          selection: TextSelection.collapsed(offset: 10),
+        ),
       );
       expect(v.text, '1.600.000,');
     });
@@ -76,7 +91,10 @@ void main() {
     test('handles negative values when allowed', () {
       final v = formatter.formatEditUpdate(
         TextEditingValue.empty,
-        const TextEditingValue(text: '-25000', selection: TextSelection.collapsed(offset: 6)),
+        const TextEditingValue(
+          text: '-25000',
+          selection: TextSelection.collapsed(offset: 6),
+        ),
       );
       expect(v.text, '-25.000');
     });

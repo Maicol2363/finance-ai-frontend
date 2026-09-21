@@ -134,8 +134,7 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen>
                       ],
 
                       // Banner resumen rápido (Estilo Mockup)
-                      if (result != null)
-                        _HubSummaryCard(items: result.items),
+                      if (result != null) _HubSummaryCard(items: result.items),
 
                       if (result == null &&
                           state.listStatus != ExpensesLoadStatus.loading &&

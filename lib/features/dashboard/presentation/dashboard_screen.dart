@@ -252,7 +252,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                           child: Center(
                             child: Column(
                               children: [
-                                const Text('📊', style: TextStyle(fontSize: 36)),
+                                const Text(
+                                  '📊',
+                                  style: TextStyle(fontSize: 36),
+                                ),
                                 const SizedBox(height: 10),
                                 Text(
                                   'Sin datos suficientes',

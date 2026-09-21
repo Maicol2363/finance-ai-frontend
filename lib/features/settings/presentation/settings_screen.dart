@@ -221,7 +221,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         ),
                       InkWell(
                         key: const Key('logout-button'),
-                        onTap: sessionState.status == AuthSessionStatus.loggingOut
+                        onTap:
+                            sessionState.status == AuthSessionStatus.loggingOut
                             ? null
                             : () => _confirmLogout(context, sessionController),
                         child: Padding(
@@ -270,17 +271,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
   }
 
-  void _confirmLogout(
-    BuildContext context,
-    AuthSessionController controller,
-  ) {
+  void _confirmLogout(BuildContext context, AuthSessionController controller) {
     showDialog<void>(
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: const Text('¿Cerrar sesión?'),
-        content: const Text(
-          'Se cerrará tu sesión actual en este dispositivo.',
-        ),
+        content: const Text('Se cerrará tu sesión actual en este dispositivo.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(),

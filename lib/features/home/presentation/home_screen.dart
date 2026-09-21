@@ -183,7 +183,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                           ),
                           const SizedBox(height: 16),
                         ],
-                        if (expensesState.listDiagnostic case final diagnostic?) ...[
+                        if (expensesState.listDiagnostic
+                            case final diagnostic?) ...[
                           ErrorDiagnosticPanel(diagnostic: diagnostic),
                           const SizedBox(height: 12),
                           OutlinedButton.icon(
@@ -266,7 +267,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                           const SizedBox(height: 10),
                           OutlinedButton.icon(
                             key: const Key('expenses-load-more-button'),
-                            onPressed: isBusy ? null : expensesController.loadMore,
+                            onPressed: isBusy
+                                ? null
+                                : expensesController.loadMore,
                             icon: const Icon(Icons.expand_more),
                             label: const Text('Cargar más gastos'),
                           ),
@@ -283,9 +286,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               Positioned.fill(
                 child: GestureDetector(
                   onTap: _closeWheel,
-                  child: Container(
-                    color: Colors.black.withValues(alpha: 0.35),
-                  ),
+                  child: Container(color: Colors.black.withValues(alpha: 0.35)),
                 ),
               ),
 
@@ -441,7 +442,8 @@ class _HubBalanceCard extends StatelessWidget {
     }
 
     final netBalance = totalIncomes - totalExpenses;
-    final currency = items.firstOrNull?.currencyCode ??
+    final currency =
+        items.firstOrNull?.currencyCode ??
         incomes.firstOrNull?.currencyCode ??
         accounts.firstOrNull?.currency.code ??
         preferredCurrency;
@@ -452,8 +454,9 @@ class _HubBalanceCard extends StatelessWidget {
     final formattedBalance = MoneyFormatter.formatWhole(absBalance.round());
     final activeAccounts = accounts.where((a) => a.isActive).toList();
     final activeCount = activeAccounts.length;
-    final formattedAccountsBalance =
-        MoneyFormatter.formatWhole(totalAccountsBalance.round());
+    final formattedAccountsBalance = MoneyFormatter.formatWhole(
+      totalAccountsBalance.round(),
+    );
 
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
@@ -488,10 +491,7 @@ class _HubBalanceCard extends StatelessWidget {
                 Text(
                   userEmail!,
                   key: const Key('home-user-context'),
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: palette.muted,
-                  ),
+                  style: TextStyle(fontSize: 11, color: palette.muted),
                 ),
             ],
           ),
@@ -625,11 +625,7 @@ class _HubBalanceCard extends StatelessWidget {
                     ),
                   ),
                   const Spacer(),
-                  Icon(
-                    Icons.chevron_right,
-                    size: 16,
-                    color: palette.muted,
-                  ),
+                  Icon(Icons.chevron_right, size: 16, color: palette.muted),
                 ],
               ),
             ),

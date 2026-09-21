@@ -63,11 +63,7 @@ class MovementsEmptyState extends StatelessWidget {
             Text(
               'Registra tu primer gasto o ingreso y aparecerá aquí.',
               textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 13,
-                color: palette.muted,
-                height: 1.4,
-              ),
+              style: TextStyle(fontSize: 13, color: palette.muted, height: 1.4),
             ),
             const SizedBox(height: 18),
             FilledButton.icon(

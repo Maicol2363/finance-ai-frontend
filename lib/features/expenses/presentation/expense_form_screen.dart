@@ -162,9 +162,7 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
           focusNode: _amountFocus,
           enabled: formEnabled,
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
-          inputFormatters: const [
-            MoneyInputFormatter(allowNegative: false),
-          ],
+          inputFormatters: const [MoneyInputFormatter(allowNegative: false)],
           textInputAction: TextInputAction.next,
           decoration: InputDecoration(
             labelText: 'Monto (${editExpense.currencyCode})',

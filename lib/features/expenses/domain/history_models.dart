@@ -52,7 +52,8 @@ class HistoryMovement {
     final accountName = json['account_name'];
     final amount = json['amount'];
     final currency = json['currency'];
-    final currencyCode = json['currency_code'] ??
+    final currencyCode =
+        json['currency_code'] ??
         (currency is Map<String, Object?> ? currency['code'] : null);
     if (accountId is! int ||
         accountId < 1 ||
