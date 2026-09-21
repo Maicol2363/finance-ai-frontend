@@ -200,6 +200,7 @@ class _AccountDetailScreenState extends ConsumerState<AccountDetailScreen> {
           FilledButton(
             key: const Key('account-confirm-delete-button'),
             style: FilledButton.styleFrom(
+              minimumSize: const Size(0, 40),
               backgroundColor: Theme.of(context).colorScheme.error,
               foregroundColor: Theme.of(context).colorScheme.onError,
             ),

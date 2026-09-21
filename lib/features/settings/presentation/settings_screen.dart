@@ -271,6 +271,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             child: const Text('Cancelar'),
           ),
           FilledButton(
+            style: FilledButton.styleFrom(minimumSize: const Size(0, 40)),
             onPressed: () {
               Navigator.of(dialogContext).pop();
               controller.logout();

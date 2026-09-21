@@ -55,7 +55,7 @@ class _ExpenseDetailScreenState extends ConsumerState<ExpenseDetailScreen> {
             if (context.canPop()) {
               context.pop();
             } else {
-              context.go('/expenses');
+              context.go('/home');
             }
           },
           icon: const Icon(Icons.arrow_back),
@@ -169,6 +169,7 @@ class _ExpenseDetailScreenState extends ConsumerState<ExpenseDetailScreen> {
           FilledButton(
             key: const Key('expense-confirm-delete-button'),
             style: FilledButton.styleFrom(
+              minimumSize: const Size(0, 40),
               backgroundColor: Theme.of(context).colorScheme.error,
               foregroundColor: Theme.of(context).colorScheme.onError,
             ),
@@ -190,7 +191,7 @@ class _ExpenseDetailScreenState extends ConsumerState<ExpenseDetailScreen> {
     if (context.canPop()) {
       context.pop();
     } else {
-      context.go('/expenses');
+      context.go('/home');
     }
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Gasto eliminado definitivamente.')),

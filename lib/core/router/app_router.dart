@@ -198,6 +198,12 @@ GoRouter createAppRouter({
       GoRoute(
         path: '/expenses',
         name: 'expenses',
+        redirect: (context, state) {
+          if (state.uri.path == '/expenses' || state.uri.path == '/expenses/') {
+            return '/home';
+          }
+          return null;
+        },
         builder: (context, state) => const HomeScreen(),
         routes: [
           GoRoute(

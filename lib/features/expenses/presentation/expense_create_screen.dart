@@ -233,7 +233,11 @@ class _ExpenseCreateScreenState extends ConsumerState<ExpenseCreateScreen> {
     );
     if (!mounted) return;
     if (outcome == ExpenseMutationOutcome.success) {
-      context.go('/home');
+      if (context.canPop()) {
+        context.pop();
+      } else {
+        context.go('/home');
+      }
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Gasto registrado exitosamente.')),
       );
@@ -288,7 +292,11 @@ class _ExpenseCreateScreenState extends ConsumerState<ExpenseCreateScreen> {
       await repository.create(command);
       if (!mounted) return;
       ref.read(incomeRevisionProvider.notifier).changed();
-      context.go('/home');
+      if (context.canPop()) {
+        context.pop();
+      } else {
+        context.go('/home');
+      }
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Ingreso registrado exitosamente.')),
       );
@@ -353,8 +361,16 @@ class _ExpenseCreateScreenState extends ConsumerState<ExpenseCreateScreen> {
       child: Scaffold(
         appBar: AppBar(
           leading: IconButton(
-            tooltip: 'Volver al inicio',
-            onPressed: isSaving ? null : () => context.go('/home'),
+            tooltip: context.canPop() ? 'Volver' : 'Volver al inicio',
+            onPressed: isSaving
+                ? null
+                : () {
+                    if (context.canPop()) {
+                      context.pop();
+                    } else {
+                      context.go('/home');
+                    }
+                  },
             icon: const Icon(Icons.arrow_back),
           ),
           title: Text(isIncome ? 'Registrar ingreso' : 'Registrar gasto'),

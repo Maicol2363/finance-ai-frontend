@@ -254,7 +254,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
 
                         if (result != null && result.items.isEmpty)
                           MovementsEmptyState(
-                            onRegister: () => context.go('/expenses/new'),
+                            onRegister: () => context.push('/expenses/new'),
                           ),
 
                         if (result != null && result.items.isNotEmpty)
@@ -353,7 +353,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                 delayRatio: 0.3,
                 onTap: () {
                   _closeWheel();
-                  context.go('/expenses/new');
+                  context.push('/expenses/new');
                 },
               ),
             ],
@@ -704,7 +704,7 @@ class _HubExpenseCard extends StatelessWidget {
       child: InkWell(
         key: Key('expense-card-${expense.id}'),
         borderRadius: BorderRadius.circular(14),
-        onTap: () => context.go('/expenses/${expense.id}'),
+        onTap: () => context.push('/expenses/${expense.id}'),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
           child: Row(
