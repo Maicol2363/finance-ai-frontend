@@ -428,7 +428,7 @@ class _ExpenseCreateScreenState extends ConsumerState<ExpenseCreateScreen> {
                                       fontSize: 14,
                                       fontWeight: FontWeight.w700,
                                       color: !isIncome
-                                          ? palette.text
+                                          ? palette.discard
                                           : palette.muted,
                                     ),
                                   ),
@@ -523,7 +523,10 @@ class _ExpenseCreateScreenState extends ConsumerState<ExpenseCreateScreen> {
                       border: Border.all(
                         color: _firstError(state, 'amount') != null
                             ? palette.discard
-                            : palette.line,
+                            : (isIncome
+                                ? palette.income.withValues(alpha: 0.3)
+                                : palette.discard.withValues(alpha: 0.3)),
+                        width: 1.5,
                       ),
                       boxShadow: const [
                         BoxShadow(
@@ -542,11 +545,11 @@ class _ExpenseCreateScreenState extends ConsumerState<ExpenseCreateScreen> {
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
                         Text(
-                          isIncome ? '+ $currencySymbol' : currencySymbol,
+                          isIncome ? '+ $currencySymbol' : '- $currencySymbol',
                           style: TextStyle(
                             fontSize: 28,
                             fontWeight: FontWeight.w800,
-                            color: isIncome ? palette.income : palette.text,
+                            color: isIncome ? palette.income : palette.discard,
                           ),
                         ),
                         const SizedBox(width: 8),
@@ -566,7 +569,7 @@ class _ExpenseCreateScreenState extends ConsumerState<ExpenseCreateScreen> {
                             style: TextStyle(
                               fontSize: 32,
                               fontWeight: FontWeight.w800,
-                              color: isIncome ? palette.income : palette.text,
+                              color: isIncome ? palette.income : palette.discard,
                             ),
                             decoration: InputDecoration(
                               hintText: '0',
@@ -645,22 +648,27 @@ class _ExpenseCreateScreenState extends ConsumerState<ExpenseCreateScreen> {
                                 ),
                                 decoration: BoxDecoration(
                                   color: _selectedSourceId == source.id
-                                      ? palette.primary
+                                      ? palette.incomeSoft
                                       : palette.card,
                                   borderRadius: BorderRadius.circular(10),
                                   border: Border.all(
                                     color: _selectedSourceId == source.id
-                                        ? palette.primary
+                                        ? palette.income
                                         : palette.line,
+                                    width: _selectedSourceId == source.id
+                                        ? 1.5
+                                        : 1.0,
                                   ),
                                 ),
                                 child: Text(
                                   '💼 ${source.name}',
                                   style: TextStyle(
                                     fontSize: 12.5,
-                                    fontWeight: FontWeight.w600,
+                                    fontWeight: _selectedSourceId == source.id
+                                        ? FontWeight.w700
+                                        : FontWeight.w600,
                                     color: _selectedSourceId == source.id
-                                        ? Colors.white
+                                        ? palette.income
                                         : palette.text,
                                   ),
                                 ),
@@ -692,13 +700,16 @@ class _ExpenseCreateScreenState extends ConsumerState<ExpenseCreateScreen> {
                                 ),
                                 decoration: BoxDecoration(
                                   color: _selectedSourceName == defaultName
-                                      ? palette.primary
+                                      ? palette.incomeSoft
                                       : palette.card,
                                   borderRadius: BorderRadius.circular(10),
                                   border: Border.all(
                                     color: _selectedSourceName == defaultName
-                                        ? palette.primary
+                                        ? palette.income
                                         : palette.line,
+                                    width: _selectedSourceName == defaultName
+                                        ? 1.5
+                                        : 1.0,
                                   ),
                                 ),
                                 child: Text(
@@ -711,9 +722,11 @@ class _ExpenseCreateScreenState extends ConsumerState<ExpenseCreateScreen> {
                                                   : '🎁 Regalo')),
                                   style: TextStyle(
                                     fontSize: 12.5,
-                                    fontWeight: FontWeight.w600,
+                                    fontWeight: _selectedSourceName == defaultName
+                                        ? FontWeight.w700
+                                        : FontWeight.w600,
                                     color: _selectedSourceName == defaultName
-                                        ? Colors.white
+                                        ? palette.income
                                         : palette.text,
                                   ),
                                 ),
@@ -804,7 +817,7 @@ class _ExpenseCreateScreenState extends ConsumerState<ExpenseCreateScreen> {
                           Icon(
                             Icons.account_balance_wallet_outlined,
                             size: 22,
-                            color: palette.primary,
+                            color: isIncome ? palette.income : palette.discard,
                           ),
                           const SizedBox(width: 10),
                           Expanded(
@@ -885,22 +898,33 @@ class _ExpenseCreateScreenState extends ConsumerState<ExpenseCreateScreen> {
                               ),
                               decoration: BoxDecoration(
                                 color: _selectedAccountId == account.id
-                                    ? palette.primary
+                                    ? (isIncome
+                                          ? palette.incomeSoft
+                                          : palette.errorSoft)
                                     : palette.card,
                                 borderRadius: BorderRadius.circular(10),
                                 border: Border.all(
                                   color: _selectedAccountId == account.id
-                                      ? palette.primary
+                                      ? (isIncome
+                                            ? palette.income
+                                            : palette.discard)
                                       : palette.line,
+                                  width: _selectedAccountId == account.id
+                                      ? 1.5
+                                      : 1.0,
                                 ),
                               ),
                               child: Text(
                                 '${_accountIcon(account.type)} ${account.name}',
                                 style: TextStyle(
                                   fontSize: 12.5,
-                                  fontWeight: FontWeight.w600,
+                                  fontWeight: _selectedAccountId == account.id
+                                      ? FontWeight.w700
+                                      : FontWeight.w600,
                                   color: _selectedAccountId == account.id
-                                      ? Colors.white
+                                      ? (isIncome
+                                            ? palette.income
+                                            : palette.discard)
                                       : palette.text,
                                 ),
                               ),
@@ -961,22 +985,25 @@ class _ExpenseCreateScreenState extends ConsumerState<ExpenseCreateScreen> {
                             ),
                             decoration: BoxDecoration(
                               color: _selectedCategoryId == null
-                                  ? palette.primary
+                                  ? palette.errorSoft
                                   : palette.card,
                               borderRadius: BorderRadius.circular(10),
                               border: Border.all(
                                 color: _selectedCategoryId == null
-                                    ? palette.primary
+                                    ? palette.discard
                                     : palette.line,
+                                width: _selectedCategoryId == null ? 1.5 : 1.0,
                               ),
                             ),
                             child: Text(
                               'Sin categoría',
                               style: TextStyle(
                                 fontSize: 12.5,
-                                fontWeight: FontWeight.w600,
+                                fontWeight: _selectedCategoryId == null
+                                    ? FontWeight.w700
+                                    : FontWeight.w600,
                                 color: _selectedCategoryId == null
-                                    ? Colors.white
+                                    ? palette.discard
                                     : palette.text,
                               ),
                             ),
@@ -1002,13 +1029,16 @@ class _ExpenseCreateScreenState extends ConsumerState<ExpenseCreateScreen> {
                               ),
                               decoration: BoxDecoration(
                                 color: _selectedCategoryId == cat.id
-                                    ? palette.primary
+                                    ? palette.errorSoft
                                     : palette.card,
                                 borderRadius: BorderRadius.circular(10),
                                 border: Border.all(
                                   color: _selectedCategoryId == cat.id
-                                      ? palette.primary
+                                      ? palette.discard
                                       : palette.line,
+                                  width: _selectedCategoryId == cat.id
+                                      ? 1.5
+                                      : 1.0,
                                 ),
                               ),
                               child: Row(
@@ -1018,7 +1048,7 @@ class _ExpenseCreateScreenState extends ConsumerState<ExpenseCreateScreen> {
                                     cat.icon.value,
                                     size: 15,
                                     color: _selectedCategoryId == cat.id
-                                        ? Colors.white
+                                        ? palette.discard
                                         : cat.color.value,
                                   ),
                                   const SizedBox(width: 6),
@@ -1026,9 +1056,11 @@ class _ExpenseCreateScreenState extends ConsumerState<ExpenseCreateScreen> {
                                     cat.name,
                                     style: TextStyle(
                                       fontSize: 12.5,
-                                      fontWeight: FontWeight.w600,
+                                      fontWeight: _selectedCategoryId == cat.id
+                                          ? FontWeight.w700
+                                          : FontWeight.w600,
                                       color: _selectedCategoryId == cat.id
-                                          ? Colors.white
+                                          ? palette.discard
                                           : palette.text,
                                     ),
                                   ),
@@ -1130,13 +1162,13 @@ class _ExpenseCreateScreenState extends ConsumerState<ExpenseCreateScreen> {
                                               Icon(
                                                 Icons.add,
                                                 size: 16,
-                                                color: palette.primary,
+                                                color: palette.discard,
                                               ),
                                               const SizedBox(width: 6),
                                               Text(
                                                 '＋ Nueva categoría...',
                                                 style: TextStyle(
-                                                  color: palette.primary,
+                                                  color: palette.discard,
                                                   fontWeight: FontWeight.w700,
                                                 ),
                                               ),
@@ -1227,7 +1259,8 @@ class _ExpenseCreateScreenState extends ConsumerState<ExpenseCreateScreen> {
                     style: FilledButton.styleFrom(
                       backgroundColor: isIncome
                           ? palette.income
-                          : palette.primary,
+                          : palette.discard,
+                      foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(vertical: 14),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
