@@ -33,7 +33,10 @@ android {
     }
 
     buildTypes {
-        release {}
+        release {
+            // Signs with debug key so release APK can be installed directly on devices without custom keystore
+            signingConfig = signingConfigs.getByName("debug")
+        }
     }
 }
 
