@@ -11,47 +11,50 @@ class ErrorDiagnosticPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
-    return Material(
-      color: colors.errorContainer,
-      borderRadius: BorderRadius.circular(12),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            SelectionArea(
-              child: Text(
-                diagnostic.userMessage,
-                style: TextStyle(color: colors.onErrorContainer),
-              ),
-            ),
-            const SizedBox(height: 8),
-            SelectionArea(
-              child: Text(
-                'Error code: ${diagnostic.code}',
-                key: const Key('error-diagnostic-code'),
-                style: TextStyle(
-                  color: colors.onErrorContainer,
-                  fontWeight: FontWeight.w600,
+    return Semantics(
+      liveRegion: true,
+      child: Material(
+        color: colors.errorContainer,
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              SelectionArea(
+                child: Text(
+                  diagnostic.userMessage,
+                  style: TextStyle(color: colors.onErrorContainer),
                 ),
               ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              'Copy the safe report when asking for help. Form values are excluded.',
-              style: TextStyle(color: colors.onErrorContainer),
-            ),
-            const SizedBox(height: 8),
-            Align(
-              alignment: Alignment.centerRight,
-              child: TextButton.icon(
-                key: const Key('copy-error-details-button'),
-                onPressed: () => _copy(context),
-                icon: const Icon(Icons.copy),
-                label: const Text('Copy error details'),
+              const SizedBox(height: 8),
+              SelectionArea(
+                child: Text(
+                  'Error code: ${diagnostic.code}',
+                  key: const Key('error-diagnostic-code'),
+                  style: TextStyle(
+                    color: colors.onErrorContainer,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
               ),
-            ),
-          ],
+              const SizedBox(height: 4),
+              Text(
+                'Copy the safe report when asking for help. Form values are excluded.',
+                style: TextStyle(color: colors.onErrorContainer),
+              ),
+              const SizedBox(height: 8),
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton.icon(
+                  key: const Key('copy-error-details-button'),
+                  onPressed: () => _copy(context),
+                  icon: const Icon(Icons.copy),
+                  label: const Text('Copy error details'),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
