@@ -85,18 +85,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         ),
                         onTap: () => context.push('/accounts'),
                       ),
-                      SettingsRow(
-                        rowKey: const Key('settings-incomes-row'),
-                        label: 'Ingresos',
-                        subtitle: 'Registra y consulta dinero recibido',
-                        onTap: () => context.push('/incomes'),
-                      ),
-                      SettingsRow(
-                        rowKey: const Key('settings-history-row'),
-                        label: 'Historial',
-                        subtitle: 'Gastos, ingresos y transferencias',
-                        onTap: () => context.push('/history'),
-                      ),
                     ],
                   ),
                   const SectionTitle('Catálogos'),

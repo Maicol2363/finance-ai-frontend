@@ -289,8 +289,8 @@ void main() {
 
     expect(find.text('Ajustes'), findsWidgets);
     expect(find.byKey(const Key('settings-accounts-row')), findsOneWidget);
-    expect(find.byKey(const Key('settings-incomes-row')), findsOneWidget);
-    expect(find.byKey(const Key('settings-history-row')), findsOneWidget);
+    expect(find.byKey(const Key('settings-incomes-row')), findsNothing);
+    expect(find.byKey(const Key('settings-history-row')), findsNothing);
     expect(find.byKey(const Key('settings-categories-row')), findsOneWidget);
     expect(
       find.byKey(const Key('settings-income-sources-row')),
