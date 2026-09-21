@@ -1086,7 +1086,7 @@ class _ExpenseCreateScreenState extends ConsumerState<ExpenseCreateScreen> {
                                       key: const Key(
                                         'expense-create-category-field',
                                       ),
-                                      value: _selectedCategoryId,
+                                      initialValue: _selectedCategoryId,
                                       decoration: const InputDecoration(
                                         labelText: 'Categoría (opcional)',
                                       ),
