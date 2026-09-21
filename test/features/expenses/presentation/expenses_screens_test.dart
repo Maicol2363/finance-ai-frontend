@@ -872,6 +872,38 @@ void main() {
       expect(find.text('Detalle del ingreso'), findsOneWidget);
     },
   );
+
+  testWidgets(
+    'home screen caps recent movements at top 10 and has no load more button',
+    (tester) async {
+      final repository = WidgetExpensesRepository();
+      final incomes = List.generate(
+        15,
+        (i) => Income(
+          id: 100 + i,
+          accountId: 11,
+          accountName: 'Cash',
+          currencyCode: 'COP',
+          amount: MoneyAmount.parseApi('10.00'),
+          date: DateTime.utc(2026, 9, 1 + i),
+          description: 'Income $i',
+          incomeSourceId: 1,
+          incomeSourceName: 'Trabajo',
+        ),
+      );
+      final incomesRepository = FakeIncomesRepository(incomes);
+
+      await pumpExpensesApp(
+        tester,
+        repository,
+        initialLocation: '/home',
+        incomesRepository: incomesRepository,
+      );
+
+      expect(find.text('10 movimientos'), findsOneWidget);
+      expect(find.byKey(const Key('expenses-load-more-button')), findsNothing);
+    },
+  );
 }
 
 class EmptyAccountsRepository extends FakeAccountsRepository {

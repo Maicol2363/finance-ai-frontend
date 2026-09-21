@@ -136,6 +136,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         };
         return idB.compareTo(idA);
       });
+    final recentMovements = allMovements.take(10).toList();
 
     return PopScope(
       canPop: false,
@@ -238,7 +239,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                                   color: palette.text,
                                 ),
                               ),
-                              if (result != null && allMovements.isNotEmpty)
+                              if (result != null && recentMovements.isNotEmpty)
                                 Container(
                                   padding: const EdgeInsets.symmetric(
                                     horizontal: 8,
@@ -249,7 +250,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                                     borderRadius: BorderRadius.circular(10),
                                   ),
                                   child: Text(
-                                    '${allMovements.length} ${allMovements.length == 1 ? 'movimiento' : 'movimientos'}',
+                                    '${recentMovements.length} ${recentMovements.length == 1 ? 'movimiento' : 'movimientos'}',
                                     style: TextStyle(
                                       fontSize: 11,
                                       fontWeight: FontWeight.w600,
@@ -270,13 +271,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                             child: Center(child: CircularProgressIndicator()),
                           ),
 
-                        if (result != null && allMovements.isEmpty)
+                        if (result != null && recentMovements.isEmpty)
                           MovementsEmptyState(
                             onRegister: () => context.push('/expenses/new'),
                           ),
 
-                        if (result != null && allMovements.isNotEmpty)
-                          for (final movement in allMovements) ...[
+                        if (result != null && recentMovements.isNotEmpty)
+                          for (final movement in recentMovements) ...[
                             switch (movement) {
                               _ExpenseMovement(:final expense) =>
                                 _HubExpenseCard(expense: expense),
@@ -285,18 +286,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                             },
                             const SizedBox(height: 10),
                           ],
-
-                        if (result != null && result.hasNext) ...[
-                          const SizedBox(height: 10),
-                          OutlinedButton.icon(
-                            key: const Key('expenses-load-more-button'),
-                            onPressed: isBusy
-                                ? null
-                                : expensesController.loadMore,
-                            icon: const Icon(Icons.expand_more),
-                            label: const Text('Cargar más gastos'),
-                          ),
-                        ],
                       ],
                     ),
                   ),
