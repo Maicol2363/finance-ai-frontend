@@ -14,7 +14,6 @@ import '../../features/dashboard/presentation/dashboard_screen.dart';
 import '../../features/expenses/presentation/expense_create_screen.dart';
 import '../../features/expenses/presentation/expense_detail_screen.dart';
 import '../../features/expenses/presentation/expense_form_screen.dart';
-import '../../features/expenses/presentation/expenses_screen.dart';
 import '../../features/expenses/presentation/history_screen.dart';
 import '../../features/home/presentation/home_screen.dart';
 import '../../features/income_sources/presentation/income_sources_screen.dart';
@@ -34,6 +33,7 @@ const _authenticatedRoots = <String>[
   '/history',
   '/income-sources',
   '/incomes',
+  '/quick-add',
 ];
 
 bool _isProtected(String location) {
@@ -158,6 +158,22 @@ GoRouter createAppRouter({
             ],
           ),
         ],
+      ),
+      // Quick-add forms opened from the manual capture screen (gastos/ingresos).
+      // They are top-level routes on purpose: the create form stays untouched
+      // below them, so "back" or a successful save returns exactly where the
+      // user was instead of dropping into the accounts/categories list.
+      GoRoute(
+        path: '/quick-add/account',
+        name: 'quick-add-account',
+        builder: (context, state) =>
+            const AccountFormScreen(returnToPrevious: true),
+      ),
+      GoRoute(
+        path: '/quick-add/category',
+        name: 'quick-add-category',
+        builder: (context, state) =>
+            const CategoryFormScreen(returnToPrevious: true),
       ),
       GoRoute(
         path: '/categories',

@@ -382,7 +382,11 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
       return;
     }
     if (outcome == ExpenseMutationOutcome.success) {
-      context.go('/expenses/${widget.expenseId}');
+      if (context.canPop()) {
+        context.pop();
+      } else {
+        context.go('/expenses/${widget.expenseId}');
+      }
       ScaffoldMessenger.of(context)
           .showSnackBar(const SnackBar(content: Text('Gasto actualizado.')));
       return;
@@ -415,6 +419,10 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
   }
 
   void _goBack() {
-    context.go('/expenses/${widget.expenseId}');
+    if (context.canPop()) {
+      context.pop();
+    } else {
+      context.go('/expenses/${widget.expenseId}');
+    }
   }
 }

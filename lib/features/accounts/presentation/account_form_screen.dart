@@ -9,9 +9,17 @@ import '../application/accounts_state.dart';
 import '../domain/account_models.dart';
 
 class AccountFormScreen extends ConsumerStatefulWidget {
-  const AccountFormScreen({this.accountId, super.key});
+  const AccountFormScreen({
+    this.accountId,
+    this.returnToPrevious = false,
+    super.key,
+  });
 
   final int? accountId;
+
+  /// When `true` the form was opened from another flow (manual expense/income
+  /// capture) and must return to it instead of the accounts list.
+  final bool returnToPrevious;
 
   bool get isEditing => accountId != null;
 
@@ -81,7 +89,9 @@ class _AccountFormScreenState extends ConsumerState<AccountFormScreen> {
       child: Scaffold(
         appBar: AppBar(
           leading: IconButton(
-            tooltip: 'Volver a cuentas',
+            tooltip: widget.returnToPrevious
+                ? 'Volver al registro'
+                : 'Volver a cuentas',
             onPressed: state.isSaving ? null : _goBack,
             icon: const Icon(Icons.arrow_back),
           ),
@@ -345,6 +355,10 @@ class _AccountFormScreenState extends ConsumerState<AccountFormScreen> {
     }
     if (outcome == AccountMutationOutcome.success) {
       final saved = ref.read(accountsControllerProvider).lastMutationAccount;
+      if (widget.returnToPrevious && context.canPop()) {
+        context.pop(saved?.id);
+        return;
+      }
       if (saved != null) {
         context.go('/accounts/${saved.id}');
       } else {
@@ -367,6 +381,10 @@ class _AccountFormScreenState extends ConsumerState<AccountFormScreen> {
   }
 
   void _goBack() {
+    if (widget.returnToPrevious && context.canPop()) {
+      context.pop();
+      return;
+    }
     if (widget.accountId case final accountId?) {
       context.go('/accounts/$accountId');
     } else {

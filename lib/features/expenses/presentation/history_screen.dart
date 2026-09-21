@@ -361,13 +361,13 @@ class _HistoryEmptyState extends StatelessWidget {
   }
 }
 
-class _HistoryCard extends StatelessWidget {
+class _HistoryCard extends ConsumerWidget {
   const _HistoryCard({required this.item});
 
   final HistoryItem item;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final primary = item.movements.isEmpty ? null : item.movements.first;
     final title =
         item.expense?.store ?? item.description ?? _typeLabel(item.type);
@@ -376,45 +376,73 @@ class _HistoryCard extends StatelessWidget {
       if (item.incomeSource != null) item.incomeSource!,
       if (item.expense != null) _itemsLabel(item.expense!.items.length),
     ].join(' · ');
+    final expenseId =
+        item.expense?.items.firstOrNull?.id ?? item.expense?.receiptId;
+    final canNavigate =
+        (item.type == TransactionType.expense && expenseId != null) ||
+        item.type == TransactionType.income;
+
     return Card(
       key: Key('history-card-${item.id}'),
       clipBehavior: Clip.antiAlias,
-      child: Padding(
-        padding: const EdgeInsets.all(18),
-        child: Row(
-          children: [
-            CircleAvatar(
-              child: Icon(switch (item.type) {
-                TransactionType.expense => Icons.shopping_cart_outlined,
-                TransactionType.income => Icons.savings_outlined,
-                TransactionType.transfer => Icons.swap_horiz_outlined,
-              }),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(title, style: Theme.of(context).textTheme.titleMedium),
-                  const SizedBox(height: 4),
-                  Text(subtitle),
-                ],
+      child: InkWell(
+        onTap: canNavigate
+            ? () async {
+                if (item.type == TransactionType.expense) {
+                  await context.push('/expenses/$expenseId');
+                } else if (item.type == TransactionType.income) {
+                  await context.push('/incomes/${item.id}');
+                }
+                if (context.mounted) {
+                  ref.read(historyControllerProvider.notifier).load();
+                }
+              }
+            : null,
+        child: Padding(
+          padding: const EdgeInsets.all(18),
+          child: Row(
+            children: [
+              CircleAvatar(
+                child: Icon(switch (item.type) {
+                  TransactionType.expense => Icons.shopping_cart_outlined,
+                  TransactionType.income => Icons.savings_outlined,
+                  TransactionType.transfer => Icons.swap_horiz_outlined,
+                }),
               ),
-            ),
-            const SizedBox(width: 12),
-            if (primary != null)
-              Text(
-                primary.amount.formatWithCurrency(primary.currencyCode),
-                style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                  color: primary.amount.isNegative
-                      ? Theme.of(context).colorScheme.error
-                      : null,
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(title, style: Theme.of(context).textTheme.titleMedium),
+                    const SizedBox(height: 4),
+                    Text(subtitle),
+                  ],
                 ),
-                textAlign: TextAlign.end,
               ),
-          ],
+              const SizedBox(width: 12),
+              if (primary != null)
+                Text(
+                  primary.amount.formatWithCurrency(primary.currencyCode),
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                    color: primary.amount.isNegative
+                        ? Theme.of(context).colorScheme.error
+                        : null,
+                  ),
+                  textAlign: TextAlign.end,
+                ),
+              if (canNavigate) ...[
+                const SizedBox(width: 8),
+                Icon(
+                  Icons.chevron_right,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ],
+            ],
+          ),
         ),
       ),
     );
   }
 }
+

@@ -178,7 +178,11 @@ class _IncomeFormScreenState extends ConsumerState<IncomeFormScreen> {
           : await repository.update(widget.incomeId!, command);
       if (!mounted) return;
       ref.read(incomeRevisionProvider.notifier).changed();
-      context.go('/incomes/${saved.id}');
+      if (widget.incomeId != null && context.canPop()) {
+        context.pop();
+      } else {
+        context.go('/incomes/${saved.id}');
+      }
       ScaffoldMessenger.of(context)
           .showSnackBar(const SnackBar(content: Text('Ingreso guardado.')));
     } on IncomeFailure catch (failure) {
@@ -214,9 +218,17 @@ class _IncomeFormScreenState extends ConsumerState<IncomeFormScreen> {
     appBar: AppBar(
       leading: IconButton(
         tooltip: 'Volver',
-        onPressed: () => context.go(
-          widget.incomeId == null ? '/incomes' : '/incomes/${widget.incomeId}',
-        ),
+        onPressed: () {
+          if (context.canPop()) {
+            context.pop();
+          } else {
+            context.go(
+              widget.incomeId == null
+                  ? '/incomes'
+                  : '/incomes/${widget.incomeId}',
+            );
+          }
+        },
         icon: const Icon(Icons.arrow_back),
       ),
       title: Text(widget.incomeId == null ? 'Nuevo ingreso' : 'Editar ingreso'),

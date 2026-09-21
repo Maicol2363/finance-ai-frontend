@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/diagnostics/error_diagnostic_panel.dart';
 import '../../../core/formatters/money_formatter.dart';
 import '../../../core/theme/app_palette.dart';
+import '../../../core/widgets/movements_empty_state.dart';
 import '../../../core/widgets/theme_toggle_button.dart';
 import '../../accounts/application/accounts_controller.dart';
 import '../../accounts/application/accounts_state.dart';
@@ -251,8 +252,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                           ),
 
                         if (result != null && result.items.isEmpty)
-                          _HubEmptyState(
-                            onAddFirst: () => context.go('/expenses/new'),
+                          MovementsEmptyState(
+                            onRegister: () => context.go('/expenses/new'),
                           ),
 
                         if (result != null && result.items.isNotEmpty)
@@ -792,59 +793,6 @@ class _HubExpenseCard extends StatelessWidget {
               Icon(Icons.chevron_right, size: 16, color: palette.muted),
             ],
           ),
-        ),
-      ),
-    );
-  }
-}
-
-// =================== EMPTY STATE ===================
-class _HubEmptyState extends StatelessWidget {
-  const _HubEmptyState({required this.onAddFirst});
-
-  final VoidCallback onAddFirst;
-
-  @override
-  Widget build(BuildContext context) {
-    final palette = context.palette;
-    return Container(
-      margin: const EdgeInsets.symmetric(vertical: 20),
-      padding: const EdgeInsets.all(28),
-      decoration: BoxDecoration(
-        color: palette.card,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: palette.line),
-      ),
-      child: Center(
-        child: Column(
-          children: [
-            const Text('🧾', style: TextStyle(fontSize: 42)),
-            const SizedBox(height: 12),
-            Text(
-              'Aún no tienes movimientos',
-              style: TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.w700,
-                color: palette.text,
-              ),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              'Toca ＋ y elige cómo capturar: 📷 foto · 🎤 voz · T texto · ✎ manual — la IA prepara la vista previa y tú confirmas.',
-              style: TextStyle(
-                fontSize: 12,
-                color: palette.muted,
-                height: 1.4,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 16),
-            FilledButton.icon(
-              onPressed: onAddFirst,
-              icon: const Icon(Icons.add, size: 18),
-              label: const Text('Registrar gasto'),
-            ),
-          ],
         ),
       ),
     );

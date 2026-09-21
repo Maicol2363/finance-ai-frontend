@@ -52,7 +52,8 @@ class HistoryMovement {
     final accountName = json['account_name'];
     final amount = json['amount'];
     final currency = json['currency'];
-    final currencyCode = json['currency_code'];
+    final currencyCode = json['currency_code'] ??
+        (currency is Map<String, Object?> ? currency['code'] : null);
     if (accountId is! int ||
         accountId < 1 ||
         accountName is! String ||
@@ -158,20 +159,16 @@ class HistoryExpense {
   });
 
   factory HistoryExpense.fromJson(Map<String, Object?> json) {
-    final receiptId = json['receipt_id'];
-    final name = json['name'];
-    final occurredAt = json['occurred_at'];
-    final purchasedAt = json['purchased_at'];
-    final totalAmount = json['total_amount'];
-    final store = json['store'];
-    final storeName = json['store_name'];
+    final receiptId = json['receipt_id'] ?? json['id'];
+    final store = json['store'] ?? json['store_name'];
+    final storeName = json['store_name'] ?? json['store'];
+    final name = json['name'] ?? store;
+    final totalAmount = json['total_amount'] ?? json['total'];
     final rawItems = json['items'];
     if (receiptId is! int ||
         receiptId < 1 ||
         name is! String ||
         name.isEmpty ||
-        occurredAt is! String ||
-        purchasedAt is! String ||
         totalAmount is! String ||
         store is! String ||
         store.isEmpty ||
@@ -180,11 +177,16 @@ class HistoryExpense {
         rawItems is! List<Object?>) {
       throw const FormatException('Invalid history expense');
     }
-    final note = json['note'];
+    final note = json['note'] ?? json['purchase_reason'];
     final receiptImage = json['receipt_image'];
     if ((note != null && note is! String) ||
         (receiptImage != null && receiptImage is! String)) {
       throw const FormatException('Invalid history expense');
+    }
+    final occurredAt = json['occurred_at'] ?? json['purchased_at'];
+    final purchasedAt = json['purchased_at'] ?? json['occurred_at'];
+    if (occurredAt is! String || purchasedAt is! String) {
+      throw const FormatException('Invalid history expense timestamp');
     }
     final parsedOccurredAt = DateTime.tryParse(occurredAt);
     final parsedPurchasedAt = DateTime.tryParse(purchasedAt);
@@ -243,6 +245,7 @@ class HistoryItem {
     final id = json['id'];
     final occurredAt = json['occurred_at'];
     final rawMovements = json['movements'];
+    final rawType = json['type'] ?? json['transaction_type'];
     if (id is! int ||
         id < 1 ||
         occurredAt is! String ||
@@ -250,7 +253,7 @@ class HistoryItem {
       throw const FormatException('Invalid history item');
     }
     final description = json['description'];
-    final incomeSource = json['income_source'];
+    final incomeSource = json['income_source'] ?? json['income_source_name'];
     final expense = json['expense'];
     if ((description != null && description is! String) ||
         (incomeSource != null && incomeSource is! String) ||
@@ -271,7 +274,7 @@ class HistoryItem {
         .toList(growable: false);
     return HistoryItem(
       id: id,
-      type: TransactionType.fromWire(json['type']),
+      type: TransactionType.fromWire(rawType),
       status: ExpenseStatus.fromWire(json['status']),
       occurredAt: parsedOccurredAt.toUtc(),
       description: description as String?,

@@ -6,7 +6,6 @@ import '../../../core/diagnostics/error_diagnostic.dart';
 import '../../../core/diagnostics/error_diagnostic_panel.dart';
 import '../../../core/formatters/money_formatter.dart';
 import '../../../core/theme/app_palette.dart';
-import '../../../core/widgets/manage_widgets.dart';
 import '../../accounts/data/accounts_repository.dart';
 import '../../accounts/domain/account_models.dart';
 import '../../auth/session/application/auth_session_controller.dart';
@@ -827,8 +826,14 @@ class _ExpenseCreateScreenState extends ConsumerState<ExpenseCreateScreen> {
                               ),
                             ),
                             onPressed: () async {
-                              await context.push('/accounts/new');
-                              _loadOptions();
+                              final createdId = await context.push<int>(
+                                '/quick-add/account',
+                              );
+                              await _loadOptions();
+                              if (!mounted || createdId == null) {
+                                return;
+                              }
+                              setState(() => _selectedAccountId = createdId);
                             },
                             child: const Text('＋ Crear'),
                           ),
@@ -893,8 +898,16 @@ class _ExpenseCreateScreenState extends ConsumerState<ExpenseCreateScreen> {
                           label: const Text('Nueva cuenta'),
                           onPressed: formEnabled
                               ? () async {
-                                  await context.push('/accounts/new');
-                                  _loadOptions();
+                                  final createdId = await context.push<int>(
+                                    '/quick-add/account',
+                                  );
+                                  await _loadOptions();
+                                  if (!mounted || createdId == null) {
+                                    return;
+                                  }
+                                  setState(
+                                    () => _selectedAccountId = createdId,
+                                  );
                                 }
                               : null,
                         ),
@@ -1012,7 +1025,7 @@ class _ExpenseCreateScreenState extends ConsumerState<ExpenseCreateScreen> {
                           label: const Text('Nueva categoría'),
                           onPressed: formEnabled
                               ? () async {
-                                  await context.push('/categories/new');
+                                  await context.push('/quick-add/category');
                                   _loadOptions();
                                 }
                               : null,
@@ -1120,7 +1133,7 @@ class _ExpenseCreateScreenState extends ConsumerState<ExpenseCreateScreen> {
                                           ? (val) async {
                                               if (val == -999) {
                                                 await context.push(
-                                                  '/categories/new',
+                                                  '/quick-add/category',
                                                 );
                                                 _loadOptions();
                                                 return;
@@ -1142,7 +1155,7 @@ class _ExpenseCreateScreenState extends ConsumerState<ExpenseCreateScreen> {
                                     onPressed: formEnabled
                                         ? () async {
                                             await context.push(
-                                              '/categories/new',
+                                              '/quick-add/category',
                                             );
                                             _loadOptions();
                                           }

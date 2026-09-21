@@ -50,8 +50,14 @@ class _ExpenseDetailScreenState extends ConsumerState<ExpenseDetailScreen> {
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(
-          tooltip: 'Volver a gastos',
-          onPressed: () => context.go('/expenses'),
+          tooltip: context.canPop() ? 'Volver' : 'Volver a gastos',
+          onPressed: () {
+            if (context.canPop()) {
+              context.pop();
+            } else {
+              context.go('/expenses');
+            }
+          },
           icon: const Icon(Icons.arrow_back),
         ),
         title: const Text('Detalle del gasto'),
@@ -88,8 +94,14 @@ class _ExpenseDetailScreenState extends ConsumerState<ExpenseDetailScreen> {
                     key: const Key('expense-edit-button'),
                     onPressed: state.isSaving || !expense.isEditable
                         ? null
-                        : () =>
-                              context.go('/expenses/${widget.expenseId}/edit'),
+                        : () async {
+                            await context.push(
+                              '/expenses/${widget.expenseId}/edit',
+                            );
+                            if (context.mounted) {
+                              controller.loadDetail(widget.expenseId);
+                            }
+                          },
                     icon: const Icon(Icons.edit_outlined),
                     label: const Text('Editar gasto'),
                   ),
@@ -175,7 +187,11 @@ class _ExpenseDetailScreenState extends ConsumerState<ExpenseDetailScreen> {
     if (!mounted || outcome != ExpenseMutationOutcome.success) {
       return;
     }
-    context.go('/expenses');
+    if (context.canPop()) {
+      context.pop();
+    } else {
+      context.go('/expenses');
+    }
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Gasto eliminado definitivamente.')),
     );
