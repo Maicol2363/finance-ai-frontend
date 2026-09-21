@@ -23,7 +23,8 @@ void main() {
       ),
     );
 
-    expect(find.text('Inicio'), findsOneWidget);
+    expect(find.text('Gastos'), findsOneWidget);
+    expect(find.text('Dashboard'), findsOneWidget);
     expect(find.text('Ajustes'), findsOneWidget);
 
     final activeIcon = tester.widget<AnimatedContainer>(
@@ -40,6 +41,6 @@ void main() {
     );
 
     await tester.tap(find.byKey(const Key('bottom-nav-ajustes')));
-    expect(taps, [1]);
+    expect(taps, [2]);
   });
 }

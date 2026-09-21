@@ -70,7 +70,11 @@ class _IncomeDetailScreenState extends ConsumerState<IncomeDetailScreen> {
       await ref.read(incomesRepositoryProvider).delete(widget.incomeId);
       if (!mounted) return;
       ref.read(incomeRevisionProvider.notifier).changed();
-      context.go('/incomes');
+      if (context.canPop()) {
+        context.pop();
+      } else {
+        context.go('/incomes');
+      }
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Ingreso eliminado y saldo actualizado.')),
       );
@@ -112,8 +116,14 @@ class _IncomeDetailScreenState extends ConsumerState<IncomeDetailScreen> {
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(
-          tooltip: 'Volver a ingresos',
-          onPressed: () => context.go('/incomes'),
+          tooltip: context.canPop() ? 'Volver' : 'Volver a ingresos',
+          onPressed: () {
+            if (context.canPop()) {
+              context.pop();
+            } else {
+              context.go('/incomes');
+            }
+          },
           icon: const Icon(Icons.arrow_back),
         ),
         title: const Text('Detalle del ingreso'),
@@ -188,7 +198,12 @@ class _IncomeDetailScreenState extends ConsumerState<IncomeDetailScreen> {
                       key: const Key('income-edit-button'),
                       onPressed: _deleting || _uncertain
                           ? null
-                          : () => context.go('/incomes/${income.id}/edit'),
+                          : () async {
+                              await context.push('/incomes/${income.id}/edit');
+                              if (context.mounted) {
+                                setState(_reload);
+                              }
+                            },
                       icon: const Icon(Icons.edit_outlined),
                       label: const Text('Editar ingreso'),
                     ),

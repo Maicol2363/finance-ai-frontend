@@ -11,9 +11,14 @@ class AppShell extends StatelessWidget {
 
   static const destinations = <AppNavDestination>[
     AppNavDestination(
-      id: 'inicio',
-      label: 'Inicio',
+      id: 'gastos',
+      label: 'Gastos',
       icon: Icons.receipt_long_outlined,
+    ),
+    AppNavDestination(
+      id: 'dashboard',
+      label: 'Dashboard',
+      icon: Icons.bar_chart_outlined,
     ),
     AppNavDestination(
       id: 'ajustes',

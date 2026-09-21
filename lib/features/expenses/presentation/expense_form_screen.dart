@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/diagnostics/error_diagnostic_panel.dart';
+import '../../../core/formatters/money_formatter.dart';
 import '../application/expenses_controller.dart';
 import '../application/expenses_state.dart';
 import '../domain/expense_models.dart';
@@ -161,6 +162,7 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
           focusNode: _amountFocus,
           enabled: formEnabled,
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          inputFormatters: const [MoneyInputFormatter(allowNegative: false)],
           textInputAction: TextInputAction.next,
           decoration: InputDecoration(
             labelText: 'Monto (${editExpense.currencyCode})',
@@ -314,7 +316,9 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
         return;
       }
       _nameController.text = editExpense.name;
-      _amountController.text = editExpense.amount.toApiString();
+      _amountController.text = MoneyFormatter.formatInputAmount(
+        editExpense.amount.minorUnits,
+      );
       _noteController.text = editExpense.note ?? '';
       _receiptNameController.text = editExpense.receiptName;
       _receiptNoteController.text = editExpense.receiptNote ?? '';
@@ -361,7 +365,7 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
     final outcome = await controller.update(
       expenseId: widget.expenseId,
       name: _nameController.text,
-      amountInput: _amountController.text,
+      amountInput: MoneyFormatter.clean(_amountController.text),
       note: _clearNote ? null : _asOptionalText(_noteController.text),
       clearNote: _clearNote,
       receiptName: _receiptNameController.text,
@@ -376,7 +380,11 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
       return;
     }
     if (outcome == ExpenseMutationOutcome.success) {
-      context.go('/expenses/${widget.expenseId}');
+      if (context.canPop()) {
+        context.pop();
+      } else {
+        context.go('/expenses/${widget.expenseId}');
+      }
       ScaffoldMessenger.of(context)
           .showSnackBar(const SnackBar(content: Text('Gasto actualizado.')));
       return;
@@ -409,6 +417,10 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
   }
 
   void _goBack() {
-    context.go('/expenses/${widget.expenseId}');
+    if (context.canPop()) {
+      context.pop();
+    } else {
+      context.go('/expenses/${widget.expenseId}');
+    }
   }
 }

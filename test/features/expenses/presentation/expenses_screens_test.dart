@@ -1,9 +1,18 @@
 import 'package:finance_ai/app.dart';
 import 'package:finance_ai/core/router/app_router.dart';
+import 'package:finance_ai/features/accounts/data/accounts_repository.dart';
 import 'package:finance_ai/features/accounts/domain/account_models.dart';
+import 'package:finance_ai/features/accounts/presentation/account_form_screen.dart';
+import 'package:finance_ai/features/accounts/presentation/accounts_screen.dart';
+import 'package:finance_ai/features/categories/data/categories_repository.dart';
+import 'package:finance_ai/features/categories/domain/category_models.dart';
+import 'package:finance_ai/features/categories/presentation/categories_screen.dart';
+import 'package:finance_ai/features/categories/presentation/category_form_screen.dart';
 import 'package:finance_ai/features/expenses/data/expenses_repository.dart';
 import 'package:finance_ai/features/expenses/domain/expense_models.dart';
 import 'package:finance_ai/features/expenses/domain/history_models.dart';
+import 'package:finance_ai/features/incomes/data/incomes_repository.dart';
+import 'package:finance_ai/features/incomes/domain/income_models.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -13,6 +22,29 @@ const cop = CurrencySummary(
   code: 'COP',
   name: 'Colombian Peso',
   decimals: 2,
+);
+
+final testAccount = Account(
+  id: 11,
+  name: 'Cash',
+  type: AccountType.cash,
+  currency: cop,
+  balance: MoneyAmount.parseApi('100.00'),
+  openingBalance: MoneyAmount.parseApi('100.00'),
+  currencyIsLocked: false,
+  isActive: true,
+  createdAt: DateTime.utc(2026, 9, 1, 10, 0),
+  updatedAt: DateTime.utc(2026, 9, 1, 10, 0),
+);
+
+final testCategory = Category(
+  id: 3,
+  name: 'Food',
+  color: CategoryColor.red,
+  icon: CategoryIcon.food,
+  sortOrder: 1,
+  createdAt: DateTime.utc(2026, 9, 1, 10, 0),
+  updatedAt: DateTime.utc(2026, 9, 1, 10, 0),
 );
 
 Expense expense({int id = 7, String name = 'Groceries'}) => Expense(
@@ -51,7 +83,7 @@ ExpenseListResult listResult(List<Expense> items) => ExpenseListResult(
   hasNext: false,
 );
 
-HistoryItem historyItem({int id = 8}) => HistoryItem(
+HistoryItem historyItem({int id = 8, HistoryExpense? expense}) => HistoryItem(
   id: id,
   type: TransactionType.expense,
   status: ExpenseStatus.confirmed,
@@ -68,6 +100,50 @@ HistoryItem historyItem({int id = 8}) => HistoryItem(
       currencyCode: 'COP',
     ),
   ],
+  expense:
+      expense ??
+      HistoryExpense(
+        receiptId: 9,
+        name: 'Market',
+        occurredAt: DateTime.utc(2026, 9, 17, 12, 30),
+        purchasedAt: DateTime.utc(2026, 9, 17, 12, 30),
+        totalAmount: MoneyAmount.parseApi('25.00'),
+        note: 'Weekly food',
+        store: 'Market',
+        storeName: 'Market',
+        items: [
+          HistoryExpenseItem(
+            id: 7,
+            name: 'Groceries',
+            amount: MoneyAmount.parseApi('25.00'),
+            quantity: '1.000',
+            unitPrice: MoneyAmount.parseApi('25.00'),
+            note: null,
+            category: ExpenseCategory(id: 3, name: 'Food'),
+            imagePath: null,
+          ),
+        ],
+        receiptImage: null,
+      ),
+);
+
+HistoryItem incomeHistoryItem({int id = 15}) => HistoryItem(
+  id: id,
+  type: TransactionType.income,
+  status: ExpenseStatus.confirmed,
+  occurredAt: DateTime.utc(2026, 9, 18, 10, 0),
+  description: 'Salary payment',
+  captureSource: CaptureSource.manual,
+  incomeSource: 'Trabajo',
+  movements: [
+    HistoryMovement(
+      accountId: 11,
+      accountName: 'Cash',
+      amount: MoneyAmount.parseApi('500.00'),
+      currency: cop,
+      currencyCode: 'COP',
+    ),
+  ],
   expense: null,
 );
 
@@ -79,6 +155,7 @@ class WidgetExpensesRepository implements ExpensesRepository {
   List<Expense> expenses;
   List<HistoryItem> historyItems;
   ExpenseUpdateCommand? lastCommand;
+  ExpenseCreateCommand? lastCreateCommand;
   final List<HistoryFilters> seenHistoryFilters = [];
 
   @override
@@ -93,6 +170,14 @@ class WidgetExpensesRepository implements ExpensesRepository {
       userMessage: 'This expense is no longer available.',
     ),
   );
+
+  @override
+  Future<Expense> create(ExpenseCreateCommand command) async {
+    lastCreateCommand = command;
+    final created = expense(id: 99, name: command.merchant);
+    expenses = [created, ...expenses];
+    return created;
+  }
 
   @override
   Future<Expense> update(int expenseId, ExpenseUpdateCommand command) async {
@@ -130,16 +215,135 @@ class WidgetExpensesRepository implements ExpensesRepository {
   }
 }
 
+class FakeAccountsRepository implements AccountsRepository {
+  @override
+  Future<AccountListResult> list({bool includeInactive = false}) async {
+    return AccountListResult(
+      accounts: [testAccount],
+      suggestedCurrencyCode: 'COP',
+      supportedCurrencies: const [cop],
+      accountTypes: const [AccountType.cash],
+    );
+  }
+
+  @override
+  Future<Account> get(int accountId) async => testAccount;
+
+  @override
+  Future<Account> create(AccountCreateCommand command) async => testAccount;
+
+  @override
+  Future<Account> update(int accountId, AccountUpdateCommand command) async =>
+      testAccount;
+
+  @override
+  Future<Account> setActive(int accountId, {required bool isActive}) async =>
+      testAccount;
+
+  @override
+  Future<void> deleteAccount(int accountId) async {}
+}
+
+class FakeCategoriesRepository implements CategoriesRepository {
+  @override
+  Future<CategoryListResult> list() async {
+    return CategoryListResult(
+      categories: [testCategory],
+      supportedColors: const [CategoryColor.red],
+      supportedIcons: const [CategoryIcon.food],
+    );
+  }
+
+  @override
+  Future<Category> get(int categoryId) async => testCategory;
+
+  @override
+  Future<Category> create(CategoryCreateCommand command) async => testCategory;
+
+  @override
+  Future<Category> update(
+    int categoryId,
+    CategoryUpdateCommand command,
+  ) async => testCategory;
+
+  @override
+  Future<CategoryListResult> reorder(List<int> categoryIds) async =>
+      CategoryListResult(
+        categories: [testCategory],
+        supportedColors: const [CategoryColor.red],
+        supportedIcons: const [CategoryIcon.food],
+      );
+
+  @override
+  Future<void> deleteCategory(int categoryId) async {}
+}
+
+class FakeIncomesRepository implements IncomesRepository {
+  IncomeWriteCommand? lastCreateCommand;
+
+  @override
+  Future<Income> create(IncomeWriteCommand command) async {
+    lastCreateCommand = command;
+    return Income(
+      id: 99,
+      accountId: command.accountId,
+      amount: command.amount,
+      date: command.date,
+      description: command.description,
+      incomeSourceId: command.incomeSourceId,
+      incomeSourceName: 'Salario',
+      accountName: 'Cash',
+      currencyCode: 'COP',
+    );
+  }
+
+  @override
+  Future<void> delete(int incomeId) async {}
+
+  @override
+  Future<Income> get(int incomeId) async => Income(
+    id: incomeId,
+    accountId: 11,
+    accountName: 'Cash',
+    currencyCode: 'COP',
+    amount: MoneyAmount.parseApi('500.00'),
+    date: DateTime.utc(2026, 9, 18),
+    description: 'Salary payment',
+    incomeSourceId: 1,
+    incomeSourceName: 'Trabajo',
+  );
+
+  @override
+  Future<List<Income>> list({int? accountId}) async => [];
+
+  @override
+  Future<Income> update(int incomeId, IncomeWriteCommand command) async =>
+      throw UnimplementedError();
+}
+
 Future<void> pumpExpensesApp(
   WidgetTester tester,
   WidgetExpensesRepository repository, {
   String initialLocation = '/expenses',
+  AccountsRepository? accountsRepository,
+  IncomesRepository? incomesRepository,
 }) async {
   final router = createAppRouter(initialLocation: initialLocation);
   addTearDown(router.dispose);
   await tester.pumpWidget(
     ProviderScope(
-      overrides: [expensesRepositoryProvider.overrideWithValue(repository)],
+      overrides: [
+        expensesRepositoryProvider.overrideWithValue(repository),
+        accountsRepositoryProvider.overrideWithValue(
+          accountsRepository ?? FakeAccountsRepository(),
+        ),
+        categoriesRepositoryProvider.overrideWithValue(
+          FakeCategoriesRepository(),
+        ),
+        incomesRepositoryProvider.overrideWithValue(
+          incomesRepository ?? FakeIncomesRepository(),
+        ),
+      ],
       child: FinanceApp(router: router),
     ),
   );
@@ -166,6 +370,57 @@ void main() {
       200,
     );
     expect(find.byKey(const Key('expense-edit-button')), findsOneWidget);
+  });
+
+  testWidgets('FAB navigates to create expense form and creates expense', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(800, 2400);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+
+    final repository = WidgetExpensesRepository();
+    await pumpExpensesApp(tester, repository);
+
+    expect(find.byKey(const Key('expenses-create-fab')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('expenses-create-fab')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('expenses-wheel-manual')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Registrar gasto'), findsWidgets);
+    expect(
+      find.byKey(const Key('expense-create-merchant-field')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const Key('expense-create-amount-field')),
+      findsOneWidget,
+    );
+
+    await tester.enterText(
+      find.byKey(const Key('expense-create-merchant-field')),
+      'Supermarket Exito',
+    );
+    await tester.enterText(
+      find.byKey(const Key('expense-create-amount-field')),
+      '55.50',
+    );
+    await tester.tap(find.byKey(const Key('expense-create-optional-toggle')));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const Key('expense-create-note-field')),
+      'Weekly grocery shopping',
+    );
+
+    await tester.tap(find.byKey(const Key('expense-create-submit-button')));
+    await tester.pumpAndSettle();
+
+    expect(repository.lastCreateCommand?.merchant, 'Supermarket Exito');
+    expect(repository.lastCreateCommand?.amount.toApiString(), '55.50');
+    expect(repository.lastCreateCommand?.accountId, 11);
+    expect(repository.lastCreateCommand?.note, 'Weekly grocery shopping');
+    expect(find.byKey(const Key('expenses-list')), findsOneWidget);
   });
 
   testWidgets('delete asks for confirmation and returns to the list', (
@@ -246,4 +501,347 @@ void main() {
 
     expect(find.text('Sin resultados para estos filtros'), findsOneWidget);
   });
+
+  testWidgets(
+    'history item tap navigates to expense detail and returns on back',
+    (tester) async {
+      final repository = WidgetExpensesRepository();
+      await pumpExpensesApp(tester, repository, initialLocation: '/history');
+
+      expect(find.byKey(const Key('history-card-8')), findsOneWidget);
+      await tester.tap(find.byKey(const Key('history-card-8')));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Detalle del gasto'), findsOneWidget);
+      expect(find.text('Groceries'), findsOneWidget);
+
+      await tester.tap(find.byTooltip('Volver'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Historial'), findsOneWidget);
+      expect(find.byKey(const Key('history-card-8')), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'history item tap navigates to income detail and returns on back',
+    (tester) async {
+      final repository = WidgetExpensesRepository()
+        ..historyItems = [incomeHistoryItem(id: 15)];
+      await pumpExpensesApp(tester, repository, initialLocation: '/history');
+
+      expect(find.byKey(const Key('history-card-15')), findsOneWidget);
+      await tester.tap(find.byKey(const Key('history-card-15')));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Detalle del ingreso'), findsOneWidget);
+
+      await tester.tap(find.byTooltip('Volver'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Historial'), findsOneWidget);
+      expect(find.byKey(const Key('history-card-15')), findsOneWidget);
+    },
+  );
+
+  testWidgets('segmented control switches to income and creates income', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(800, 2400);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+
+    final repository = WidgetExpensesRepository();
+    final incomesRepo = FakeIncomesRepository();
+    await pumpExpensesApp(
+      tester,
+      repository,
+      incomesRepository: incomesRepo,
+      initialLocation: '/expenses/new',
+    );
+
+    expect(find.byKey(const Key('segment-gasto')), findsOneWidget);
+    expect(find.byKey(const Key('segment-ingreso')), findsOneWidget);
+
+    // Switch to income
+    await tester.tap(find.byKey(const Key('segment-ingreso')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Registrar ingreso'), findsWidgets);
+    expect(find.text('CUENTA DE DESTINO'), findsOneWidget);
+
+    // Enter amount
+    await tester.enterText(
+      find.byKey(const Key('expense-create-amount-field')),
+      '1500000.00',
+    );
+    await tester.pumpAndSettle();
+
+    // Submit income
+    await tester.tap(find.byKey(const Key('income-create-submit-button')));
+    await tester.pumpAndSettle();
+
+    expect(incomesRepo.lastCreateCommand?.amount.toApiString(), '1500000.00');
+    expect(incomesRepo.lastCreateCommand?.accountId, 11);
+  });
+
+  testWidgets('empty accounts shows helper message and quick create button', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(800, 2400);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+
+    final repository = WidgetExpensesRepository();
+    await pumpExpensesApp(
+      tester,
+      repository,
+      accountsRepository: EmptyAccountsRepository(),
+      initialLocation: '/expenses/new',
+    );
+
+    expect(find.text('No tienes cuentas registradas'), findsOneWidget);
+    expect(
+      find.byKey(const Key('expense-create-account-button')),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets(
+    'create form displays category quick-add button and account quick-add chip',
+    (tester) async {
+      tester.view.physicalSize = const Size(800, 2400);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+
+      final repository = WidgetExpensesRepository();
+      await pumpExpensesApp(
+        tester,
+        repository,
+        initialLocation: '/expenses/new',
+      );
+
+      expect(
+        find.byKey(const Key('expense-create-new-account-chip')),
+        findsOneWidget,
+      );
+
+      await tester.tap(find.byKey(const Key('expense-create-optional-toggle')));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const Key('expense-create-new-category-button')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('expense-create-category-field')),
+        findsOneWidget,
+      );
+    },
+  );
+
+  testWidgets(
+    'quick-add account from the capture form returns to the form it came from',
+    (tester) async {
+      tester.view.physicalSize = const Size(800, 2400);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+
+      final repository = WidgetExpensesRepository();
+      await pumpExpensesApp(
+        tester,
+        repository,
+        initialLocation: '/expenses/new',
+      );
+
+      await tester.enterText(
+        find.byKey(const Key('expense-create-merchant-field')),
+        'Panaderia La 80',
+      );
+
+      await tester.tap(
+        find.byKey(const Key('expense-create-new-account-chip')),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byType(AccountFormScreen), findsOneWidget);
+      expect(find.byKey(const Key('account-name-field')), findsOneWidget);
+
+      await tester.tap(
+        find.descendant(
+          of: find.byType(AccountFormScreen),
+          matching: find.byIcon(Icons.arrow_back),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byType(AccountFormScreen), findsNothing);
+      expect(find.byType(AccountsScreen), findsNothing);
+      expect(
+        find.byKey(const Key('expense-create-merchant-field')),
+        findsOneWidget,
+      );
+      expect(find.text('Panaderia La 80'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'quick-add category from the capture form returns to the form it came from',
+    (tester) async {
+      tester.view.physicalSize = const Size(800, 2400);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+
+      final repository = WidgetExpensesRepository();
+      await pumpExpensesApp(
+        tester,
+        repository,
+        initialLocation: '/expenses/new',
+      );
+
+      await tester.enterText(
+        find.byKey(const Key('expense-create-merchant-field')),
+        'Almuerzo',
+      );
+      await tester.tap(find.byKey(const Key('expense-create-optional-toggle')));
+      await tester.pumpAndSettle();
+
+      await tester.tap(
+        find.byKey(const Key('expense-create-new-category-chip')),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byType(CategoryFormScreen), findsOneWidget);
+      expect(find.byKey(const Key('category-name-field')), findsOneWidget);
+
+      await tester.tap(
+        find.descendant(
+          of: find.byType(CategoryFormScreen),
+          matching: find.byIcon(Icons.arrow_back),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byType(CategoryFormScreen), findsNothing);
+      expect(find.byType(CategoriesScreen), findsNothing);
+      expect(find.text('Almuerzo'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'saving a quick-add account returns to the capture form, not the account detail',
+    (tester) async {
+      tester.view.physicalSize = const Size(800, 2400);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+
+      final repository = WidgetExpensesRepository();
+      await pumpExpensesApp(
+        tester,
+        repository,
+        initialLocation: '/expenses/new',
+      );
+
+      await tester.enterText(
+        find.byKey(const Key('expense-create-merchant-field')),
+        'Cafe',
+      );
+      await tester.tap(
+        find.byKey(const Key('expense-create-new-account-chip')),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.enterText(
+        find.byKey(const Key('account-name-field')),
+        'Nequi',
+      );
+      await tester.tap(find.byKey(const Key('account-save-button')));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(AccountFormScreen), findsNothing);
+      expect(find.byType(AccountsScreen), findsNothing);
+      expect(
+        find.byKey(const Key('expense-create-merchant-field')),
+        findsOneWidget,
+      );
+      expect(find.text('Cafe'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'expenses hub renders styled empty state card with action button when no expenses',
+    (tester) async {
+      tester.view.physicalSize = const Size(800, 2400);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+
+      final repository = WidgetExpensesRepository()..expenses = [];
+      await pumpExpensesApp(tester, repository, initialLocation: '/expenses');
+
+      expect(find.byKey(const Key('movements-empty-state')), findsOneWidget);
+      expect(find.text('Aún no tienes movimientos'), findsOneWidget);
+      expect(
+        find.text('Registra tu primer gasto o ingreso y aparecerá aquí.'),
+        findsOneWidget,
+      );
+      expect(find.textContaining('la IA prepara'), findsNothing);
+
+      await tester.tap(
+        find.byKey(const Key('movements-empty-register-button')),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Registrar gasto'), findsWidgets);
+      expect(
+        find.byKey(const Key('expense-create-merchant-field')),
+        findsOneWidget,
+      );
+    },
+  );
+
+  testWidgets('gastos hub reuses the shared movements empty state card', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(800, 2400);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+
+    final repository = WidgetExpensesRepository()..expenses = [];
+    await pumpExpensesApp(tester, repository, initialLocation: '/home');
+
+    expect(find.byKey(const Key('movements-empty-state')), findsOneWidget);
+    expect(
+      find.text('Registra tu primer gasto o ingreso y aparecerá aquí.'),
+      findsOneWidget,
+    );
+    expect(find.textContaining('la IA prepara'), findsNothing);
+  });
+
+  testWidgets(
+    'expenses hub calculates and displays balance, incomes, and account balances',
+    (tester) async {
+      final repository = WidgetExpensesRepository()..expenses = [];
+      await pumpExpensesApp(tester, repository, initialLocation: '/home');
+
+      expect(find.text(r'$ 100 COP'), findsOneWidget);
+      expect(find.text(r'+ $ 100'), findsOneWidget);
+      expect(find.text(r'- $ 0'), findsOneWidget);
+      expect(
+        find.text(r'1 cuenta activa · $ 100 COP · Ver saldos'),
+        findsOneWidget,
+      );
+    },
+  );
+}
+
+class EmptyAccountsRepository extends FakeAccountsRepository {
+  @override
+  Future<AccountListResult> list({bool includeInactive = false}) async {
+    return const AccountListResult(
+      accounts: [],
+      suggestedCurrencyCode: 'COP',
+      supportedCurrencies: [cop],
+      accountTypes: [AccountType.cash],
+    );
+  }
 }

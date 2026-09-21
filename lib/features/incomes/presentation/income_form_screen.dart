@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/diagnostics/error_diagnostic.dart';
 import '../../../core/diagnostics/error_diagnostic_panel.dart';
+import '../../../core/formatters/money_formatter.dart';
 import '../../accounts/data/accounts_repository.dart';
 import '../../accounts/domain/account_models.dart';
 import '../../auth/session/application/auth_session_controller.dart';
@@ -127,7 +128,9 @@ class _IncomeFormScreenState extends ConsumerState<IncomeFormScreen> {
     if (account == null || !account.isActive) {
       errors['account_id'] = ['Selecciona una cuenta activa.'];
     }
-    final amount = MoneyAmount.tryParseUserInput(_amount.text);
+    final amount = MoneyAmount.tryParseUserInput(
+      MoneyFormatter.clean(_amount.text),
+    );
     if (amount == null || amount.minorUnits <= 0) {
       errors['amount'] = [
         'Ingresa un monto positivo con máximo dos decimales.',
@@ -175,7 +178,11 @@ class _IncomeFormScreenState extends ConsumerState<IncomeFormScreen> {
           : await repository.update(widget.incomeId!, command);
       if (!mounted) return;
       ref.read(incomeRevisionProvider.notifier).changed();
-      context.go('/incomes/${saved.id}');
+      if (widget.incomeId != null && context.canPop()) {
+        context.pop();
+      } else {
+        context.go('/incomes/${saved.id}');
+      }
       ScaffoldMessenger.of(context)
           .showSnackBar(const SnackBar(content: Text('Ingreso guardado.')));
     } on IncomeFailure catch (failure) {
@@ -211,9 +218,17 @@ class _IncomeFormScreenState extends ConsumerState<IncomeFormScreen> {
     appBar: AppBar(
       leading: IconButton(
         tooltip: 'Volver',
-        onPressed: () => context.go(
-          widget.incomeId == null ? '/incomes' : '/incomes/${widget.incomeId}',
-        ),
+        onPressed: () {
+          if (context.canPop()) {
+            context.pop();
+          } else {
+            context.go(
+              widget.incomeId == null
+                  ? '/incomes'
+                  : '/incomes/${widget.incomeId}',
+            );
+          }
+        },
         icon: const Icon(Icons.arrow_back),
       ),
       title: Text(widget.incomeId == null ? 'Nuevo ingreso' : 'Editar ingreso'),

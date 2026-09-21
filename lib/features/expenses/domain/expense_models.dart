@@ -189,7 +189,7 @@ class Expense {
   final String name;
   final MoneyAmount amount;
 
-  /// Raw `"1.000"` wire string; kept unparsed to preserve the stored scale.
+  /// Raw `\"1.000\"` wire string; kept unparsed to preserve the stored scale.
   final String quantity;
   final MoneyAmount? unitPrice;
   final String? note;
@@ -263,6 +263,35 @@ class ExpenseListResult {
   final int page;
   final int pageSize;
   final bool hasNext;
+}
+
+/// Payload for creating a manual expense via `POST /api/v1/expenses` (HU-006).
+class ExpenseCreateCommand {
+  const ExpenseCreateCommand({
+    required this.accountId,
+    required this.amount,
+    required this.merchant,
+    this.occurredAt,
+    this.categoryId,
+    this.note,
+  });
+
+  final int accountId;
+  final MoneyAmount amount;
+  final String merchant;
+  final DateTime? occurredAt;
+  final int? categoryId;
+  final String? note;
+
+  Map<String, Object?> toJson() => {
+    'account_id': accountId,
+    'amount': amount.toApiString(),
+    'merchant': merchant,
+    if (occurredAt != null)
+      'occurred_at': occurredAt!.toUtc().toIso8601String(),
+    if (categoryId != null) 'category_id': categoryId,
+    if (note != null && note!.trim().isNotEmpty) 'note': note!.trim(),
+  };
 }
 
 /// Editable fields for `PATCH /api/v1/expenses/{id}` (HU-008).

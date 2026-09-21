@@ -10,9 +10,10 @@ import '../../features/auth/session/application/auth_session_state.dart';
 import '../../features/auth/session/presentation/session_bootstrap_screen.dart';
 import '../../features/categories/presentation/categories_screen.dart';
 import '../../features/categories/presentation/category_form_screen.dart';
+import '../../features/dashboard/presentation/dashboard_screen.dart';
+import '../../features/expenses/presentation/expense_create_screen.dart';
 import '../../features/expenses/presentation/expense_detail_screen.dart';
 import '../../features/expenses/presentation/expense_form_screen.dart';
-import '../../features/expenses/presentation/expenses_screen.dart';
 import '../../features/expenses/presentation/history_screen.dart';
 import '../../features/home/presentation/home_screen.dart';
 import '../../features/income_sources/presentation/income_sources_screen.dart';
@@ -24,6 +25,7 @@ import 'app_shell.dart';
 
 const _authenticatedRoots = <String>[
   '/home',
+  '/dashboard',
   '/settings',
   '/accounts',
   '/categories',
@@ -31,6 +33,7 @@ const _authenticatedRoots = <String>[
   '/history',
   '/income-sources',
   '/incomes',
+  '/quick-add',
 ];
 
 bool _isProtected(String location) {
@@ -43,8 +46,8 @@ bool _isProtected(String location) {
 }
 
 GoRouter createAppRouter({
-  String initialLocation = '/register',
-  AuthSessionState Function()? authState,
+  String initialLocation = '/bootstrap',
+  ValueGetter<AuthSessionState>? authState,
   Listenable? refreshListenable,
 }) {
   return GoRouter(
@@ -104,6 +107,15 @@ GoRouter createAppRouter({
           StatefulShellBranch(
             routes: [
               GoRoute(
+                path: '/dashboard',
+                name: 'dashboard',
+                builder: (context, state) => const DashboardScreen(),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
                 path: '/settings',
                 name: 'settings',
                 builder: (context, state) => const SettingsScreen(),
@@ -147,6 +159,22 @@ GoRouter createAppRouter({
           ),
         ],
       ),
+      // Quick-add forms opened from the manual capture screen (gastos/ingresos).
+      // They are top-level routes on purpose: the create form stays untouched
+      // below them, so "back" or a successful save returns exactly where the
+      // user was instead of dropping into the accounts/categories list.
+      GoRoute(
+        path: '/quick-add/account',
+        name: 'quick-add-account',
+        builder: (context, state) =>
+            const AccountFormScreen(returnToPrevious: true),
+      ),
+      GoRoute(
+        path: '/quick-add/category',
+        name: 'quick-add-category',
+        builder: (context, state) =>
+            const CategoryFormScreen(returnToPrevious: true),
+      ),
       GoRoute(
         path: '/categories',
         name: 'categories',
@@ -170,8 +198,13 @@ GoRouter createAppRouter({
       GoRoute(
         path: '/expenses',
         name: 'expenses',
-        builder: (context, state) => const ExpensesScreen(),
+        builder: (context, state) => const HomeScreen(),
         routes: [
+          GoRoute(
+            path: 'new',
+            name: 'expense-new',
+            builder: (context, state) => const ExpenseCreateScreen(),
+          ),
           GoRoute(
             path: ':expenseId',
             name: 'expense-detail',

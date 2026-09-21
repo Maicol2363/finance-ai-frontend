@@ -19,6 +19,8 @@ abstract interface class ExpensesRepository {
 
   Future<Expense> get(int expenseId);
 
+  Future<Expense> create(ExpenseCreateCommand command);
+
   Future<Expense> update(int expenseId, ExpenseUpdateCommand command);
 
   Future<void> deleteExpense(int expenseId);
@@ -67,6 +69,25 @@ class HttpExpensesRepository implements ExpensesRepository {
         return _decodeExpense(response);
       }
       throw _failure(response, operation: 'Expense detail');
+    });
+  }
+
+  @override
+  Future<Expense> create(ExpenseCreateCommand command) {
+    return _sessionController.runProtected((accessCredential) async {
+      final response = await _transport(
+        () => _apiClient.postJson(
+          '/api/v1/expenses',
+          command.toJson(),
+          bearerCredential: accessCredential,
+        ),
+        operationMessage: 'No pudimos confirmar si el gasto se registró. Actualiza los gastos antes de reintentar.',
+        isMutation: true,
+      );
+      if (response.statusCode == 201) {
+        return _decodeExpense(response);
+      }
+      throw _failure(response, operation: 'Expense create');
     });
   }
 

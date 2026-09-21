@@ -41,7 +41,7 @@ Future<GoRouter> pumpRegistration(
   WidgetTester tester,
   WidgetTestRepository repository,
 ) async {
-  final router = createAppRouter();
+  final router = createAppRouter(initialLocation: '/register');
   await tester.pumpWidget(
     ProviderScope(
       overrides: [authRepositoryProvider.overrideWithValue(repository)],
