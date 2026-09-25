@@ -3,6 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/diagnostics/error_diagnostic_panel.dart';
+import '../../accounts/application/accounts_controller.dart';
+import '../../accounts/application/accounts_state.dart';
+import '../../categories/application/categories_controller.dart';
+import '../../categories/application/categories_state.dart';
 import '../application/expenses_controller.dart';
 import '../application/expenses_state.dart';
 import '../domain/expense_models.dart';
@@ -23,8 +27,8 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
   final _receiptNameController = TextEditingController();
   final _receiptNoteController = TextEditingController();
   final _descriptionController = TextEditingController();
-  final _accountIdController = TextEditingController();
-  final _categoryIdController = TextEditingController();
+  int? _selectedAccountId;
+  int? _selectedCategoryId;
   final _nameFocus = FocusNode();
   final _amountFocus = FocusNode();
   DateTime? _occurredAt;
@@ -43,6 +47,14 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
       final controller = ref.read(expensesControllerProvider.notifier);
       controller.clearMutationFeedback();
       controller.loadDetail(widget.expenseId);
+      final accounts = ref.read(accountsControllerProvider);
+      if (accounts.listStatus == AccountsLoadStatus.initial) {
+        ref.read(accountsControllerProvider.notifier).load();
+      }
+      final categories = ref.read(categoriesControllerProvider);
+      if (categories.loadStatus == CategoriesLoadStatus.initial) {
+        ref.read(categoriesControllerProvider.notifier).load();
+      }
     });
   }
 
@@ -54,8 +66,6 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
     _receiptNameController.dispose();
     _receiptNoteController.dispose();
     _descriptionController.dispose();
-    _accountIdController.dispose();
-    _categoryIdController.dispose();
     _nameFocus.dispose();
     _amountFocus.dispose();
     super.dispose();
@@ -65,6 +75,8 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
   Widget build(BuildContext context) {
     final state = ref.watch(expensesControllerProvider);
     final controller = ref.read(expensesControllerProvider.notifier);
+    final accountsState = ref.watch(accountsControllerProvider);
+    final categoriesState = ref.watch(categoriesControllerProvider);
     final editExpense = state.detailExpenseId == widget.expenseId
         ? state.detailExpense
         : null;
@@ -111,8 +123,38 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
                     ),
                     const SizedBox(height: 20),
                   ],
+                  if (accountsState.listDiagnostic case final diagnostic?) ...[
+                    ErrorDiagnosticPanel(diagnostic: diagnostic),
+                    const SizedBox(height: 12),
+                    OutlinedButton.icon(
+                      onPressed: () =>
+                          ref.read(accountsControllerProvider.notifier).load(),
+                      icon: const Icon(Icons.refresh),
+                      label: const Text('Reintentar cuentas'),
+                    ),
+                    const SizedBox(height: 20),
+                  ],
+                  if (categoriesState.diagnostic case final diagnostic?) ...[
+                    ErrorDiagnosticPanel(diagnostic: diagnostic),
+                    const SizedBox(height: 12),
+                    OutlinedButton.icon(
+                      onPressed: () => ref
+                          .read(categoriesControllerProvider.notifier)
+                          .load(),
+                      icon: const Icon(Icons.refresh),
+                      label: const Text('Reintentar categorías'),
+                    ),
+                    const SizedBox(height: 20),
+                  ],
                   if (editExpense != null && canShowForm)
-                    _buildForm(context, state, editExpense, controller),
+                    _buildForm(
+                      context,
+                      state,
+                      editExpense,
+                      controller,
+                      accountsState,
+                      categoriesState,
+                    ),
                 ],
               ),
             ),
@@ -127,8 +169,14 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
     ExpensesState state,
     Expense editExpense,
     ExpensesController controller,
+    AccountsState accountsState,
+    CategoriesState categoriesState,
   ) {
-    final formEnabled = !state.isSaving && !state.requiresMutationReview;
+    final optionsFailed =
+        accountsState.listDiagnostic != null ||
+        categoriesState.diagnostic != null;
+    final formEnabled =
+        !state.isSaving && !state.requiresMutationReview && !optionsFailed;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -223,32 +271,58 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
           decoration: const InputDecoration(labelText: 'Descripción'),
         ),
         const SizedBox(height: 12),
-        TextField(
-          key: const Key('expense-account-id-field'),
-          controller: _accountIdController,
-          enabled: formEnabled,
-          keyboardType: TextInputType.number,
+        DropdownButtonFormField<int>(
+          key: const Key('expense-account-field'),
+          initialValue: _containedOrNull([
+            for (final account in accountsState.result?.accounts ?? [])
+              account.id,
+          ], _selectedAccountId),
           decoration: InputDecoration(
-            labelText: 'ID de cuenta',
-            helperText:
-                'Cuenta actual: ${editExpense.accountName}. Se requiere la misma moneda.',
+            labelText: 'Cuenta',
+            helperText: 'Solo tus cuentas.',
             errorText: _firstError(state, 'account_id'),
           ),
-          onChanged: (_) => controller.clearFieldError('account_id'),
+          items: (accountsState.result?.accounts ?? [])
+              .map(
+                (account) => DropdownMenuItem(
+                  value: account.id,
+                  child: Text('${account.name} · ${account.currency.code}'),
+                ),
+              )
+              .toList(growable: false),
+          onChanged: formEnabled
+              ? (value) {
+                  setState(() => _selectedAccountId = value);
+                  controller.clearFieldError('account_id');
+                }
+              : null,
         ),
         const SizedBox(height: 12),
-        TextField(
-          key: const Key('expense-category-id-field'),
-          controller: _categoryIdController,
-          enabled: formEnabled && !_clearCategory,
-          keyboardType: TextInputType.number,
+        DropdownButtonFormField<int>(
+          key: const Key('expense-category-field'),
+          initialValue: _containedOrNull([
+            for (final category in categoriesState.result?.categories ?? [])
+              category.id,
+          ], _selectedCategoryId),
           decoration: InputDecoration(
-            labelText: 'ID de categoría',
-            helperText:
-                'Actual: ${editExpense.category?.name ?? 'Sin categoría'}.',
+            labelText: 'Categoría',
+            helperText: 'Solo tus categorías.',
             errorText: _firstError(state, 'category_id'),
           ),
-          onChanged: (_) => controller.clearFieldError('category_id'),
+          items: (categoriesState.result?.categories ?? [])
+              .map(
+                (category) => DropdownMenuItem(
+                  value: category.id,
+                  child: Text(category.name),
+                ),
+              )
+              .toList(growable: false),
+          onChanged: formEnabled && !_clearCategory
+              ? (value) {
+                  setState(() => _selectedCategoryId = value);
+                  controller.clearFieldError('category_id');
+                }
+              : null,
         ),
         CheckboxListTile.adaptive(
           key: const Key('expense-clear-category'),
@@ -319,10 +393,8 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
       _receiptNameController.text = editExpense.receiptName;
       _receiptNoteController.text = editExpense.receiptNote ?? '';
       _descriptionController.text = editExpense.description ?? '';
-      _accountIdController.text = '${editExpense.accountId}';
-      _categoryIdController.text = editExpense.category == null
-          ? ''
-          : '${editExpense.category!.id}';
+      _selectedAccountId = editExpense.accountId;
+      _selectedCategoryId = editExpense.category?.id;
       _occurredAt = null;
       setState(() {
         _initialized = true;
@@ -366,9 +438,9 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
       clearNote: _clearNote,
       receiptName: _receiptNameController.text,
       receiptNote: _asOptionalText(_receiptNoteController.text),
-      categoryId: _asOptionalId(_categoryIdController.text),
+      categoryId: _clearCategory ? null : _selectedCategoryId,
       clearCategory: _clearCategory,
-      accountId: _asOptionalId(_accountIdController.text),
+      accountId: _selectedAccountId,
       occurredAt: _occurredAt,
       description: _asOptionalText(_descriptionController.text),
     );
@@ -392,13 +464,10 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
     return trimmed.isEmpty ? null : value;
   }
 
-  int? _asOptionalId(String value) {
-    final trimmed = value.trim();
-    if (trimmed.isEmpty) {
-      return null;
-    }
-    return int.tryParse(trimmed);
-  }
+  /// Returns [selected] only when it exists in [ids]. Dropdowns require
+  /// their value to match an item, so unknown ids fall back to no selection.
+  int? _containedOrNull(List<int> ids, int? selected) =>
+      selected != null && ids.contains(selected) ? selected : null;
 
   void _focusFirstError(ExpensesState state) {
     if (state.fieldErrors.containsKey('name')) {
