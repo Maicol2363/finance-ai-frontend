@@ -11,15 +11,18 @@ class SectionTitle extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(2, 12, 2, 6),
-      child: Text(
-        label.toUpperCase(),
-        style: TextStyle(
-          fontSize: 11,
-          fontWeight: FontWeight.w700,
-          letterSpacing: 0.4,
-          color: palette.muted,
+    return Semantics(
+      header: true,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(2, 12, 2, 6),
+        child: Text(
+          label.toUpperCase(),
+          style: TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 0.4,
+            color: palette.muted,
+          ),
         ),
       ),
     );
@@ -417,10 +420,15 @@ class ManageActionButton extends StatelessWidget {
           child: InkWell(
             onTap: onPressed,
             borderRadius: BorderRadius.circular(8),
-            child: SizedBox(
-              width: 30,
-              height: 30,
-              child: Icon(icon, size: 16, color: iconColor),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
+              child: Center(
+                child: SizedBox(
+                  width: 30,
+                  height: 30,
+                  child: Icon(icon, size: 16, color: iconColor),
+                ),
+              ),
             ),
           ),
         ),

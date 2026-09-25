@@ -6,6 +6,7 @@ import '../../../core/diagnostics/error_diagnostic_panel.dart';
 import '../application/accounts_controller.dart';
 import '../application/accounts_state.dart';
 import '../domain/account_models.dart';
+import '../../incomes/presentation/income_list_screen.dart';
 
 class AccountDetailScreen extends ConsumerStatefulWidget {
   const AccountDetailScreen({required this.accountId, super.key});
@@ -145,6 +146,10 @@ class _AccountDetailScreenState extends ConsumerState<AccountDetailScreen> {
                     label: const Text('Refresh before trying again'),
                   ),
                 ],
+                if (account != null) ...[
+                  const SizedBox(height: 28),
+                  AccountIncomeActivity(accountId: account.id),
+                ],
               ],
             ),
           ),
@@ -195,6 +200,7 @@ class _AccountDetailScreenState extends ConsumerState<AccountDetailScreen> {
           FilledButton(
             key: const Key('account-confirm-delete-button'),
             style: FilledButton.styleFrom(
+              minimumSize: const Size(0, 40),
               backgroundColor: Theme.of(context).colorScheme.error,
               foregroundColor: Theme.of(context).colorScheme.onError,
             ),

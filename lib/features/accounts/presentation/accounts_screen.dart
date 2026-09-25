@@ -38,7 +38,13 @@ class _AccountsScreenState extends ConsumerState<AccountsScreen> {
       appBar: AppBar(
         leading: IconButton(
           tooltip: 'Back to home',
-          onPressed: () => context.go('/home'),
+          onPressed: () {
+            if (context.canPop()) {
+              context.pop();
+            } else {
+              context.go('/home');
+            }
+          },
           icon: const Icon(Icons.arrow_back),
         ),
         title: const Text('Accounts'),

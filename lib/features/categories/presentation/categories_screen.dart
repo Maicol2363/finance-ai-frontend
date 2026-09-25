@@ -23,9 +23,7 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
   void initState() {
     super.initState();
     Future<void>.microtask(() {
-      if (mounted &&
-          ref.read(categoriesControllerProvider).loadStatus ==
-              CategoriesLoadStatus.initial) {
+      if (mounted) {
         ref.read(categoriesControllerProvider.notifier).load();
       }
     });
@@ -46,7 +44,13 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
               leading: HeaderIconButton(
                 icon: Icons.arrow_back,
                 tooltip: 'Volver',
-                onPressed: () => context.go('/home'),
+                onPressed: () {
+                  if (context.canPop()) {
+                    context.pop();
+                  } else {
+                    context.go('/home');
+                  }
+                },
               ),
               actions: const [ThemeToggleButton()],
             ),
@@ -93,7 +97,11 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
                         ),
                       Expanded(
                         child: categories == null
-                            ? const Center(child: CircularProgressIndicator())
+                            ? state.loadStatus == CategoriesLoadStatus.loading
+                                  ? const Center(
+                                      child: CircularProgressIndicator(),
+                                    )
+                                  : const SizedBox.shrink()
                             : categories.isEmpty
                             ? const _EmptyCategories()
                             : RefreshIndicator(

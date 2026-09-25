@@ -2,6 +2,8 @@ import 'package:finance_ai/app.dart';
 import 'package:finance_ai/core/router/app_router.dart';
 import 'package:finance_ai/features/accounts/data/accounts_repository.dart';
 import 'package:finance_ai/features/accounts/domain/account_models.dart';
+import 'package:finance_ai/features/incomes/data/incomes_repository.dart';
+import 'package:finance_ai/features/incomes/domain/income_models.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
@@ -133,6 +135,25 @@ class WidgetAccountsRepository implements AccountsRepository {
   }
 }
 
+class EmptyIncomesRepository implements IncomesRepository {
+  @override
+  Future<List<Income>> list({int? accountId}) async => const [];
+
+  @override
+  Future<Income> get(int incomeId) => throw UnimplementedError();
+
+  @override
+  Future<Income> create(IncomeWriteCommand command) =>
+      throw UnimplementedError();
+
+  @override
+  Future<Income> update(int incomeId, IncomeWriteCommand command) =>
+      throw UnimplementedError();
+
+  @override
+  Future<void> delete(int incomeId) => throw UnimplementedError();
+}
+
 Future<void> pumpAccountsApp(
   WidgetTester tester,
   WidgetAccountsRepository repository, {
@@ -142,7 +163,10 @@ Future<void> pumpAccountsApp(
   addTearDown(router.dispose);
   await tester.pumpWidget(
     ProviderScope(
-      overrides: [accountsRepositoryProvider.overrideWithValue(repository)],
+      overrides: [
+        accountsRepositoryProvider.overrideWithValue(repository),
+        incomesRepositoryProvider.overrideWithValue(EmptyIncomesRepository()),
+      ],
       child: FinanceApp(router: router),
     ),
   );

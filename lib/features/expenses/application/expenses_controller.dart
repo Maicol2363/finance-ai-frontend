@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/diagnostics/error_diagnostic.dart';
+import '../../../core/formatters/money_formatter.dart';
 import '../../accounts/domain/account_models.dart';
 import '../../auth/session/domain/session_models.dart';
 import '../data/expenses_repository.dart';
@@ -160,6 +161,50 @@ class ExpensesController extends Notifier<ExpensesState> {
     }
   }
 
+  Future<ExpenseMutationOutcome> create({
+    required int? accountId,
+    required String? amountInput,
+    required String? merchant,
+    DateTime? occurredAt,
+    int? categoryId,
+    String? note,
+  }) async {
+    if (state.mutationStatus != ExpenseMutationStatus.idle) {
+      return ExpenseMutationOutcome.ignored;
+    }
+    final validated = _validateCreate(
+      accountId: accountId,
+      amountInput: amountInput,
+      merchant: merchant,
+      occurredAt: occurredAt,
+      categoryId: categoryId,
+      note: note,
+    );
+    if (validated == null) {
+      return ExpenseMutationOutcome.invalid;
+    }
+    state = state.copyWith(
+      mutationStatus: ExpenseMutationStatus.saving,
+      clearLastMutationExpense: true,
+      fieldErrors: const {},
+      clearMutationDiagnostic: true,
+    );
+    try {
+      final expense = await ref
+          .read(expensesRepositoryProvider)
+          .create(validated);
+      await _acceptMutation(expense);
+      return ExpenseMutationOutcome.success;
+    } on InvalidSessionFailure catch (failure) {
+      _rejectSessionMutation(failure, operation: 'create_expense');
+    } on ExpenseFailure catch (failure) {
+      await _rejectMutation(failure, operation: 'create_expense');
+    } on Object {
+      _rejectUnexpectedMutation(operation: 'create_expense');
+    }
+    return ExpenseMutationOutcome.failure;
+  }
+
   Future<ExpenseMutationOutcome> update({
     required int expenseId,
     String? name,
@@ -279,6 +324,62 @@ class ExpensesController extends Notifier<ExpensesState> {
     );
   }
 
+  ExpenseCreateCommand? _validateCreate({
+    required int? accountId,
+    required String? amountInput,
+    required String? merchant,
+    required DateTime? occurredAt,
+    required int? categoryId,
+    required String? note,
+  }) {
+    final errors = <String, List<String>>{};
+    if (accountId == null || accountId < 1) {
+      errors['account_id'] = ['Elige una cuenta activa.'];
+    }
+    final normalizedMerchant = merchant?.trim() ?? '';
+    if (normalizedMerchant.isEmpty) {
+      errors['merchant'] = ['Ingresa el comercio o lugar.'];
+    } else if (normalizedMerchant.runes.length > 150) {
+      errors['merchant'] = ['El comercio debe tener 150 caracteres o menos.'];
+    }
+    MoneyAmount? amount;
+    if (amountInput == null || amountInput.trim().isEmpty) {
+      errors['amount'] = ['Ingresa el monto del gasto.'];
+    } else {
+      amount = MoneyAmount.tryParseUserInput(MoneyFormatter.clean(amountInput));
+      if (amount == null || amount.isNegative || amount.minorUnits == 0) {
+        errors['amount'] = ['Ingresa un monto positivo válido.'];
+      }
+    }
+    if (categoryId != null && categoryId < 1) {
+      errors['category_id'] = ['Elige una de tus categorías.'];
+    }
+    if (note != null && note.runes.length > 5000) {
+      errors['note'] = ['La nota debe tener 5000 caracteres o menos.'];
+    }
+    if (errors.isNotEmpty || amount == null || accountId == null) {
+      state = state.copyWith(
+        mutationStatus: ExpenseMutationStatus.idle,
+        fieldErrors: Map.unmodifiable(errors),
+        mutationDiagnostic: ErrorDiagnostic.capture(
+          code: 'expense_invalid',
+          operation: 'validate_create_expense',
+          userMessage: 'Corrige los campos marcados.',
+          technicalReason: 'client_validation',
+        ),
+      );
+      return null;
+    }
+    return ExpenseCreateCommand(
+      accountId: accountId,
+      amount: amount,
+      merchant: normalizedMerchant,
+      occurredAt: occurredAt?.toUtc(),
+      categoryId: categoryId,
+      note: note?.trim(),
+    );
+  }
+
   ExpenseUpdateCommand? _validateUpdate({
     required String? name,
     required String? amountInput,
@@ -304,7 +405,7 @@ class ExpensesController extends Notifier<ExpensesState> {
     }
     MoneyAmount? amount;
     if (amountInput != null) {
-      amount = MoneyAmount.tryParseUserInput(amountInput);
+      amount = MoneyAmount.tryParseUserInput(MoneyFormatter.clean(amountInput));
       if (amount == null || amount.isNegative || amount.minorUnits == 0) {
         errors['amount'] = ['Ingresa un monto positivo válido.'];
       }

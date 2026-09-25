@@ -63,6 +63,8 @@ class FakeExpensesRepository implements ExpensesRepository {
   int listCalls = 0;
   int deleteCalls = 0;
   bool deleteRemovesBeforeFailure = false;
+  ExpenseCreateCommand? lastCreateCommand;
+  Object? createFailure;
   ExpenseUpdateCommand? lastCommand;
 
   @override
@@ -80,6 +82,17 @@ class FakeExpensesRepository implements ExpensesRepository {
       throw failure;
     }
     return expense(id: expenseId);
+  }
+
+  @override
+  Future<Expense> create(ExpenseCreateCommand command) async {
+    lastCreateCommand = command;
+    if (createFailure case final failure?) {
+      throw failure;
+    }
+    final created = expense(id: 99, name: command.merchant);
+    listResult = pageResult(items: [created, ...listResult.items]);
+    return created;
   }
 
   @override

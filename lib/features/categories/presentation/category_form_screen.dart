@@ -6,16 +6,23 @@ import '../../../core/diagnostics/error_diagnostic_panel.dart';
 import '../../../core/theme/app_palette.dart';
 import '../../../core/widgets/app_header.dart';
 import '../../../core/widgets/manage_widgets.dart';
-import '../../../core/widgets/theme_toggle_button.dart';
 import '../application/categories_controller.dart';
 import '../application/categories_state.dart';
 import '../domain/category_models.dart';
 import 'category_visuals.dart';
 
 class CategoryFormScreen extends ConsumerStatefulWidget {
-  const CategoryFormScreen({this.categoryId, super.key});
+  const CategoryFormScreen({
+    this.categoryId,
+    this.returnToPrevious = false,
+    super.key,
+  });
 
   final int? categoryId;
+
+  /// When `true` the form was opened from another flow (manual expense
+  /// capture) and must return to it instead of the categories list.
+  final bool returnToPrevious;
 
   @override
   ConsumerState<CategoryFormScreen> createState() => _CategoryFormScreenState();
@@ -72,10 +79,10 @@ class _CategoryFormScreenState extends ConsumerState<CategoryFormScreen> {
                 subtitle: 'Nombre, color e ícono',
                 leading: HeaderIconButton(
                   icon: Icons.arrow_back,
-                  tooltip: 'Volver a categorías',
-                  onPressed: state.isSaving
-                      ? null
-                      : () => context.go('/categories'),
+                  tooltip: widget.returnToPrevious
+                      ? 'Volver al registro'
+                      : 'Volver a categorías',
+                  onPressed: state.isSaving ? null : _goBack,
                 ),
                 actions: [
                   if (widget.categoryId != null && category != null)
@@ -87,7 +94,6 @@ class _CategoryFormScreenState extends ConsumerState<CategoryFormScreen> {
                           : () => _confirmDelete(category),
                       icon: const Icon(Icons.delete_outline),
                     ),
-                  const ThemeToggleButton(),
                 ],
               ),
               Expanded(
@@ -299,6 +305,14 @@ class _CategoryFormScreenState extends ConsumerState<CategoryFormScreen> {
     }
   }
 
+  void _goBack() {
+    if (widget.returnToPrevious && context.canPop()) {
+      context.pop();
+      return;
+    }
+    context.go('/categories');
+  }
+
   Future<void> _submit() async {
     final outcome = await ref
         .read(categoriesControllerProvider.notifier)
@@ -310,6 +324,10 @@ class _CategoryFormScreenState extends ConsumerState<CategoryFormScreen> {
         );
     if (!mounted) return;
     if (outcome == CategoryMutationOutcome.success) {
+      if (widget.returnToPrevious && context.canPop()) {
+        context.pop();
+        return;
+      }
       context.go('/categories');
     } else if (outcome == CategoryMutationOutcome.invalid) {
       _nameFocus.requestFocus();
@@ -331,6 +349,11 @@ class _CategoryFormScreenState extends ConsumerState<CategoryFormScreen> {
           ),
           FilledButton(
             key: const Key('category-confirm-delete-button'),
+            style: FilledButton.styleFrom(
+              minimumSize: const Size(0, 40),
+              backgroundColor: Theme.of(context).colorScheme.error,
+              foregroundColor: Theme.of(context).colorScheme.onError,
+            ),
             onPressed: () => Navigator.pop(context, true),
             child: const Text('Eliminar'),
           ),

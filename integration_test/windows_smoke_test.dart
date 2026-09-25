@@ -6,6 +6,11 @@ import 'package:finance_ai/features/auth/register/domain/registration_models.dar
 import 'package:finance_ai/features/auth/session/data/auth_session_repository.dart';
 import 'package:finance_ai/features/auth/session/data/secure_credential_store.dart';
 import 'package:finance_ai/features/auth/session/domain/session_models.dart';
+import 'package:finance_ai/features/expenses/data/expenses_repository.dart';
+import 'package:finance_ai/features/expenses/domain/expense_models.dart';
+import 'package:finance_ai/features/expenses/domain/history_models.dart';
+import 'package:finance_ai/features/incomes/data/incomes_repository.dart';
+import 'package:finance_ai/features/incomes/domain/income_models.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -149,6 +154,125 @@ class _WindowsAccountsRepository implements AccountsRepository {
   }
 }
 
+/// In-memory repositories so the smoke tests never touch the network.
+///
+/// Home auto-loads expenses, accounts and incomes on mount; without these
+/// overrides it would issue real HTTP requests and fail where no backend
+/// is available.
+class _EmptyExpensesRepository implements ExpensesRepository {
+  @override
+  Future<ExpenseListResult> list({int page = 1, int pageSize = 50}) async =>
+      const ExpenseListResult(
+        items: [],
+        total: 0,
+        page: 1,
+        pageSize: 50,
+        hasNext: false,
+      );
+
+  @override
+  Future<Expense> get(int expenseId) async => throw const ExpenseFailure(
+    code: 'expense_not_found',
+    userMessage: 'This expense is no longer available.',
+  );
+
+  @override
+  Future<Expense> create(ExpenseCreateCommand command) async =>
+      throw const ExpenseFailure(
+        code: 'expense_not_available',
+        userMessage: 'Expenses are not available in the smoke test.',
+      );
+
+  @override
+  Future<Expense> update(int expenseId, ExpenseUpdateCommand command) async =>
+      throw const ExpenseFailure(
+        code: 'expense_not_available',
+        userMessage: 'Expenses are not available in the smoke test.',
+      );
+
+  @override
+  Future<void> deleteExpense(int expenseId) async {}
+
+  @override
+  Future<HistoryResult> history(HistoryFilters filters) async =>
+      const HistoryResult(
+        items: [],
+        total: 0,
+        page: 1,
+        pageSize: 50,
+        hasNext: false,
+      );
+}
+
+class _EmptyAccountsRepository implements AccountsRepository {
+  @override
+  Future<AccountListResult> list({required bool includeInactive}) async =>
+      const AccountListResult(
+        accounts: [],
+        suggestedCurrencyCode: 'COP',
+        supportedCurrencies: [],
+        accountTypes: [],
+      );
+
+  @override
+  Future<Account> get(int accountId) async => throw const AccountFailure(
+    code: 'account_not_found',
+    userMessage: 'This account is no longer available.',
+  );
+
+  @override
+  Future<Account> create(AccountCreateCommand command) async =>
+      throw const AccountFailure(
+        code: 'account_not_available',
+        userMessage: 'Accounts are not available in the smoke test.',
+      );
+
+  @override
+  Future<Account> update(int accountId, AccountUpdateCommand command) async =>
+      throw const AccountFailure(
+        code: 'account_not_available',
+        userMessage: 'Accounts are not available in the smoke test.',
+      );
+
+  @override
+  Future<Account> setActive(int accountId, {required bool isActive}) =>
+      throw const AccountFailure(
+        code: 'account_not_available',
+        userMessage: 'Accounts are not available in the smoke test.',
+      );
+
+  @override
+  Future<void> deleteAccount(int accountId) async {}
+}
+
+class _EmptyIncomesRepository implements IncomesRepository {
+  @override
+  Future<List<Income>> list({int? accountId}) async => const [];
+
+  @override
+  Future<Income> get(int incomeId) async => throw const IncomeFailure(
+    code: 'income_not_found',
+    userMessage: 'This income is no longer available.',
+  );
+
+  @override
+  Future<Income> create(IncomeWriteCommand command) async =>
+      throw const IncomeFailure(
+        code: 'income_not_available',
+        userMessage: 'Incomes are not available in the smoke test.',
+      );
+
+  @override
+  Future<Income> update(int incomeId, IncomeWriteCommand command) async =>
+      throw const IncomeFailure(
+        code: 'income_not_available',
+        userMessage: 'Incomes are not available in the smoke test.',
+      );
+
+  @override
+  Future<void> delete(int incomeId) async {}
+}
+
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
@@ -161,6 +285,15 @@ void main() {
             secureCredentialStoreProvider.overrideWithValue(_MemoryStore()),
             authRepositoryProvider.overrideWithValue(
               _SuccessfulRegistrationRepository(),
+            ),
+            expensesRepositoryProvider.overrideWithValue(
+              _EmptyExpensesRepository(),
+            ),
+            accountsRepositoryProvider.overrideWithValue(
+              _EmptyAccountsRepository(),
+            ),
+            incomesRepositoryProvider.overrideWithValue(
+              _EmptyIncomesRepository(),
             ),
           ],
           child: const FinanceApp(),
@@ -201,6 +334,15 @@ void main() {
           secureCredentialStoreProvider.overrideWithValue(_MemoryStore()),
           authRepositoryProvider.overrideWithValue(
             _UnavailableRegistrationRepository(),
+          ),
+          expensesRepositoryProvider.overrideWithValue(
+            _EmptyExpensesRepository(),
+          ),
+          accountsRepositoryProvider.overrideWithValue(
+            _EmptyAccountsRepository(),
+          ),
+          incomesRepositoryProvider.overrideWithValue(
+            _EmptyIncomesRepository(),
           ),
         ],
         child: const FinanceApp(),
@@ -243,6 +385,12 @@ void main() {
             _SuccessfulSessionRepository(),
           ),
           accountsRepositoryProvider.overrideWithValue(accounts),
+          expensesRepositoryProvider.overrideWithValue(
+            _EmptyExpensesRepository(),
+          ),
+          incomesRepositoryProvider.overrideWithValue(
+            _EmptyIncomesRepository(),
+          ),
         ],
         child: const FinanceApp(),
       ),

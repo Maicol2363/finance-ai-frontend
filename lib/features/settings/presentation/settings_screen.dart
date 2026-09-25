@@ -9,6 +9,8 @@ import '../../../core/widgets/manage_widgets.dart';
 import '../../../core/widgets/theme_toggle_button.dart';
 import '../../accounts/application/accounts_controller.dart';
 import '../../accounts/application/accounts_state.dart';
+import '../../auth/session/application/auth_session_controller.dart';
+import '../../auth/session/application/auth_session_state.dart';
 import '../../categories/application/categories_controller.dart';
 import '../../categories/application/categories_state.dart';
 import '../../income_sources/domain/income_source_models.dart';
@@ -53,6 +55,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         ?.categories;
     final incomeSources = ref.watch(incomeSourcesControllerProvider).items;
 
+    final sessionState = ref.watch(authSessionControllerProvider);
+    final sessionController = ref.read(authSessionControllerProvider.notifier);
+    final user = sessionState.user;
+
     return Scaffold(
       body: SafeArea(
         child: Column(
@@ -64,7 +70,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             ),
             Expanded(
               child: ListView(
-                padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 32),
                 children: [
                   const SectionTitle('Mi cuenta'),
                   SettingsGroup(
@@ -77,7 +83,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                           singular: 'cuenta',
                           plural: 'cuentas',
                         ),
-                        onTap: () => context.go('/accounts'),
+                        onTap: () => context.push('/accounts'),
                       ),
                     ],
                   ),
@@ -92,7 +98,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                           singular: 'categoría',
                           plural: 'categorías',
                         ),
-                        onTap: () => context.go('/categories'),
+                        onTap: () => context.push('/categories'),
                       ),
                       SettingsRow(
                         rowKey: const Key('settings-income-sources-row'),
@@ -155,11 +161,124 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         ),
                     ],
                   ),
+                  const SectionTitle('Sesión'),
+                  SettingsGroup(
+                    children: [
+                      if (user != null)
+                        Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 12,
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.account_circle_outlined,
+                                size: 22,
+                                color: Theme.of(context).colorScheme.primary,
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      user.email,
+                                      style: TextStyle(
+                                        fontSize: 13.5,
+                                        fontWeight: FontWeight.w600,
+                                        color: Theme.of(context)
+                                            .colorScheme
+                                            .onSurface,
+                                      ),
+                                    ),
+                                    Text(
+                                      'Moneda: ${user.preferredCurrency}',
+                                      style: TextStyle(
+                                        fontSize: 11.5,
+                                        color: Theme.of(context)
+                                            .colorScheme
+                                            .onSurfaceVariant,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      InkWell(
+                        key: const Key('logout-button'),
+                        onTap:
+                            sessionState.status == AuthSessionStatus.loggingOut
+                            ? null
+                            : () => _confirmLogout(context, sessionController),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 14,
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.logout,
+                                size: 20,
+                                color: Theme.of(context).colorScheme.error,
+                              ),
+                              const SizedBox(width: 12),
+                              Text(
+                                'Cerrar sesión',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                  color: Theme.of(context).colorScheme.error,
+                                ),
+                              ),
+                              const Spacer(),
+                              if (sessionState.status ==
+                                  AuthSessionStatus.loggingOut)
+                                const SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ],
               ),
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  void _confirmLogout(BuildContext context, AuthSessionController controller) {
+    showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('¿Cerrar sesión?'),
+        content: const Text('Se cerrará tu sesión actual en este dispositivo.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(minimumSize: const Size(0, 40)),
+            onPressed: () {
+              Navigator.of(dialogContext).pop();
+              controller.logout();
+            },
+            child: const Text('Cerrar sesión'),
+          ),
+        ],
       ),
     );
   }
