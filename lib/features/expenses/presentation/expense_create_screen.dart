@@ -524,8 +524,8 @@ class _ExpenseCreateScreenState extends ConsumerState<ExpenseCreateScreen> {
                         color: _firstError(state, 'amount') != null
                             ? palette.discard
                             : (isIncome
-                                ? palette.income.withValues(alpha: 0.3)
-                                : palette.discard.withValues(alpha: 0.3)),
+                                  ? palette.income.withValues(alpha: 0.3)
+                                  : palette.discard.withValues(alpha: 0.3)),
                         width: 1.5,
                       ),
                       boxShadow: const [
@@ -569,7 +569,9 @@ class _ExpenseCreateScreenState extends ConsumerState<ExpenseCreateScreen> {
                             style: TextStyle(
                               fontSize: 32,
                               fontWeight: FontWeight.w800,
-                              color: isIncome ? palette.income : palette.discard,
+                              color: isIncome
+                                  ? palette.income
+                                  : palette.discard,
                             ),
                             decoration: InputDecoration(
                               hintText: '0',
@@ -722,7 +724,8 @@ class _ExpenseCreateScreenState extends ConsumerState<ExpenseCreateScreen> {
                                                   : '🎁 Regalo')),
                                   style: TextStyle(
                                     fontSize: 12.5,
-                                    fontWeight: _selectedSourceName == defaultName
+                                    fontWeight:
+                                        _selectedSourceName == defaultName
                                         ? FontWeight.w700
                                         : FontWeight.w600,
                                     color: _selectedSourceName == defaultName
