@@ -96,6 +96,15 @@ class _AccountsScreenState extends ConsumerState<AccountsScreen> {
                     ),
                     const SizedBox(height: 16),
                   ],
+                  FilledButton.tonalIcon(
+                    key: const Key('accounts-transfer-button'),
+                    onPressed: result == null
+                        ? null
+                        : () => context.go('/accounts/transfer'),
+                    icon: const Icon(Icons.swap_horiz_outlined),
+                    label: const Text('Transferir entre cuentas'),
+                  ),
+                  const SizedBox(height: 16),
                   if (result == null &&
                       state.listStatus != AccountsLoadStatus.loading &&
                       state.listDiagnostic == null)

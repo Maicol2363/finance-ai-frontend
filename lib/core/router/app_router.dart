@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../features/accounts/presentation/account_detail_screen.dart';
 import '../../features/accounts/presentation/account_form_screen.dart';
 import '../../features/accounts/presentation/accounts_screen.dart';
+import '../../features/transfers/presentation/transfer_form_screen.dart';
 import '../../features/auth/login/presentation/login_screen.dart';
 import '../../features/auth/register/presentation/register_screen.dart';
 import '../../features/auth/session/application/auth_session_state.dart';
@@ -246,6 +247,11 @@ GoRouter createAppRouter({
             path: 'new',
             name: 'account-new',
             builder: (context, state) => const AccountFormScreen(),
+          ),
+          GoRoute(
+            path: 'transfer',
+            name: 'account-transfer',
+            builder: (context, state) => const TransferFormScreen(),
           ),
           GoRoute(
             path: ':accountId',
