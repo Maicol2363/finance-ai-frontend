@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../core/formatters/money_formatter.dart';
 import '../../../core/theme/app_palette.dart';
@@ -7,6 +8,9 @@ import '../../../core/widgets/app_header.dart';
 import '../../../core/widgets/theme_toggle_button.dart';
 import '../../accounts/application/accounts_controller.dart';
 import '../../accounts/application/accounts_state.dart';
+import '../../budgets/application/budgets_controller.dart';
+import '../../budgets/application/budgets_state.dart';
+import '../../budgets/presentation/budget_dashboard_section.dart';
 import '../../expenses/application/expenses_controller.dart';
 import '../../expenses/application/expenses_state.dart';
 import '../../incomes/data/incomes_repository.dart';
@@ -33,6 +37,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         ref.read(accountsControllerProvider.notifier).load();
       }
       ref.read(incomesListProvider);
+      if (ref.read(budgetsControllerProvider).loadStatus ==
+          BudgetsLoadStatus.initial) {
+        ref.read(budgetsControllerProvider.notifier).load();
+      }
     });
   }
 
@@ -47,6 +55,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
     final incomesAsync = ref.watch(incomesListProvider);
     final incomes = incomesAsync.value ?? const [];
+    final budgetsState = ref.watch(budgetsControllerProvider);
 
     var totalExpenses = 0.0;
     for (final exp in expenses) {
@@ -227,6 +236,15 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                             ),
                           ],
                         ),
+                      ),
+                      const SizedBox(height: 24),
+
+                      BudgetDashboardSection(
+                        state: budgetsState,
+                        onRetry: ref
+                            .read(budgetsControllerProvider.notifier)
+                            .load,
+                        onManage: () => context.go('/budgets'),
                       ),
                       const SizedBox(height: 24),
 

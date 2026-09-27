@@ -8,6 +8,8 @@ import '../../features/auth/login/presentation/login_screen.dart';
 import '../../features/auth/register/presentation/register_screen.dart';
 import '../../features/auth/session/application/auth_session_state.dart';
 import '../../features/auth/session/presentation/session_bootstrap_screen.dart';
+import '../../features/budgets/presentation/budget_form_screen.dart';
+import '../../features/budgets/presentation/budgets_screen.dart';
 import '../../features/categories/presentation/categories_screen.dart';
 import '../../features/categories/presentation/category_form_screen.dart';
 import '../../features/dashboard/presentation/dashboard_screen.dart';
@@ -28,6 +30,7 @@ const _authenticatedRoots = <String>[
   '/dashboard',
   '/settings',
   '/accounts',
+  '/budgets',
   '/categories',
   '/expenses',
   '/history',
@@ -121,6 +124,26 @@ GoRouter createAppRouter({
                 builder: (context, state) => const SettingsScreen(),
               ),
             ],
+          ),
+        ],
+      ),
+      GoRoute(
+        path: '/budgets',
+        name: 'budgets',
+        builder: (context, state) => const BudgetsScreen(),
+        routes: [
+          GoRoute(
+            path: 'new',
+            name: 'budget-new',
+            builder: (context, state) => const BudgetFormScreen(),
+          ),
+          GoRoute(
+            path: ':budgetId/edit',
+            name: 'budget-edit',
+            builder: (context, state) => BudgetFormScreen(
+              budgetId:
+                  int.tryParse(state.pathParameters['budgetId'] ?? '') ?? 0,
+            ),
           ),
         ],
       ),

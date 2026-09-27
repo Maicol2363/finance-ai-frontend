@@ -1,6 +1,6 @@
 # Finance AI Flutter Client
 
-Shared Android and Windows Flutter client for the manual-first Finance AI application. The current slices support registration, Login, secure session restoration, protected Home, Logout, and owned financial-account management. Users can create, list, inspect, edit, deactivate, reactivate, and permanently delete unused Cash, bank, digital-wallet, savings, credit-card, and other accounts with exact server-derived balances. Accounts with financial activity must be deactivated so history remains intact. Budgeting, transaction entry, synchronization queues, and AI remain later stories. Both targets use the same Dart UI, state, validation, and API client.
+Shared Android and Windows Flutter client for the manual-first Finance AI application. The current slices support registration, Login, secure session restoration, protected Home, Logout, owned financial-account management, manual expense tracking, and weekly or monthly category budgets with derived progress. Users can create, list, inspect, edit, deactivate, reactivate, and permanently delete unused Cash, bank, digital-wallet, savings, credit-card, and other accounts with exact server-derived balances. Accounts with financial activity must be deactivated so history remains intact. Synchronization queues and AI remain later stories. Both targets use the same Dart UI, state, validation, and API client.
 
 ## Local quality commands
 
