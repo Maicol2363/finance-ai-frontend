@@ -38,7 +38,11 @@ class FakeBudgetsRepository implements BudgetsRepository {
     final created = budget(
       id: 9,
       currency: command.currencyCode == 'USD' ? usd : cop,
-      period: command.period,
+      period:
+          command.period ??
+          (command.schedule?.frequencyUnit == BudgetFrequencyUnit.week
+              ? BudgetPeriod.weekly
+              : BudgetPeriod.monthly),
       amount: command.amount.toApiString(),
     );
     current = budgetResult(budgets: [created, ...current.budgets]);
@@ -53,7 +57,11 @@ class FakeBudgetsRepository implements BudgetsRepository {
     final updated = budget(
       id: budgetId,
       currency: command.currencyCode == 'USD' ? usd : cop,
-      period: command.period,
+      period:
+          command.period ??
+          (command.schedule?.frequencyUnit == BudgetFrequencyUnit.week
+              ? BudgetPeriod.weekly
+              : BudgetPeriod.monthly),
       amount: command.amount.toApiString(),
     );
     current = budgetResult(
@@ -187,6 +195,60 @@ void main() {
     expect(repository.updateCalls, 1);
     expect(state.result?.budgetById(7)?.amount.toApiString(), '700000.00');
     expect(state.result?.budgetById(8), isNotNull);
+  });
+
+  test('advanced one-time all-expense schedule is accepted', () async {
+    final repository = FakeBudgetsRepository();
+    final container = containerFor(repository);
+    addTearDown(container.dispose);
+    final controller = container.read(budgetsControllerProvider.notifier);
+    await controller.load();
+
+    final outcome = await controller.save(
+      categoryId: null,
+      nameInput: 'Viaje',
+      amountInput: '900',
+      currencyCode: 'USD',
+      schedule: BudgetSchedule(
+        scheduleType: BudgetScheduleType.oneTime,
+        startsOn: DateTime(2026, 12),
+        endsOn: DateTime(2026, 12, 20),
+      ),
+    );
+
+    expect(outcome, BudgetMutationOutcome.success);
+    expect(repository.savedCommand?.categoryId, isNull);
+    expect(repository.savedCommand?.name, 'Viaje');
+    expect(
+      repository.savedCommand?.schedule?.scheduleType,
+      BudgetScheduleType.oneTime,
+    );
+  });
+
+  test('advanced schedule rejects reversed dates', () async {
+    final repository = FakeBudgetsRepository();
+    final container = containerFor(repository);
+    addTearDown(container.dispose);
+    final controller = container.read(budgetsControllerProvider.notifier);
+    await controller.load();
+
+    final outcome = await controller.save(
+      categoryId: null,
+      amountInput: '900',
+      currencyCode: 'COP',
+      schedule: BudgetSchedule(
+        scheduleType: BudgetScheduleType.oneTime,
+        startsOn: DateTime(2026, 12, 20),
+        endsOn: DateTime(2026, 12),
+      ),
+    );
+
+    expect(outcome, BudgetMutationOutcome.invalid);
+    expect(
+      container.read(budgetsControllerProvider).fieldErrors,
+      contains('ends_on'),
+    );
+    expect(repository.createCalls, 0);
   });
 
   test(

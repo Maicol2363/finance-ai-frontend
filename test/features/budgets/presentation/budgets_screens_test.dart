@@ -26,7 +26,11 @@ class WidgetBudgetsRepository implements BudgetsRepository {
     final created = budget(
       id: 9,
       currency: command.currencyCode == 'USD' ? usd : cop,
-      period: command.period,
+      period:
+          command.period ??
+          (command.schedule?.frequencyUnit == BudgetFrequencyUnit.week
+              ? BudgetPeriod.weekly
+              : BudgetPeriod.monthly),
       amount: command.amount.toApiString(),
       spent: '0.00',
       remaining: command.amount.toApiString(),
@@ -42,7 +46,11 @@ class WidgetBudgetsRepository implements BudgetsRepository {
     final updated = budget(
       id: budgetId,
       currency: command.currencyCode == 'USD' ? usd : cop,
-      period: command.period,
+      period:
+          command.period ??
+          (command.schedule?.frequencyUnit == BudgetFrequencyUnit.week
+              ? BudgetPeriod.weekly
+              : BudgetPeriod.monthly),
       amount: command.amount.toApiString(),
     );
     current = budgetResult(
@@ -120,7 +128,45 @@ void main() {
     semantics.dispose();
   });
 
-  testWidgets('desktop create stays simple and submits weekly exact money', (
+  testWidgets(
+    'desktop create supports presets and submits weekly exact money',
+    (tester) async {
+      final repository = WidgetBudgetsRepository();
+      await pumpBudgetsApp(
+        tester,
+        repository,
+        initialLocation: '/budgets/new',
+        surfaceSize: const Size(1280, 800),
+      );
+
+      expect(find.text('Categoría, periodo, monto y moneda'), findsOneWidget);
+      await tester.tap(find.byKey(const Key('budget-recurrence-field')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Semanal').last);
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const Key('budget-amount-field')),
+        '1234,5',
+      );
+      await tester.ensureVisible(find.byKey(const Key('budget-save-button')));
+      await tester.tap(find.byKey(const Key('budget-save-button')));
+      await tester.pumpAndSettle();
+
+      expect(repository.createdCommand?.categoryId, 4);
+      expect(repository.createdCommand?.period, isNull);
+      expect(
+        repository.createdCommand?.schedule?.frequencyUnit,
+        BudgetFrequencyUnit.week,
+      );
+      expect(repository.createdCommand?.schedule?.frequencyInterval, 1);
+      expect(repository.createdCommand?.currencyCode, 'COP');
+      expect(repository.createdCommand?.amount.toApiString(), '1234.50');
+      expect(find.text('Presupuestos'), findsOneWidget);
+      expect(find.byKey(const Key('budget-card-9')), findsOneWidget);
+    },
+  );
+
+  testWidgets('advanced editor submits custom all-expense recurrence', (
     tester,
   ) async {
     final repository = WidgetBudgetsRepository();
@@ -128,25 +174,36 @@ void main() {
       tester,
       repository,
       initialLocation: '/budgets/new',
-      surfaceSize: const Size(1280, 800),
+      surfaceSize: const Size(1280, 1000),
     );
 
-    expect(find.text('Categoría, periodo, monto y moneda'), findsOneWidget);
-    await tester.tap(find.byKey(const Key('budget-period-0')));
     await tester.enterText(
-      find.byKey(const Key('budget-amount-field')),
-      '1234,5',
+      find.byKey(const Key('budget-name-field')),
+      'Plan familiar',
     );
+    await tester.tap(find.byKey(const Key('budget-category-field')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Todos los gastos').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('budget-recurrence-field')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Personalizado').last);
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const Key('budget-interval-field')), '2');
+    await tester.tap(find.byKey(const Key('budget-frequency-unit-field')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('semanas').last);
+    await tester.enterText(find.byKey(const Key('budget-amount-field')), '900');
     await tester.ensureVisible(find.byKey(const Key('budget-save-button')));
     await tester.tap(find.byKey(const Key('budget-save-button')));
     await tester.pumpAndSettle();
 
-    expect(repository.createdCommand?.categoryId, 4);
-    expect(repository.createdCommand?.period, BudgetPeriod.weekly);
-    expect(repository.createdCommand?.currencyCode, 'COP');
-    expect(repository.createdCommand?.amount.toApiString(), '1234.50');
-    expect(find.text('Presupuestos'), findsOneWidget);
-    expect(find.byKey(const Key('budget-card-9')), findsOneWidget);
+    final command = repository.createdCommand;
+    expect(command?.categoryId, isNull);
+    expect(command?.name, 'Plan familiar');
+    expect(command?.schedule?.scheduleType, BudgetScheduleType.recurring);
+    expect(command?.schedule?.frequencyUnit, BudgetFrequencyUnit.week);
+    expect(command?.schedule?.frequencyInterval, 2);
   });
 
   testWidgets('edit can delete after explicit confirmation', (tester) async {

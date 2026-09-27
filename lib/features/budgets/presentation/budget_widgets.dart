@@ -22,7 +22,9 @@ class BudgetProgressCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final palette = context.palette;
     final category = budget.category;
-    final period = budget.simplePeriod?.label ?? 'Personalizado';
+    final scope = category?.name ?? 'Todos los gastos';
+    final title = budget.name == 'All expenses' ? scope : budget.name;
+    final schedule = budget.scheduleLabel;
     final exceeded = budget.remainingAmount.isNegative;
     final card = Container(
       padding: EdgeInsets.all(compact ? 14 : 16),
@@ -57,7 +59,7 @@ class BudgetProgressCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      category?.name ?? 'Todos los gastos',
+                      title,
                       key: Key('budget-category-${budget.id}'),
                       style: TextStyle(
                         fontSize: 14,
@@ -67,7 +69,7 @@ class BudgetProgressCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      '$period · ${_date(budget.currentPeriodStart)} – ${_date(budget.currentPeriodEnd)}',
+                      '${title == scope ? schedule : '$scope · $schedule'} · ${_date(budget.currentPeriodStart)} – ${_date(budget.currentPeriodEnd)}',
                       style: TextStyle(fontSize: 11, color: palette.muted),
                     ),
                   ],
@@ -80,7 +82,7 @@ class BudgetProgressCard extends StatelessWidget {
           const SizedBox(height: 14),
           Semantics(
             label:
-                '${category?.name ?? 'Presupuesto'}: ${budget.progressPercent.toStringAsFixed(0)} por ciento usado',
+                '$title: ${budget.progressPercent.toStringAsFixed(0)} por ciento usado',
             value: budget.progressFraction.toStringAsFixed(2),
             child: ClipRRect(
               borderRadius: BorderRadius.circular(99),

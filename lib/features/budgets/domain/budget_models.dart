@@ -11,6 +11,72 @@ enum BudgetPeriod {
   final String label;
 }
 
+enum BudgetScheduleType {
+  recurring('recurring', 'Recurrente'),
+  oneTime('one_time', 'Una sola vez');
+
+  const BudgetScheduleType(this.wireValue, this.label);
+
+  final String wireValue;
+  final String label;
+}
+
+enum BudgetFrequencyUnit {
+  day('day', 'día', 'días'),
+  week('week', 'semana', 'semanas'),
+  month('month', 'mes', 'meses'),
+  year('year', 'año', 'años');
+
+  const BudgetFrequencyUnit(this.wireValue, this.singular, this.plural);
+
+  final String wireValue;
+  final String singular;
+  final String plural;
+}
+
+enum BudgetRecurrencePreset {
+  daily('Diario', BudgetFrequencyUnit.day, 1),
+  weekly('Semanal', BudgetFrequencyUnit.week, 1),
+  fortnightly('Cada 2 semanas', BudgetFrequencyUnit.week, 2),
+  monthly('Mensual', BudgetFrequencyUnit.month, 1),
+  quarterly('Cada 3 meses', BudgetFrequencyUnit.month, 3),
+  yearly('Anual', BudgetFrequencyUnit.year, 1),
+  custom('Personalizado', null, null);
+
+  const BudgetRecurrencePreset(this.label, this.unit, this.interval);
+
+  final String label;
+  final BudgetFrequencyUnit? unit;
+  final int? interval;
+}
+
+class BudgetSchedule {
+  const BudgetSchedule({
+    required this.scheduleType,
+    required this.startsOn,
+    this.frequencyUnit,
+    this.frequencyInterval,
+    this.endsOn,
+  });
+
+  final BudgetScheduleType scheduleType;
+  final BudgetFrequencyUnit? frequencyUnit;
+  final int? frequencyInterval;
+  final DateTime startsOn;
+  final DateTime? endsOn;
+
+  Map<String, Object?> toJson() => {
+    'schedule_type': scheduleType.wireValue,
+    'frequency_unit': frequencyUnit?.wireValue,
+    'frequency_interval': frequencyInterval,
+    'starts_on': _date(startsOn),
+    'ends_on': endsOn == null ? null : _date(endsOn!),
+  };
+
+  static String _date(DateTime value) =>
+      '${value.year.toString().padLeft(4, '0')}-${value.month.toString().padLeft(2, '0')}-${value.day.toString().padLeft(2, '0')}';
+}
+
 class BudgetCategory {
   const BudgetCategory({
     required this.id,
@@ -42,6 +108,7 @@ class BudgetCategory {
 class Budget {
   const Budget({
     required this.id,
+    required this.name,
     required this.category,
     required this.currency,
     required this.amount,
@@ -62,6 +129,7 @@ class Budget {
 
   factory Budget.fromJson(Map<String, Object?> json) {
     final id = json['id'];
+    final name = json['name'];
     final category = json['category'];
     final currency = json['currency'];
     final amount = json['amount'];
@@ -80,6 +148,8 @@ class Budget {
     final updatedAt = json['updated_at'];
     if (id is! int ||
         id < 1 ||
+        name is! String ||
+        name.trim().isEmpty ||
         (category != null && category is! Map<String, Object?>) ||
         currency is! Map<String, Object?> ||
         amount is! String ||
@@ -120,6 +190,7 @@ class Budget {
     }
     return Budget(
       id: id,
+      name: name,
       category: category == null
           ? null
           : BudgetCategory.fromJson(category as Map<String, Object?>),
@@ -142,6 +213,7 @@ class Budget {
   }
 
   final int id;
+  final String name;
   final BudgetCategory? category;
   final CurrencySummary currency;
   final MoneyAmount amount;
@@ -169,6 +241,26 @@ class Budget {
   }
 
   double get progressFraction => (progressPercent / 100).clamp(0, 1);
+
+  String get scheduleLabel {
+    if (scheduleType == BudgetScheduleType.oneTime.wireValue) {
+      return 'Una sola vez';
+    }
+    final unit = BudgetFrequencyUnit.values
+        .where((item) => item.wireValue == frequencyUnit)
+        .firstOrNull;
+    final interval = frequencyInterval;
+    if (unit == null || interval == null) return 'Personalizado';
+    if (interval == 1) {
+      return switch (unit) {
+        BudgetFrequencyUnit.day => 'Diario',
+        BudgetFrequencyUnit.week => 'Semanal',
+        BudgetFrequencyUnit.month => 'Mensual',
+        BudgetFrequencyUnit.year => 'Anual',
+      };
+    }
+    return 'Cada $interval ${interval == 1 ? unit.singular : unit.plural}';
+  }
 }
 
 class BudgetListResult {
@@ -245,19 +337,26 @@ class BudgetCreateCommand {
     required this.categoryId,
     required this.amount,
     required this.currencyCode,
-    required this.period,
-  });
+    this.name,
+    this.period,
+    this.schedule,
+  }) : assert(period != null || schedule != null),
+       assert(period == null || schedule == null);
 
-  final int categoryId;
+  final int? categoryId;
+  final String? name;
   final MoneyAmount amount;
   final String currencyCode;
-  final BudgetPeriod period;
+  final BudgetPeriod? period;
+  final BudgetSchedule? schedule;
 
   Map<String, Object?> toJson() => {
     'category_id': categoryId,
+    if (name != null) 'name': name,
     'amount': amount.toApiString(),
     'currency_code': currencyCode,
-    'period': period.wireValue,
+    if (period != null) 'period': period!.wireValue,
+    if (schedule != null) 'schedule': schedule!.toJson(),
   };
 }
 

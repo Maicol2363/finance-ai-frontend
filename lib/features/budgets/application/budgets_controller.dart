@@ -49,16 +49,20 @@ class BudgetsController extends Notifier<BudgetsState> {
   Future<BudgetMutationOutcome> save({
     int? budgetId,
     required int? categoryId,
+    String nameInput = '',
     required String amountInput,
     required String? currencyCode,
-    required BudgetPeriod period,
+    BudgetPeriod? period,
+    BudgetSchedule? schedule,
   }) async {
     if (state.isSaving) return BudgetMutationOutcome.ignored;
     final validated = _validate(
       categoryId: categoryId,
+      nameInput: nameInput,
       amountInput: amountInput,
       currencyCode: currencyCode,
       period: period,
+      schedule: schedule,
     );
     if (validated == null) return BudgetMutationOutcome.invalid;
     state = state.copyWith(
@@ -127,16 +131,18 @@ class BudgetsController extends Notifier<BudgetsState> {
 
   BudgetCreateCommand? _validate({
     required int? categoryId,
+    required String nameInput,
     required String amountInput,
     required String? currencyCode,
-    required BudgetPeriod period,
+    required BudgetPeriod? period,
+    required BudgetSchedule? schedule,
   }) {
     final result = state.result;
     final errors = <String, List<String>>{};
-    if (categoryId == null ||
-        result == null ||
-        !result.categories.any((item) => item.id == categoryId)) {
-      errors['category_id'] = ['Selecciona una categoría.'];
+    if (categoryId != null &&
+        (result == null ||
+            !result.categories.any((item) => item.id == categoryId))) {
+      errors['category_id'] = ['Selecciona una categoría válida.'];
     }
     final amount = MoneyAmount.tryParseUserInput(
       MoneyFormatter.clean(amountInput),
@@ -152,6 +158,25 @@ class BudgetsController extends Notifier<BudgetsState> {
         )) {
       errors['currency_code'] = ['Selecciona una moneda disponible.'];
     }
+    if ((period == null) == (schedule == null)) {
+      errors['schedule'] = ['Selecciona una frecuencia válida.'];
+    } else if (schedule != null) {
+      if (schedule.endsOn != null &&
+          schedule.endsOn!.isBefore(schedule.startsOn)) {
+        errors['ends_on'] = [
+          'La fecha final no puede ser anterior a la inicial.',
+        ];
+      }
+      if (schedule.scheduleType == BudgetScheduleType.recurring &&
+          (schedule.frequencyUnit == null ||
+              schedule.frequencyInterval == null ||
+              schedule.frequencyInterval! < 1 ||
+              schedule.frequencyInterval! > 999)) {
+        errors['frequency_interval'] = [
+          'La frecuencia debe estar entre 1 y 999.',
+        ];
+      }
+    }
     if (errors.isNotEmpty) {
       state = state.copyWith(
         fieldErrors: Map.unmodifiable(errors),
@@ -165,10 +190,12 @@ class BudgetsController extends Notifier<BudgetsState> {
       return null;
     }
     return BudgetCreateCommand(
-      categoryId: categoryId!,
+      categoryId: categoryId,
+      name: nameInput.trim().isEmpty ? null : nameInput.trim(),
       amount: amount!,
       currencyCode: normalizedCurrency!,
       period: period,
+      schedule: schedule,
     );
   }
 

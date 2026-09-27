@@ -34,6 +34,7 @@ Map<String, Object?> budgetJson({
   },
 }) => {
   'id': id,
+  'name': category == null ? 'Todos los gastos' : 'Mercado',
   'category': category,
   'currency': {
     'id': currencyCode == 'COP' ? 1 : 2,
@@ -80,6 +81,7 @@ Budget budget({
   double progress = 25,
 }) => Budget(
   id: id,
+  name: category?.name ?? 'Todos los gastos',
   category: category,
   currency: currency,
   amount: MoneyAmount.parseApi(amount),

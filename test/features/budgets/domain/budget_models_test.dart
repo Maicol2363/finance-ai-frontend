@@ -73,6 +73,39 @@ void main() {
     });
   });
 
+  test(
+    'advanced command serializes custom recurrence and all-expense scope',
+    () {
+      final command = BudgetCreateCommand(
+        categoryId: null,
+        name: 'Family fortnight',
+        amount: MoneyAmount.parseApi('900.00'),
+        currencyCode: 'USD',
+        schedule: BudgetSchedule(
+          scheduleType: BudgetScheduleType.recurring,
+          frequencyUnit: BudgetFrequencyUnit.week,
+          frequencyInterval: 2,
+          startsOn: DateTime(2026, 10, 5),
+          endsOn: DateTime(2026, 12, 31),
+        ),
+      );
+
+      expect(command.toJson(), {
+        'category_id': null,
+        'name': 'Family fortnight',
+        'amount': '900.00',
+        'currency_code': 'USD',
+        'schedule': {
+          'schedule_type': 'recurring',
+          'frequency_unit': 'week',
+          'frequency_interval': 2,
+          'starts_on': '2026-10-05',
+          'ends_on': '2026-12-31',
+        },
+      });
+    },
+  );
+
   test('malformed payloads fail closed', () {
     expect(
       () => Budget.fromJson({...budgetJson(), 'progress_percent': '-1.00'}),
