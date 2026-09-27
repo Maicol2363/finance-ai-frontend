@@ -36,7 +36,7 @@ class _BudgetsScreenState extends ConsumerState<BudgetsScreen> {
           children: [
             AppHeader(
               title: 'Presupuestos',
-              subtitle: 'Metas semanales y mensuales',
+              subtitle: 'Metas flexibles y personalizadas',
               leading: HeaderIconButton(
                 icon: Icons.arrow_back,
                 tooltip: 'Volver al dashboard',
@@ -132,7 +132,7 @@ class _EmptyBudgets extends StatelessWidget {
         ),
         SizedBox(height: 8),
         Text(
-          'Elige una categoría, una meta semanal o mensual y la moneda. El progreso se calcula desde tus gastos confirmados.',
+          'Elige qué gastos incluir, personaliza el calendario, el monto y la moneda. El progreso se calcula desde tus gastos confirmados.',
           textAlign: TextAlign.center,
         ),
       ],

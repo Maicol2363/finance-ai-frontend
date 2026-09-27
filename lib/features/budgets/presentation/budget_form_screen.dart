@@ -88,7 +88,7 @@ class _BudgetFormScreenState extends ConsumerState<BudgetFormScreen> {
                 title: widget.isEditing
                     ? 'Editar presupuesto'
                     : 'Nuevo presupuesto',
-                subtitle: 'Categoría, periodo, monto y moneda',
+                subtitle: 'Alcance, calendario, monto y moneda',
                 leading: HeaderIconButton(
                   icon: Icons.arrow_back,
                   tooltip: 'Volver a presupuestos',

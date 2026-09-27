@@ -75,7 +75,7 @@ class BudgetDashboardSection extends StatelessWidget {
                 ),
                 SizedBox(height: 4),
                 Text(
-                  'Crea una meta semanal o mensual para una categoría.',
+                  'Crea una meta con el alcance y calendario que prefieras.',
                   textAlign: TextAlign.center,
                 ),
               ],

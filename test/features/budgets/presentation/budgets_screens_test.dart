@@ -139,7 +139,7 @@ void main() {
         surfaceSize: const Size(1280, 800),
       );
 
-      expect(find.text('Categoría, periodo, monto y moneda'), findsOneWidget);
+      expect(find.text('Alcance, calendario, monto y moneda'), findsOneWidget);
       await tester.tap(find.byKey(const Key('budget-recurrence-field')));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Semanal').last);
