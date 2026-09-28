@@ -412,6 +412,66 @@ class FakeIncomesRepository implements IncomesRepository {
       throw UnimplementedError();
 }
 
+class _TwoCurrencyAccountsRepository implements AccountsRepository {
+  Account _account({
+    int id = 11,
+    String name = 'Cash',
+    String balance = '2310200.00',
+    CurrencySummary currency = cop,
+  }) => Account(
+    id: id,
+    name: name,
+    type: AccountType.cash,
+    currency: currency,
+    openingBalance: MoneyAmount.parseApi(balance),
+    balance: MoneyAmount.parseApi(balance),
+    currencyIsLocked: false,
+    isActive: true,
+    createdAt: DateTime.utc(2026, 9, 8),
+    updatedAt: DateTime.utc(2026, 9, 8),
+  );
+
+  @override
+  Future<AccountListResult> list({required bool includeInactive}) async =>
+      AccountListResult(
+        accounts: [
+          _account(),
+          _account(
+            id: 12,
+            name: 'Dólares',
+            balance: '1250.00',
+            currency: const CurrencySummary(
+              id: 2,
+              code: 'USD',
+              name: 'US Dollar',
+              decimals: 2,
+            ),
+          ),
+        ],
+        suggestedCurrencyCode: 'COP',
+        supportedCurrencies: const [cop],
+        accountTypes: AccountType.values,
+      );
+
+  @override
+  Future<Account> get(int accountId) async => _account(id: accountId);
+
+  @override
+  Future<Account> create(AccountCreateCommand command) async =>
+      throw UnimplementedError();
+
+  @override
+  Future<Account> update(int accountId, AccountUpdateCommand command) async =>
+      throw UnimplementedError();
+
+  @override
+  Future<Account> setActive(int accountId, {required bool isActive}) async =>
+      throw UnimplementedError();
+
+  @override
+  Future<void> deleteAccount(int accountId) async => throw UnimplementedError();
+}
+
 Future<void> pumpExpensesApp(
   WidgetTester tester,
   WidgetExpensesRepository repository, {
@@ -930,7 +990,7 @@ void main() {
       await pumpExpensesApp(tester, repository, initialLocation: '/home');
 
       expect(find.text(r'$ 100 COP'), findsOneWidget);
-      expect(find.text(r'+ $ 100'), findsOneWidget);
+      expect(find.text(r'+ $ 0'), findsOneWidget);
       expect(find.text(r'- $ 0'), findsOneWidget);
       expect(
         find.text(r'1 cuenta activa · $ 100 COP · Ver saldos'),
@@ -938,6 +998,29 @@ void main() {
       );
     },
   );
+
+  testWidgets('hub groups balances by currency without mixing them', (
+    tester,
+  ) async {
+    final repository = WidgetExpensesRepository()..expenses = [];
+    await pumpExpensesApp(
+      tester,
+      repository,
+      initialLocation: '/home',
+      accountsRepository: _TwoCurrencyAccountsRepository(),
+    );
+
+    expect(find.text(r'$ 2.310.200 COP'), findsOneWidget);
+    expect(find.text(r'$ 1.250 USD'), findsOneWidget);
+    expect(
+      find.text(
+        r'2 cuentas activas · $ 2.310.200 COP · $ 1.250 USD · Ver saldos',
+      ),
+      findsOneWidget,
+    );
+    expect(find.text(r'+ $ 0'), findsOneWidget);
+    expect(find.text(r'- $ 0'), findsOneWidget);
+  });
 
   testWidgets(
     'home screen displays unified recent movements (expenses and incomes) and opens income detail',

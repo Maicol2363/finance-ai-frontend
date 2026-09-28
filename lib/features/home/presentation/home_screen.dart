@@ -120,22 +120,23 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     final incomes = incomesAsync.value ?? const [];
 
     final expenses = result?.items ?? const <Expense>[];
-    final allMovements = <_HomeMovement>[
-      ...expenses.map(_ExpenseMovement.new),
-      ...incomes.map(_IncomeMovement.new),
-    ]..sort((a, b) {
-        final cmp = b.date.compareTo(a.date);
-        if (cmp != 0) return cmp;
-        final idA = switch (a) {
-          _ExpenseMovement(:final expense) => expense.id,
-          _IncomeMovement(:final income) => income.id,
-        };
-        final idB = switch (b) {
-          _ExpenseMovement(:final expense) => expense.id,
-          _IncomeMovement(:final income) => income.id,
-        };
-        return idB.compareTo(idA);
-      });
+    final allMovements =
+        <_HomeMovement>[
+          ...expenses.map(_ExpenseMovement.new),
+          ...incomes.map(_IncomeMovement.new),
+        ]..sort((a, b) {
+          final cmp = b.date.compareTo(a.date);
+          if (cmp != 0) return cmp;
+          final idA = switch (a) {
+            _ExpenseMovement(:final expense) => expense.id,
+            _IncomeMovement(:final income) => income.id,
+          };
+          final idB = switch (b) {
+            _ExpenseMovement(:final expense) => expense.id,
+            _IncomeMovement(:final income) => income.id,
+          };
+          return idB.compareTo(idA);
+        });
     final recentMovements = allMovements.take(10).toList();
 
     return PopScope(
@@ -281,8 +282,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                             switch (movement) {
                               _ExpenseMovement(:final expense) =>
                                 _HubExpenseCard(expense: expense),
-                              _IncomeMovement(:final income) =>
-                                _HubIncomeCard(income: income),
+                              _IncomeMovement(:final income) => _HubIncomeCard(
+                                income: income,
+                              ),
                             },
                             const SizedBox(height: 10),
                           ],
@@ -423,52 +425,67 @@ class _HubBalanceCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final palette = context.palette;
 
-    var totalExpenses = 0.0;
-    for (final exp in items) {
-      totalExpenses += double.tryParse(exp.amount.toApiString()) ?? 0.0;
+    // Totals are grouped by currency in integer minor units: amounts in
+    // different currencies are never added together.
+    final balances = <String, int>{};
+    for (final acc in accounts) {
+      if (acc.isActive) {
+        balances[acc.currency.code] =
+            (balances[acc.currency.code] ?? 0) + acc.balance.minorUnits;
+      }
     }
-
-    var totalIncomes = 0.0;
+    final incomesByCurrency = <String, int>{};
     for (final inc in incomes) {
-      totalIncomes += double.tryParse(inc.amount.toApiString()) ?? 0.0;
+      incomesByCurrency[inc.currencyCode] =
+          (incomesByCurrency[inc.currencyCode] ?? 0) + inc.amount.minorUnits;
+    }
+    final expensesByCurrency = <String, int>{};
+    for (final exp in items) {
+      expensesByCurrency[exp.currencyCode] =
+          (expensesByCurrency[exp.currencyCode] ?? 0) + exp.amount.minorUnits;
     }
 
-    var totalOpeningBalance = 0.0;
-    for (final acc in accounts) {
-      if (acc.isActive) {
-        totalOpeningBalance +=
-            double.tryParse(acc.openingBalance.toApiString()) ?? 0.0;
-      }
-    }
-    // If no separate income transactions exist yet, count the starting balances as funds
-    if (totalIncomes == 0.0 && totalOpeningBalance > 0.0) {
-      totalIncomes = totalOpeningBalance;
-    }
+    final orderedCodes =
+        <String>{
+          ...balances.keys,
+          ...incomesByCurrency.keys,
+          ...expensesByCurrency.keys,
+        }.toList()..sort(
+          (a, b) => a == preferredCurrency
+              ? -1
+              : b == preferredCurrency
+              ? 1
+              : a.compareTo(b),
+        );
+    final currency = orderedCodes.isEmpty
+        ? preferredCurrency
+        : orderedCodes.first;
+    final otherCodes = orderedCodes.where((code) => code != currency).toList();
 
-    var totalAccountsBalance = 0.0;
-    for (final acc in accounts) {
-      if (acc.isActive) {
-        totalAccountsBalance +=
-            double.tryParse(acc.balance.toApiString()) ?? 0.0;
-      }
-    }
-
-    final netBalance = totalIncomes - totalExpenses;
-    final currency =
-        items.firstOrNull?.currencyCode ??
-        incomes.firstOrNull?.currencyCode ??
-        accounts.firstOrNull?.currency.code ??
-        preferredCurrency;
+    // The headline balance is the real current total: the sum of live
+    // account balances. Opening balances are never counted as income.
+    final netBalance = balances[currency] ?? 0;
+    final totalIncomes = incomesByCurrency[currency] ?? 0;
+    final totalExpenses = expensesByCurrency[currency] ?? 0;
 
     final isNegative = netBalance < 0;
     final absBalance = netBalance.abs();
     final balanceSign = isNegative ? '-' : '';
-    final formattedBalance = MoneyFormatter.formatWhole(absBalance.round());
+    final formattedBalance = MoneyFormatter.formatWhole(absBalance ~/ 100);
     final activeAccounts = accounts.where((a) => a.isActive).toList();
     final activeCount = activeAccounts.length;
-    final formattedAccountsBalance = MoneyFormatter.formatWhole(
-      totalAccountsBalance.round(),
-    );
+    String signedBalanceLine(int minorUnits, String code) {
+      final sign = minorUnits < 0 ? '-' : '';
+      final whole = MoneyFormatter.formatWhole(minorUnits.abs() ~/ 100);
+      return '$sign\$ $whole $code';
+    }
+
+    final otherBalanceLines = otherCodes
+        .map((code) => signedBalanceLine(balances[code] ?? 0, code))
+        .toList();
+    final perCurrencyBalances = orderedCodes
+        .map((code) => signedBalanceLine(balances[code] ?? 0, code))
+        .join(' · ');
 
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
@@ -517,6 +534,17 @@ class _HubBalanceCard extends StatelessWidget {
               letterSpacing: -0.5,
             ),
           ),
+          for (final line in otherBalanceLines) ...[
+            const SizedBox(height: 2),
+            Text(
+              line,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: palette.muted,
+              ),
+            ),
+          ],
           const SizedBox(height: 14),
           Row(
             children: [
@@ -551,7 +579,7 @@ class _HubBalanceCard extends StatelessWidget {
                       ),
                       const Spacer(),
                       Text(
-                        '+ \$ ${MoneyFormatter.formatWhole(totalIncomes.round())}',
+                        '+ \$ ${MoneyFormatter.formatWhole(totalIncomes ~/ 100)}',
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w700,
@@ -595,7 +623,7 @@ class _HubBalanceCard extends StatelessWidget {
                       const Spacer(),
                       Text(
                         totalExpenses > 0
-                            ? '- \$ ${MoneyFormatter.formatWhole(totalExpenses.round())}'
+                            ? '- \$ ${MoneyFormatter.formatWhole(totalExpenses ~/ 100)}'
                             : '- \$ 0',
                         style: TextStyle(
                           fontSize: 12,
@@ -626,14 +654,16 @@ class _HubBalanceCard extends StatelessWidget {
                     color: palette.primary,
                   ),
                   const SizedBox(width: 8),
-                  Text(
-                    activeCount > 0
-                        ? '$activeCount ${activeCount == 1 ? 'cuenta activa' : 'cuentas activas'} · \$ $formattedAccountsBalance $currency · Ver saldos'
-                        : 'Gestionar cuentas y saldos',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: palette.primary,
+                  Expanded(
+                    child: Text(
+                      activeCount > 0
+                          ? '$activeCount ${activeCount == 1 ? 'cuenta activa' : 'cuentas activas'} · $perCurrencyBalances · Ver saldos'
+                          : 'Gestionar cuentas y saldos',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: palette.primary,
+                      ),
                     ),
                   ),
                   const Spacer(),
@@ -876,10 +906,7 @@ class _HubIncomeCard extends ConsumerWidget {
                   borderRadius: BorderRadius.circular(11),
                 ),
                 child: const Center(
-                  child: Text(
-                    '💰',
-                    style: TextStyle(fontSize: 20),
-                  ),
+                  child: Text('💰', style: TextStyle(fontSize: 20)),
                 ),
               ),
               const SizedBox(width: 12),
