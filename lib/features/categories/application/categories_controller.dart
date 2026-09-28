@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/diagnostics/error_diagnostic.dart';
 import '../../auth/session/domain/session_models.dart';
+import '../../budgets/application/budgets_controller.dart';
 import '../data/categories_repository.dart';
 import '../domain/category_models.dart';
 import 'categories_state.dart';
@@ -144,6 +145,7 @@ class CategoriesController extends Notifier<CategoriesState> {
     try {
       await ref.read(categoriesRepositoryProvider).deleteCategory(categoryId);
       _acceptDeleted(categoryId);
+      await _refreshBudgetsAfterCategoryDelete();
       return CategoryMutationOutcome.success;
     } on CategoryFailure catch (failure) {
       await _rejectFailure(failure, 'delete_category');
@@ -166,6 +168,14 @@ class CategoriesController extends Notifier<CategoriesState> {
       fieldErrors: const {},
       clearMutationDiagnostic: true,
     );
+  }
+
+  Future<void> _refreshBudgetsAfterCategoryDelete() async {
+    try {
+      await ref.read(budgetsControllerProvider.notifier).load();
+    } on Object {
+      // Category deletion is authoritative; budget progress can be refreshed later.
+    }
   }
 
   Future<void> _refreshAfterMutation() async {

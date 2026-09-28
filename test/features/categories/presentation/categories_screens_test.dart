@@ -188,6 +188,10 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('¿Eliminar categoría?'), findsOneWidget);
     expect(find.textContaining('Categoría eliminada'), findsOneWidget);
+    expect(
+      find.textContaining('los presupuestos vinculados también se eliminarán'),
+      findsOneWidget,
+    );
     await tester.tap(find.byKey(const Key('category-confirm-delete-button')));
     await tester.pumpAndSettle();
 

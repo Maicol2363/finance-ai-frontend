@@ -83,6 +83,94 @@ ExpenseListResult listResult(List<Expense> items) => ExpenseListResult(
   hasNext: false,
 );
 
+Account optionAccount({int id = 11, String name = 'Cash'}) => Account(
+  id: id,
+  name: name,
+  type: AccountType.cash,
+  currency: cop,
+  openingBalance: MoneyAmount.parseApi('100.00'),
+  balance: MoneyAmount.parseApi('100.00'),
+  currencyIsLocked: false,
+  isActive: true,
+  createdAt: DateTime.utc(2026, 9, 8),
+  updatedAt: DateTime.utc(2026, 9, 8),
+);
+
+Category optionCategory({int id = 3, String name = 'Food'}) => Category(
+  id: id,
+  name: name,
+  color: CategoryColor.blue,
+  icon: CategoryIcon.food,
+  sortOrder: 0,
+  createdAt: DateTime.utc(2026, 9, 12),
+  updatedAt: DateTime.utc(2026, 9, 12),
+);
+
+class WidgetOptionsAccountsRepository implements AccountsRepository {
+  @override
+  Future<AccountListResult> list({required bool includeInactive}) async =>
+      AccountListResult(
+        accounts: [
+          optionAccount(),
+          optionAccount(id: 12, name: 'Bank'),
+        ],
+        suggestedCurrencyCode: 'COP',
+        supportedCurrencies: const [cop],
+        accountTypes: AccountType.values,
+      );
+
+  @override
+  Future<Account> get(int accountId) async => optionAccount(id: accountId);
+
+  @override
+  Future<Account> create(AccountCreateCommand command) async =>
+      throw UnimplementedError();
+
+  @override
+  Future<Account> update(int accountId, AccountUpdateCommand command) async =>
+      throw UnimplementedError();
+
+  @override
+  Future<Account> setActive(int accountId, {required bool isActive}) async =>
+      throw UnimplementedError();
+
+  @override
+  Future<void> deleteAccount(int accountId) async => throw UnimplementedError();
+}
+
+class WidgetOptionsCategoriesRepository implements CategoriesRepository {
+  @override
+  Future<CategoryListResult> list() async => CategoryListResult(
+    categories: [
+      optionCategory(),
+      optionCategory(id: 4, name: 'Transport'),
+    ],
+    supportedColors: CategoryColor.values,
+    supportedIcons: CategoryIcon.values,
+  );
+
+  @override
+  Future<Category> get(int categoryId) async => optionCategory(id: categoryId);
+
+  @override
+  Future<Category> create(CategoryCreateCommand command) async =>
+      throw UnimplementedError();
+
+  @override
+  Future<Category> update(
+    int categoryId,
+    CategoryUpdateCommand command,
+  ) async => throw UnimplementedError();
+
+  @override
+  Future<CategoryListResult> reorder(List<int> categoryIds) async =>
+      throw UnimplementedError();
+
+  @override
+  Future<void> deleteCategory(int categoryId) async =>
+      throw UnimplementedError();
+}
+
 HistoryItem historyItem({int id = 8, HistoryExpense? expense}) => HistoryItem(
   id: id,
   type: TransactionType.expense,
@@ -324,11 +412,72 @@ class FakeIncomesRepository implements IncomesRepository {
       throw UnimplementedError();
 }
 
+class _TwoCurrencyAccountsRepository implements AccountsRepository {
+  Account _account({
+    int id = 11,
+    String name = 'Cash',
+    String balance = '2310200.00',
+    CurrencySummary currency = cop,
+  }) => Account(
+    id: id,
+    name: name,
+    type: AccountType.cash,
+    currency: currency,
+    openingBalance: MoneyAmount.parseApi(balance),
+    balance: MoneyAmount.parseApi(balance),
+    currencyIsLocked: false,
+    isActive: true,
+    createdAt: DateTime.utc(2026, 9, 8),
+    updatedAt: DateTime.utc(2026, 9, 8),
+  );
+
+  @override
+  Future<AccountListResult> list({required bool includeInactive}) async =>
+      AccountListResult(
+        accounts: [
+          _account(),
+          _account(
+            id: 12,
+            name: 'Dólares',
+            balance: '1250.00',
+            currency: const CurrencySummary(
+              id: 2,
+              code: 'USD',
+              name: 'US Dollar',
+              decimals: 2,
+            ),
+          ),
+        ],
+        suggestedCurrencyCode: 'COP',
+        supportedCurrencies: const [cop],
+        accountTypes: AccountType.values,
+      );
+
+  @override
+  Future<Account> get(int accountId) async => _account(id: accountId);
+
+  @override
+  Future<Account> create(AccountCreateCommand command) async =>
+      throw UnimplementedError();
+
+  @override
+  Future<Account> update(int accountId, AccountUpdateCommand command) async =>
+      throw UnimplementedError();
+
+  @override
+  Future<Account> setActive(int accountId, {required bool isActive}) async =>
+      throw UnimplementedError();
+
+  @override
+  Future<void> deleteAccount(int accountId) async => throw UnimplementedError();
+}
+
 Future<void> pumpExpensesApp(
   WidgetTester tester,
   WidgetExpensesRepository repository, {
   String initialLocation = '/expenses',
   AccountsRepository? accountsRepository,
+  CategoriesRepository? categoriesRepository,
   IncomesRepository? incomesRepository,
 }) async {
   final router = createAppRouter(initialLocation: initialLocation);
@@ -341,7 +490,7 @@ Future<void> pumpExpensesApp(
           accountsRepository ?? FakeAccountsRepository(),
         ),
         categoriesRepositoryProvider.overrideWithValue(
-          FakeCategoriesRepository(),
+          categoriesRepository ?? FakeCategoriesRepository(),
         ),
         incomesRepositoryProvider.overrideWithValue(
           incomesRepository ?? FakeIncomesRepository(),
@@ -456,9 +605,13 @@ void main() {
       tester,
       repository,
       initialLocation: '/expenses/7/edit',
+      accountsRepository: WidgetOptionsAccountsRepository(),
+      categoriesRepository: WidgetOptionsCategoriesRepository(),
     );
 
     expect(find.byKey(const Key('expense-name-field')), findsOneWidget);
+    expect(find.text('Cash · COP'), findsOneWidget);
+    expect(find.text('Food'), findsWidgets);
 
     await tester.enterText(
       find.byKey(const Key('expense-name-field')),
@@ -468,11 +621,21 @@ void main() {
       find.byKey(const Key('expense-amount-field')),
       '30.00',
     );
+    await tester.tap(find.byKey(const Key('expense-account-field')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Bank · COP').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('expense-category-field')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Transport').last);
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('expense-save-button')));
     await tester.pumpAndSettle();
 
     expect(repository.lastCommand?.name, 'Updated groceries');
     expect(repository.lastCommand?.amount?.toApiString(), '30.00');
+    expect(repository.lastCommand?.accountId, 12);
+    expect(repository.lastCommand?.categoryId, 4);
     expect(find.text('Detalle del gasto'), findsOneWidget);
   });
 
@@ -831,7 +994,7 @@ void main() {
       await pumpExpensesApp(tester, repository, initialLocation: '/home');
 
       expect(find.text(r'$ 100 COP'), findsOneWidget);
-      expect(find.text(r'+ $ 100'), findsOneWidget);
+      expect(find.text(r'+ $ 0'), findsOneWidget);
       expect(find.text(r'- $ 0'), findsOneWidget);
       expect(
         find.text(r'1 cuenta activa · $ 100 COP · Ver saldos'),
@@ -839,6 +1002,29 @@ void main() {
       );
     },
   );
+
+  testWidgets('hub groups balances by currency without mixing them', (
+    tester,
+  ) async {
+    final repository = WidgetExpensesRepository()..expenses = [];
+    await pumpExpensesApp(
+      tester,
+      repository,
+      initialLocation: '/home',
+      accountsRepository: _TwoCurrencyAccountsRepository(),
+    );
+
+    expect(find.text(r'$ 2.310.200 COP'), findsOneWidget);
+    expect(find.text(r'$ 1.250 USD'), findsOneWidget);
+    expect(
+      find.text(
+        r'2 cuentas activas · $ 2.310.200 COP · $ 1.250 USD · Ver saldos',
+      ),
+      findsOneWidget,
+    );
+    expect(find.text(r'+ $ 0'), findsOneWidget);
+    expect(find.text(r'- $ 0'), findsOneWidget);
+  });
 
   testWidgets(
     'home screen displays unified recent movements (expenses and incomes) and opens income detail',

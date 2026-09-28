@@ -340,7 +340,7 @@ class _CategoryFormScreenState extends ConsumerState<CategoryFormScreen> {
       builder: (context) => AlertDialog(
         title: const Text('¿Eliminar categoría?'),
         content: Text(
-          '¿Eliminar “${category.name}” de forma permanente? El nombre se puede reutilizar. El historial de gastos mostrará “Categoría eliminada” cuando se haya usado.',
+          '¿Eliminar “${category.name}” de forma permanente? El nombre se puede reutilizar. El historial de gastos mostrará “Categoría eliminada” y los presupuestos vinculados también se eliminarán.',
         ),
         actions: [
           TextButton(
