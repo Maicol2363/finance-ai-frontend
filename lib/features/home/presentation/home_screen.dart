@@ -846,7 +846,10 @@ class _HubExpenseCard extends StatelessWidget {
                             borderRadius: BorderRadius.circular(5),
                           ),
                           child: Text(
-                            _sourceLabel(expense.captureSource, expense.items.length),
+                            _sourceLabel(
+                              expense.captureSource,
+                              expense.items.length,
+                            ),
                             style: TextStyle(
                               fontSize: 9.5,
                               fontWeight: FontWeight.w700,

@@ -59,8 +59,7 @@ class ApiTransportException implements Exception {
       return message!;
     }
     return switch (kind) {
-      ApiTransportFailureKind.timeout =>
-        'El servidor tardó más de lo esperado en responder. Por favor reintenta.',
+      ApiTransportFailureKind.timeout => 'El servidor tardó más de lo esperado en responder. Por favor reintenta.',
       ApiTransportFailureKind.connection =>
         'No se pudo conectar con el servidor. Revisa tu conexión a internet.',
       ApiTransportFailureKind.invalidResponse =>
@@ -171,8 +170,8 @@ class FinanceApiClient {
       }
       request.files.add(await http.MultipartFile.fromPath(fileField, filePath));
       final streamed = await _client.send(request).timeout(effectiveTimeout);
-      final response =
-          await http.Response.fromStream(streamed).timeout(effectiveTimeout);
+      final response = await http.Response.fromStream(streamed)
+          .timeout(effectiveTimeout);
       return ApiResponse(
         statusCode: response.statusCode,
         body: _decodeOptionalObject(response.body),

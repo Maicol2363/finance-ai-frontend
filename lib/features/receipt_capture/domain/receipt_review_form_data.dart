@@ -115,8 +115,9 @@ class ReceiptReviewFormData {
       accountId: clearAccountId ? null : (accountId ?? this.accountId),
       categoryId: clearCategoryId ? null : (categoryId ?? this.categoryId),
       suggestedCategory: suggestedCategory ?? this.suggestedCategory,
-      newCategoryName:
-          clearNewCategoryName ? null : (newCategoryName ?? this.newCategoryName),
+      newCategoryName: clearNewCategoryName
+          ? null
+          : (newCategoryName ?? this.newCategoryName),
       paymentMethod: paymentMethod ?? this.paymentMethod,
       suggestedAccount: suggestedAccount ?? this.suggestedAccount,
       currency: currency ?? this.currency,

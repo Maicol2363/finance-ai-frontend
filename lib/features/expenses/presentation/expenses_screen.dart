@@ -164,9 +164,13 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen>
                               crossAxisAlignment: CrossAxisAlignment.stretch,
                               children: [
                                 Padding(
-                                  padding: const EdgeInsets.only(top: 8, bottom: 12),
+                                  padding: const EdgeInsets.only(
+                                    top: 8,
+                                    bottom: 12,
+                                  ),
                                   child: Row(
-                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
                                     children: [
                                       Text(
                                         'Historial reciente',
@@ -606,7 +610,10 @@ class _ExpenseCard extends StatelessWidget {
                                 borderRadius: BorderRadius.circular(5),
                               ),
                               child: Text(
-                                _sourceLabel(expense.captureSource, expense.items.length),
+                                _sourceLabel(
+                                  expense.captureSource,
+                                  expense.items.length,
+                                ),
                                 style: TextStyle(
                                   fontSize: 9.5,
                                   fontWeight: FontWeight.w700,

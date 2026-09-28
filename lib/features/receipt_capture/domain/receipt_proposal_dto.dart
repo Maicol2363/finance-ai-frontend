@@ -25,7 +25,8 @@ class ExtractedReceiptItemDto {
   factory ExtractedReceiptItemDto.fromJson(Map<String, dynamic> json) {
     return ExtractedReceiptItemDto(
       name: json['name'] as String? ?? '',
-      totalPrice: _parseDouble(json['total_price']) ??
+      totalPrice:
+          _parseDouble(json['total_price']) ??
           _parseDouble(json['amount']) ??
           0.0,
       quantity: _parseDouble(json['quantity']) ?? 1.0,
@@ -81,7 +82,8 @@ class ReceiptExtractionDto {
       totalAmount: _parseDouble(json['total_amount']),
       taxAmount: _parseDouble(json['tax_amount']),
       currency: json['currency'] as String? ?? 'COP',
-      categorySuggestion: json['suggested_category'] as String? ??
+      categorySuggestion:
+          json['suggested_category'] as String? ??
           json['category_suggestion'] as String?,
       categoryId: json['category_id'] as int?,
       paymentMethod: json['payment_method'] as String?,
@@ -91,7 +93,8 @@ class ReceiptExtractionDto {
             (e) => ExtractedReceiptItemDto.fromJson(e as Map<String, dynamic>),
           )
           .toList(),
-      isReceipt: json['is_receipt'] as bool? ??
+      isReceipt:
+          json['is_receipt'] as bool? ??
           (json['status'] != null ? json['status'] != 'not_a_receipt' : true),
     );
   }
