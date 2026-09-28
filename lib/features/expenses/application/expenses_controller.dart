@@ -4,6 +4,7 @@ import '../../../core/diagnostics/error_diagnostic.dart';
 import '../../../core/formatters/money_formatter.dart';
 import '../../accounts/domain/account_models.dart';
 import '../../auth/session/domain/session_models.dart';
+import '../../budgets/application/budgets_controller.dart';
 import '../data/expenses_repository.dart';
 import '../domain/expense_models.dart';
 import 'expenses_state.dart';
@@ -496,6 +497,7 @@ class ExpensesController extends Notifier<ExpensesState> {
       clearMutationDiagnostic: true,
     );
     await _refreshCanonicalList();
+    await _refreshBudgetProgress();
     state = state.copyWith(
       mutationStatus: ExpenseMutationStatus.idle,
       clearMutationDiagnostic: true,
@@ -515,10 +517,19 @@ class ExpensesController extends Notifier<ExpensesState> {
       clearMutationDiagnostic: true,
     );
     await _refreshCanonicalList();
+    await _refreshBudgetProgress();
     state = state.copyWith(
       mutationStatus: ExpenseMutationStatus.idle,
       clearMutationDiagnostic: true,
     );
+  }
+
+  Future<void> _refreshBudgetProgress() async {
+    try {
+      await ref.read(budgetsControllerProvider.notifier).load();
+    } on Object {
+      // The expense mutation already succeeded; dashboard refresh remains retryable.
+    }
   }
 
   Future<bool> _refreshDeletionResolution(

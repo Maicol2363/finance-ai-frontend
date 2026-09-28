@@ -2,6 +2,8 @@ import 'package:finance_ai/app.dart';
 import 'package:finance_ai/core/router/app_router.dart';
 import 'package:finance_ai/features/accounts/data/accounts_repository.dart';
 import 'package:finance_ai/features/accounts/domain/account_models.dart';
+import 'package:finance_ai/features/budgets/data/budgets_repository.dart';
+import 'package:finance_ai/features/budgets/domain/budget_models.dart';
 import 'package:finance_ai/features/categories/data/categories_repository.dart';
 import 'package:finance_ai/features/categories/domain/category_models.dart';
 import 'package:finance_ai/features/expenses/data/expenses_repository.dart';
@@ -184,6 +186,27 @@ class _FakeCategoriesRepository implements CategoriesRepository {
   Future<void> deleteCategory(int categoryId) async {}
 }
 
+class _FakeBudgetsRepository implements BudgetsRepository {
+  @override
+  Future<BudgetListResult> list() async => const BudgetListResult(
+    budgets: [],
+    categories: [],
+    supportedCurrencies: [_cop],
+    suggestedCurrencyCode: 'COP',
+  );
+
+  @override
+  Future<Budget> create(BudgetCreateCommand command) =>
+      throw UnimplementedError();
+
+  @override
+  Future<Budget> update(int budgetId, BudgetUpdateCommand command) =>
+      throw UnimplementedError();
+
+  @override
+  Future<void> deleteBudget(int budgetId) => throw UnimplementedError();
+}
+
 class _FakeIncomesRepository implements IncomesRepository {
   _FakeIncomesRepository({List<Income>? incomes})
     : incomes = incomes ?? [_income()];
@@ -250,6 +273,7 @@ Future<void> _pumpAt(
         categoriesRepositoryProvider.overrideWithValue(
           _FakeCategoriesRepository(),
         ),
+        budgetsRepositoryProvider.overrideWithValue(_FakeBudgetsRepository()),
         incomesRepositoryProvider.overrideWithValue(
           _FakeIncomesRepository(incomes: incomes),
         ),
@@ -270,9 +294,11 @@ void main() {
     expect(find.text('Balance del mes'), findsOneWidget);
     expect(find.text('Ingresos'), findsOneWidget);
     expect(find.text('Gastos'), findsWidgets);
+    await tester.scrollUntilVisible(find.text('Gastos por categoría'), 200);
     expect(find.text('Gastos por categoría'), findsOneWidget);
     // 500 income - 25 expenses = 475 balance.
     expect(find.textContaining('475'), findsWidgets);
+    await tester.scrollUntilVisible(find.text('Market'), 200);
     expect(find.text('Market'), findsOneWidget);
     expect(find.text('Food'), findsOneWidget);
   });
@@ -281,6 +307,7 @@ void main() {
     await _pumpAt(tester, '/dashboard', expenses: const [], incomes: const []);
 
     expect(find.text('Balance del mes'), findsOneWidget);
+    await tester.scrollUntilVisible(find.text('Sin datos suficientes'), 200);
     expect(find.text('Sin datos suficientes'), findsOneWidget);
   });
 
