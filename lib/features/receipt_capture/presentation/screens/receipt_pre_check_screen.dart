@@ -131,7 +131,7 @@ class ReceiptPreCheckScreen extends ConsumerWidget {
                 if (state.canRetry && state.localImagePath != null)
                   FilledButton.icon(
                     onPressed: () {
-                      notifier.analyzeReceipt();
+                      notifier.retryFailedAnalysis();
                     },
                     icon: const Icon(Icons.refresh),
                     label: const Text('Reintentar análisis'),

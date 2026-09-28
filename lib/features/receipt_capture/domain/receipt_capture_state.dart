@@ -117,14 +117,19 @@ class ReceiptCaptureSuccess extends ReceiptCaptureState {
 /// [diagnostic] carries the shared, privacy-safe report (stable code, operation,
 /// safe message and technical reason). Raw exception text, file paths and
 /// platform details must never be rendered from this state.
+///
+/// [rotationDegrees] keeps the correction the user applied before the failed
+/// attempt so a retry analyses the same orientation instead of the original one.
 class ReceiptCaptureError extends ReceiptCaptureState {
   final ErrorDiagnostic diagnostic;
   final String? localImagePath;
   final bool canRetry;
+  final int rotationDegrees;
 
   const ReceiptCaptureError({
     required this.diagnostic,
     this.localImagePath,
     this.canRetry = true,
+    this.rotationDegrees = 0,
   });
 }

@@ -74,6 +74,8 @@ class ReceiptCaptureNotifier extends Notifier<ReceiptCaptureState> {
             technicalReason: 'image_exceeds_size_limit',
           ),
           localImagePath: xFile.path,
+          // Re-uploading the same file cannot change its size.
+          canRetry: false,
         );
         return;
       }
@@ -92,6 +94,8 @@ class ReceiptCaptureNotifier extends Notifier<ReceiptCaptureState> {
               'No se pudo leer la imagen seleccionada. Inténtalo de nuevo.',
           technicalReason: 'image_inspection_failure',
         ),
+        // The file itself is unusable, so another attempt would fail the same way.
+        canRetry: false,
       );
     }
   }
@@ -112,17 +116,46 @@ class ReceiptCaptureNotifier extends Notifier<ReceiptCaptureState> {
       return;
     }
 
-    final imagePath = current.imagePath;
-    final rotation = current.rotationDegrees;
+    await _requestProposal(
+      imagePath: current.imagePath,
+      rotationDegrees: current.rotationDegrees,
+    );
+  }
+
+  /// Retries a failed analysis with the same photo and rotation.
+  ///
+  /// The error state keeps the user's correction, so a transient failure (network
+  /// or provider) no longer costs the whole capture: the photo is sent again
+  /// exactly as the user prepared it.
+  Future<void> retryFailedAnalysis() async {
+    final current = state;
+    if (current is! ReceiptCaptureError) {
+      return;
+    }
+    final imagePath = current.localImagePath;
+    if (imagePath == null || !current.canRetry) {
+      return;
+    }
+
+    await _requestProposal(
+      imagePath: imagePath,
+      rotationDegrees: current.rotationDegrees,
+    );
+  }
+
+  Future<void> _requestProposal({
+    required String imagePath,
+    required int rotationDegrees,
+  }) async {
     state = ReceiptCaptureAnalyzing(
       imagePath: imagePath,
-      rotationDegrees: rotation,
+      rotationDegrees: rotationDegrees,
     );
 
     try {
       final proposal = await _remoteDataSource.uploadProposal(
         filePath: imagePath,
-        rotationDegrees: rotation,
+        rotationDegrees: rotationDegrees,
       );
 
       _populateReviewState(proposal, imagePath);
@@ -135,6 +168,7 @@ class ReceiptCaptureNotifier extends Notifier<ReceiptCaptureState> {
           technicalReason: 'receipt_analysis_failure',
         ),
         localImagePath: imagePath,
+        rotationDegrees: rotationDegrees,
       );
     }
   }

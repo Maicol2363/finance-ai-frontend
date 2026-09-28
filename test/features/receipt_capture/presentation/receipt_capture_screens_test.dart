@@ -34,6 +34,7 @@ class _TestReceiptCaptureNotifier extends ReceiptCaptureNotifier {
   final ReceiptCaptureState _initialState;
   int rotateCalls = 0;
   int analyzeCalls = 0;
+  int retryCalls = 0;
 
   @override
   ReceiptCaptureState build() => _initialState;
@@ -52,6 +53,11 @@ class _TestReceiptCaptureNotifier extends ReceiptCaptureNotifier {
   @override
   Future<void> analyzeReceipt() async {
     analyzeCalls++;
+  }
+
+  @override
+  Future<void> retryFailedAnalysis() async {
+    retryCalls++;
   }
 }
 
@@ -405,6 +411,78 @@ void main() {
       expect(find.textContaining('Exception'), findsNothing);
       expect(find.textContaining(tempImage.path), findsNothing);
       expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('retry CTA asks the notifier to analyse the same photo again', (
+      tester,
+    ) async {
+      _useRoomyViewport(tester);
+
+      final testNotifier = _TestReceiptCaptureNotifier(
+        ReceiptCaptureError(
+          diagnostic: ErrorDiagnostic.capture(
+            code: 'unexpected_client_error',
+            operation: 'analyze_receipt',
+            userMessage: 'No se pudo analizar el recibo.',
+            technicalReason: 'receipt_analysis_failure',
+          ),
+          localImagePath: tempImage.path,
+          rotationDegrees: 90,
+        ),
+      );
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            receiptCaptureNotifierProvider.overrideWith(() => testNotifier),
+          ],
+          child: MaterialApp(
+            theme: AppTheme.light(),
+            home: const ReceiptPreCheckScreen(),
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('Reintentar análisis'));
+      await tester.pump();
+
+      expect(testNotifier.retryCalls, 1);
+      expect(testNotifier.analyzeCalls, 0);
+    });
+
+    testWidgets('retry CTA is hidden when another attempt cannot help', (
+      tester,
+    ) async {
+      _useRoomyViewport(tester);
+
+      final testNotifier = _TestReceiptCaptureNotifier(
+        ReceiptCaptureError(
+          diagnostic: ErrorDiagnostic.capture(
+            code: 'receipt_image_too_large',
+            operation: 'validate_receipt_image',
+            userMessage:
+                'La imagen excede el límite máximo permitido de 10 MB.',
+            technicalReason: 'image_exceeds_size_limit',
+          ),
+          localImagePath: tempImage.path,
+          canRetry: false,
+        ),
+      );
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            receiptCaptureNotifierProvider.overrideWith(() => testNotifier),
+          ],
+          child: MaterialApp(
+            theme: AppTheme.light(),
+            home: const ReceiptPreCheckScreen(),
+          ),
+        ),
+      );
+
+      expect(find.text('Reintentar análisis'), findsNothing);
+      expect(find.text('Volver'), findsOneWidget);
     });
   });
 

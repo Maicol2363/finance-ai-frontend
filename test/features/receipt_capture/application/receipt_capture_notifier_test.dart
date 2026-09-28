@@ -52,11 +52,15 @@ class _FakeRemoteDataSource extends ReceiptCaptureRemoteDataSource {
   Object? uploadFailure;
   Object? confirmFailure;
 
+  /// Every upload attempt, as (path, rotation), so retries can be asserted.
+  final List<(String, int)> uploads = [];
+
   @override
   Future<ReceiptProposalResponseDto> uploadProposal({
     required String filePath,
     int rotationDegrees = 0,
   }) async {
+    uploads.add((filePath, rotationDegrees));
     final failure = uploadFailure;
     if (failure != null) {
       throw failure;
@@ -491,6 +495,71 @@ void main() {
         expect(error.diagnostic.technicalReason, 'image_exceeds_size_limit');
         expect(error.localImagePath, bigFile.path);
         expect(error.diagnostic.clipboardText, isNot(contains(bigFile.path)));
+      },
+    );
+
+    test(
+      'retryFailedAnalysis re-uploads with the rotation the user applied',
+      () async {
+        fakeRemote.uploadFailure = const FileSystemException(
+          'Cannot open file',
+          '/data/user/0/com.financeai/files/receipts/42.jpg',
+        );
+
+        final notifier = container.read(
+          receiptCaptureNotifierProvider.notifier,
+        );
+        await notifier.pickImage(ImageSource.camera);
+        notifier.rotatePreCheck();
+        await notifier.analyzeReceipt();
+
+        final failed = container.read(receiptCaptureNotifierProvider);
+        expect(failed, isA<ReceiptCaptureError>());
+        expect((failed as ReceiptCaptureError).canRetry, isTrue);
+        expect(failed.rotationDegrees, 90);
+
+        fakeRemote.uploadFailure = null;
+        await notifier.retryFailedAnalysis();
+
+        expect(
+          container.read(receiptCaptureNotifierProvider),
+          isA<ReceiptCaptureReview>(),
+        );
+        expect(fakeRemote.uploads, [
+          (sampleFile.path, 90),
+          (sampleFile.path, 90),
+        ]);
+      },
+    );
+
+    test(
+      'retryFailedAnalysis ignores failures that cannot be retried',
+      () async {
+        final bigFile = File(
+          '${Directory.systemTemp.path}/notifier_retry_big.jpg',
+        )..writeAsBytesSync(List<int>.filled(10 * 1024 * 1024 + 1, 0));
+        addTearDown(() {
+          if (bigFile.existsSync()) {
+            bigFile.deleteSync();
+          }
+        });
+
+        final notifier = container.read(
+          receiptCaptureNotifierProvider.notifier,
+        );
+        await notifier.useImageFile(XFile(bigFile.path));
+
+        final failed = container.read(receiptCaptureNotifierProvider);
+        expect(failed, isA<ReceiptCaptureError>());
+        expect((failed as ReceiptCaptureError).canRetry, isFalse);
+
+        await notifier.retryFailedAnalysis();
+
+        expect(
+          container.read(receiptCaptureNotifierProvider),
+          isA<ReceiptCaptureError>(),
+        );
+        expect(fakeRemote.uploads, isEmpty);
       },
     );
 
