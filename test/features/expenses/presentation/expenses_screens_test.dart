@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:finance_ai/app.dart';
 import 'package:finance_ai/core/router/app_router.dart';
 import 'package:finance_ai/features/accounts/data/accounts_repository.dart';
@@ -13,6 +15,7 @@ import 'package:finance_ai/features/expenses/domain/expense_models.dart';
 import 'package:finance_ai/features/expenses/domain/history_models.dart';
 import 'package:finance_ai/features/incomes/data/incomes_repository.dart';
 import 'package:finance_ai/features/incomes/domain/income_models.dart';
+import 'package:finance_ai/features/receipt_capture/data/receipt_photo_cache_repository.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -47,7 +50,12 @@ final testCategory = Category(
   updatedAt: DateTime.utc(2026, 9, 1, 10, 0),
 );
 
-Expense expense({int id = 7, String name = 'Groceries'}) => Expense(
+Expense expense({
+  int id = 7,
+  String name = 'Groceries',
+  CaptureSource captureSource = CaptureSource.manual,
+  List<ExpenseItem> items = const [],
+}) => Expense(
   id: id,
   transactionId: 8,
   receiptId: 9,
@@ -63,7 +71,7 @@ Expense expense({int id = 7, String name = 'Groceries'}) => Expense(
   description: 'Purchase at Market',
   occurredAt: DateTime.utc(2026, 9, 17, 12, 30),
   status: ExpenseStatus.confirmed,
-  captureSource: CaptureSource.manual,
+  captureSource: captureSource,
   accountId: 11,
   accountName: 'Cash',
   accountIsActive: true,
@@ -73,6 +81,7 @@ Expense expense({int id = 7, String name = 'Groceries'}) => Expense(
   updatedAt: DateTime.utc(2026, 9, 17, 12, 30),
   receiptImage: 'receipt.jpg',
   imagePath: 'expense.jpg',
+  items: items,
 );
 
 ExpenseListResult listResult(List<Expense> items) => ExpenseListResult(
@@ -472,6 +481,28 @@ class _TwoCurrencyAccountsRepository implements AccountsRepository {
   Future<void> deleteAccount(int accountId) async => throw UnimplementedError();
 }
 
+/// Fake for the receipt photo store: records deletions and reports the photo it
+/// is holding so a delete can be observed without touching the file system.
+class _FakeReceiptPhotoCacheRepository implements ReceiptPhotoCacheRepository {
+  final List<int> deleted = [];
+  File? photo;
+
+  @override
+  Future<String> saveReceiptPhoto({
+    required int expenseId,
+    required String sourceFilePath,
+  }) async => sourceFilePath;
+
+  @override
+  Future<File?> getCachedReceiptPhoto(int expenseId) async => photo;
+
+  @override
+  Future<void> deleteCachedReceiptPhoto(int expenseId) async {
+    deleted.add(expenseId);
+    photo = null;
+  }
+}
+
 Future<void> pumpExpensesApp(
   WidgetTester tester,
   WidgetExpensesRepository repository, {
@@ -479,6 +510,7 @@ Future<void> pumpExpensesApp(
   AccountsRepository? accountsRepository,
   CategoriesRepository? categoriesRepository,
   IncomesRepository? incomesRepository,
+  ReceiptPhotoCacheRepository? receiptPhotoCacheRepository,
 }) async {
   final router = createAppRouter(initialLocation: initialLocation);
   addTearDown(router.dispose);
@@ -494,6 +526,9 @@ Future<void> pumpExpensesApp(
         ),
         incomesRepositoryProvider.overrideWithValue(
           incomesRepository ?? FakeIncomesRepository(),
+        ),
+        receiptPhotoCacheRepositoryProvider.overrideWithValue(
+          receiptPhotoCacheRepository ?? _FakeReceiptPhotoCacheRepository(),
         ),
       ],
       child: FinanceApp(router: router),
@@ -594,6 +629,33 @@ void main() {
     expect(repository.expenses, isEmpty);
   });
 
+  testWidgets('deleting a receipt also removes its local photo', (
+    tester,
+  ) async {
+    final repository = WidgetExpensesRepository()
+      ..expenses = [expense(captureSource: CaptureSource.ai)];
+    final photoStore = _FakeReceiptPhotoCacheRepository()
+      ..photo = File('/tmp/cached-receipt-7.jpg');
+    await pumpExpensesApp(
+      tester,
+      repository,
+      initialLocation: '/expenses/7',
+      receiptPhotoCacheRepository: photoStore,
+    );
+
+    await tester.drag(find.byType(ListView), const Offset(0, -500));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('expense-delete-button')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('expense-confirm-delete-button')));
+    await tester.pumpAndSettle();
+
+    expect(photoStore.deleted, [7]);
+    expect(photoStore.photo, isNull);
+    expect(repository.expenses, isEmpty);
+    expect(find.text('Recibo eliminado definitivamente.'), findsOneWidget);
+  });
+
   testWidgets('edit form prefills values and submits the wire command', (
     tester,
   ) async {
@@ -637,6 +699,94 @@ void main() {
     expect(repository.lastCommand?.accountId, 12);
     expect(repository.lastCommand?.categoryId, 4);
     expect(find.text('Detalle del gasto'), findsOneWidget);
+  });
+
+  testWidgets('receipt edit form saves the replaced product list', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(800, 2400);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    final repository = WidgetExpensesRepository()
+      ..expenses = [
+        expense(
+          captureSource: CaptureSource.ai,
+          items: [
+            ExpenseItem(
+              name: 'Leche',
+              amount: MoneyAmount.parseApi('4000.00'),
+              quantity: '1.000',
+              unitPrice: MoneyAmount.parseApi('4000.00'),
+              categoryId: 3,
+            ),
+            ExpenseItem(
+              name: 'Pan',
+              amount: MoneyAmount.parseApi('3000.00'),
+              quantity: '1.000',
+              unitPrice: MoneyAmount.parseApi('3000.00'),
+            ),
+          ],
+        ),
+      ];
+    await pumpExpensesApp(
+      tester,
+      repository,
+      initialLocation: '/expenses/7/edit',
+      accountsRepository: WidgetOptionsAccountsRepository(),
+      categoriesRepository: WidgetOptionsCategoriesRepository(),
+    );
+
+    expect(find.text('Productos del recibo (2)'), findsOneWidget);
+
+    // Remove the second product and rename the first one.
+    await tester.tap(find.byTooltip('Eliminar producto').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Editar producto').first);
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.widgetWithText(TextFormField, 'Nombre *'),
+      'Leche entera',
+    );
+    await tester.tap(find.text('Guardar').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('expense-save-button')));
+    await tester.pumpAndSettle();
+
+    final items = repository.lastCommand?.items;
+    expect(items, isNotNull);
+    expect(items, hasLength(1));
+    expect(items!.single.name, 'Leche entera');
+    expect(items.single.totalPrice, 4000.0);
+    // The stored category and the total that follows the products are sent.
+    expect(items.single.categoryId, 3);
+    expect(repository.lastCommand?.amount?.toApiString(), '4000.00');
+  });
+
+  testWidgets('plain expense edit never submits a product list', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(800, 2400);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    final repository = WidgetExpensesRepository();
+    await pumpExpensesApp(
+      tester,
+      repository,
+      initialLocation: '/expenses/7/edit',
+      accountsRepository: WidgetOptionsAccountsRepository(),
+      categoriesRepository: WidgetOptionsCategoriesRepository(),
+    );
+
+    await tester.enterText(
+      find.byKey(const Key('expense-name-field')),
+      'Updated groceries',
+    );
+    await tester.tap(find.byKey(const Key('expense-save-button')));
+    await tester.pumpAndSettle();
+
+    expect(repository.lastCommand?.name, 'Updated groceries');
+    expect(repository.lastCommand?.items, isNull);
+    expect(repository.lastCommand?.toJson().containsKey('items'), isFalse);
   });
 
   testWidgets('history renders entries and applies the search filter', (
@@ -791,16 +941,20 @@ void main() {
         find.byKey(const Key('expense-create-new-account-chip')),
         findsOneWidget,
       );
+      expect(
+        find.byKey(const Key('expense-create-new-category-chip')),
+        findsOneWidget,
+      );
 
       await tester.tap(find.byKey(const Key('expense-create-optional-toggle')));
       await tester.pumpAndSettle();
 
       expect(
-        find.byKey(const Key('expense-create-new-category-button')),
+        find.byKey(const Key('expense-create-date-field')),
         findsOneWidget,
       );
       expect(
-        find.byKey(const Key('expense-create-category-field')),
+        find.byKey(const Key('expense-create-note-field')),
         findsOneWidget,
       );
     },

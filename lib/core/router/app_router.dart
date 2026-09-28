@@ -23,6 +23,7 @@ import '../../features/income_sources/presentation/income_sources_screen.dart';
 import '../../features/incomes/presentation/income_detail_screen.dart';
 import '../../features/incomes/presentation/income_form_screen.dart';
 import '../../features/incomes/presentation/income_list_screen.dart';
+import '../../features/receipt_capture/presentation/screens/receipt_review_screen.dart';
 import '../../features/settings/presentation/settings_screen.dart';
 import 'app_shell.dart';
 
@@ -38,6 +39,7 @@ const _authenticatedRoots = <String>[
   '/income-sources',
   '/incomes',
   '/quick-add',
+  '/receipts',
 ];
 
 bool _isProtected(String location) {
@@ -296,6 +298,11 @@ GoRouter createAppRouter({
             ],
           ),
         ],
+      ),
+      GoRoute(
+        path: '/receipts/review',
+        name: 'receipt-review',
+        builder: (context, state) => const ReceiptReviewScreen(),
       ),
     ],
   );

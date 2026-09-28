@@ -149,6 +149,11 @@ class _ExpenseCreateScreenState extends ConsumerState<ExpenseCreateScreen> {
         }
         _loadingOptions = false;
       });
+      Future<void>.microtask(() {
+        if (mounted) {
+          _amountFocus.requestFocus();
+        }
+      });
     } on Object catch (e, stack) {
       debugPrint('Error loading expense create options: $e\n$stack');
       if (!mounted) return;
@@ -558,6 +563,7 @@ class _ExpenseCreateScreenState extends ConsumerState<ExpenseCreateScreen> {
                             key: const Key('expense-create-amount-field'),
                             controller: _amountController,
                             focusNode: _amountFocus,
+                            autofocus: true,
                             enabled: formEnabled,
                             keyboardType: const TextInputType.numberWithOptions(
                               decimal: true,
@@ -1102,7 +1108,7 @@ class _ExpenseCreateScreenState extends ConsumerState<ExpenseCreateScreen> {
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Text(
-                            isIncome ? 'Detalles opcionales (fecha, nota)' : 'Detalles opcionales (categoría, fecha, nota)',
+                            'Detalles opcionales (fecha, nota)',
                             style: TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.w700,
@@ -1129,92 +1135,6 @@ class _ExpenseCreateScreenState extends ConsumerState<ExpenseCreateScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
-                            if (!isIncome) ...[
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: DropdownButtonFormField<int?>(
-                                      key: const Key(
-                                        'expense-create-category-field',
-                                      ),
-                                      initialValue: _selectedCategoryId,
-                                      decoration: const InputDecoration(
-                                        labelText: 'Categoría (opcional)',
-                                      ),
-                                      items: [
-                                        const DropdownMenuItem(
-                                          value: null,
-                                          child: Text('Sin categorizar'),
-                                        ),
-                                        ..._categories.map(
-                                          (cat) => DropdownMenuItem(
-                                            value: cat.id,
-                                            child: Row(
-                                              children: [
-                                                Icon(cat.icon.value, size: 18),
-                                                const SizedBox(width: 8),
-                                                Text(cat.name),
-                                              ],
-                                            ),
-                                          ),
-                                        ),
-                                        DropdownMenuItem(
-                                          value: -999,
-                                          child: Row(
-                                            children: [
-                                              Icon(
-                                                Icons.add,
-                                                size: 16,
-                                                color: palette.discard,
-                                              ),
-                                              const SizedBox(width: 6),
-                                              Text(
-                                                '＋ Nueva categoría...',
-                                                style: TextStyle(
-                                                  color: palette.discard,
-                                                  fontWeight: FontWeight.w700,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      ],
-                                      onChanged: formEnabled
-                                          ? (val) async {
-                                              if (val == -999) {
-                                                await context.push(
-                                                  '/quick-add/category',
-                                                );
-                                                _loadOptions();
-                                                return;
-                                              }
-                                              setState(
-                                                () => _selectedCategoryId = val,
-                                              );
-                                            }
-                                          : null,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  IconButton.filledTonal(
-                                    key: const Key(
-                                      'expense-create-new-category-button',
-                                    ),
-                                    tooltip: 'Crear nueva categoría',
-                                    icon: const Icon(Icons.add),
-                                    onPressed: formEnabled
-                                        ? () async {
-                                            await context.push(
-                                              '/quick-add/category',
-                                            );
-                                            _loadOptions();
-                                          }
-                                        : null,
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 12),
-                            ],
                             InkWell(
                               key: const Key('expense-create-date-field'),
                               onTap: formEnabled ? _pickDate : null,

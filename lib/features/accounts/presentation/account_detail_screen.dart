@@ -166,15 +166,31 @@ class _AccountDetailScreenState extends ConsumerState<AccountDetailScreen> {
         content: const Text(
           'This account will remain in your history but will no longer be available for new financial entries.',
         ),
+        actionsPadding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            key: const Key('account-confirm-deactivate-button'),
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Deactivate'),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: () => Navigator.pop(context, false),
+                  style: OutlinedButton.styleFrom(
+                    minimumSize: const Size.fromHeight(44),
+                  ),
+                  child: const Text('Cancel'),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: FilledButton(
+                  key: const Key('account-confirm-deactivate-button'),
+                  style: FilledButton.styleFrom(
+                    minimumSize: const Size.fromHeight(44),
+                  ),
+                  onPressed: () => Navigator.pop(context, true),
+                  child: const Text('Deactivate'),
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -192,20 +208,33 @@ class _AccountDetailScreenState extends ConsumerState<AccountDetailScreen> {
         content: const Text(
           'This permanently removes the account if it has no financial activity. This cannot be undone. Accounts with activity must be deactivated instead.',
         ),
+        actionsPadding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            key: const Key('account-confirm-delete-button'),
-            style: FilledButton.styleFrom(
-              minimumSize: const Size(0, 40),
-              backgroundColor: Theme.of(context).colorScheme.error,
-              foregroundColor: Theme.of(context).colorScheme.onError,
-            ),
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Delete permanently'),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: () => Navigator.pop(context, false),
+                  style: OutlinedButton.styleFrom(
+                    minimumSize: const Size.fromHeight(44),
+                  ),
+                  child: const Text('Cancel'),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: FilledButton(
+                  key: const Key('account-confirm-delete-button'),
+                  style: FilledButton.styleFrom(
+                    minimumSize: const Size.fromHeight(44),
+                    backgroundColor: Theme.of(context).colorScheme.error,
+                    foregroundColor: Theme.of(context).colorScheme.onError,
+                  ),
+                  onPressed: () => Navigator.pop(context, true),
+                  child: const Text('Delete permanently'),
+                ),
+              ),
+            ],
           ),
         ],
       ),

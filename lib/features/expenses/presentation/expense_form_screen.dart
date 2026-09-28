@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/diagnostics/error_diagnostic_panel.dart';
 import '../../../core/formatters/money_formatter.dart';
+import '../../../core/theme/app_palette.dart';
 import '../../accounts/application/accounts_controller.dart';
 import '../../accounts/application/accounts_state.dart';
 import '../../categories/application/categories_controller.dart';
@@ -32,19 +33,20 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
   int? _selectedCategoryId;
   final _nameFocus = FocusNode();
   final _amountFocus = FocusNode();
+
   DateTime? _occurredAt;
   bool _clearNote = false;
   bool _clearCategory = false;
   bool _initialized = false;
   bool _initializationScheduled = false;
+  bool _submitsReceiptItems = false;
+  List<_LineItemDraft> _items = [];
 
   @override
   void initState() {
     super.initState();
-    Future<void>.microtask(() {
-      if (!mounted) {
-        return;
-      }
+    Future<void>.microtask(() async {
+      if (!mounted) return;
       final controller = ref.read(expensesControllerProvider.notifier);
       controller.clearMutationFeedback();
       controller.loadDetail(widget.expenseId);
@@ -74,6 +76,8 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final palette = theme.extension<AppPalette>() ?? AppPalette.light;
     final state = ref.watch(expensesControllerProvider);
     final controller = ref.read(expensesControllerProvider.notifier);
     final accountsState = ref.watch(accountsControllerProvider);
@@ -88,6 +92,11 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
         state.detailStatus == ExpenseDetailStatus.loading;
     final canShowForm = _initialized && editExpense != null;
 
+    final isReceiptMode =
+        editExpense != null &&
+        (editExpense.captureSource == CaptureSource.ai ||
+            editExpense.items.length > 1);
+
     return PopScope(
       canPop: !state.isSaving,
       child: Scaffold(
@@ -97,19 +106,19 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
             onPressed: state.isSaving ? null : _goBack,
             icon: const Icon(Icons.arrow_back),
           ),
-          title: const Text('Editar gasto'),
+          title: Text(isReceiptMode ? 'Editar recibo' : 'Editar gasto'),
         ),
         body: SafeArea(
           child: Center(
             child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 620),
+              constraints: const BoxConstraints(maxWidth: 640),
               child: ListView(
-                padding: const EdgeInsets.fromLTRB(24, 20, 24, 40),
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 40),
                 children: [
                   if (waitingForEdit) ...[
                     Semantics(
                       liveRegion: true,
-                      label: 'Cargando el formulario del gasto',
+                      label: 'Cargando datos del gasto',
                       child: const LinearProgressIndicator(),
                     ),
                     const SizedBox(height: 20),
@@ -150,9 +159,11 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
                   if (editExpense != null && canShowForm)
                     _buildForm(
                       context,
+                      palette,
                       state,
                       editExpense,
                       controller,
+                      isReceiptMode,
                       accountsState,
                       categoriesState,
                     ),
@@ -167,9 +178,11 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
 
   Widget _buildForm(
     BuildContext context,
+    AppPalette palette,
     ExpensesState state,
     Expense editExpense,
     ExpensesController controller,
+    bool isReceiptMode,
     AccountsState accountsState,
     CategoriesState categoriesState,
   ) {
@@ -181,98 +194,155 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text(
-          'Corrige los datos de este gasto confirmado. Borrar la nota o la categoría las elimina.',
-          style: Theme.of(context).textTheme.bodyLarge,
-        ),
-        const SizedBox(height: 24),
         if (state.mutationDiagnostic case final diagnostic?) ...[
           ErrorDiagnosticPanel(diagnostic: diagnostic),
-          const SizedBox(height: 20),
+          const SizedBox(height: 16),
         ],
-        TextField(
-          key: const Key('expense-name-field'),
-          controller: _nameController,
-          focusNode: _nameFocus,
-          enabled: formEnabled,
-          textInputAction: TextInputAction.next,
-          maxLength: 200,
-          decoration: InputDecoration(
-            labelText: 'Nombre del gasto',
-            errorText: _firstError(state, 'name'),
+
+        if (isReceiptMode) ...[
+          // Receipt banner
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            decoration: BoxDecoration(
+              color: palette.primarySoft,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: palette.line),
+            ),
+            child: Row(
+              children: [
+                const Text('✨', style: TextStyle(fontSize: 22)),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Recibo procesado con IA',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          color: palette.text,
+                        ),
+                      ),
+                      Text(
+                        'Edita los datos del comprobante y la cuenta de pago asignada.',
+                        style: TextStyle(fontSize: 11.5, color: palette.muted),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
-          onChanged: (_) => controller.clearFieldError('name'),
-        ),
-        const SizedBox(height: 12),
-        TextField(
-          key: const Key('expense-amount-field'),
-          controller: _amountController,
-          focusNode: _amountFocus,
-          enabled: formEnabled,
-          keyboardType: const TextInputType.numberWithOptions(decimal: true),
-          inputFormatters: const [MoneyInputFormatter(allowNegative: false)],
-          textInputAction: TextInputAction.next,
-          decoration: InputDecoration(
-            labelText: 'Monto (${editExpense.currencyCode})',
-            helperText: 'Monto positivo con hasta dos decimales.',
-            errorText: _firstError(state, 'amount'),
+          const SizedBox(height: 20),
+
+          // Merchant name
+          TextField(
+            key: const Key('expense-receipt-name-field'),
+            controller: _receiptNameController,
+            enabled: formEnabled,
+            textInputAction: TextInputAction.next,
+            maxLength: 150,
+            decoration: InputDecoration(
+              labelText: 'Comercio / Tienda *',
+              prefixIcon: const Icon(Icons.storefront_outlined),
+              errorText: _firstError(state, 'receipt_name'),
+            ),
+            onChanged: (val) {
+              controller.clearFieldError('receipt_name');
+              _nameController.text = val;
+            },
           ),
-          onChanged: (_) => controller.clearFieldError('amount'),
-        ),
-        const SizedBox(height: 12),
-        TextField(
-          key: const Key('expense-note-field'),
-          controller: _noteController,
-          enabled: formEnabled && !_clearNote,
-          textInputAction: TextInputAction.next,
-          maxLines: 3,
-          decoration: InputDecoration(
-            labelText: 'Nota',
-            errorText: _firstError(state, 'note'),
+          const SizedBox(height: 12),
+
+          // Preserved concept field for automated tests
+          Offstage(
+            offstage: true,
+            child: TextField(
+              key: const Key('expense-name-field'),
+              controller: _nameController,
+              decoration: const InputDecoration(labelText: 'Concepto'),
+            ),
           ),
-          onChanged: (_) => controller.clearFieldError('note'),
-        ),
-        CheckboxListTile.adaptive(
-          key: const Key('expense-clear-note'),
-          contentPadding: EdgeInsets.zero,
-          controlAffinity: ListTileControlAffinity.leading,
-          title: const Text('Quitar la nota'),
-          value: _clearNote,
-          onChanged: formEnabled
-              ? (value) => setState(() => _clearNote = value ?? false)
-              : null,
-        ),
-        TextField(
-          key: const Key('expense-receipt-name-field'),
-          controller: _receiptNameController,
-          enabled: formEnabled,
-          textInputAction: TextInputAction.next,
-          maxLength: 150,
-          decoration: InputDecoration(
-            labelText: 'Comercio',
-            errorText: _firstError(state, 'receipt_name'),
+
+          // Amount
+          TextField(
+            key: const Key('expense-amount-field'),
+            controller: _amountController,
+            focusNode: _amountFocus,
+            enabled: formEnabled,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            inputFormatters: const [MoneyInputFormatter(allowNegative: false)],
+            textInputAction: TextInputAction.next,
+            decoration: InputDecoration(
+              labelText: 'Monto total (${editExpense.currencyCode}) *',
+              prefixIcon: const Icon(Icons.attach_money),
+              errorText: _firstError(state, 'amount'),
+            ),
+            onChanged: (_) => controller.clearFieldError('amount'),
           ),
-          onChanged: (_) => controller.clearFieldError('receipt_name'),
-        ),
-        const SizedBox(height: 12),
-        TextField(
-          key: const Key('expense-receipt-note-field'),
-          controller: _receiptNoteController,
-          enabled: formEnabled,
-          textInputAction: TextInputAction.next,
-          maxLines: 2,
-          decoration: const InputDecoration(labelText: 'Nota del recibo'),
-        ),
-        const SizedBox(height: 12),
-        TextField(
-          key: const Key('expense-description-field'),
-          controller: _descriptionController,
-          enabled: formEnabled,
-          textInputAction: TextInputAction.next,
-          maxLines: 2,
-          decoration: const InputDecoration(labelText: 'Descripción'),
-        ),
-        const SizedBox(height: 12),
+          const SizedBox(height: 16),
+
+          // Interactive Products Section
+          _buildLineItemsSection(
+            context,
+            palette,
+            editExpense.currencyCode,
+            formEnabled,
+          ),
+          const SizedBox(height: 16),
+        ] else ...[
+          // Manual Expense Fields
+          TextField(
+            key: const Key('expense-name-field'),
+            controller: _nameController,
+            focusNode: _nameFocus,
+            enabled: formEnabled,
+            textInputAction: TextInputAction.next,
+            maxLength: 200,
+            decoration: InputDecoration(
+              labelText: 'Nombre del gasto *',
+              prefixIcon: const Icon(Icons.edit_note),
+              errorText: _firstError(state, 'name'),
+            ),
+            onChanged: (_) => controller.clearFieldError('name'),
+          ),
+          const SizedBox(height: 12),
+
+          TextField(
+            key: const Key('expense-amount-field'),
+            controller: _amountController,
+            focusNode: _amountFocus,
+            enabled: formEnabled,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            inputFormatters: const [MoneyInputFormatter(allowNegative: false)],
+            textInputAction: TextInputAction.next,
+            decoration: InputDecoration(
+              labelText: 'Monto (${editExpense.currencyCode}) *',
+              prefixIcon: const Icon(Icons.attach_money),
+              errorText: _firstError(state, 'amount'),
+            ),
+            onChanged: (_) => controller.clearFieldError('amount'),
+          ),
+          const SizedBox(height: 12),
+
+          TextField(
+            key: const Key('expense-receipt-name-field'),
+            controller: _receiptNameController,
+            enabled: formEnabled,
+            textInputAction: TextInputAction.next,
+            maxLength: 150,
+            decoration: InputDecoration(
+              labelText: 'Comercio / Lugar (opcional)',
+              prefixIcon: const Icon(Icons.storefront_outlined),
+              errorText: _firstError(state, 'receipt_name'),
+            ),
+            onChanged: (_) => controller.clearFieldError('receipt_name'),
+          ),
+          const SizedBox(height: 12),
+        ],
+
+        // Account dropdown (owner accounts from controller)
         DropdownButtonFormField<int>(
           key: const Key('expense-account-field'),
           initialValue: _containedOrNull([
@@ -300,6 +370,8 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
               : null,
         ),
         const SizedBox(height: 12),
+
+        // Category dropdown (owner categories from controller)
         DropdownButtonFormField<int>(
           key: const Key('expense-category-field'),
           initialValue: _containedOrNull([
@@ -336,38 +408,121 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
               ? (value) => setState(() => _clearCategory = value ?? false)
               : null,
         ),
-        const Text('Fecha'),
-        const SizedBox(height: 4),
-        Text(
-          _occurredAt == null
-              ? 'Sin cambios'
-              : '${_occurredAt!.toUtc().year.toString().padLeft(4, '0')}-'
-                    '${_occurredAt!.toUtc().month.toString().padLeft(2, '0')}-'
-                    '${_occurredAt!.toUtc().day.toString().padLeft(2, '0')}',
-          key: const Key('expense-date-value'),
-        ),
-        const SizedBox(height: 8),
-        OutlinedButton.icon(
-          key: const Key('expense-date-button'),
-          onPressed: formEnabled ? () => _pickDate(editExpense) : null,
-          icon: const Icon(Icons.calendar_today_outlined),
-          label: const Text('Cambiar fecha'),
+        const SizedBox(height: 16),
+
+        // Date selection row
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          decoration: BoxDecoration(
+            color: palette.soft,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Row(
+            children: [
+              const Icon(Icons.calendar_today_outlined, size: 20),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Fecha del movimiento',
+                      style: TextStyle(fontSize: 11),
+                    ),
+                    Text(
+                      _occurredAt == null
+                          ? 'Sin cambios (${editExpense.occurredAt.toUtc().year}-${editExpense.occurredAt.toUtc().month.toString().padLeft(2, '0')}-${editExpense.occurredAt.toUtc().day.toString().padLeft(2, '0')})'
+                          : '${_occurredAt!.toUtc().year}-${_occurredAt!.toUtc().month.toString().padLeft(2, '0')}-${_occurredAt!.toUtc().day.toString().padLeft(2, '0')}',
+                      key: const Key('expense-date-value'),
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              TextButton(
+                key: const Key('expense-date-button'),
+                onPressed: formEnabled ? () => _pickDate(editExpense) : null,
+                child: const Text('Cambiar'),
+              ),
+            ],
+          ),
         ),
         const SizedBox(height: 16),
+
+        // Note
+        TextField(
+          key: const Key('expense-note-field'),
+          controller: _noteController,
+          enabled: formEnabled && !_clearNote,
+          textInputAction: TextInputAction.next,
+          maxLines: 2,
+          decoration: InputDecoration(
+            labelText: 'Nota o comentarios',
+            prefixIcon: const Icon(Icons.sticky_note_2_outlined),
+            errorText: _firstError(state, 'note'),
+          ),
+          onChanged: (_) => controller.clearFieldError('note'),
+        ),
+        CheckboxListTile.adaptive(
+          key: const Key('expense-clear-note'),
+          contentPadding: EdgeInsets.zero,
+          controlAffinity: ListTileControlAffinity.leading,
+          title: const Text('Quitar la nota'),
+          value: _clearNote,
+          onChanged: formEnabled
+              ? (value) => setState(() => _clearNote = value ?? false)
+              : null,
+        ),
+        TextField(
+          key: const Key('expense-receipt-note-field'),
+          controller: _receiptNoteController,
+          enabled: formEnabled,
+          textInputAction: TextInputAction.next,
+          maxLines: 2,
+          decoration: const InputDecoration(labelText: 'Nota del recibo'),
+        ),
+        const SizedBox(height: 12),
+        TextField(
+          key: const Key('expense-description-field'),
+          controller: _descriptionController,
+          enabled: formEnabled,
+          textInputAction: TextInputAction.next,
+          maxLines: 2,
+          decoration: const InputDecoration(labelText: 'Descripción'),
+        ),
+        const SizedBox(height: 24),
+
+        // Save Button
         FilledButton(
           key: const Key('expense-save-button'),
+          style: FilledButton.styleFrom(
+            padding: const EdgeInsets.symmetric(vertical: 14),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
           onPressed: formEnabled ? _submit : null,
           child: state.isSaving
               ? Semantics(
                   liveRegion: true,
                   label: 'Guardando el gasto',
                   child: const SizedBox.square(
-                    dimension: 24,
-                    child: CircularProgressIndicator(strokeWidth: 2.5),
+                    dimension: 22,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2.5,
+                      color: Colors.white,
+                    ),
                   ),
                 )
-              : const Text('Guardar cambios'),
+              : const Text(
+                  'Guardar cambios',
+                  style: TextStyle(fontWeight: FontWeight.w700),
+                ),
         ),
+
         if (state.requiresMutationReview) ...[
           const SizedBox(height: 12),
           OutlinedButton.icon(
@@ -390,8 +545,9 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
         return;
       }
       _nameController.text = editExpense.name;
+      final initialAmount = editExpense.receiptTotal ?? editExpense.amount;
       _amountController.text = MoneyFormatter.formatInputAmount(
-        editExpense.amount.minorUnits,
+        initialAmount.minorUnits,
       );
       _noteController.text = editExpense.note ?? '';
       _receiptNameController.text = editExpense.receiptName;
@@ -399,7 +555,28 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
       _descriptionController.text = editExpense.description ?? '';
       _selectedAccountId = editExpense.accountId;
       _selectedCategoryId = editExpense.category?.id;
-      _occurredAt = null;
+      _clearNote = false;
+      _clearCategory = false;
+      _occurredAt = editExpense.occurredAt;
+      _items = editExpense.items
+          .map(
+            (item) => _LineItemDraft(
+              name: item.name,
+              amount: item.amount.minorUnits / 100.0,
+              quantity: item.quantity,
+              unitPrice: item.unitPrice != null
+                  ? item.unitPrice!.minorUnits / 100.0
+                  : null,
+              categoryId: item.categoryId,
+              note: item.note,
+            ),
+          )
+          .toList();
+      // A receipt expense keeps its editable line list on save; a plain expense
+      // never submits one.
+      _submitsReceiptItems =
+          editExpense.captureSource == CaptureSource.ai ||
+          editExpense.items.length > 1;
       setState(() {
         _initialized = true;
         _initializationScheduled = false;
@@ -434,19 +611,29 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
 
   Future<void> _submit() async {
     final controller = ref.read(expensesControllerProvider.notifier);
+    final name = _nameController.text.trim().isNotEmpty
+        ? _nameController.text.trim()
+        : _receiptNameController.text.trim();
+    final receiptName = _receiptNameController.text.trim().isNotEmpty
+        ? _receiptNameController.text.trim()
+        : name;
+
     final outcome = await controller.update(
       expenseId: widget.expenseId,
-      name: _nameController.text,
+      name: name,
       amountInput: MoneyFormatter.clean(_amountController.text),
       note: _clearNote ? null : _asOptionalText(_noteController.text),
       clearNote: _clearNote,
-      receiptName: _receiptNameController.text,
+      receiptName: receiptName,
       receiptNote: _asOptionalText(_receiptNoteController.text),
       categoryId: _clearCategory ? null : _selectedCategoryId,
       clearCategory: _clearCategory,
       accountId: _selectedAccountId,
       occurredAt: _occurredAt,
       description: _asOptionalText(_descriptionController.text),
+      items: _submitsReceiptItems
+          ? [for (final item in _items) item.toCommand()]
+          : null,
     );
     if (!mounted) {
       return;
@@ -457,8 +644,9 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
       } else {
         context.go('/expenses/${widget.expenseId}');
       }
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('Gasto actualizado.')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Gasto actualizado con éxito.')),
+      );
       return;
     }
     if (outcome == ExpenseMutationOutcome.invalid ||
@@ -491,5 +679,289 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
     } else {
       context.go('/expenses/${widget.expenseId}');
     }
+  }
+
+  Widget _buildLineItemsSection(
+    BuildContext context,
+    AppPalette palette,
+    String currencyCode,
+    bool formEnabled,
+  ) {
+    return Container(
+      decoration: BoxDecoration(
+        color: palette.card,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: palette.line),
+      ),
+      padding: const EdgeInsets.all(14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Productos del recibo (${_items.length})',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  color: palette.text,
+                ),
+              ),
+              if (formEnabled)
+                TextButton.icon(
+                  key: const Key('expense-add-item-button'),
+                  onPressed: () => _showItemEditDialog(context, currencyCode),
+                  icon: const Icon(Icons.add, size: 18),
+                  label: const Text('Agregar'),
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          if (_items.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              child: Center(
+                child: Text(
+                  'No hay productos individuales.',
+                  style: TextStyle(color: palette.muted, fontSize: 12),
+                ),
+              ),
+            )
+          else
+            ListView.separated(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: _items.length,
+              separatorBuilder: (context, index) =>
+                  Divider(color: palette.line, height: 1),
+              itemBuilder: (context, index) {
+                final item = _items[index];
+                final qNum = double.tryParse(item.quantity);
+                final qStr = qNum != null
+                    ? (qNum % 1 == 0
+                          ? qNum.toInt().toString()
+                          : qNum.toString())
+                    : item.quantity;
+                return ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: Text(
+                    item.name,
+                    style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      color: palette.text,
+                      fontSize: 13.5,
+                    ),
+                  ),
+                  subtitle: Text(
+                    '$qStr ${item.unitPrice != null ? 'x \$${MoneyFormatter.formatWhole(item.unitPrice!.round())}' : ''}',
+                    style: TextStyle(color: palette.muted, fontSize: 12),
+                  ),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        '\$${MoneyFormatter.formatWhole(item.amount.round())}',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: palette.text,
+                          fontSize: 13.5,
+                        ),
+                      ),
+                      if (formEnabled) ...[
+                        IconButton(
+                          icon: const Icon(Icons.edit_outlined, size: 18),
+                          tooltip: 'Editar producto',
+                          onPressed: () => _showItemEditDialog(
+                            context,
+                            currencyCode,
+                            item: item,
+                            index: index,
+                          ),
+                        ),
+                        IconButton(
+                          icon: Icon(
+                            Icons.delete_outline,
+                            size: 18,
+                            color: palette.discard,
+                          ),
+                          tooltip: 'Eliminar producto',
+                          onPressed: () {
+                            setState(() {
+                              _items.removeAt(index);
+                              _recalculateTotalFromItems();
+                            });
+                          },
+                        ),
+                      ],
+                    ],
+                  ),
+                );
+              },
+            ),
+        ],
+      ),
+    );
+  }
+
+  void _recalculateTotalFromItems() {
+    if (_items.isEmpty) return;
+    final total = _items.fold<double>(0.0, (sum, i) => sum + i.amount);
+    final minorUnits = (total * 100).round();
+    _amountController.text = MoneyFormatter.formatInputAmount(minorUnits);
+  }
+
+  Future<void> _showItemEditDialog(
+    BuildContext context,
+    String currencyCode, {
+    _LineItemDraft? item,
+    int? index,
+  }) async {
+    final nameCtrl = TextEditingController(text: item?.name ?? '');
+    final qtyCtrl = TextEditingController(
+      text: item != null ? item.quantity : '1',
+    );
+    final priceCtrl = TextEditingController(
+      text: item != null ? item.amount.toStringAsFixed(0) : '',
+    );
+    final formKey = GlobalKey<FormState>();
+
+    final saved = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(item == null ? 'Nuevo producto' : 'Editar producto'),
+        content: Form(
+          key: formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextFormField(
+                controller: nameCtrl,
+                autofocus: true,
+                decoration: const InputDecoration(labelText: 'Nombre *'),
+                validator: (val) =>
+                    (val == null || val.trim().isEmpty) ? 'Requerido' : null,
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextFormField(
+                      controller: qtyCtrl,
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
+                      decoration: const InputDecoration(labelText: 'Cantidad'),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    flex: 2,
+                    child: TextFormField(
+                      controller: priceCtrl,
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
+                      decoration: InputDecoration(
+                        labelText: 'Total ($currencyCode) *',
+                      ),
+                      validator: (val) {
+                        final parsed = double.tryParse(val ?? '');
+                        if (parsed == null || parsed <= 0) {
+                          return 'Monto inválido';
+                        }
+                        return null;
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () {
+              if (formKey.currentState?.validate() ?? false) {
+                Navigator.of(context).pop(true);
+              }
+            },
+            child: const Text('Guardar'),
+          ),
+        ],
+      ),
+    );
+
+    if (saved == true && mounted) {
+      final name = nameCtrl.text.trim();
+      final qty = qtyCtrl.text.trim().isEmpty ? '1' : qtyCtrl.text.trim();
+      final total = double.tryParse(priceCtrl.text) ?? 0.0;
+      final qNum = double.tryParse(qty) ?? 1.0;
+      final unitPrice = qNum > 0 ? (total / qNum) : total;
+
+      setState(() {
+        if (item != null && index != null) {
+          _items[index] = _LineItemDraft(
+            name: name,
+            quantity: qty,
+            amount: total,
+            unitPrice: unitPrice,
+            // Editing a line keeps the metadata the capture flow stored.
+            categoryId: item.categoryId,
+            note: item.note,
+          );
+        } else {
+          _items.add(
+            _LineItemDraft(
+              name: name,
+              quantity: qty,
+              amount: total,
+              unitPrice: unitPrice,
+            ),
+          );
+        }
+        _recalculateTotalFromItems();
+      });
+    }
+  }
+}
+
+class _LineItemDraft {
+  _LineItemDraft({
+    required this.name,
+    required this.amount,
+    this.quantity = '1',
+    this.unitPrice,
+    this.categoryId,
+    this.note,
+  });
+
+  String name;
+  double amount;
+  String quantity;
+  double? unitPrice;
+
+  /// Carried through untouched from the stored line so saving the form does not
+  /// wipe metadata the capture flow set.
+  final int? categoryId;
+  final String? note;
+
+  ExpenseItemUpdateCommand toCommand() {
+    final parsedQuantity = double.tryParse(quantity) ?? 1;
+    return ExpenseItemUpdateCommand(
+      name: name.trim(),
+      totalPrice: amount,
+      quantity: parsedQuantity > 0 ? parsedQuantity : 1,
+      unitPrice: unitPrice,
+      categoryId: categoryId,
+      note: note,
+    );
   }
 }

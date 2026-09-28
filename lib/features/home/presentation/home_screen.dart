@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../../../core/diagnostics/error_diagnostic_panel.dart';
 import '../../../core/formatters/money_formatter.dart';
@@ -17,6 +18,7 @@ import '../../expenses/application/expenses_state.dart';
 import '../../expenses/domain/expense_models.dart';
 import '../../incomes/data/incomes_repository.dart';
 import '../../incomes/domain/income_models.dart';
+import '../../receipt_capture/presentation/receipt_capture_flow.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -116,10 +118,40 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     final accountsState = ref.watch(accountsControllerProvider);
     final accounts = accountsState.result?.accounts ?? const [];
 
+    if (sessionState.isAuthenticated) {
+      if (expensesState.listStatus == ExpensesLoadStatus.initial) {
+        Future.microtask(() {
+          if (mounted &&
+              ref.read(authSessionControllerProvider).isAuthenticated) {
+            ref.read(expensesControllerProvider.notifier).load();
+          }
+        });
+      }
+      if (accountsState.listStatus == AccountsLoadStatus.initial) {
+        Future.microtask(() {
+          if (mounted &&
+              ref.read(authSessionControllerProvider).isAuthenticated) {
+            ref.read(accountsControllerProvider.notifier).load();
+          }
+        });
+      }
+    }
+
     final incomesAsync = ref.watch(incomesListProvider);
     final incomes = incomesAsync.value ?? const [];
 
-    final expenses = result?.items ?? const <Expense>[];
+    final rawExpenses = result?.items ?? const <Expense>[];
+    final seenReceiptIds = <int>{};
+    final expenses = <Expense>[];
+    for (final exp in rawExpenses) {
+      if (exp.captureSource == CaptureSource.ai) {
+        if (seenReceiptIds.contains(exp.receiptId)) {
+          continue;
+        }
+        seenReceiptIds.add(exp.receiptId);
+      }
+      expenses.add(exp);
+    }
     final allMovements =
         <_HomeMovement>[
           ...expenses.map(_ExpenseMovement.new),
@@ -316,11 +348,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                 delayRatio: 0.0,
                 onTap: () {
                   _closeWheel();
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Captura con foto de recibos próximamente'),
-                    ),
-                  );
+                  // Foto goes straight to the camera, like Instagram: the
+                  // gallery is available as a button inside the pre-check.
+                  startReceiptCapture(context, source: ImageSource.camera);
                 },
               ),
               _WheelBubble(
@@ -735,9 +765,12 @@ class _HubExpenseCard extends StatelessWidget {
     return '💳';
   }
 
-  String _sourceLabel(CaptureSource source) {
+  String _sourceLabel(CaptureSource source, int itemCount) {
     switch (source) {
       case CaptureSource.ai:
+        if (itemCount > 1) {
+          return '✨ IA · $itemCount productos';
+        }
         return '✨ IA';
       case CaptureSource.manual:
         return '✎ manual';
@@ -749,7 +782,8 @@ class _HubExpenseCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
-    final amount = expense.amount.formatWithCurrency(expense.currencyCode);
+    final displayAmount = expense.receiptTotal ?? expense.amount;
+    final amount = displayAmount.formatWithCurrency(expense.currencyCode);
 
     return Container(
       decoration: BoxDecoration(
@@ -812,7 +846,10 @@ class _HubExpenseCard extends StatelessWidget {
                             borderRadius: BorderRadius.circular(5),
                           ),
                           child: Text(
-                            _sourceLabel(expense.captureSource),
+                            _sourceLabel(
+                              expense.captureSource,
+                              expense.items.length,
+                            ),
                             style: TextStyle(
                               fontSize: 9.5,
                               fontWeight: FontWeight.w700,
@@ -842,7 +879,7 @@ class _HubExpenseCard extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 14.5,
                   fontWeight: FontWeight.w800,
-                  color: expense.amount.isNegative
+                  color: displayAmount.isNegative
                       ? palette.discard
                       : palette.text,
                 ),
