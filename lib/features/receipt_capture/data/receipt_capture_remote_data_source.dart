@@ -126,6 +126,8 @@ class ReceiptCaptureRemoteDataSource {
 
     final known = switch (problem.code) {
       'expense_not_found' => 'El borrador de recibo ya no está disponible.',
+      'receipt_proposal_not_found' =>
+        'El borrador de recibo ya no está disponible.',
       'request_invalid' => 'Corrige los datos del recibo e inténtalo de nuevo.',
       'unsupported_media_type' => 'El formato de imagen no es soportado.',
       'payload_too_large' =>

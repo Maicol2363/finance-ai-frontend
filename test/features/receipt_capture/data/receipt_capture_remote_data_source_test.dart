@@ -159,6 +159,40 @@ void main() {
     );
 
     test(
+      'maps the backend receipt_proposal_not_found code to a Spanish draft message',
+      () async {
+        final mock = MockClient((request) async {
+          return _jsonResponse({
+            'title': 'Receipt proposal not found',
+            'status': 404,
+            'code': 'receipt_proposal_not_found',
+            'detail': 'This receipt draft is no longer available. Scan the receipt again.',
+            'correlation_id': 'corr-404',
+          }, 404);
+        });
+
+        final dataSource = ReceiptCaptureRemoteDataSource(
+          _createApiClient(mock),
+          fakeSession,
+        );
+
+        await expectLater(
+          dataSource.discardProposal(proposalId: '42'),
+          throwsA(
+            isA<ExpenseFailure>()
+                .having((failure) => failure.code, 'code', 'receipt_proposal_not_found')
+                .having(
+                  (failure) => failure.userMessage,
+                  'userMessage',
+                  'El borrador de recibo ya no está disponible.',
+                )
+                .having((failure) => failure.correlationId, 'correlationId', 'corr-404'),
+          ),
+        );
+      },
+    );
+
+    test(
       'confirmProposal sends updated payload and parses confirmed Expense',
       () async {
         final mock = MockClient((request) async {
