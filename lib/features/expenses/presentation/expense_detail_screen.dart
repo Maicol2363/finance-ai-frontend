@@ -49,6 +49,17 @@ class _ExpenseDetailScreenState extends ConsumerState<ExpenseDetailScreen> {
     } catch (_) {}
   }
 
+  /// The backend stores no receipt image, so this local copy is the only one:
+  /// a definitive delete must remove it as well. Best effort - a missing or
+  /// locked file must not break the deletion flow.
+  Future<void> _deleteCachedReceiptPhoto(int expenseId) async {
+    try {
+      await ref
+          .read(receiptPhotoCacheRepositoryProvider)
+          .deleteCachedReceiptPhoto(expenseId);
+    } catch (_) {}
+  }
+
   @override
   void didUpdateWidget(ExpenseDetailScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
@@ -69,8 +80,7 @@ class _ExpenseDetailScreenState extends ConsumerState<ExpenseDetailScreen> {
         : null;
     final isReceipt =
         expense != null &&
-        (expense.captureSource == CaptureSource.ai ||
-            expense.items.length > 1);
+        (expense.captureSource == CaptureSource.ai || expense.items.length > 1);
 
     return Scaffold(
       appBar: AppBar(
@@ -200,8 +210,7 @@ class _ExpenseDetailScreenState extends ConsumerState<ExpenseDetailScreen> {
 
   Future<void> _confirmDeletion(Expense expense) async {
     final isReceipt =
-        expense.captureSource == CaptureSource.ai ||
-        expense.items.length > 1;
+        expense.captureSource == CaptureSource.ai || expense.items.length > 1;
 
     final confirmed = await showDialog<bool>(
       context: context,
@@ -243,6 +252,10 @@ class _ExpenseDetailScreenState extends ConsumerState<ExpenseDetailScreen> {
     if (!mounted || outcome != ExpenseMutationOutcome.success) {
       return;
     }
+    await _deleteCachedReceiptPhoto(expense.id);
+    if (!mounted) {
+      return;
+    }
     if (context.canPop()) {
       context.pop();
     } else {
@@ -274,12 +287,12 @@ class _ExpenseDetails extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isReceipt =
-        expense.captureSource == CaptureSource.ai ||
-        expense.items.length > 1;
+        expense.captureSource == CaptureSource.ai || expense.items.length > 1;
     final displayAmount = expense.receiptTotal ?? expense.amount;
     final amount = displayAmount.formatWithCurrency(expense.currencyCode);
-    final title =
-        isReceipt && expense.store.isNotEmpty ? expense.store : expense.name;
+    final title = isReceipt && expense.store.isNotEmpty
+        ? expense.store
+        : expense.name;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -307,11 +320,14 @@ class _ExpenseDetails extends StatelessWidget {
             ),
           ),
         ),
-        if (isReceipt && expense.store.isNotEmpty && expense.name != expense.store)
+        if (isReceipt &&
+            expense.store.isNotEmpty &&
+            expense.name != expense.store)
           _DetailRow(label: 'Descripción / Item', value: expense.name),
         if (isReceipt)
           _DetailRow(label: 'Comercio', value: expense.receiptName)
-        else if (expense.receiptName.isNotEmpty && expense.receiptName != expense.name)
+        else if (expense.receiptName.isNotEmpty &&
+            expense.receiptName != expense.name)
           _DetailRow(label: 'Lugar / Comercio', value: expense.receiptName),
         _DetailRow(
           label: 'Categoría',
@@ -332,7 +348,9 @@ class _ExpenseDetails extends StatelessWidget {
           if (expense.unitPrice != null)
             _DetailRow(
               label: 'Precio unitario',
-              value: expense.unitPrice!.formatWithCurrency(expense.currencyCode),
+              value: expense.unitPrice!.formatWithCurrency(
+                expense.currencyCode,
+              ),
             ),
         ],
         if (expense.note != null && expense.note!.isNotEmpty)
@@ -361,9 +379,8 @@ class _ExpenseDetails extends StatelessWidget {
                     children: [
                       Text(
                         'Productos del recibo',
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.bold,
-                            ),
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(fontWeight: FontWeight.bold),
                       ),
                       Text(
                         '${expense.items.length} ${expense.items.length == 1 ? 'producto' : 'productos'}',
@@ -384,9 +401,12 @@ class _ExpenseDetails extends StatelessWidget {
                               children: [
                                 Text(
                                   item.name,
-                                  style: const TextStyle(fontWeight: FontWeight.w600),
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w600,
+                                  ),
                                 ),
-                                if (item.quantity != '1.000' && item.quantity != '1')
+                                if (item.quantity != '1.000' &&
+                                    item.quantity != '1')
                                   Text(
                                     'Cant: ${item.quantity}',
                                     style: TextStyle(
@@ -398,7 +418,9 @@ class _ExpenseDetails extends StatelessWidget {
                             ),
                           ),
                           Text(
-                            item.amount.formatWithCurrency(expense.currencyCode),
+                            item.amount.formatWithCurrency(
+                              expense.currencyCode,
+                            ),
                             style: const TextStyle(fontWeight: FontWeight.bold),
                           ),
                         ],
@@ -440,10 +462,7 @@ class _DetailRow extends StatelessWidget {
 }
 
 class _AttachedReceiptCard extends StatelessWidget {
-  const _AttachedReceiptCard({
-    required this.photoFile,
-    required this.onTap,
-  });
+  const _AttachedReceiptCard({required this.photoFile, required this.onTap});
 
   final File photoFile;
   final VoidCallback onTap;
@@ -538,4 +557,3 @@ class _AttachedReceiptCard extends StatelessWidget {
     );
   }
 }
-

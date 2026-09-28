@@ -8,6 +8,13 @@ final receiptPhotoCacheRepositoryProvider =
       return ReceiptPhotoCacheRepository();
     });
 
+/// Keeps the receipt photo of a confirmed expense on the device.
+///
+/// Confirmed photos live in the application documents directory
+/// (`<app documents>/receipts/<expenseId>.jpg`) so the expense detail screen can
+/// reopen them offline - the backend keeps no image at all. Because that folder
+/// is permanent (and can be included in device backups), the photo is deleted
+/// when its expense is deleted.
 class ReceiptPhotoCacheRepository {
   Future<Directory> _getReceiptsDirectory() async {
     final appDir = await getApplicationDocumentsDirectory();
@@ -18,7 +25,7 @@ class ReceiptPhotoCacheRepository {
     return receiptsDir;
   }
 
-  /// Copies an image file into the application temporary cache directory for the confirmed expense.
+  /// Copies an image file into the app documents folder for the confirmed expense.
   Future<String> saveReceiptPhoto({
     required int expenseId,
     required String sourceFilePath,

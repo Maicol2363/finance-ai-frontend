@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:finance_ai/app.dart';
 import 'package:finance_ai/core/router/app_router.dart';
 import 'package:finance_ai/features/accounts/data/accounts_repository.dart';
@@ -13,6 +15,7 @@ import 'package:finance_ai/features/expenses/domain/expense_models.dart';
 import 'package:finance_ai/features/expenses/domain/history_models.dart';
 import 'package:finance_ai/features/incomes/data/incomes_repository.dart';
 import 'package:finance_ai/features/incomes/domain/income_models.dart';
+import 'package:finance_ai/features/receipt_capture/data/receipt_photo_cache_repository.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -478,6 +481,28 @@ class _TwoCurrencyAccountsRepository implements AccountsRepository {
   Future<void> deleteAccount(int accountId) async => throw UnimplementedError();
 }
 
+/// Fake for the receipt photo store: records deletions and reports the photo it
+/// is holding so a delete can be observed without touching the file system.
+class _FakeReceiptPhotoCacheRepository implements ReceiptPhotoCacheRepository {
+  final List<int> deleted = [];
+  File? photo;
+
+  @override
+  Future<String> saveReceiptPhoto({
+    required int expenseId,
+    required String sourceFilePath,
+  }) async => sourceFilePath;
+
+  @override
+  Future<File?> getCachedReceiptPhoto(int expenseId) async => photo;
+
+  @override
+  Future<void> deleteCachedReceiptPhoto(int expenseId) async {
+    deleted.add(expenseId);
+    photo = null;
+  }
+}
+
 Future<void> pumpExpensesApp(
   WidgetTester tester,
   WidgetExpensesRepository repository, {
@@ -485,6 +510,7 @@ Future<void> pumpExpensesApp(
   AccountsRepository? accountsRepository,
   CategoriesRepository? categoriesRepository,
   IncomesRepository? incomesRepository,
+  ReceiptPhotoCacheRepository? receiptPhotoCacheRepository,
 }) async {
   final router = createAppRouter(initialLocation: initialLocation);
   addTearDown(router.dispose);
@@ -500,6 +526,9 @@ Future<void> pumpExpensesApp(
         ),
         incomesRepositoryProvider.overrideWithValue(
           incomesRepository ?? FakeIncomesRepository(),
+        ),
+        receiptPhotoCacheRepositoryProvider.overrideWithValue(
+          receiptPhotoCacheRepository ?? _FakeReceiptPhotoCacheRepository(),
         ),
       ],
       child: FinanceApp(router: router),
@@ -598,6 +627,33 @@ void main() {
 
     expect(find.byKey(const Key('expenses-list')), findsOneWidget);
     expect(repository.expenses, isEmpty);
+  });
+
+  testWidgets('deleting a receipt also removes its local photo', (
+    tester,
+  ) async {
+    final repository = WidgetExpensesRepository()
+      ..expenses = [expense(captureSource: CaptureSource.ai)];
+    final photoStore = _FakeReceiptPhotoCacheRepository()
+      ..photo = File('/tmp/cached-receipt-7.jpg');
+    await pumpExpensesApp(
+      tester,
+      repository,
+      initialLocation: '/expenses/7',
+      receiptPhotoCacheRepository: photoStore,
+    );
+
+    await tester.drag(find.byType(ListView), const Offset(0, -500));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('expense-delete-button')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('expense-confirm-delete-button')));
+    await tester.pumpAndSettle();
+
+    expect(photoStore.deleted, [7]);
+    expect(photoStore.photo, isNull);
+    expect(repository.expenses, isEmpty);
+    expect(find.text('Recibo eliminado definitivamente.'), findsOneWidget);
   });
 
   testWidgets('edit form prefills values and submits the wire command', (
