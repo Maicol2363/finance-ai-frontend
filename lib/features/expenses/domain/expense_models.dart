@@ -65,10 +65,13 @@ class ExpenseItem {
     required this.quantity,
     this.unitPrice,
     this.categoryName,
+    this.categoryId,
     this.note,
   });
 
   factory ExpenseItem.fromJson(Map<String, Object?> json) {
+    final category = json['category'];
+    final categoryMap = category is Map<String, Object?> ? category : null;
     return ExpenseItem(
       name: json['name'] as String? ?? '',
       amount: MoneyAmount.parseApi(json['amount'] as String? ?? '0.00'),
@@ -76,7 +79,9 @@ class ExpenseItem {
       unitPrice: json['unit_price'] != null
           ? MoneyAmount.parseApi(json['unit_price'] as String)
           : null,
-      categoryName: json['category_name'] as String?,
+      categoryName:
+          json['category_name'] as String? ?? categoryMap?['name'] as String?,
+      categoryId: categoryMap?['id'] as int?,
       note: json['note'] as String?,
     );
   }
@@ -86,6 +91,7 @@ class ExpenseItem {
   final String quantity;
   final MoneyAmount? unitPrice;
   final String? categoryName;
+  final int? categoryId;
   final String? note;
 }
 
@@ -194,9 +200,9 @@ class Expense {
     final rawItems = json['items'];
     final List<ExpenseItem> items = rawItems is List
         ? rawItems
-            .whereType<Map<String, Object?>>()
-            .map((e) => ExpenseItem.fromJson(e))
-            .toList(growable: false)
+              .whereType<Map<String, Object?>>()
+              .map((e) => ExpenseItem.fromJson(e))
+              .toList(growable: false)
         : const [];
 
     return Expense(
@@ -353,6 +359,37 @@ class ExpenseCreateCommand {
 ///
 /// Only set fields travel on the wire. `clearNote` / `clearCategory` send an
 /// explicit `null` because the backend distinguishes "absent" from "clear".
+/// One receipt line submitted with an expense update.
+///
+/// Money travels as a 2-decimal string so the API receives the exact value
+/// instead of a binary floating point approximation.
+class ExpenseItemUpdateCommand {
+  const ExpenseItemUpdateCommand({
+    required this.name,
+    required this.totalPrice,
+    this.quantity = 1,
+    this.unitPrice,
+    this.categoryId,
+    this.note,
+  });
+
+  final String name;
+  final double totalPrice;
+  final double quantity;
+  final double? unitPrice;
+  final int? categoryId;
+  final String? note;
+
+  Map<String, Object?> toJson() => {
+    'name': name,
+    'total_price': totalPrice.toStringAsFixed(2),
+    'quantity': quantity.toString(),
+    if (unitPrice != null) 'unit_price': unitPrice!.toStringAsFixed(2),
+    if (categoryId != null) 'category_id': categoryId,
+    if (note != null && note!.isNotEmpty) 'note': note,
+  };
+}
+
 class ExpenseUpdateCommand {
   const ExpenseUpdateCommand({
     this.name,
@@ -366,6 +403,7 @@ class ExpenseUpdateCommand {
     this.accountId,
     this.occurredAt,
     this.description,
+    this.items,
   });
 
   final String? name;
@@ -379,6 +417,9 @@ class ExpenseUpdateCommand {
   final int? accountId;
   final DateTime? occurredAt;
   final String? description;
+
+  /// Receipt lines that replace the stored ones; null leaves them untouched.
+  final List<ExpenseItemUpdateCommand>? items;
 
   Map<String, Object?> toJson() => {
     if (name != null) 'name': name,
@@ -394,6 +435,7 @@ class ExpenseUpdateCommand {
     if (occurredAt != null)
       'occurred_at': occurredAt!.toUtc().toIso8601String(),
     if (description != null) 'description': description,
+    if (items != null) 'items': [for (final item in items!) item.toJson()],
   };
 }
 

@@ -219,6 +219,7 @@ class ExpensesController extends Notifier<ExpensesState> {
     int? accountId,
     DateTime? occurredAt,
     String? description,
+    List<ExpenseItemUpdateCommand>? items,
   }) async {
     if (state.mutationStatus != ExpenseMutationStatus.idle) {
       return ExpenseMutationOutcome.ignored;
@@ -235,6 +236,7 @@ class ExpensesController extends Notifier<ExpensesState> {
       accountId: accountId,
       occurredAt: occurredAt,
       description: description,
+      items: items,
     );
     if (validated == null) {
       return ExpenseMutationOutcome.invalid;
@@ -393,6 +395,7 @@ class ExpensesController extends Notifier<ExpensesState> {
     required int? accountId,
     required DateTime? occurredAt,
     required String? description,
+    required List<ExpenseItemUpdateCommand>? items,
   }) {
     final errors = <String, List<String>>{};
     String? normalizedName;
@@ -441,6 +444,30 @@ class ExpensesController extends Notifier<ExpensesState> {
         'La descripción debe tener 500 caracteres o menos.',
       ];
     }
+    if (items != null) {
+      for (final item in items) {
+        final normalizedItemName = item.name.trim();
+        if (normalizedItemName.isEmpty) {
+          errors['items'] = ['Cada producto necesita un nombre.'];
+        } else if (normalizedItemName.runes.length > 200) {
+          errors['items'] = ['El nombre de un producto supera 200 caracteres.'];
+        }
+        if (!item.totalPrice.isFinite || item.totalPrice <= 0) {
+          errors['items'] = ['Cada producto necesita un monto mayor a cero.'];
+        }
+        if (!item.quantity.isFinite || item.quantity <= 0) {
+          errors['items'] = [
+            'La cantidad de un producto debe ser mayor a cero.',
+          ];
+        }
+        if (item.note != null && item.note!.runes.length > 500) {
+          errors['items'] = ['La nota de un producto supera 500 caracteres.'];
+        }
+      }
+      if (items.length > 500) {
+        errors['items'] = ['El recibo tiene demasiados productos.'];
+      }
+    }
     final touched =
         name != null ||
         amountInput != null ||
@@ -452,7 +479,8 @@ class ExpensesController extends Notifier<ExpensesState> {
         clearCategory ||
         accountId != null ||
         occurredAt != null ||
-        description != null;
+        description != null ||
+        items != null;
     if (!touched) {
       errors['request'] = ['Cambia al menos un campo antes de guardar.'];
     }
@@ -481,6 +509,7 @@ class ExpensesController extends Notifier<ExpensesState> {
       accountId: accountId,
       occurredAt: occurredAt?.toUtc(),
       description: description,
+      items: items,
     );
   }
 

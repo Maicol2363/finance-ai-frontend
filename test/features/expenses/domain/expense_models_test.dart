@@ -108,4 +108,53 @@ void main() {
       throwsA(isA<FormatException>()),
     );
   });
+
+  test('expense item update command serializes money as exact strings', () {
+    const command = ExpenseItemUpdateCommand(
+      name: 'Leche',
+      totalPrice: 4000.5,
+      quantity: 2,
+      unitPrice: 2000.25,
+      categoryId: 3,
+      note: 'Fria',
+    );
+
+    expect(command.toJson(), {
+      'name': 'Leche',
+      'total_price': '4000.50',
+      'quantity': '2.0',
+      'unit_price': '2000.25',
+      'category_id': 3,
+      'note': 'Fria',
+    });
+  });
+
+  test(
+    'expense update command omits receipt lines unless they are replaced',
+    () {
+      const untouched = ExpenseUpdateCommand(name: 'Renamed');
+      const replaced = ExpenseUpdateCommand(
+        items: [ExpenseItemUpdateCommand(name: 'Leche', totalPrice: 4000)],
+      );
+
+      expect(untouched.toJson().containsKey('items'), isFalse);
+      expect(replaced.toJson()['items'], [
+        {'name': 'Leche', 'total_price': '4000.00', 'quantity': '1.0'},
+      ]);
+    },
+  );
+
+  test('expense items expose the stored category id', () {
+    final item = ExpenseItem.fromJson({
+      'name': 'Leche',
+      'amount': '4000.00',
+      'quantity': '1.000',
+      'unit_price': '4000.00',
+      'category': {'id': 3, 'name': 'Food'},
+      'note': null,
+    });
+
+    expect(item.categoryId, 3);
+    expect(item.categoryName, 'Food');
+  });
 }

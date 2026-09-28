@@ -39,6 +39,7 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
   bool _clearCategory = false;
   bool _initialized = false;
   bool _initializationScheduled = false;
+  bool _submitsReceiptItems = false;
   List<_LineItemDraft> _items = [];
 
   @override
@@ -91,7 +92,8 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
         state.detailStatus == ExpenseDetailStatus.loading;
     final canShowForm = _initialized && editExpense != null;
 
-    final isReceiptMode = editExpense != null &&
+    final isReceiptMode =
+        editExpense != null &&
         (editExpense.captureSource == CaptureSource.ai ||
             editExpense.items.length > 1);
 
@@ -565,9 +567,16 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
               unitPrice: item.unitPrice != null
                   ? item.unitPrice!.minorUnits / 100.0
                   : null,
+              categoryId: item.categoryId,
+              note: item.note,
             ),
           )
           .toList();
+      // A receipt expense keeps its editable line list on save; a plain expense
+      // never submits one.
+      _submitsReceiptItems =
+          editExpense.captureSource == CaptureSource.ai ||
+          editExpense.items.length > 1;
       setState(() {
         _initialized = true;
         _initializationScheduled = false;
@@ -622,6 +631,9 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
       accountId: _selectedAccountId,
       occurredAt: _occurredAt,
       description: _asOptionalText(_descriptionController.text),
+      items: _submitsReceiptItems
+          ? [for (final item in _items) item.toCommand()]
+          : null,
     );
     if (!mounted) {
       return;
@@ -731,8 +743,8 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
                 final qNum = double.tryParse(item.quantity);
                 final qStr = qNum != null
                     ? (qNum % 1 == 0
-                        ? qNum.toInt().toString()
-                        : qNum.toString())
+                          ? qNum.toInt().toString()
+                          : qNum.toString())
                     : item.quantity;
                 return ListTile(
                   contentPadding: EdgeInsets.zero,
@@ -901,6 +913,9 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
             quantity: qty,
             amount: total,
             unitPrice: unitPrice,
+            // Editing a line keeps the metadata the capture flow stored.
+            categoryId: item.categoryId,
+            note: item.note,
           );
         } else {
           _items.add(
@@ -924,10 +939,29 @@ class _LineItemDraft {
     required this.amount,
     this.quantity = '1',
     this.unitPrice,
+    this.categoryId,
+    this.note,
   });
 
   String name;
   double amount;
   String quantity;
   double? unitPrice;
+
+  /// Carried through untouched from the stored line so saving the form does not
+  /// wipe metadata the capture flow set.
+  final int? categoryId;
+  final String? note;
+
+  ExpenseItemUpdateCommand toCommand() {
+    final parsedQuantity = double.tryParse(quantity) ?? 1;
+    return ExpenseItemUpdateCommand(
+      name: name.trim(),
+      totalPrice: amount,
+      quantity: parsedQuantity > 0 ? parsedQuantity : 1,
+      unitPrice: unitPrice,
+      categoryId: categoryId,
+      note: note,
+    );
+  }
 }

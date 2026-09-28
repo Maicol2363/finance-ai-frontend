@@ -235,6 +235,61 @@ void main() {
     );
   });
 
+  test('update sends the replaced receipt lines', () async {
+    final repository = FakeExpensesRepository();
+    final container = containerWith(repository);
+    addTearDown(container.dispose);
+    final controller = container.read(expensesControllerProvider.notifier);
+
+    await controller.load();
+    final outcome = await controller.update(
+      expenseId: 7,
+      items: const [
+        ExpenseItemUpdateCommand(
+          name: 'Leche',
+          totalPrice: 4000,
+          quantity: 2,
+          categoryId: 3,
+        ),
+        ExpenseItemUpdateCommand(name: 'Pan', totalPrice: 3000),
+      ],
+    );
+
+    expect(outcome, ExpenseMutationOutcome.success);
+    expect(repository.lastCommand?.items, hasLength(2));
+    expect(repository.lastCommand?.toJson()['items'], [
+      {
+        'name': 'Leche',
+        'total_price': '4000.00',
+        'quantity': '2.0',
+        'category_id': 3,
+      },
+      {'name': 'Pan', 'total_price': '3000.00', 'quantity': '1.0'},
+    ]);
+  });
+
+  test(
+    'update rejects an invalid receipt line and never calls the API',
+    () async {
+      final repository = FakeExpensesRepository();
+      final container = containerWith(repository);
+      addTearDown(container.dispose);
+      final controller = container.read(expensesControllerProvider.notifier);
+
+      final outcome = await controller.update(
+        expenseId: 7,
+        items: const [ExpenseItemUpdateCommand(name: '   ', totalPrice: 0)],
+      );
+
+      expect(outcome, ExpenseMutationOutcome.invalid);
+      expect(repository.lastCommand, isNull);
+      expect(
+        container.read(expensesControllerProvider).fieldErrors,
+        contains('items'),
+      );
+    },
+  );
+
   test('uncertain delete resolves to success when the item is gone', () async {
     final repository = FakeExpensesRepository()
       ..deleteRemovesBeforeFailure = true

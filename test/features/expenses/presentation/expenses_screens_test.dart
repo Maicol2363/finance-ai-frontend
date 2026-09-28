@@ -47,7 +47,12 @@ final testCategory = Category(
   updatedAt: DateTime.utc(2026, 9, 1, 10, 0),
 );
 
-Expense expense({int id = 7, String name = 'Groceries'}) => Expense(
+Expense expense({
+  int id = 7,
+  String name = 'Groceries',
+  CaptureSource captureSource = CaptureSource.manual,
+  List<ExpenseItem> items = const [],
+}) => Expense(
   id: id,
   transactionId: 8,
   receiptId: 9,
@@ -63,7 +68,7 @@ Expense expense({int id = 7, String name = 'Groceries'}) => Expense(
   description: 'Purchase at Market',
   occurredAt: DateTime.utc(2026, 9, 17, 12, 30),
   status: ExpenseStatus.confirmed,
-  captureSource: CaptureSource.manual,
+  captureSource: captureSource,
   accountId: 11,
   accountName: 'Cash',
   accountIsActive: true,
@@ -73,6 +78,7 @@ Expense expense({int id = 7, String name = 'Groceries'}) => Expense(
   updatedAt: DateTime.utc(2026, 9, 17, 12, 30),
   receiptImage: 'receipt.jpg',
   imagePath: 'expense.jpg',
+  items: items,
 );
 
 ExpenseListResult listResult(List<Expense> items) => ExpenseListResult(
@@ -637,6 +643,94 @@ void main() {
     expect(repository.lastCommand?.accountId, 12);
     expect(repository.lastCommand?.categoryId, 4);
     expect(find.text('Detalle del gasto'), findsOneWidget);
+  });
+
+  testWidgets('receipt edit form saves the replaced product list', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(800, 2400);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    final repository = WidgetExpensesRepository()
+      ..expenses = [
+        expense(
+          captureSource: CaptureSource.ai,
+          items: [
+            ExpenseItem(
+              name: 'Leche',
+              amount: MoneyAmount.parseApi('4000.00'),
+              quantity: '1.000',
+              unitPrice: MoneyAmount.parseApi('4000.00'),
+              categoryId: 3,
+            ),
+            ExpenseItem(
+              name: 'Pan',
+              amount: MoneyAmount.parseApi('3000.00'),
+              quantity: '1.000',
+              unitPrice: MoneyAmount.parseApi('3000.00'),
+            ),
+          ],
+        ),
+      ];
+    await pumpExpensesApp(
+      tester,
+      repository,
+      initialLocation: '/expenses/7/edit',
+      accountsRepository: WidgetOptionsAccountsRepository(),
+      categoriesRepository: WidgetOptionsCategoriesRepository(),
+    );
+
+    expect(find.text('Productos del recibo (2)'), findsOneWidget);
+
+    // Remove the second product and rename the first one.
+    await tester.tap(find.byTooltip('Eliminar producto').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Editar producto').first);
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.widgetWithText(TextFormField, 'Nombre *'),
+      'Leche entera',
+    );
+    await tester.tap(find.text('Guardar').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('expense-save-button')));
+    await tester.pumpAndSettle();
+
+    final items = repository.lastCommand?.items;
+    expect(items, isNotNull);
+    expect(items, hasLength(1));
+    expect(items!.single.name, 'Leche entera');
+    expect(items.single.totalPrice, 4000.0);
+    // The stored category and the total that follows the products are sent.
+    expect(items.single.categoryId, 3);
+    expect(repository.lastCommand?.amount?.toApiString(), '4000.00');
+  });
+
+  testWidgets('plain expense edit never submits a product list', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(800, 2400);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    final repository = WidgetExpensesRepository();
+    await pumpExpensesApp(
+      tester,
+      repository,
+      initialLocation: '/expenses/7/edit',
+      accountsRepository: WidgetOptionsAccountsRepository(),
+      categoriesRepository: WidgetOptionsCategoriesRepository(),
+    );
+
+    await tester.enterText(
+      find.byKey(const Key('expense-name-field')),
+      'Updated groceries',
+    );
+    await tester.tap(find.byKey(const Key('expense-save-button')));
+    await tester.pumpAndSettle();
+
+    expect(repository.lastCommand?.name, 'Updated groceries');
+    expect(repository.lastCommand?.items, isNull);
+    expect(repository.lastCommand?.toJson().containsKey('items'), isFalse);
   });
 
   testWidgets('history renders entries and applies the search filter', (
