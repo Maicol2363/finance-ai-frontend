@@ -3,6 +3,8 @@ import 'package:finance_ai/features/accounts/application/accounts_controller.dar
 import 'package:finance_ai/features/accounts/application/accounts_state.dart';
 import 'package:finance_ai/features/accounts/data/accounts_repository.dart';
 import 'package:finance_ai/features/accounts/domain/account_models.dart';
+import 'package:finance_ai/features/expenses/application/expenses_controller.dart';
+import 'package:finance_ai/features/expenses/application/expenses_state.dart';
 import 'package:finance_ai/features/auth/session/data/auth_session_repository.dart';
 import 'package:finance_ai/features/auth/session/data/secure_credential_store.dart';
 import 'package:finance_ai/features/auth/session/domain/session_models.dart';
@@ -217,6 +219,11 @@ void main() {
       AccountsLoadStatus.initial,
     );
     expect(container.read(accountsControllerProvider).result, isNull);
+    expect(
+      container.read(expensesControllerProvider).listStatus,
+      ExpensesLoadStatus.initial,
+    );
+    expect(container.read(expensesControllerProvider).result, isNull);
   });
 
   testWidgets('generic invalid credentials remain safe and editable', (

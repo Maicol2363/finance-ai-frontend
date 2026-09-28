@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../../../core/diagnostics/error_diagnostic_panel.dart';
 import '../../../core/theme/app_palette.dart';
@@ -8,6 +9,7 @@ import '../../../core/widgets/movements_empty_state.dart';
 import '../application/expenses_controller.dart';
 import '../application/expenses_state.dart';
 import '../domain/expense_models.dart';
+import '../../receipt_capture/presentation/receipt_capture_flow.dart';
 
 class ExpensesScreen extends ConsumerStatefulWidget {
   const ExpensesScreen({super.key});
@@ -145,33 +147,53 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen>
                           onRegister: () => context.go('/expenses/new'),
                         ),
                       if (result != null && result.items.isNotEmpty) ...[
-                        Padding(
-                          padding: const EdgeInsets.only(top: 8, bottom: 12),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                'Historial reciente',
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w700,
-                                  color: palette.text,
+                        Builder(
+                          builder: (context) {
+                            final seenReceiptIds = <int>{};
+                            final groupedExpenses = <Expense>[];
+                            for (final exp in result.items) {
+                              if (exp.captureSource == CaptureSource.ai) {
+                                if (seenReceiptIds.contains(exp.receiptId)) {
+                                  continue;
+                                }
+                                seenReceiptIds.add(exp.receiptId);
+                              }
+                              groupedExpenses.add(exp);
+                            }
+                            return Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 8, bottom: 12),
+                                  child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Text(
+                                        'Historial reciente',
+                                        style: TextStyle(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w700,
+                                          color: palette.text,
+                                        ),
+                                      ),
+                                      Text(
+                                        '${groupedExpenses.length} ${groupedExpenses.length == 1 ? 'movimiento' : 'movimientos'}',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: palette.muted,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
                                 ),
-                              ),
-                              Text(
-                                '${result.items.length} ${result.items.length == 1 ? 'movimiento' : 'movimientos'}',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: palette.muted,
-                                ),
-                              ),
-                            ],
-                          ),
+                                for (final expense in groupedExpenses) ...[
+                                  _ExpenseCard(expense: expense),
+                                  const SizedBox(height: 10),
+                                ],
+                              ],
+                            );
+                          },
                         ),
-                        for (final expense in result.items) ...[
-                          _ExpenseCard(expense: expense),
-                          const SizedBox(height: 10),
-                        ],
                       ],
                       if (result != null && result.hasNext) ...[
                         const SizedBox(height: 8),
@@ -209,11 +231,9 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen>
               delayRatio: 0.0,
               onTap: () {
                 _closeWheel();
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Captura con foto de recibos próximamente'),
-                  ),
-                );
+                // Foto goes straight to the camera, like Instagram: the
+                // gallery is available as a button inside the pre-check.
+                startReceiptCapture(context, source: ImageSource.camera);
               },
             ),
             _WheelBubble(
@@ -469,9 +489,12 @@ class _ExpenseCard extends StatelessWidget {
 
   final Expense expense;
 
-  String _sourceLabel(CaptureSource source) {
+  String _sourceLabel(CaptureSource source, int itemCount) {
     switch (source) {
       case CaptureSource.ai:
+        if (itemCount > 1) {
+          return '✨ IA · $itemCount productos';
+        }
         return '✨ IA';
       case CaptureSource.manual:
         return '✎ Manual';
@@ -508,8 +531,9 @@ class _ExpenseCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
-    final amount = expense.amount.formatWithCurrency(expense.currencyCode);
-    final meaning = expense.amount.isNegative
+    final displayAmount = expense.receiptTotal ?? expense.amount;
+    final amount = displayAmount.formatWithCurrency(expense.currencyCode);
+    final meaning = displayAmount.isNegative
         ? 'Monto negativo $amount'
         : 'Monto $amount';
     final statusLabel = expense.isEditable ? 'editable' : 'no editable';
@@ -582,7 +606,7 @@ class _ExpenseCard extends StatelessWidget {
                                 borderRadius: BorderRadius.circular(5),
                               ),
                               child: Text(
-                                _sourceLabel(expense.captureSource),
+                                _sourceLabel(expense.captureSource, expense.items.length),
                                 style: TextStyle(
                                   fontSize: 9.5,
                                   fontWeight: FontWeight.w700,
@@ -612,7 +636,7 @@ class _ExpenseCard extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w800,
-                      color: expense.amount.isNegative
+                      color: displayAmount.isNegative
                           ? palette.discard
                           : palette.text,
                     ),

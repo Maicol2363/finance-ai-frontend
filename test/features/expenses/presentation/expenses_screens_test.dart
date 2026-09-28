@@ -628,16 +628,20 @@ void main() {
         find.byKey(const Key('expense-create-new-account-chip')),
         findsOneWidget,
       );
+      expect(
+        find.byKey(const Key('expense-create-new-category-chip')),
+        findsOneWidget,
+      );
 
       await tester.tap(find.byKey(const Key('expense-create-optional-toggle')));
       await tester.pumpAndSettle();
 
       expect(
-        find.byKey(const Key('expense-create-new-category-button')),
+        find.byKey(const Key('expense-create-date-field')),
         findsOneWidget,
       );
       expect(
-        find.byKey(const Key('expense-create-category-field')),
+        find.byKey(const Key('expense-create-note-field')),
         findsOneWidget,
       );
     },

@@ -40,16 +40,33 @@ class ApiTransportException implements Exception {
   const ApiTransportException({
     required this.correlationId,
     required this.kind,
+    this.message,
   });
 
   final String correlationId;
   final ApiTransportFailureKind kind;
+  final String? message;
 
   String get safeReason => switch (kind) {
     ApiTransportFailureKind.timeout => 'request_timeout',
     ApiTransportFailureKind.connection => 'connection_failure',
     ApiTransportFailureKind.invalidResponse => 'invalid_json_response',
   };
+
+  @override
+  String toString() {
+    if (message != null && message!.isNotEmpty) {
+      return message!;
+    }
+    return switch (kind) {
+      ApiTransportFailureKind.timeout =>
+        'El servidor tardó más de lo esperado en responder. Por favor reintenta.',
+      ApiTransportFailureKind.connection =>
+        'No se pudo conectar con el servidor. Revisa tu conexión a internet.',
+      ApiTransportFailureKind.invalidResponse =>
+        'El servidor devolvió una respuesta no válida.',
+    };
+  }
 }
 
 class FinanceApiClient {
@@ -64,29 +81,42 @@ class FinanceApiClient {
     String path,
     Map<String, Object?> body, {
     String? bearerCredential,
+    Duration? timeout,
   }) {
     return _send(
       method: 'POST',
       path: path,
       body: body,
       bearerCredential: bearerCredential,
+      timeout: timeout,
     );
   }
 
-  Future<ApiResponse> getJson(String path, {String? bearerCredential}) {
-    return _send(method: 'GET', path: path, bearerCredential: bearerCredential);
+  Future<ApiResponse> getJson(
+    String path, {
+    String? bearerCredential,
+    Duration? timeout,
+  }) {
+    return _send(
+      method: 'GET',
+      path: path,
+      bearerCredential: bearerCredential,
+      timeout: timeout,
+    );
   }
 
   Future<ApiResponse> patchJson(
     String path,
     Map<String, Object?> body, {
     String? bearerCredential,
+    Duration? timeout,
   }) {
     return _send(
       method: 'PATCH',
       path: path,
       body: body,
       bearerCredential: bearerCredential,
+      timeout: timeout,
     );
   }
 
@@ -94,21 +124,79 @@ class FinanceApiClient {
     String path,
     Map<String, Object?> body, {
     String? bearerCredential,
+    Duration? timeout,
   }) {
     return _send(
       method: 'PUT',
       path: path,
       body: body,
       bearerCredential: bearerCredential,
+      timeout: timeout,
     );
   }
 
-  Future<ApiResponse> deleteRequest(String path, {String? bearerCredential}) {
+  Future<ApiResponse> deleteRequest(
+    String path, {
+    String? bearerCredential,
+    Duration? timeout,
+  }) {
     return _send(
       method: 'DELETE',
       path: path,
       bearerCredential: bearerCredential,
+      timeout: timeout,
     );
+  }
+
+  Future<ApiResponse> postMultipart(
+    String path, {
+    required String filePath,
+    String fileField = 'file',
+    Map<String, String>? fields,
+    String? bearerCredential,
+    Duration? timeout,
+  }) async {
+    final effectiveTimeout = timeout ?? _timeout;
+    final correlationId = _nextCorrelationId();
+    final headers = <String, String>{
+      'Accept': 'application/json',
+      'X-Correlation-ID': correlationId,
+      if (bearerCredential != null) 'Authorization': 'Bearer $bearerCredential',
+    };
+    try {
+      final request = http.MultipartRequest('POST', _baseUri.resolve(path))
+        ..headers.addAll(headers);
+      if (fields != null) {
+        request.fields.addAll(fields);
+      }
+      request.files.add(await http.MultipartFile.fromPath(fileField, filePath));
+      final streamed = await _client.send(request).timeout(effectiveTimeout);
+      final response =
+          await http.Response.fromStream(streamed).timeout(effectiveTimeout);
+      return ApiResponse(
+        statusCode: response.statusCode,
+        body: _decodeOptionalObject(response.body),
+        headers: Map.unmodifiable(response.headers),
+        correlationId: response.headers['x-correlation-id'],
+      );
+    } on TimeoutException {
+      throw ApiTransportException(
+        correlationId: correlationId,
+        kind: ApiTransportFailureKind.timeout,
+        message:
+            'El procesamiento del recibo tardó más de lo esperado (${effectiveTimeout.inSeconds}s). Por favor reintenta.',
+      );
+    } on http.ClientException {
+      throw ApiTransportException(
+        correlationId: correlationId,
+        kind: ApiTransportFailureKind.connection,
+      );
+    } on FormatException {
+      throw ApiTransportException(
+        correlationId: correlationId,
+        kind: ApiTransportFailureKind.invalidResponse,
+      );
+    }
   }
 
   Future<ApiResponse> _send({
@@ -116,7 +204,9 @@ class FinanceApiClient {
     required String path,
     Map<String, Object?>? body,
     String? bearerCredential,
+    Duration? timeout,
   }) async {
+    final effectiveTimeout = timeout ?? _timeout;
     final correlationId = _nextCorrelationId();
     final headers = <String, String>{
       'Accept': 'application/json',
@@ -130,9 +220,9 @@ class FinanceApiClient {
       if (body != null) {
         request.body = jsonEncode(body);
       }
-      final streamed = await _client.send(request).timeout(_timeout);
+      final streamed = await _client.send(request).timeout(effectiveTimeout);
       final response = await http.Response.fromStream(streamed)
-          .timeout(_timeout);
+          .timeout(effectiveTimeout);
       return ApiResponse(
         statusCode: response.statusCode,
         body: _decodeOptionalObject(response.body),
@@ -143,6 +233,8 @@ class FinanceApiClient {
       throw ApiTransportException(
         correlationId: correlationId,
         kind: ApiTransportFailureKind.timeout,
+        message:
+            'La solicitud al servidor tardó más de lo esperado (${effectiveTimeout.inSeconds}s). Por favor reintenta.',
       );
     } on http.ClientException {
       throw ApiTransportException(

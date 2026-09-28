@@ -1,0 +1,348 @@
+import 'dart:async';
+
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker/image_picker.dart';
+
+import '../../expenses/application/expenses_controller.dart';
+import '../../expenses/domain/expense_models.dart';
+import '../data/receipt_capture_remote_data_source.dart';
+import '../data/receipt_photo_cache_repository.dart';
+import '../domain/receipt_capture_state.dart';
+import '../domain/receipt_proposal_dto.dart';
+import '../domain/receipt_review_form_data.dart';
+
+final imagePickerProvider = Provider<ImagePicker>((ref) {
+  return ImagePicker();
+});
+
+final receiptCaptureNotifierProvider =
+    NotifierProvider<ReceiptCaptureNotifier, ReceiptCaptureState>(
+      ReceiptCaptureNotifier.new,
+    );
+
+class ReceiptCaptureNotifier extends Notifier<ReceiptCaptureState> {
+  ReceiptCaptureRemoteDataSource get _remoteDataSource =>
+      ref.read(receiptCaptureRemoteDataSourceProvider);
+  ReceiptPhotoCacheRepository get _photoCacheRepository =>
+      ref.read(receiptPhotoCacheRepositoryProvider);
+  ImagePicker get _imagePicker => ref.read(imagePickerProvider);
+
+  @override
+  ReceiptCaptureState build() => const ReceiptCaptureIdle();
+
+  /// Prompts image picker (camera or gallery) with pre-compression constraints.
+  Future<void> pickImage(ImageSource source) async {
+    try {
+      final xFile = await _imagePicker.pickImage(
+        source: source,
+        maxWidth: 2400,
+        maxHeight: 2400,
+        imageQuality: 85,
+      );
+
+      if (xFile == null) {
+        return; // User canceled
+      }
+
+      await useImageFile(xFile);
+    } catch (e) {
+      state = ReceiptCaptureError(
+        errorMessage: 'Error al seleccionar la imagen: $e',
+      );
+    }
+  }
+
+  /// Adopts an already selected image (e.g. one captured with the in-app
+  /// camera) into the PreCheck state, validating its size first.
+  Future<void> useImageFile(XFile xFile) async {
+    try {
+      final fileSizeBytes = await xFile.length();
+      if (fileSizeBytes > 10 * 1024 * 1024) {
+        state = ReceiptCaptureError(
+          errorMessage: 'La imagen excede el límite máximo permitido de 10 MB.',
+          localImagePath: xFile.path,
+        );
+        return;
+      }
+
+      state = ReceiptCapturePreCheck(
+        imagePath: xFile.path,
+        fileSizeBytes: fileSizeBytes,
+        rotationDegrees: 0,
+      );
+    } catch (e) {
+      state = ReceiptCaptureError(
+        errorMessage: 'Error al seleccionar la imagen: $e',
+      );
+    }
+  }
+
+  /// Rotates image in PreCheck state by delta (e.g. 90° clockwise).
+  void rotatePreCheck([int delta = 90]) {
+    final current = state;
+    if (current is ReceiptCapturePreCheck) {
+      final newRotation = (current.rotationDegrees + delta) % 360;
+      state = current.copyWith(rotationDegrees: newRotation);
+    }
+  }
+
+  /// Initiates upload to backend proposal endpoint.
+  Future<void> analyzeReceipt() async {
+    final current = state;
+    if (current is! ReceiptCapturePreCheck) {
+      return;
+    }
+
+    final imagePath = current.imagePath;
+    final rotation = current.rotationDegrees;
+    state = ReceiptCaptureAnalyzing(
+      imagePath: imagePath,
+      rotationDegrees: rotation,
+    );
+
+    try {
+      final proposal = await _remoteDataSource.uploadProposal(
+        filePath: imagePath,
+        rotationDegrees: rotation,
+      );
+
+      _populateReviewState(proposal, imagePath);
+    } catch (e) {
+      state = ReceiptCaptureError(
+        errorMessage: e is ExpenseFailure ? e.userMessage : e.toString(),
+        localImagePath: imagePath,
+      );
+    }
+  }
+
+  /// Retries proposal extraction with a new rotation angle.
+  Future<void> retryAnalysis(int rotationDegrees) async {
+    final current = state;
+    if (current is! ReceiptCaptureReview) {
+      return;
+    }
+
+    state = current.copyWith(isSubmitting: true, submissionError: null);
+
+    try {
+      final updated = await _remoteDataSource.retryProposal(
+        proposalId: current.proposalId,
+        filePath: current.localImagePath,
+        rotationDegrees: rotationDegrees,
+      );
+
+      _populateReviewState(updated, current.localImagePath);
+    } catch (e) {
+      state = current.copyWith(
+        isSubmitting: false,
+        submissionError: e is ExpenseFailure ? e.userMessage : e.toString(),
+      );
+    }
+  }
+
+  /// Discards the ephemeral proposal draft.
+  Future<void> discardDraft() async {
+    final current = state;
+    if (current is ReceiptCaptureReview) {
+      try {
+        await _remoteDataSource.discardProposal(proposalId: current.proposalId);
+      } catch (_) {
+        // Ignored on discard cleanup
+      }
+    }
+    state = const ReceiptCaptureIdle();
+  }
+
+  /// Alias for discardDraft.
+  Future<void> discardProposal() => discardDraft();
+
+  /// Updates current form data in Review state.
+  void updateFormData(ReceiptReviewFormData newFormData) {
+    final current = state;
+    if (current is ReceiptCaptureReview) {
+      state = current.copyWith(formData: newFormData, submissionError: null);
+    }
+  }
+
+  /// Adds a new line item draft to the review form.
+  void addLineItem(ReceiptLineItemDraft item) {
+    final current = state;
+    if (current is ReceiptCaptureReview) {
+      final updatedItems = List<ReceiptLineItemDraft>.from(
+        current.formData.items,
+      )..add(item);
+      state = current.copyWith(
+        formData: current.formData.copyWith(items: updatedItems),
+      );
+    }
+  }
+
+  /// Updates an existing line item in the review form.
+  void updateLineItem(int index, ReceiptLineItemDraft item) {
+    final current = state;
+    if (current is ReceiptCaptureReview) {
+      if (index >= 0 && index < current.formData.items.length) {
+        final updatedItems = List<ReceiptLineItemDraft>.from(
+          current.formData.items,
+        );
+        updatedItems[index] = item;
+        state = current.copyWith(
+          formData: current.formData.copyWith(items: updatedItems),
+        );
+      }
+    }
+  }
+
+  /// Removes a line item from the review form.
+  void removeLineItem(int index) {
+    final current = state;
+    if (current is ReceiptCaptureReview) {
+      if (index >= 0 && index < current.formData.items.length) {
+        final updatedItems = List<ReceiptLineItemDraft>.from(
+          current.formData.items,
+        )..removeAt(index);
+        state = current.copyWith(
+          formData: current.formData.copyWith(items: updatedItems),
+        );
+      }
+    }
+  }
+
+  /// Submits confirmed expense to backend and caches local image (Model B).
+  Future<Expense?> confirmExpense() async {
+    final current = state;
+    if (current is! ReceiptCaptureReview) {
+      return null;
+    }
+
+    final form = current.formData;
+    if (!form.isValid) {
+      state = current.copyWith(
+        submissionError: 'Completa los campos obligatorios antes de continuar.',
+      );
+      return null;
+    }
+
+    state = current.copyWith(isSubmitting: true, submissionError: null);
+
+    try {
+      final isNewCategory = form.categoryId == -1;
+      final command = ReceiptProposalConfirmRequestDto(
+        accountId: form.accountId!,
+        totalAmount: form.totalAmount,
+        merchant: form.merchant.trim(),
+        occurredAt: form.occurredAt.toUtc().toIso8601String(),
+        currency: form.currency,
+        categoryId: isNewCategory ? null : form.categoryId,
+        newCategoryName: isNewCategory
+            ? (form.newCategoryName ?? form.suggestedCategory)
+            : null,
+        note: form.note,
+        items: form.items
+            .map(
+              (item) => ConfirmedReceiptItemDto(
+                name: item.name.trim(),
+                totalPrice: item.totalPrice,
+                quantity: item.quantity,
+                unitPrice: item.unitPrice,
+                categoryId: item.categoryId == -1 ? null : item.categoryId,
+                note: item.note,
+              ),
+            )
+            .toList(),
+      );
+
+      final confirmedExpense = await _remoteDataSource.confirmProposal(
+        proposalId: current.proposalId,
+        command: command,
+      );
+
+      // Save local photo in cache for offline viewing (Model B)
+      String? savedCachePath;
+      try {
+        savedCachePath = await _photoCacheRepository.saveReceiptPhoto(
+          expenseId: confirmedExpense.id,
+          sourceFilePath: current.localImagePath,
+        );
+      } catch (_) {
+        // Cache persistence failure is non-blocking
+      }
+
+      // Refresh expense feed providers
+      try {
+        ref.read(expensesControllerProvider.notifier).load();
+      } catch (_) {}
+
+      state = ReceiptCaptureSuccess(
+        expenseId: confirmedExpense.id,
+        merchant: confirmedExpense.store,
+        totalAmount:
+            double.tryParse(confirmedExpense.amount.toApiString()) ??
+            form.totalAmount,
+        localSavedImagePath: savedCachePath,
+      );
+
+      return confirmedExpense;
+    } catch (e) {
+      state = current.copyWith(
+        isSubmitting: false,
+        submissionError: e is ExpenseFailure ? e.userMessage : e.toString(),
+      );
+      return null;
+    }
+  }
+
+  /// Resets state to Idle.
+  void reset() {
+    state = const ReceiptCaptureIdle();
+  }
+
+  void _populateReviewState(
+    ReceiptProposalResponseDto proposal,
+    String localImagePath,
+  ) {
+    final extracted = proposal.extractedData;
+
+    DateTime parsedDate = DateTime.now();
+    if (extracted.date != null && extracted.date!.isNotEmpty) {
+      try {
+        parsedDate = DateTime.parse(extracted.date!);
+      } catch (_) {}
+    }
+
+    final items = extracted.items.asMap().entries.map((entry) {
+      return ReceiptLineItemDraft(
+        localId: 'item-${entry.key}-${DateTime.now().millisecondsSinceEpoch}',
+        name: entry.value.name,
+        quantity: entry.value.quantity,
+        unitPrice: entry.value.unitPrice,
+        totalPrice: entry.value.totalPrice,
+        categoryId: extracted.categoryId,
+      );
+    }).toList();
+
+    final formData = ReceiptReviewFormData(
+      merchant: extracted.merchantName ?? '',
+      totalAmount: extracted.totalAmount ?? 0.0,
+      occurredAt: parsedDate,
+      accountId: null, // Will be chosen or pre-selected by review screen
+      categoryId: extracted.categoryId,
+      suggestedCategory: extracted.categorySuggestion,
+      paymentMethod: extracted.paymentMethod,
+      suggestedAccount: extracted.suggestedAccount,
+      currency: extracted.currency,
+      items: items,
+    );
+
+    state = ReceiptCaptureReview(
+      proposalId: proposal.proposalId,
+      status: proposal.status,
+      localImagePath: localImagePath,
+      formData: formData,
+      issues: proposal.issues,
+      isSubmitting: false,
+      possibleDuplicate: proposal.possibleDuplicate,
+      duplicateWarning: proposal.duplicateWarning,
+    );
+  }
+}

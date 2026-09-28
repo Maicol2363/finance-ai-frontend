@@ -9,6 +9,11 @@ import 'features/accounts/application/accounts_controller.dart';
 import 'features/auth/session/application/auth_session_controller.dart';
 import 'features/auth/session/application/auth_session_state.dart';
 import 'features/categories/application/categories_controller.dart';
+import 'features/expenses/application/expenses_controller.dart';
+import 'features/expenses/application/history_controller.dart';
+import 'features/income_sources/presentation/income_sources_controller.dart';
+import 'features/incomes/data/incomes_repository.dart';
+import 'features/receipt_capture/application/receipt_capture_notifier.dart';
 
 class FinanceApp extends ConsumerStatefulWidget {
   const FinanceApp({super.key, this.router});
@@ -28,24 +33,39 @@ class _FinanceAppState extends ConsumerState<FinanceApp> {
   void initState() {
     super.initState();
     ref.read(themeControllerProvider.notifier).load();
+    ref.read(authSessionControllerProvider);
+
+    void clearUserData() {
+      ref.invalidate(accountsControllerProvider);
+      ref.invalidate(categoriesControllerProvider);
+      ref.invalidate(expensesControllerProvider);
+      ref.invalidate(historyControllerProvider);
+      ref.invalidate(incomesListProvider);
+      ref.invalidate(incomeRevisionProvider);
+      ref.invalidate(incomeSourcesControllerProvider);
+      ref.invalidate(receiptCaptureNotifierProvider);
+    }
+
+    _authSubscription = ref.listenManual<AuthSessionState>(
+      authSessionControllerProvider,
+      (previous, next) {
+        final userChanged = previous?.user?.id != next.user?.id;
+        final unauthenticated =
+            next.status == AuthSessionStatus.unauthenticated;
+        if (userChanged || unauthenticated) {
+          clearUserData();
+        }
+        _routerRefresh?.notifyRouter();
+      },
+    );
+
     final providedRouter = widget.router;
     if (providedRouter != null) {
       _router = providedRouter;
       return;
     }
-    ref.read(authSessionControllerProvider);
     final routerRefresh = _RouterRefresh();
     _routerRefresh = routerRefresh;
-    _authSubscription = ref.listenManual<AuthSessionState>(
-      authSessionControllerProvider,
-      (previous, next) {
-        if (previous?.user?.id != next.user?.id) {
-          ref.invalidate(accountsControllerProvider);
-          ref.invalidate(categoriesControllerProvider);
-        }
-        routerRefresh.notifyRouter();
-      },
-    );
     _router = createAppRouter(
       initialLocation: '/bootstrap',
       authState: () => ref.read(authSessionControllerProvider),

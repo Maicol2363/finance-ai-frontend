@@ -44,11 +44,49 @@ enum CaptureSource {
     if (value is! String) {
       throw const FormatException('Invalid capture source');
     }
+    final normalized = switch (value.toLowerCase()) {
+      'receipt_photo_ai' || 'text_ai' || 'audio_ai' || 'ai' => 'ai',
+      'manual' => 'manual',
+      'import' => 'import',
+      _ => value,
+    };
     return CaptureSource.values.firstWhere(
-      (item) => item.name == value,
+      (item) => item.name == normalized,
       orElse: () => throw const FormatException('Unsupported capture source'),
     );
   }
+}
+
+/// Single line item within an expense/receipt.
+class ExpenseItem {
+  const ExpenseItem({
+    required this.name,
+    required this.amount,
+    required this.quantity,
+    this.unitPrice,
+    this.categoryName,
+    this.note,
+  });
+
+  factory ExpenseItem.fromJson(Map<String, Object?> json) {
+    return ExpenseItem(
+      name: json['name'] as String? ?? '',
+      amount: MoneyAmount.parseApi(json['amount'] as String? ?? '0.00'),
+      quantity: json['quantity'] as String? ?? '1.000',
+      unitPrice: json['unit_price'] != null
+          ? MoneyAmount.parseApi(json['unit_price'] as String)
+          : null,
+      categoryName: json['category_name'] as String?,
+      note: json['note'] as String?,
+    );
+  }
+
+  final String name;
+  final MoneyAmount amount;
+  final String quantity;
+  final MoneyAmount? unitPrice;
+  final String? categoryName;
+  final String? note;
 }
 
 /// Owned expense detail returned by `GET /api/v1/expenses[/{id}]`.
@@ -79,6 +117,8 @@ class Expense {
     required this.updatedAt,
     required this.receiptImage,
     required this.imagePath,
+    this.receiptTotal,
+    this.items = const [],
   });
 
   factory Expense.fromJson(Map<String, Object?> json) {
@@ -150,6 +190,15 @@ class Expense {
         parsedUpdatedAt == null) {
       throw const FormatException('Invalid expense timestamp');
     }
+    final receiptTotal = json['receipt_total'];
+    final rawItems = json['items'];
+    final List<ExpenseItem> items = rawItems is List
+        ? rawItems
+            .whereType<Map<String, Object?>>()
+            .map((e) => ExpenseItem.fromJson(e))
+            .toList(growable: false)
+        : const [];
+
     return Expense(
       id: id,
       transactionId: transactionId,
@@ -180,6 +229,10 @@ class Expense {
       updatedAt: parsedUpdatedAt.toUtc(),
       receiptImage: receiptImage as String?,
       imagePath: imagePath as String?,
+      receiptTotal: receiptTotal is String
+          ? MoneyAmount.parseApi(receiptTotal)
+          : null,
+      items: items,
     );
   }
 
@@ -212,6 +265,8 @@ class Expense {
   /// Persisted attachment references (no physical upload flow in HU-008).
   final String? receiptImage;
   final String? imagePath;
+  final MoneyAmount? receiptTotal;
+  final List<ExpenseItem> items;
 
   bool get isEditable => status == ExpenseStatus.confirmed;
 }
