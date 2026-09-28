@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../../../core/diagnostics/error_diagnostic.dart';
 import '../../expenses/application/expenses_controller.dart';
 import '../../expenses/domain/expense_models.dart';
 import '../data/receipt_capture_remote_data_source.dart';
@@ -47,7 +48,13 @@ class ReceiptCaptureNotifier extends Notifier<ReceiptCaptureState> {
       await useImageFile(xFile);
     } catch (e) {
       state = ReceiptCaptureError(
-        errorMessage: 'Error al seleccionar la imagen: $e',
+        diagnostic: _failureDiagnostic(
+          e,
+          operation: 'select_receipt_image',
+          userMessage:
+              'No se pudo leer la imagen seleccionada. Inténtalo de nuevo.',
+          technicalReason: 'image_selection_failure',
+        ),
       );
     }
   }
@@ -59,7 +66,13 @@ class ReceiptCaptureNotifier extends Notifier<ReceiptCaptureState> {
       final fileSizeBytes = await xFile.length();
       if (fileSizeBytes > 10 * 1024 * 1024) {
         state = ReceiptCaptureError(
-          errorMessage: 'La imagen excede el límite máximo permitido de 10 MB.',
+          diagnostic: _unexpected(
+            operation: 'validate_receipt_image',
+            code: 'receipt_image_too_large',
+            userMessage:
+                'La imagen excede el límite máximo permitido de 10 MB.',
+            technicalReason: 'image_exceeds_size_limit',
+          ),
           localImagePath: xFile.path,
         );
         return;
@@ -72,7 +85,13 @@ class ReceiptCaptureNotifier extends Notifier<ReceiptCaptureState> {
       );
     } catch (e) {
       state = ReceiptCaptureError(
-        errorMessage: 'Error al seleccionar la imagen: $e',
+        diagnostic: _failureDiagnostic(
+          e,
+          operation: 'validate_receipt_image',
+          userMessage:
+              'No se pudo leer la imagen seleccionada. Inténtalo de nuevo.',
+          technicalReason: 'image_inspection_failure',
+        ),
       );
     }
   }
@@ -109,7 +128,12 @@ class ReceiptCaptureNotifier extends Notifier<ReceiptCaptureState> {
       _populateReviewState(proposal, imagePath);
     } catch (e) {
       state = ReceiptCaptureError(
-        errorMessage: e is ExpenseFailure ? e.userMessage : e.toString(),
+        diagnostic: _failureDiagnostic(
+          e,
+          operation: 'analyze_receipt',
+          userMessage: 'No se pudo analizar el recibo. Revisa tu conexión e inténtalo de nuevo.',
+          technicalReason: 'receipt_analysis_failure',
+        ),
         localImagePath: imagePath,
       );
     }
@@ -135,7 +159,13 @@ class ReceiptCaptureNotifier extends Notifier<ReceiptCaptureState> {
     } catch (e) {
       state = current.copyWith(
         isSubmitting: false,
-        submissionError: e is ExpenseFailure ? e.userMessage : e.toString(),
+        submissionDiagnostic: _failureDiagnostic(
+          e,
+          operation: 'retry_receipt_analysis',
+          userMessage:
+              'No se pudo volver a analizar el recibo. Inténtalo de nuevo.',
+          technicalReason: 'receipt_retry_failure',
+        ),
       );
     }
   }
@@ -160,7 +190,13 @@ class ReceiptCaptureNotifier extends Notifier<ReceiptCaptureState> {
   void updateFormData(ReceiptReviewFormData newFormData) {
     final current = state;
     if (current is ReceiptCaptureReview) {
-      state = current.copyWith(formData: newFormData, submissionError: null);
+      // Editing the form clears both the validation hint and the previous
+      // failure report; the next attempt generates a fresh one.
+      state = current.copyWith(
+        formData: newFormData,
+        submissionError: null,
+        submissionDiagnostic: null,
+      );
     }
   }
 
@@ -219,11 +255,16 @@ class ReceiptCaptureNotifier extends Notifier<ReceiptCaptureState> {
     if (!form.isValid) {
       state = current.copyWith(
         submissionError: 'Completa los campos obligatorios antes de continuar.',
+        submissionDiagnostic: null,
       );
       return null;
     }
 
-    state = current.copyWith(isSubmitting: true, submissionError: null);
+    state = current.copyWith(
+      isSubmitting: true,
+      submissionError: null,
+      submissionDiagnostic: null,
+    );
 
     try {
       final isNewCategory = form.categoryId == -1;
@@ -286,7 +327,12 @@ class ReceiptCaptureNotifier extends Notifier<ReceiptCaptureState> {
     } catch (e) {
       state = current.copyWith(
         isSubmitting: false,
-        submissionError: e is ExpenseFailure ? e.userMessage : e.toString(),
+        submissionDiagnostic: _failureDiagnostic(
+          e,
+          operation: 'confirm_receipt_expense',
+          userMessage: 'No se pudo guardar el gasto. Inténtalo de nuevo.',
+          technicalReason: 'receipt_confirmation_failure',
+        ),
       );
       return null;
     }
@@ -343,6 +389,58 @@ class ReceiptCaptureNotifier extends Notifier<ReceiptCaptureState> {
       isSubmitting: false,
       possibleDuplicate: proposal.possibleDuplicate,
       duplicateWarning: proposal.duplicateWarning,
+    );
+  }
+
+  /// Builds the shared privacy-safe report for a failure that reached the
+  /// client, reusing the server contract when the API answered.
+  ///
+  /// The raw exception is deliberately never copied into the report: only a
+  /// fixed [technicalReason] and the allow-listed failure fields travel to the
+  /// user-visible copy panel.
+  ErrorDiagnostic _failureDiagnostic(
+    Object error, {
+    required String operation,
+    required String userMessage,
+    required String technicalReason,
+  }) {
+    if (error is ExpenseFailure) {
+      return _diagnosticFor(error, operation: operation);
+    }
+    return _unexpected(
+      operation: operation,
+      userMessage: userMessage,
+      technicalReason: technicalReason,
+    );
+  }
+
+  /// Maps a server-reported failure, preserving its stable code and
+  /// correlation ID so a client report can be matched to the backend log.
+  ErrorDiagnostic _diagnosticFor(
+    ExpenseFailure failure, {
+    required String operation,
+  }) {
+    return ErrorDiagnostic.capture(
+      code: failure.code,
+      operation: operation,
+      userMessage: failure.userMessage,
+      correlationId: failure.correlationId,
+      technicalReason: failure.technicalReason,
+    );
+  }
+
+  /// Reports a client-side failure with a fixed, safe reason.
+  ErrorDiagnostic _unexpected({
+    required String operation,
+    required String userMessage,
+    required String technicalReason,
+    String code = 'unexpected_client_error',
+  }) {
+    return ErrorDiagnostic.capture(
+      code: code,
+      operation: operation,
+      userMessage: userMessage,
+      technicalReason: technicalReason,
     );
   }
 }

@@ -12,8 +12,9 @@ import '../../application/receipt_capture_notifier.dart';
 ///
 /// Injectable through [receiptCameraLauncherProvider] so widget tests can
 /// simulate captures without a real camera device.
-typedef ReceiptCameraLauncher =
-    Future<XFile?> Function(NavigatorState navigator);
+typedef ReceiptCameraLauncher = Future<XFile?> Function(
+  NavigatorState navigator,
+);
 
 /// Default launcher: pushes [ReceiptCameraScreen] on [navigator].
 final receiptCameraLauncherProvider = Provider<ReceiptCameraLauncher>((ref) {
@@ -165,7 +166,6 @@ class _ReceiptCameraScreenState extends ConsumerState<ReceiptCameraScreen>
       setState(() {});
     }
   }
-
 
   Future<void> _flipCamera() async {
     if (_cameras.length < 2 || _initializing) return;
@@ -406,18 +406,26 @@ class _ReceiptCameraScreenState extends ConsumerState<ReceiptCameraScreen>
 
   Future<void> _pickFromGallery() async {
     try {
-      final file = await ref.read(imagePickerProvider).pickImage(
-        source: ImageSource.gallery,
-        maxWidth: 2400,
-        maxHeight: 2400,
-        imageQuality: 85,
-      );
+      final file = await ref
+          .read(imagePickerProvider)
+          .pickImage(
+            source: ImageSource.gallery,
+            maxWidth: 2400,
+            maxHeight: 2400,
+            imageQuality: 85,
+          );
       if (file == null || !mounted) return;
       Navigator.of(context).pop(file);
-    } catch (e) {
+    } catch (_) {
       if (!mounted) return;
+      // Fixed, path-free message: the raw picker exception may contain the
+      // selected file location.
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error al seleccionar la imagen: $e')),
+        const SnackBar(
+          content: Text(
+            'No se pudo seleccionar la imagen. Inténtalo de nuevo.',
+          ),
+        ),
       );
     }
   }

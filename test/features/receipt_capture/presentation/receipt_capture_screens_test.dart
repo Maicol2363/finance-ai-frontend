@@ -1,5 +1,7 @@
 import 'dart:io';
 
+import 'package:finance_ai/core/diagnostics/error_diagnostic.dart';
+import 'package:finance_ai/core/diagnostics/error_diagnostic_panel.dart';
 import 'package:finance_ai/core/theme/app_theme.dart';
 import 'package:finance_ai/features/categories/data/categories_repository.dart';
 import 'package:finance_ai/features/categories/domain/category_models.dart';
@@ -219,9 +221,14 @@ void main() {
 
       expect(find.byType(ReceiptPreCheckScreen), findsNothing);
       expect(
-        find.textContaining('Error al seleccionar la imagen'),
+        find.text(
+          'No se pudo leer la imagen seleccionada. Inténtalo de nuevo.',
+        ),
         findsOneWidget,
       );
+      // The raw plugin exception must never reach the user.
+      expect(find.textContaining('permission denied'), findsNothing);
+      expect(find.textContaining('Exception'), findsNothing);
       expect(tester.takeException(), isNull);
     }, variant: TargetPlatformVariant.only(TargetPlatform.android));
   });
@@ -359,6 +366,46 @@ void main() {
       expect((state as ReceiptCapturePreCheck).imagePath, replacement.path);
       expect(tester.takeException(), isNull);
     });
+
+    testWidgets('shows the privacy-safe diagnostic panel instead of raw text', (
+      tester,
+    ) async {
+      _useRoomyViewport(tester);
+
+      final testNotifier = _TestReceiptCaptureNotifier(
+        ReceiptCaptureError(
+          diagnostic: ErrorDiagnostic.capture(
+            code: 'unexpected_client_error',
+            operation: 'analyze_receipt',
+            userMessage: 'No se pudo analizar el recibo. Revisa tu conexión e inténtalo de nuevo.',
+            technicalReason: 'receipt_analysis_failure',
+          ),
+          localImagePath: tempImage.path,
+        ),
+      );
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            receiptCaptureNotifierProvider.overrideWith(() => testNotifier),
+          ],
+          child: MaterialApp(
+            theme: AppTheme.light(),
+            home: const ReceiptPreCheckScreen(),
+          ),
+        ),
+      );
+
+      expect(find.byType(ErrorDiagnosticPanel), findsOneWidget);
+      expect(find.text('Error code: unexpected_client_error'), findsOneWidget);
+      expect(
+        find.byKey(const Key('copy-error-details-button')),
+        findsOneWidget,
+      );
+      expect(find.textContaining('Exception'), findsNothing);
+      expect(find.textContaining(tempImage.path), findsNothing);
+      expect(tester.takeException(), isNull);
+    });
   });
 
   group('ReceiptReviewScreen', () {
@@ -412,61 +459,122 @@ void main() {
       expect(find.text('Queso'), findsOneWidget);
     });
 
-    testWidgets('shows warning and disables Confirmar gasto when status is not_a_receipt', (
-      tester,
-    ) async {
-      final notAReceiptState = ReceiptCaptureReview(
-        proposalId: 'non-receipt-id',
-        status: 'not_a_receipt',
-        localImagePath: tempImage.path,
-        formData: ReceiptReviewFormData(
-          merchant: '',
-          totalAmount: 0.0,
-          currency: 'COP',
-          occurredAt: DateTime(2026, 3, 15),
-          items: [],
-        ),
-      );
-
-      final testNotifier = _TestReceiptCaptureNotifier(notAReceiptState);
-
-      await tester.pumpWidget(
-        ProviderScope(
-          overrides: [
-            receiptCaptureNotifierProvider.overrideWith(() => testNotifier),
-            categoriesRepositoryProvider.overrideWithValue(
-              _FakeCategoriesRepository(),
-            ),
-          ],
-          child: MaterialApp(
-            theme: AppTheme.light(),
-            home: const ReceiptReviewScreen(),
+    testWidgets(
+      'shows warning and disables Confirmar gasto when status is not_a_receipt',
+      (tester) async {
+        final notAReceiptState = ReceiptCaptureReview(
+          proposalId: 'non-receipt-id',
+          status: 'not_a_receipt',
+          localImagePath: tempImage.path,
+          formData: ReceiptReviewFormData(
+            merchant: '',
+            totalAmount: 0.0,
+            currency: 'COP',
+            occurredAt: DateTime(2026, 3, 15),
+            items: [],
           ),
-        ),
-      );
+        );
 
-      await tester.pumpAndSettle();
+        final testNotifier = _TestReceiptCaptureNotifier(notAReceiptState);
 
-      expect(find.text('La imagen no parece ser un recibo válido'), findsOneWidget);
-      expect(find.byIcon(Icons.arrow_back), findsOneWidget);
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              receiptCaptureNotifierProvider.overrideWith(() => testNotifier),
+              categoriesRepositoryProvider.overrideWithValue(
+                _FakeCategoriesRepository(),
+              ),
+            ],
+            child: MaterialApp(
+              theme: AppTheme.light(),
+              home: const ReceiptReviewScreen(),
+            ),
+          ),
+        );
 
-      // Verify Confirm button is disabled
-      final confirmBtnFinder = find.widgetWithText(FilledButton, 'Confirmar gasto');
-      expect(confirmBtnFinder, findsOneWidget);
-      final FilledButton button = tester.widget(confirmBtnFinder);
-      expect(button.onPressed, isNull);
-    });
+        await tester.pumpAndSettle();
 
-    testWidgets('shows duplicate warning banner when possibleDuplicate is true', (
+        expect(
+          find.text('La imagen no parece ser un recibo válido'),
+          findsOneWidget,
+        );
+        expect(find.byIcon(Icons.arrow_back), findsOneWidget);
+
+        // Verify Confirm button is disabled
+        final confirmBtnFinder = find.widgetWithText(
+          FilledButton,
+          'Confirmar gasto',
+        );
+        expect(confirmBtnFinder, findsOneWidget);
+        final FilledButton button = tester.widget(confirmBtnFinder);
+        expect(button.onPressed, isNull);
+      },
+    );
+
+    testWidgets(
+      'shows duplicate warning banner when possibleDuplicate is true',
+      (tester) async {
+        final duplicateState = ReceiptCaptureReview(
+          proposalId: 'dup-proposal-id',
+          status: 'complete',
+          localImagePath: tempImage.path,
+          possibleDuplicate: true,
+          duplicateWarning:
+              'Ya registraste una compra en D1 SAS por \$11.700 en esta fecha.',
+          formData: ReceiptReviewFormData(
+            merchant: 'D1 SAS',
+            totalAmount: 11700.0,
+            currency: 'COP',
+            occurredAt: DateTime(2026, 9, 27),
+            items: [],
+          ),
+        );
+
+        final testNotifier = _TestReceiptCaptureNotifier(duplicateState);
+
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              receiptCaptureNotifierProvider.overrideWith(() => testNotifier),
+              categoriesRepositoryProvider.overrideWithValue(
+                _FakeCategoriesRepository(),
+              ),
+            ],
+            child: MaterialApp(
+              theme: AppTheme.light(),
+              home: const ReceiptReviewScreen(),
+            ),
+          ),
+        );
+
+        await tester.pumpAndSettle();
+
+        expect(find.text('Posible recibo duplicado'), findsOneWidget);
+        expect(
+          find.text(
+            'Ya registraste una compra en D1 SAS por \$11.700 en esta fecha.',
+          ),
+          findsOneWidget,
+        );
+      },
+    );
+
+    testWidgets('shows the diagnostic panel when a confirmation fails', (
       tester,
     ) async {
-      final duplicateState = ReceiptCaptureReview(
-        proposalId: 'dup-proposal-id',
+      _useRoomyViewport(tester);
+
+      final failureState = ReceiptCaptureReview(
+        proposalId: 'proposal-failure',
         status: 'complete',
         localImagePath: tempImage.path,
-        possibleDuplicate: true,
-        duplicateWarning:
-            'Ya registraste una compra en D1 SAS por \$11.700 en esta fecha.',
+        submissionDiagnostic: ErrorDiagnostic.capture(
+          code: 'receipt_proposal_not_found',
+          operation: 'confirm_receipt_expense',
+          userMessage: 'El borrador del recibo ya no está disponible.',
+          correlationId: 'corr-9',
+          technicalReason: 'proposal_not_found',
+        ),
         formData: ReceiptReviewFormData(
           merchant: 'D1 SAS',
           totalAmount: 11700.0,
@@ -476,7 +584,7 @@ void main() {
         ),
       );
 
-      final testNotifier = _TestReceiptCaptureNotifier(duplicateState);
+      final testNotifier = _TestReceiptCaptureNotifier(failureState);
 
       await tester.pumpWidget(
         ProviderScope(
@@ -495,12 +603,16 @@ void main() {
 
       await tester.pumpAndSettle();
 
-      expect(find.text('Posible recibo duplicado'), findsOneWidget);
+      expect(find.byType(ErrorDiagnosticPanel), findsOneWidget);
       expect(
-        find.text('Ya registraste una compra en D1 SAS por \$11.700 en esta fecha.'),
+        find.text('Error code: receipt_proposal_not_found'),
         findsOneWidget,
       );
+      expect(
+        find.text('El borrador del recibo ya no está disponible.'),
+        findsWidgets,
+      );
+      expect(find.textContaining('Exception'), findsNothing);
     });
   });
 }
-

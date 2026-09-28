@@ -47,11 +47,20 @@ class _FakeRemoteDataSource extends ReceiptCaptureRemoteDataSource {
   Expense? confirmResponse;
   bool discardCalled = false;
 
+  /// When set, the matching call fails with this error so the failure-reporting
+  /// paths can be exercised with realistic exceptions.
+  Object? uploadFailure;
+  Object? confirmFailure;
+
   @override
   Future<ReceiptProposalResponseDto> uploadProposal({
     required String filePath,
     int rotationDegrees = 0,
   }) async {
+    final failure = uploadFailure;
+    if (failure != null) {
+      throw failure;
+    }
     if (proposalResponse != null) {
       return proposalResponse!;
     }
@@ -86,6 +95,10 @@ class _FakeRemoteDataSource extends ReceiptCaptureRemoteDataSource {
     required String proposalId,
     required ReceiptProposalConfirmRequestDto command,
   }) async {
+    final failure = confirmFailure;
+    if (failure != null) {
+      throw failure;
+    }
     if (confirmResponse != null) {
       return confirmResponse!;
     }
@@ -372,6 +385,149 @@ void main() {
         final success = state as ReceiptCaptureSuccess;
         expect(success.expenseId, 200);
         expect(success.localSavedImagePath, '/cache/receipts/200.jpg');
+      },
+    );
+
+    test('unreadable picked file reports a safe inspection failure', () async {
+      fakePicker.pickedFile = XFile(
+        '${Directory.systemTemp.path}/missing_receipt_image.jpg',
+      );
+
+      final notifier = container.read(receiptCaptureNotifierProvider.notifier);
+      await notifier.pickImage(ImageSource.camera);
+
+      final state = container.read(receiptCaptureNotifierProvider);
+      expect(state, isA<ReceiptCaptureError>());
+      final error = state as ReceiptCaptureError;
+
+      expect(error.diagnostic.code, 'unexpected_client_error');
+      expect(error.diagnostic.operation, 'validate_receipt_image');
+      expect(error.diagnostic.technicalReason, 'image_inspection_failure');
+
+      final report = error.diagnostic.clipboardText;
+      expect(report, isNot(contains('Exception')));
+      expect(report, isNot(contains('missing_receipt_image')));
+    });
+
+    test(
+      'analysis failure reports a safe diagnostic without the raw exception',
+      () async {
+        const leakedPath = '/data/user/0/com.financeai/files/receipts/42.jpg';
+        fakeRemote.uploadFailure = const FileSystemException(
+          'Cannot open file',
+          leakedPath,
+        );
+
+        final notifier = container.read(
+          receiptCaptureNotifierProvider.notifier,
+        );
+        await notifier.pickImage(ImageSource.camera);
+        await notifier.analyzeReceipt();
+
+        final state = container.read(receiptCaptureNotifierProvider);
+        expect(state, isA<ReceiptCaptureError>());
+        final error = state as ReceiptCaptureError;
+
+        expect(error.diagnostic.code, 'unexpected_client_error');
+        expect(error.diagnostic.operation, 'analyze_receipt');
+        expect(error.diagnostic.technicalReason, 'receipt_analysis_failure');
+        expect(error.localImagePath, sampleFile.path);
+
+        final report = error.diagnostic.clipboardText;
+        expect(report, isNot(contains('FileSystemException')));
+        expect(report, isNot(contains(leakedPath)));
+        expect(report, isNot(contains(sampleFile.path)));
+      },
+    );
+
+    test('analysis failure keeps the server code and correlation ID', () async {
+      fakeRemote.uploadFailure = const ExpenseFailure(
+        code: 'receipt_not_readable',
+        userMessage: 'No pudimos leer el recibo. Intenta con otra foto.',
+        correlationId: 'corr-123',
+        technicalReason: 'vision_provider_unavailable',
+      );
+
+      final notifier = container.read(receiptCaptureNotifierProvider.notifier);
+      await notifier.pickImage(ImageSource.camera);
+      await notifier.analyzeReceipt();
+
+      final state = container.read(receiptCaptureNotifierProvider);
+      expect(state, isA<ReceiptCaptureError>());
+      final diagnostic = (state as ReceiptCaptureError).diagnostic;
+
+      expect(diagnostic.code, 'receipt_not_readable');
+      expect(diagnostic.correlationId, 'corr-123');
+      expect(diagnostic.operation, 'analyze_receipt');
+      expect(diagnostic.technicalReason, 'vision_provider_unavailable');
+      expect(
+        diagnostic.userMessage,
+        'No pudimos leer el recibo. Intenta con otra foto.',
+      );
+    });
+
+    test(
+      'oversize image reports the size code without the file path',
+      () async {
+        final bigFile = File('${Directory.systemTemp.path}/notifier_big.jpg')
+          ..writeAsBytesSync(List<int>.filled(10 * 1024 * 1024 + 1, 0));
+        addTearDown(() {
+          if (bigFile.existsSync()) {
+            bigFile.deleteSync();
+          }
+        });
+
+        final notifier = container.read(
+          receiptCaptureNotifierProvider.notifier,
+        );
+        await notifier.useImageFile(XFile(bigFile.path));
+
+        final state = container.read(receiptCaptureNotifierProvider);
+        expect(state, isA<ReceiptCaptureError>());
+        final error = state as ReceiptCaptureError;
+
+        expect(error.diagnostic.code, 'receipt_image_too_large');
+        expect(error.diagnostic.operation, 'validate_receipt_image');
+        expect(error.diagnostic.technicalReason, 'image_exceeds_size_limit');
+        expect(error.localImagePath, bigFile.path);
+        expect(error.diagnostic.clipboardText, isNot(contains(bigFile.path)));
+      },
+    );
+
+    test(
+      'confirm failure reports a safe diagnostic on the review state',
+      () async {
+        fakeRemote.confirmFailure = const FileSystemException(
+          'Cannot open file',
+          '/data/user/0/com.financeai/files/receipts/42.jpg',
+        );
+
+        final notifier = container.read(
+          receiptCaptureNotifierProvider.notifier,
+        );
+        await notifier.pickImage(ImageSource.camera);
+        await notifier.analyzeReceipt();
+        final review = container.read(
+          receiptCaptureNotifierProvider,
+        ) as ReceiptCaptureReview;
+        notifier.updateFormData(review.formData.copyWith(accountId: 1));
+
+        final result = await notifier.confirmExpense();
+
+        expect(result, isNull);
+        final state = container.read(
+          receiptCaptureNotifierProvider,
+        ) as ReceiptCaptureReview;
+        final diagnostic = state.submissionDiagnostic;
+        expect(diagnostic, isNotNull);
+        expect(diagnostic!.code, 'unexpected_client_error');
+        expect(diagnostic.operation, 'confirm_receipt_expense');
+        expect(diagnostic.technicalReason, 'receipt_confirmation_failure');
+        expect(state.submissionError, isNull);
+        expect(
+          diagnostic.clipboardText,
+          isNot(contains('FileSystemException')),
+        );
       },
     );
   });

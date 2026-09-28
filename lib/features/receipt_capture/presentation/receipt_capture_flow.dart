@@ -58,7 +58,9 @@ Future<void> startReceiptCapture(
       MaterialPageRoute<void>(builder: (_) => const ReceiptPreCheckScreen()),
     );
   } else if (state is ReceiptCaptureError) {
-    messenger.showSnackBar(SnackBar(content: Text(state.errorMessage)));
+    messenger.showSnackBar(
+      SnackBar(content: Text(state.diagnostic.userMessage)),
+    );
   }
 }
 

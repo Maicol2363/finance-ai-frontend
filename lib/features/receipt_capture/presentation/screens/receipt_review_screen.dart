@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../core/diagnostics/error_diagnostic_panel.dart';
 import '../../../../core/formatters/money_formatter.dart';
 import '../../../../core/theme/app_palette.dart';
 import '../../../accounts/application/accounts_controller.dart';
@@ -39,8 +40,8 @@ class _ReceiptReviewScreenState extends ConsumerState<ReceiptReviewScreen> {
         : '';
     final initialTotal = state is ReceiptCaptureReview
         ? (state.formData.totalAmount > 0
-            ? state.formData.totalAmount.toStringAsFixed(0)
-            : '')
+              ? state.formData.totalAmount.toStringAsFixed(0)
+              : '')
         : '';
     final initialNote = state is ReceiptCaptureReview
         ? (state.formData.note ?? '')
@@ -177,15 +178,14 @@ class _ReceiptReviewScreenState extends ConsumerState<ReceiptReviewScreen> {
       final selectedId = matchedAccount.id;
       Future<void>.microtask(() {
         if (mounted) {
-          notifier.updateFormData(
-            formData.copyWith(accountId: selectedId),
-          );
+          notifier.updateFormData(formData.copyWith(accountId: selectedId));
         }
       });
     }
 
     final suggestion = formData.suggestedCategory?.trim();
-    final hasSuggestedOption = suggestion != null &&
+    final hasSuggestedOption =
+        suggestion != null &&
         suggestion.isNotEmpty &&
         !_availableCategories.any(
           (c) => c.name.trim().toLowerCase() == suggestion.toLowerCase(),
@@ -205,10 +205,7 @@ class _ReceiptReviewScreenState extends ConsumerState<ReceiptReviewScreen> {
             notifier.updateFormData(formData.copyWith(categoryId: match.id));
           } else {
             notifier.updateFormData(
-              formData.copyWith(
-                categoryId: -1,
-                newCategoryName: suggestion,
-              ),
+              formData.copyWith(categoryId: -1, newCategoryName: suggestion),
             );
           }
         }
@@ -263,8 +260,7 @@ class _ReceiptReviewScreenState extends ConsumerState<ReceiptReviewScreen> {
                             color: palette.discard,
                             bgColor: palette.errorSoft,
                             title: 'La imagen no parece ser un recibo válido',
-                            subtitle:
-                                'La IA determinó que esta imagen no corresponde a un comprobante o recibo de compra. Por seguridad no se puede registrar como gasto.',
+                            subtitle: 'La IA determinó que esta imagen no corresponde a un comprobante o recibo de compra. Por seguridad no se puede registrar como gasto.',
                           ),
                           const SizedBox(height: 16),
                         ] else if (state.status == 'failed_extraction') ...[
@@ -274,281 +270,289 @@ class _ReceiptReviewScreenState extends ConsumerState<ReceiptReviewScreen> {
                             color: Colors.orange.shade800,
                             bgColor: Colors.orange.shade50,
                             title: 'Extracción automática no disponible',
-                            subtitle:
-                                'No se pudieron extraer datos automáticamente. Puedes completar los campos obligatorios para registrar el gasto o descartarlo.',
+                            subtitle: 'No se pudieron extraer datos automáticamente. Puedes completar los campos obligatorios para registrar el gasto o descartarlo.',
                           ),
                           const SizedBox(height: 16),
                         ],
 
-                      // Duplicate warning banner
-                      if (state.possibleDuplicate) ...[
-                        _buildWarningBanner(
-                          palette: palette,
-                          icon: Icons.warning_amber_rounded,
-                          color: Colors.amber.shade900,
-                          bgColor: Colors.amber.shade50,
-                          title: 'Posible recibo duplicado',
-                          subtitle: state.duplicateWarning ??
-                              'Ya registraste una compra idéntica en este comercio y fecha.',
-                        ),
-                        const SizedBox(height: 16),
-                      ],
-
-                      // Arithmetic discrepancy banner
-                      if (formData.hasArithmeticDiscrepancy) ...[
-                        _buildWarningBanner(
-                          palette: palette,
-                          icon: Icons.info_outline,
-                          color: Colors.amber.shade900,
-                          bgColor: Colors.amber.shade50,
-                          title: 'Diferencia en la suma de productos',
-                          subtitle:
-                              'Suma de items: \$${MoneyFormatter.formatWhole(formData.itemsSum.round())} | Total: \$${MoneyFormatter.formatWhole(formData.totalAmount.round())}.\nEl total confirmado será el monto oficial del gasto.',
-                        ),
-                        const SizedBox(height: 16),
-                      ],
-
-                      // Submission error banner
-                      if (state.submissionError != null) ...[
-                        _buildWarningBanner(
-                          palette: palette,
-                          icon: Icons.error_outline,
-                          color: palette.discard,
-                          bgColor: palette.errorSoft,
-                          title: 'Error al confirmar',
-                          subtitle: state.submissionError!,
-                        ),
-                        const SizedBox(height: 16),
-                      ],
-
-                      // Financial Details Section
-                      _buildCard(
-                        palette: palette,
-                        title: 'Datos del gasto',
-                        children: [
-                          TextFormField(
-                            controller: _merchantController,
-                            decoration: const InputDecoration(
-                              labelText: 'Comercio / Tienda *',
-                              prefixIcon: Icon(Icons.storefront_outlined),
-                            ),
-                            validator: (val) {
-                              if (val == null || val.trim().isEmpty) {
-                                return 'Ingresa el nombre del comercio';
-                              }
-                              return null;
-                            },
-                            onChanged: (val) {
-                              notifier.updateFormData(
-                                formData.copyWith(merchant: val),
-                              );
-                            },
+                        // Duplicate warning banner
+                        if (state.possibleDuplicate) ...[
+                          _buildWarningBanner(
+                            palette: palette,
+                            icon: Icons.warning_amber_rounded,
+                            color: Colors.amber.shade900,
+                            bgColor: Colors.amber.shade50,
+                            title: 'Posible recibo duplicado',
+                            subtitle: state.duplicateWarning ?? 'Ya registraste una compra idéntica en este comercio y fecha.',
                           ),
                           const SizedBox(height: 16),
-                          TextFormField(
-                            controller: _totalAmountController,
-                            keyboardType: const TextInputType.numberWithOptions(
-                              decimal: true,
+                        ],
+
+                        // Arithmetic discrepancy banner
+                        if (formData.hasArithmeticDiscrepancy) ...[
+                          _buildWarningBanner(
+                            palette: palette,
+                            icon: Icons.info_outline,
+                            color: Colors.amber.shade900,
+                            bgColor: Colors.amber.shade50,
+                            title: 'Diferencia en la suma de productos',
+                            subtitle:
+                                'Suma de items: \$${MoneyFormatter.formatWhole(formData.itemsSum.round())} | Total: \$${MoneyFormatter.formatWhole(formData.totalAmount.round())}.\nEl total confirmado será el monto oficial del gasto.',
+                          ),
+                          const SizedBox(height: 16),
+                        ],
+
+                        // Submission failure report (privacy-safe, copyable)
+                        if (state.submissionDiagnostic
+                            case final diagnostic?) ...[
+                          ErrorDiagnosticPanel(diagnostic: diagnostic),
+                          const SizedBox(height: 16),
+                        ],
+
+                        // Client-side validation hint
+                        if (state.submissionError != null) ...[
+                          _buildWarningBanner(
+                            palette: palette,
+                            icon: Icons.error_outline,
+                            color: palette.discard,
+                            bgColor: palette.errorSoft,
+                            title: 'Error al confirmar',
+                            subtitle: state.submissionError!,
+                          ),
+                          const SizedBox(height: 16),
+                        ],
+
+                        // Financial Details Section
+                        _buildCard(
+                          palette: palette,
+                          title: 'Datos del gasto',
+                          children: [
+                            TextFormField(
+                              controller: _merchantController,
+                              decoration: const InputDecoration(
+                                labelText: 'Comercio / Tienda *',
+                                prefixIcon: Icon(Icons.storefront_outlined),
+                              ),
+                              validator: (val) {
+                                if (val == null || val.trim().isEmpty) {
+                                  return 'Ingresa el nombre del comercio';
+                                }
+                                return null;
+                              },
+                              onChanged: (val) {
+                                notifier.updateFormData(
+                                  formData.copyWith(merchant: val),
+                                );
+                              },
                             ),
-                            style: TextStyle(
-                              fontSize: 22,
-                              fontWeight: FontWeight.bold,
-                              color: palette.discard,
-                            ),
-                            decoration: InputDecoration(
-                              labelText: 'Monto total (${formData.currency}) *',
-                              prefixText: '- \$ ',
-                              prefixStyle: TextStyle(
+                            const SizedBox(height: 16),
+                            TextFormField(
+                              controller: _totalAmountController,
+                              keyboardType:
+                                  const TextInputType.numberWithOptions(
+                                    decimal: true,
+                                  ),
+                              style: TextStyle(
                                 fontSize: 22,
                                 fontWeight: FontWeight.bold,
                                 color: palette.discard,
                               ),
+                              decoration: InputDecoration(
+                                labelText:
+                                    'Monto total (${formData.currency}) *',
+                                prefixText: '- \$ ',
+                                prefixStyle: TextStyle(
+                                  fontSize: 22,
+                                  fontWeight: FontWeight.bold,
+                                  color: palette.discard,
+                                ),
+                              ),
+                              validator: (val) {
+                                final parsed = double.tryParse(val ?? '');
+                                if (parsed == null || parsed <= 0) {
+                                  return 'Ingresa un monto válido mayor a 0';
+                                }
+                                return null;
+                              },
+                              onChanged: (val) {
+                                final parsed = double.tryParse(val) ?? 0.0;
+                                notifier.updateFormData(
+                                  formData.copyWith(totalAmount: parsed),
+                                );
+                              },
                             ),
-                            validator: (val) {
-                              final parsed = double.tryParse(val ?? '');
-                              if (parsed == null || parsed <= 0) {
-                                return 'Ingresa un monto válido mayor a 0';
-                              }
-                              return null;
-                            },
-                            onChanged: (val) {
-                              final parsed = double.tryParse(val) ?? 0.0;
-                              notifier.updateFormData(
-                                formData.copyWith(totalAmount: parsed),
-                              );
-                            },
-                          ),
-                          const SizedBox(height: 16),
-                          ListTile(
-                            contentPadding: EdgeInsets.zero,
-                            leading: Icon(
-                              Icons.calendar_today_outlined,
-                              color: palette.primary,
-                            ),
-                            title: const Text('Fecha del comprobante'),
-                            subtitle: Text(
-                              '${formData.occurredAt.day.toString().padLeft(2, '0')}/${formData.occurredAt.month.toString().padLeft(2, '0')}/${formData.occurredAt.year}',
-                              style: TextStyle(
-                                fontWeight: FontWeight.w600,
-                                color: palette.text,
+                            const SizedBox(height: 16),
+                            ListTile(
+                              contentPadding: EdgeInsets.zero,
+                              leading: Icon(
+                                Icons.calendar_today_outlined,
+                                color: palette.primary,
+                              ),
+                              title: const Text('Fecha del comprobante'),
+                              subtitle: Text(
+                                '${formData.occurredAt.day.toString().padLeft(2, '0')}/${formData.occurredAt.month.toString().padLeft(2, '0')}/${formData.occurredAt.year}',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                  color: palette.text,
+                                ),
+                              ),
+                              trailing: TextButton(
+                                onPressed: () async {
+                                  final picked = await showDatePicker(
+                                    context: context,
+                                    initialDate: formData.occurredAt,
+                                    firstDate: DateTime(2020),
+                                    lastDate: DateTime(2030),
+                                  );
+                                  if (picked != null) {
+                                    notifier.updateFormData(
+                                      formData.copyWith(occurredAt: picked),
+                                    );
+                                  }
+                                },
+                                child: const Text('Cambiar'),
                               ),
                             ),
-                            trailing: TextButton(
-                              onPressed: () async {
-                                final picked = await showDatePicker(
-                                  context: context,
-                                  initialDate: formData.occurredAt,
-                                  firstDate: DateTime(2020),
-                                  lastDate: DateTime(2030),
-                                );
-                                if (picked != null) {
+                            const SizedBox(height: 12),
+                            DropdownButtonFormField<int>(
+                              initialValue: formData.accountId,
+                              decoration: const InputDecoration(
+                                labelText: 'Cuenta de pago *',
+                                prefixIcon: Icon(
+                                  Icons.account_balance_wallet_outlined,
+                                ),
+                              ),
+                              items: activeAccounts
+                                  .map(
+                                    (acc) => DropdownMenuItem<int>(
+                                      value: acc.id,
+                                      child: Text(
+                                        '${acc.name} (${acc.currency.code})',
+                                      ),
+                                    ),
+                                  )
+                                  .toList(),
+                              validator: (val) {
+                                if (val == null) {
+                                  return 'Selecciona una cuenta de pago';
+                                }
+                                return null;
+                              },
+                              onChanged: (val) {
+                                if (val != null) {
                                   notifier.updateFormData(
-                                    formData.copyWith(occurredAt: picked),
+                                    formData.copyWith(accountId: val),
                                   );
                                 }
                               },
-                              child: const Text('Cambiar'),
                             ),
-                          ),
-                          const SizedBox(height: 12),
-                          DropdownButtonFormField<int>(
-                            initialValue: formData.accountId,
-                            decoration: const InputDecoration(
-                              labelText: 'Cuenta de pago *',
-                              prefixIcon: Icon(
-                                Icons.account_balance_wallet_outlined,
-                              ),
-                            ),
-                            items: activeAccounts
-                                .map(
-                                  (acc) => DropdownMenuItem<int>(
-                                    value: acc.id,
-                                    child: Text(
-                                      '${acc.name} (${acc.currency.code})',
-                                    ),
-                                  ),
-                                )
-                                .toList(),
-                            validator: (val) {
-                              if (val == null) {
-                                return 'Selecciona una cuenta de pago';
-                              }
-                              return null;
-                            },
-                            onChanged: (val) {
-                              if (val != null) {
-                                notifier.updateFormData(
-                                  formData.copyWith(accountId: val),
-                                );
-                              }
-                            },
-                          ),
-                          const SizedBox(height: 16),
-                          DropdownButtonFormField<int>(
-                            initialValue:
-                                formData.categoryId == -1 && hasSuggestedOption
-                                    ? -1
-                                    : (_availableCategories.any(
-                                        (c) => c.id == formData.categoryId,
-                                      )
+                            const SizedBox(height: 16),
+                            DropdownButtonFormField<int>(
+                              initialValue:
+                                  formData.categoryId == -1 &&
+                                      hasSuggestedOption
+                                  ? -1
+                                  : (_availableCategories.any(
+                                          (c) => c.id == formData.categoryId,
+                                        )
                                         ? formData.categoryId
                                         : null),
-                            decoration: const InputDecoration(
-                              labelText: 'Categoría general (opcional)',
-                              prefixIcon: Icon(Icons.category_outlined),
-                            ),
-                            items: [
-                              const DropdownMenuItem<int>(
-                                value: null,
-                                child: Text('Sin categoría específica'),
+                              decoration: const InputDecoration(
+                                labelText: 'Categoría general (opcional)',
+                                prefixIcon: Icon(Icons.category_outlined),
                               ),
-                              if (hasSuggestedOption)
-                                DropdownMenuItem<int>(
-                                  value: -1,
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Icon(
-                                        Icons.auto_awesome,
-                                        size: 16,
-                                        color: palette.primary,
-                                      ),
-                                      const SizedBox(width: 8),
-                                      Text(
-                                        'Crear "$suggestion" (IA)',
-                                        style: TextStyle(
-                                          fontWeight: FontWeight.bold,
+                              items: [
+                                const DropdownMenuItem<int>(
+                                  value: null,
+                                  child: Text('Sin categoría específica'),
+                                ),
+                                if (hasSuggestedOption)
+                                  DropdownMenuItem<int>(
+                                    value: -1,
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(
+                                          Icons.auto_awesome,
+                                          size: 16,
                                           color: palette.primary,
                                         ),
-                                      ),
-                                    ],
+                                        const SizedBox(width: 8),
+                                        Text(
+                                          'Crear "$suggestion" (IA)',
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            color: palette.primary,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ..._availableCategories.map(
+                                  (cat) => DropdownMenuItem<int>(
+                                    value: cat.id,
+                                    child: Text(cat.name),
                                   ),
                                 ),
-                              ..._availableCategories.map(
-                                (cat) => DropdownMenuItem<int>(
-                                  value: cat.id,
-                                  child: Text(cat.name),
-                                ),
-                              ),
-                            ],
-                            onChanged: (val) {
-                              if (val == -1) {
-                                notifier.updateFormData(
-                                  formData.copyWith(
-                                    categoryId: -1,
-                                    newCategoryName: suggestion,
-                                  ),
-                                );
-                              } else {
-                                notifier.updateFormData(
-                                  formData.copyWith(
-                                    categoryId: val,
-                                    clearCategoryId: val == null,
-                                    clearNewCategoryName: true,
-                                  ),
-                                );
-                              }
-                            },
-                          ),
-                          const SizedBox(height: 16),
-                          TextFormField(
-                            controller: _noteController,
-                            decoration: const InputDecoration(
-                              labelText: 'Notas adicionales (opcional)',
-                              prefixIcon: Icon(Icons.notes_outlined),
+                              ],
+                              onChanged: (val) {
+                                if (val == -1) {
+                                  notifier.updateFormData(
+                                    formData.copyWith(
+                                      categoryId: -1,
+                                      newCategoryName: suggestion,
+                                    ),
+                                  );
+                                } else {
+                                  notifier.updateFormData(
+                                    formData.copyWith(
+                                      categoryId: val,
+                                      clearCategoryId: val == null,
+                                      clearNewCategoryName: true,
+                                    ),
+                                  );
+                                }
+                              },
                             ),
-                            onChanged: (val) {
-                              notifier.updateFormData(
-                                formData.copyWith(note: val),
-                              );
-                            },
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
+                            const SizedBox(height: 16),
+                            TextFormField(
+                              controller: _noteController,
+                              decoration: const InputDecoration(
+                                labelText: 'Notas adicionales (opcional)',
+                                prefixIcon: Icon(Icons.notes_outlined),
+                              ),
+                              onChanged: (val) {
+                                notifier.updateFormData(
+                                  formData.copyWith(note: val),
+                                );
+                              },
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
 
-                      // Line Items Breakdown Section
-                      _buildLineItemsSection(
-                        context,
-                        palette,
-                        formData,
-                        notifier,
-                      ),
-                      const SizedBox(height: 24),
-                    ],
+                        // Line Items Breakdown Section
+                        _buildLineItemsSection(
+                          context,
+                          palette,
+                          formData,
+                          notifier,
+                        ),
+                        const SizedBox(height: 24),
+                      ],
+                    ),
                   ),
                 ),
               ),
-            ),
 
-            // Sticky Bottom Action Bar
-            _buildBottomActionBar(context, palette, state, notifier),
-          ],
+              // Sticky Bottom Action Bar
+              _buildBottomActionBar(context, palette, state, notifier),
+            ],
+          ),
         ),
       ),
-    ),
-  );
-}
+    );
+  }
 
   Widget _buildPhotoPreviewCard(
     BuildContext context,
@@ -808,7 +812,8 @@ class _ReceiptReviewScreenState extends ConsumerState<ReceiptReviewScreen> {
   ) {
     final formData = state.formData;
     final isNotAReceipt = state.status == 'not_a_receipt';
-    final canConfirm = !state.isSubmitting && !isNotAReceipt && formData.isValid;
+    final canConfirm =
+        !state.isSubmitting && !isNotAReceipt && formData.isValid;
 
     return Container(
       padding: const EdgeInsets.all(16),

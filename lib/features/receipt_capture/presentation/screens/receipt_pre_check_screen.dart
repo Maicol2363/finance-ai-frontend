@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../../../../core/diagnostics/error_diagnostic_panel.dart';
 import '../../../../core/theme/app_palette.dart';
 import '../../application/receipt_capture_notifier.dart';
 import '../../domain/receipt_capture_state.dart';
@@ -35,7 +36,9 @@ Future<void> _retakeWithInAppCamera(BuildContext context) async {
 
   final state = container.read(receiptCaptureNotifierProvider);
   if (state is ReceiptCaptureError) {
-    messenger.showSnackBar(SnackBar(content: Text(state.errorMessage)));
+    messenger.showSnackBar(
+      SnackBar(content: Text(state.diagnostic.userMessage)),
+    );
   }
 }
 
@@ -123,11 +126,7 @@ class ReceiptPreCheckScreen extends ConsumerWidget {
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 8),
-                Text(
-                  state.errorMessage,
-                  style: TextStyle(color: palette.muted),
-                  textAlign: TextAlign.center,
-                ),
+                ErrorDiagnosticPanel(diagnostic: state.diagnostic),
                 const SizedBox(height: 24),
                 if (state.canRetry && state.localImagePath != null)
                   FilledButton.icon(

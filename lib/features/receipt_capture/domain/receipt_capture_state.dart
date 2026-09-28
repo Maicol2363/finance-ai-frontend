@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 
+import '../../../core/diagnostics/error_diagnostic.dart';
 import 'receipt_review_form_data.dart';
 
 @immutable
@@ -53,6 +54,7 @@ class ReceiptCaptureReview extends ReceiptCaptureState {
   final List<String> issues;
   final bool isSubmitting;
   final String? submissionError;
+  final ErrorDiagnostic? submissionDiagnostic;
   final bool possibleDuplicate;
   final String? duplicateWarning;
 
@@ -64,6 +66,7 @@ class ReceiptCaptureReview extends ReceiptCaptureState {
     this.issues = const [],
     this.isSubmitting = false,
     this.submissionError,
+    this.submissionDiagnostic,
     this.possibleDuplicate = false,
     this.duplicateWarning,
   });
@@ -76,6 +79,7 @@ class ReceiptCaptureReview extends ReceiptCaptureState {
     List<String>? issues,
     bool? isSubmitting,
     String? submissionError,
+    ErrorDiagnostic? submissionDiagnostic,
     bool? possibleDuplicate,
     String? duplicateWarning,
   }) {
@@ -87,6 +91,7 @@ class ReceiptCaptureReview extends ReceiptCaptureState {
       issues: issues ?? this.issues,
       isSubmitting: isSubmitting ?? this.isSubmitting,
       submissionError: submissionError,
+      submissionDiagnostic: submissionDiagnostic,
       possibleDuplicate: possibleDuplicate ?? this.possibleDuplicate,
       duplicateWarning: duplicateWarning ?? this.duplicateWarning,
     );
@@ -107,13 +112,18 @@ class ReceiptCaptureSuccess extends ReceiptCaptureState {
   });
 }
 
+/// A user-visible capture failure.
+///
+/// [diagnostic] carries the shared, privacy-safe report (stable code, operation,
+/// safe message and technical reason). Raw exception text, file paths and
+/// platform details must never be rendered from this state.
 class ReceiptCaptureError extends ReceiptCaptureState {
-  final String errorMessage;
+  final ErrorDiagnostic diagnostic;
   final String? localImagePath;
   final bool canRetry;
 
   const ReceiptCaptureError({
-    required this.errorMessage,
+    required this.diagnostic,
     this.localImagePath,
     this.canRetry = true,
   });
