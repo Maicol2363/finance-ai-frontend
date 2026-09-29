@@ -1,4 +1,5 @@
 import 'package:finance_ai/features/accounts/domain/account_models.dart';
+import 'package:finance_ai/features/expenses/domain/expense_models.dart';
 import 'package:finance_ai/features/expenses/domain/history_models.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -103,6 +104,67 @@ void main() {
     expect(params.containsKey('search'), isFalse);
     expect(params['start_date'], '2026-09-01');
     expect(params['end_date'], '2026-09-15');
+  });
+
+  test('store, capture source and receipt kind travel as query parameters', () {
+    final params = const HistoryFilters(
+      store: '  Éxito ',
+      captureSource: CaptureSource.ai,
+      receiptKind: ReceiptKind.multi,
+    ).toQueryParameters();
+
+    expect(params['store'], 'Éxito');
+    expect(params['capture_source'], 'ai');
+    expect(params['receipt_kind'], 'multi');
+  });
+
+  test('blank store, source and receipt kind are omitted', () {
+    final params = const HistoryFilters(store: '   ').toQueryParameters();
+
+    expect(params.containsKey('store'), isFalse);
+    expect(params.containsKey('capture_source'), isFalse);
+    expect(params.containsKey('receipt_kind'), isFalse);
+  });
+
+  test('hasActiveFilters ignores paging and blank searches', () {
+    expect(const HistoryFilters().hasActiveFilters, isFalse);
+    expect(
+      const HistoryFilters(
+        page: 3,
+        pageSize: 10,
+        search: '   ',
+      ).hasActiveFilters,
+      isFalse,
+    );
+    expect(
+      const HistoryFilters(type: TransactionType.income).hasActiveFilters,
+      isTrue,
+    );
+    expect(const HistoryFilters(categoryId: 3).hasActiveFilters, isTrue);
+    expect(const HistoryFilters(accountId: 11).hasActiveFilters, isTrue);
+    expect(
+      const HistoryFilters(period: HistoryPeriod.month).hasActiveFilters,
+      isTrue,
+    );
+    expect(
+      HistoryFilters(startDate: DateTime.utc(2026, 9, 1)).hasActiveFilters,
+      isTrue,
+    );
+    expect(
+      HistoryFilters(endDate: DateTime.utc(2026, 9, 30)).hasActiveFilters,
+      isTrue,
+    );
+    expect(const HistoryFilters(store: 'Éxito').hasActiveFilters, isTrue);
+    expect(const HistoryFilters(store: '  ').hasActiveFilters, isFalse);
+    expect(
+      const HistoryFilters(captureSource: CaptureSource.manual)
+          .hasActiveFilters,
+      isTrue,
+    );
+    expect(
+      const HistoryFilters(receiptKind: ReceiptKind.multi).hasActiveFilters,
+      isTrue,
+    );
   });
 
   test('malformed history fails closed', () {

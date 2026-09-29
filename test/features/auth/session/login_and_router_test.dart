@@ -177,6 +177,12 @@ void main() {
   testWidgets('successful Login reaches Home and Logout protects it again', (
     tester,
   ) async {
+    // The hub card grew (balance caption + month chips): give the window room so
+    // the accounts row is not hidden behind the bottom navigation bar.
+    tester.view.physicalSize = const Size(800, 1600);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+
     final store = MemoryStore();
     await tester.pumpWidget(appWith(WidgetAuthRepository(), store));
     await tester.pumpAndSettle();

@@ -130,6 +130,124 @@ void main() {
     expect(repository.seenFilters.single.page, 1);
   });
 
+  test(
+    'intent methods keep the rest of the query and reset to page 1',
+    () async {
+      final repository = FakeExpensesRepository();
+      final container = ProviderContainer(
+        overrides: [expensesRepositoryProvider.overrideWithValue(repository)],
+      );
+      addTearDown(container.dispose);
+      final controller = container.read(historyControllerProvider.notifier);
+
+      await controller.setSearch(' market ');
+      await controller.setType(TransactionType.income);
+      await controller.setAccountId(11);
+
+      final filters = container.read(historyControllerProvider).filters;
+      expect(filters.search, 'market');
+      expect(filters.type, TransactionType.income);
+      expect(filters.accountId, 11);
+      expect(filters.page, 1);
+      expect(repository.seenFilters.last.accountId, 11);
+      expect(repository.seenFilters.last.search, 'market');
+      expect(repository.seenFilters.last.type, TransactionType.income);
+    },
+  );
+
+  test('setPeriod keeps dates only for the custom preset', () async {
+    final repository = FakeExpensesRepository();
+    final container = ProviderContainer(
+      overrides: [expensesRepositoryProvider.overrideWithValue(repository)],
+    );
+    addTearDown(container.dispose);
+    final controller = container.read(historyControllerProvider.notifier);
+
+    await controller.setPeriod(
+      HistoryPeriod.custom,
+      startDate: DateTime.utc(2026, 9, 1),
+      endDate: DateTime.utc(2026, 9, 15),
+    );
+    var filters = container.read(historyControllerProvider).filters;
+    expect(filters.period, HistoryPeriod.custom);
+    expect(filters.startDate, DateTime.utc(2026, 9, 1));
+    expect(filters.endDate, DateTime.utc(2026, 9, 15));
+
+    await controller.setPeriod(HistoryPeriod.month);
+    filters = container.read(historyControllerProvider).filters;
+    expect(filters.period, HistoryPeriod.month);
+    expect(filters.startDate, isNull);
+    expect(filters.endDate, isNull);
+
+    await controller.setPeriod(null);
+    expect(container.read(historyControllerProvider).filters.period, isNull);
+  });
+
+  test(
+    'blank search clears the filter and clearFilters drops everything',
+    () async {
+      final repository = FakeExpensesRepository();
+      final container = ProviderContainer(
+        overrides: [expensesRepositoryProvider.overrideWithValue(repository)],
+      );
+      addTearDown(container.dispose);
+      final controller = container.read(historyControllerProvider.notifier);
+
+      await controller.setSearch('market');
+      await controller.setCategoryId(3);
+      await controller.setSearch('   ');
+
+      var filters = container.read(historyControllerProvider).filters;
+      expect(filters.search, isNull);
+      expect(filters.categoryId, 3);
+
+      await controller.clearFilters();
+      filters = container.read(historyControllerProvider).filters;
+      expect(filters.hasActiveFilters, isFalse);
+      expect(repository.seenFilters.last.hasActiveFilters, isFalse);
+    },
+  );
+
+  test(
+    'store, source and receipt filters keep the rest of the query',
+    () async {
+      final repository = FakeExpensesRepository();
+      final container = ProviderContainer(
+        overrides: [expensesRepositoryProvider.overrideWithValue(repository)],
+      );
+      addTearDown(container.dispose);
+      final controller = container.read(historyControllerProvider.notifier);
+
+      await controller.setSearch(' mercado ');
+      await controller.setStore('  Éxito ');
+      await controller.setCaptureSource(CaptureSource.ai);
+      await controller.setReceiptKind(ReceiptKind.multi);
+
+      final filters = container.read(historyControllerProvider).filters;
+      expect(filters.store, 'Éxito');
+      expect(filters.captureSource, CaptureSource.ai);
+      expect(filters.receiptKind, ReceiptKind.multi);
+      expect(filters.search, 'mercado');
+      expect(filters.page, 1);
+
+      // The request must carry them too: `load()` rebuilds the query through
+      // `_firstPage`, which has to know about every filter field.
+      final sent = repository.seenFilters.last;
+      expect(sent.store, 'Éxito');
+      expect(sent.captureSource, CaptureSource.ai);
+      expect(sent.receiptKind, ReceiptKind.multi);
+      expect(sent.search, 'mercado');
+
+      // Blank store and explicit nulls clear only their own filter.
+      await controller.setStore('   ');
+      await controller.setReceiptKind(null);
+      final cleared = container.read(historyControllerProvider).filters;
+      expect(cleared.store, isNull);
+      expect(cleared.receiptKind, isNull);
+      expect(cleared.captureSource, CaptureSource.ai);
+    },
+  );
+
   test('history failure exposes a copyable diagnostic', () async {
     final repository = FakeExpensesRepository()
       ..historyFailure = const ExpenseFailure(

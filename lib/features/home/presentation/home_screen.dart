@@ -4,10 +4,14 @@ import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../../core/diagnostics/error_diagnostic_panel.dart';
+import '../../../core/formatters/date_labels.dart';
 import '../../../core/formatters/money_formatter.dart';
+import '../../../core/money/currency_totals.dart';
 import '../../../core/theme/app_palette.dart';
+import '../../../core/time/clock_provider.dart';
 import '../../../core/widgets/movements_empty_state.dart';
 import '../../../core/widgets/theme_toggle_button.dart';
+import '../../accounts/application/account_balances.dart';
 import '../../accounts/application/accounts_controller.dart';
 import '../../accounts/application/accounts_state.dart';
 import '../../accounts/domain/account_models.dart';
@@ -15,7 +19,9 @@ import '../../auth/session/application/auth_session_controller.dart';
 import '../../auth/session/application/auth_session_state.dart';
 import '../../expenses/application/expenses_controller.dart';
 import '../../expenses/application/expenses_state.dart';
+import '../../expenses/application/monthly_totals.dart';
 import '../../expenses/domain/expense_models.dart';
+import '../../expenses/presentation/transaction_visuals.dart';
 import '../../incomes/data/incomes_repository.dart';
 import '../../incomes/domain/income_models.dart';
 import '../../receipt_capture/presentation/receipt_capture_flow.dart';
@@ -82,25 +88,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     }
   }
 
-  String _currentMonthName() {
-    const months = [
-      'enero',
-      'febrero',
-      'marzo',
-      'abril',
-      'mayo',
-      'junio',
-      'julio',
-      'agosto',
-      'septiembre',
-      'octubre',
-      'noviembre',
-      'diciembre',
-    ];
-    final now = DateTime.now();
-    return months[now.month - 1];
-  }
-
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
@@ -139,6 +126,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
 
     final incomesAsync = ref.watch(incomesListProvider);
     final incomes = incomesAsync.value ?? const [];
+
+    final now = ref.watch(clockProvider)();
+    // Balance (stock) and the month chips (flow) share the same definitions as
+    // the Dashboard: `activeAccountBalances` and `monthlyTotalsProvider`.
+    final stock = activeAccountBalances(accounts);
+    final monthTotalsAsync = ref.watch(monthlyTotalsProvider);
 
     final rawExpenses = result?.items ?? const <Expense>[];
     final seenReceiptIds = <int>{};
@@ -249,11 +242,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
 
                         // =================== HUB BALANCE CARD ===================
                         _HubBalanceCard(
-                          monthName: _currentMonthName(),
+                          monthName: DateLabels.monthName(now),
                           userEmail: user?.email,
                           preferredCurrency: user?.preferredCurrency ?? 'COP',
-                          items: result?.items ?? const [],
-                          incomes: incomes,
+                          stock: stock,
+                          monthTotals:
+                              monthTotalsAsync.value?.byCurrency ?? const {},
+                          monthTotalsAvailable: monthTotalsAsync.hasValue,
                           accounts: accounts,
                           onOpenAccounts: () => context.push('/accounts'),
                         ),
@@ -432,13 +427,20 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
 }
 
 // =================== HUB BALANCE CARD ===================
+/// Hub card: the app's single "Balance" definition (stock: the sum of the live
+/// balances of the active accounts) plus the current-month flow chips.
+///
+/// Both figures come from the same sources the Dashboard uses
+/// (`activeAccountBalances` and `monthlyTotalsProvider`), so the two screens
+/// can never disagree.
 class _HubBalanceCard extends StatelessWidget {
   const _HubBalanceCard({
     required this.monthName,
     required this.userEmail,
     required this.preferredCurrency,
-    required this.items,
-    required this.incomes,
+    required this.stock,
+    required this.monthTotals,
+    required this.monthTotalsAvailable,
     required this.accounts,
     required this.onOpenAccounts,
   });
@@ -446,8 +448,12 @@ class _HubBalanceCard extends StatelessWidget {
   final String monthName;
   final String? userEmail;
   final String preferredCurrency;
-  final List<Expense> items;
-  final List<Income> incomes;
+  final Map<String, CurrencyTotals> stock;
+  final Map<String, CurrencyTotals> monthTotals;
+
+  /// False while the month totals are loading or failed: the chips then show
+  /// `—` instead of a made-up zero.
+  final bool monthTotalsAvailable;
   final List<Account> accounts;
   final VoidCallback onOpenAccounts;
 
@@ -455,48 +461,22 @@ class _HubBalanceCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final palette = context.palette;
 
-    // Totals are grouped by currency in integer minor units: amounts in
-    // different currencies are never added together.
-    final balances = <String, int>{};
-    for (final acc in accounts) {
-      if (acc.isActive) {
-        balances[acc.currency.code] =
-            (balances[acc.currency.code] ?? 0) + acc.balance.minorUnits;
-      }
-    }
-    final incomesByCurrency = <String, int>{};
-    for (final inc in incomes) {
-      incomesByCurrency[inc.currencyCode] =
-          (incomesByCurrency[inc.currencyCode] ?? 0) + inc.amount.minorUnits;
-    }
-    final expensesByCurrency = <String, int>{};
-    for (final exp in items) {
-      expensesByCurrency[exp.currencyCode] =
-          (expensesByCurrency[exp.currencyCode] ?? 0) + exp.amount.minorUnits;
-    }
-
-    final orderedCodes =
-        <String>{
-          ...balances.keys,
-          ...incomesByCurrency.keys,
-          ...expensesByCurrency.keys,
-        }.toList()..sort(
-          (a, b) => a == preferredCurrency
-              ? -1
-              : b == preferredCurrency
-              ? 1
-              : a.compareTo(b),
-        );
+    // Money is grouped by currency in integer minor units: amounts in different
+    // currencies are never added together.
+    final orderedCodes = orderedCurrencyCodes({
+      ...stock,
+      ...monthTotals,
+    }, preferred: preferredCurrency);
     final currency = orderedCodes.isEmpty
         ? preferredCurrency
         : orderedCodes.first;
     final otherCodes = orderedCodes.where((code) => code != currency).toList();
 
-    // The headline balance is the real current total: the sum of live
-    // account balances. Opening balances are never counted as income.
-    final netBalance = balances[currency] ?? 0;
-    final totalIncomes = incomesByCurrency[currency] ?? 0;
-    final totalExpenses = expensesByCurrency[currency] ?? 0;
+    // Headline: stock of the primary currency (all-time, includes opening
+    // balances). The chips below are the month's flow, a different figure.
+    final netBalance = stock[currency]?.balance ?? 0;
+    final totalIncomes = monthTotals[currency]?.incomes ?? 0;
+    final totalExpenses = monthTotals[currency]?.expenses ?? 0;
 
     final isNegative = netBalance < 0;
     final absBalance = netBalance.abs();
@@ -504,18 +484,21 @@ class _HubBalanceCard extends StatelessWidget {
     final formattedBalance = MoneyFormatter.formatWhole(absBalance ~/ 100);
     final activeAccounts = accounts.where((a) => a.isActive).toList();
     final activeCount = activeAccounts.length;
-    String signedBalanceLine(int minorUnits, String code) {
-      final sign = minorUnits < 0 ? '-' : '';
-      final whole = MoneyFormatter.formatWhole(minorUnits.abs() ~/ 100);
-      return '$sign\$ $whole $code';
-    }
+    String balanceLine(int minorUnits, String code) =>
+        '${MoneyFormatter.formatMinorUnits(minorUnits)} $code';
 
     final otherBalanceLines = otherCodes
-        .map((code) => signedBalanceLine(balances[code] ?? 0, code))
+        .map((code) => balanceLine(stock[code]?.balance ?? 0, code))
         .toList();
     final perCurrencyBalances = orderedCodes
-        .map((code) => signedBalanceLine(balances[code] ?? 0, code))
+        .map((code) => balanceLine(stock[code]?.balance ?? 0, code))
         .join(' · ');
+    final incomesLabel = monthTotalsAvailable
+        ? MoneyFormatter.formatSignedMinorUnits(totalIncomes)
+        : '—';
+    final expensesLabel = monthTotalsAvailable
+        ? '-${MoneyFormatter.formatMinorUnits(totalExpenses)}'
+        : '—';
 
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
@@ -539,7 +522,7 @@ class _HubBalanceCard extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                'Balance de $monthName',
+                'Saldo en cuentas',
                 style: TextStyle(
                   fontSize: 12.5,
                   fontWeight: FontWeight.w600,
@@ -575,7 +558,16 @@ class _HubBalanceCard extends StatelessWidget {
               ),
             ),
           ],
-          const SizedBox(height: 14),
+          const SizedBox(height: 12),
+          Text(
+            'Movimientos de $monthName',
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: palette.muted,
+            ),
+          ),
+          const SizedBox(height: 6),
           Row(
             children: [
               Expanded(
@@ -609,7 +601,7 @@ class _HubBalanceCard extends StatelessWidget {
                       ),
                       const Spacer(),
                       Text(
-                        '+ \$ ${MoneyFormatter.formatWhole(totalIncomes ~/ 100)}',
+                        incomesLabel,
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w700,
@@ -652,9 +644,7 @@ class _HubBalanceCard extends StatelessWidget {
                       ),
                       const Spacer(),
                       Text(
-                        totalExpenses > 0
-                            ? '- \$ ${MoneyFormatter.formatWhole(totalExpenses ~/ 100)}'
-                            : '- \$ 0',
+                        expensesLabel,
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w700,
@@ -735,55 +725,10 @@ class _HubExpenseCard extends StatelessWidget {
 
   final Expense expense;
 
-  String _categoryEmoji(String? categoryName) {
-    final lower = (categoryName ?? '').toLowerCase();
-    if (lower.contains('comida') ||
-        lower.contains('restaurante') ||
-        lower.contains('almuerzo') ||
-        lower.contains('cafe')) {
-      return '🍔';
-    }
-    if (lower.contains('transporte') ||
-        lower.contains('bus') ||
-        lower.contains('taxi') ||
-        lower.contains('metro')) {
-      return '🚌';
-    }
-    if (lower.contains('suscrip') ||
-        lower.contains('stream') ||
-        lower.contains('netflix')) {
-      return '📺';
-    }
-    if (lower.contains('mercado') || lower.contains('super')) {
-      return '🛒';
-    }
-    if (lower.contains('salario') ||
-        lower.contains('ingreso') ||
-        lower.contains('nomina')) {
-      return '💰';
-    }
-    return '💳';
-  }
-
-  String _sourceLabel(CaptureSource source, int itemCount) {
-    switch (source) {
-      case CaptureSource.ai:
-        if (itemCount > 1) {
-          return '✨ IA · $itemCount productos';
-        }
-        return '✨ IA';
-      case CaptureSource.manual:
-        return '✎ manual';
-      case CaptureSource.import:
-        return '📥 import';
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
     final displayAmount = expense.receiptTotal ?? expense.amount;
-    final amount = displayAmount.formatWithCurrency(expense.currencyCode);
 
     return Container(
       decoration: BoxDecoration(
@@ -815,7 +760,7 @@ class _HubExpenseCard extends StatelessWidget {
                 ),
                 child: Center(
                   child: Text(
-                    _categoryEmoji(expense.category?.name),
+                    categoryEmoji(expense.category?.name),
                     style: const TextStyle(fontSize: 20),
                   ),
                 ),
@@ -846,7 +791,7 @@ class _HubExpenseCard extends StatelessWidget {
                             borderRadius: BorderRadius.circular(5),
                           ),
                           child: Text(
-                            _sourceLabel(
+                            captureSourceLabel(
                               expense.captureSource,
                               expense.items.length,
                             ),
@@ -874,16 +819,31 @@ class _HubExpenseCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 10),
-              Text(
-                amount,
-                style: TextStyle(
-                  fontSize: 14.5,
-                  fontWeight: FontWeight.w800,
-                  color: displayAmount.isNegative
-                      ? palette.discard
-                      : palette.text,
-                ),
-                textAlign: TextAlign.end,
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    MoneyFormatter.formatMinorUnits(displayAmount.minorUnits),
+                    style: TextStyle(
+                      fontSize: 14.5,
+                      fontWeight: FontWeight.w800,
+                      color: displayAmount.isNegative
+                          ? palette.discard
+                          : palette.text,
+                    ),
+                    textAlign: TextAlign.end,
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    expense.currencyCode,
+                    style: TextStyle(
+                      fontSize: 9.5,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0.3,
+                      color: palette.muted,
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(width: 4),
               Icon(Icons.chevron_right, size: 16, color: palette.muted),
@@ -904,7 +864,6 @@ class _HubIncomeCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final palette = context.palette;
-    final amount = income.amount.formatWithCurrency(income.currencyCode);
     final title = income.description != null && income.description!.isNotEmpty
         ? income.description!
         : (income.incomeSourceName ?? 'Ingreso');
@@ -997,14 +956,29 @@ class _HubIncomeCard extends ConsumerWidget {
                 ),
               ),
               const SizedBox(width: 10),
-              Text(
-                '+ $amount',
-                style: TextStyle(
-                  fontSize: 14.5,
-                  fontWeight: FontWeight.w800,
-                  color: palette.income,
-                ),
-                textAlign: TextAlign.end,
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    '+${MoneyFormatter.formatMinorUnits(income.amount.minorUnits)}',
+                    style: TextStyle(
+                      fontSize: 14.5,
+                      fontWeight: FontWeight.w800,
+                      color: palette.income,
+                    ),
+                    textAlign: TextAlign.end,
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    income.currencyCode,
+                    style: TextStyle(
+                      fontSize: 9.5,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0.3,
+                      color: palette.muted,
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(width: 4),
               Icon(Icons.chevron_right, size: 16, color: palette.muted),

@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:finance_ai/app.dart';
 import 'package:finance_ai/core/router/app_router.dart';
+import 'package:finance_ai/core/time/clock_provider.dart';
 import 'package:finance_ai/features/accounts/data/accounts_repository.dart';
 import 'package:finance_ai/features/accounts/domain/account_models.dart';
 import 'package:finance_ai/features/accounts/presentation/account_form_screen.dart';
@@ -511,6 +512,7 @@ Future<void> pumpExpensesApp(
   CategoriesRepository? categoriesRepository,
   IncomesRepository? incomesRepository,
   ReceiptPhotoCacheRepository? receiptPhotoCacheRepository,
+  DateTime Function()? clock,
 }) async {
   final router = createAppRouter(initialLocation: initialLocation);
   addTearDown(router.dispose);
@@ -518,6 +520,11 @@ Future<void> pumpExpensesApp(
     ProviderScope(
       overrides: [
         expensesRepositoryProvider.overrideWithValue(repository),
+        // The month-scoped cards read "now" from here: pinned so the tests do
+        // not depend on the machine date.
+        clockProvider.overrideWithValue(
+          clock ?? () => DateTime(2026, 9, 29, 12),
+        ),
         accountsRepositoryProvider.overrideWithValue(
           accountsRepository ?? FakeAccountsRepository(),
         ),
@@ -545,7 +552,9 @@ void main() {
     await pumpExpensesApp(tester, repository);
 
     expect(find.byKey(const Key('expenses-list')), findsOneWidget);
-    expect(find.text('COP 25.00'), findsOneWidget);
+    // Hub cards use the app money format (cents as minor units), not the raw
+    // `COP 25.00` wire string.
+    expect(find.text(r'$ 25'), findsOneWidget);
 
     await tester.tap(find.byKey(const Key('expense-card-7')));
     await tester.pumpAndSettle();
@@ -789,7 +798,7 @@ void main() {
     expect(repository.lastCommand?.toJson().containsKey('items'), isFalse);
   });
 
-  testWidgets('history renders entries and applies the search filter', (
+  testWidgets('history groups entries and applies the debounced search', (
     tester,
   ) async {
     final repository = WidgetExpensesRepository();
@@ -797,25 +806,160 @@ void main() {
 
     expect(find.byKey(const Key('history-list')), findsOneWidget);
     expect(find.byKey(const Key('history-card-8')), findsOneWidget);
+    // Day header for the fixture (2026-09-17) and the app money format: the
+    // card must not print the raw wire amount (`COP -25.00`).
+    expect(find.textContaining('sep'), findsWidgets);
+    expect(find.text('-\$ 25'), findsOneWidget);
+    expect(find.text('Balance -\$ 25 COP'), findsOneWidget);
 
     await tester.enterText(
       find.byKey(const Key('history-search-field')),
       'market',
     );
-    await tester.tap(find.byKey(const Key('history-apply-button')));
+    await tester.pump(const Duration(milliseconds: 400));
     await tester.pumpAndSettle();
 
-    expect(repository.seenHistoryFilters.length, greaterThanOrEqualTo(2));
     expect(repository.seenHistoryFilters.last.search, 'market');
+    expect(find.byKey(const Key('history-active-search')), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('history-search-clear')));
+    await tester.pumpAndSettle();
+
+    expect(repository.seenHistoryFilters.last.search, isNull);
   });
 
-  testWidgets('history shows an empty state when filters match nothing', (
+  testWidgets('history income rows render with a plus sign', (tester) async {
+    final repository = WidgetExpensesRepository()
+      ..historyItems = [incomeHistoryItem(id: 15)];
+    await pumpExpensesApp(tester, repository, initialLocation: '/history');
+
+    expect(find.byKey(const Key('history-card-15')), findsOneWidget);
+    expect(find.text('+\$ 500'), findsOneWidget);
+  });
+
+  testWidgets('history type chips filter the feed and clear it again', (
     tester,
   ) async {
+    tester.view.physicalSize = const Size(800, 2400);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+
     final repository = WidgetExpensesRepository()..historyItems = [];
     await pumpExpensesApp(tester, repository, initialLocation: '/history');
 
+    // Nothing recorded and no filters -> shared "no movements" state.
+    expect(find.byKey(const Key('movements-empty-state')), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('history-filter-toggle')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('history-type-chip-2')));
+    await tester.pumpAndSettle();
+
+    expect(repository.seenHistoryFilters.last.type, TransactionType.income);
     expect(find.text('Sin resultados para estos filtros'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('history-empty-clear-button')));
+    await tester.pumpAndSettle();
+
+    expect(repository.seenHistoryFilters.last.hasActiveFilters, isFalse);
+    expect(find.byKey(const Key('movements-empty-state')), findsOneWidget);
+  });
+
+  testWidgets('history account dropdown filters by name and sends the id', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(800, 2400);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+
+    final repository = WidgetExpensesRepository();
+    await pumpExpensesApp(tester, repository, initialLocation: '/history');
+
+    await tester.tap(find.byKey(const Key('history-filter-toggle')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('history-account-field')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Cash').last);
+    await tester.pumpAndSettle();
+
+    expect(repository.seenHistoryFilters.last.accountId, 11);
+    expect(find.byKey(const Key('history-active-account')), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('history-active-account')));
+    await tester.pumpAndSettle();
+
+    expect(repository.seenHistoryFilters.last.accountId, isNull);
+  });
+
+  testWidgets('history period chips filter the request and clear the range', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(800, 2400);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+
+    final repository = WidgetExpensesRepository();
+    await pumpExpensesApp(tester, repository, initialLocation: '/history');
+
+    await tester.tap(find.byKey(const Key('history-filter-toggle')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('history-period-chip-2')));
+    await tester.pumpAndSettle();
+
+    expect(repository.seenHistoryFilters.last.period, HistoryPeriod.month);
+
+    await tester.tap(find.byKey(const Key('history-active-period')));
+    await tester.pumpAndSettle();
+
+    expect(repository.seenHistoryFilters.last.period, isNull);
+    expect(repository.seenHistoryFilters.last.startDate, isNull);
+  });
+
+  testWidgets('history filters by capture source, receipt shape and merchant', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(800, 2600);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+
+    final repository = WidgetExpensesRepository();
+    await pumpExpensesApp(tester, repository, initialLocation: '/history');
+
+    await tester.tap(find.byKey(const Key('history-filter-toggle')));
+    await tester.pumpAndSettle();
+
+    // Origen: the AI chip groups photo, text and voice captures.
+    await tester.tap(find.byKey(const Key('history-source-chip-1')));
+    await tester.pumpAndSettle();
+    expect(repository.seenHistoryFilters.last.captureSource, CaptureSource.ai);
+
+    // Registro: receipts with several lines vs single expenses.
+    await tester.tap(find.byKey(const Key('history-receipt-chip-1')));
+    await tester.pumpAndSettle();
+    expect(repository.seenHistoryFilters.last.receiptKind, ReceiptKind.multi);
+
+    // Comercio: typed and submitted, or picked from the suggestions.
+    await tester.enterText(
+      find.byKey(const Key('history-store-field')),
+      'Exito',
+    );
+    await tester.testTextInput.receiveAction(TextInputAction.search);
+    await tester.pumpAndSettle();
+    expect(repository.seenHistoryFilters.last.store, 'Exito');
+
+    await tester.tap(find.byKey(const Key('history-store-suggestion-0')));
+    await tester.pumpAndSettle();
+    expect(repository.seenHistoryFilters.last.store, 'Market');
+
+    // Every filter is visible as a removable chip and clears independently.
+    expect(find.byKey(const Key('history-active-source')), findsOneWidget);
+    expect(find.byKey(const Key('history-active-receipt')), findsOneWidget);
+    expect(find.byKey(const Key('history-active-store')), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('history-active-store')));
+    await tester.pumpAndSettle();
+    expect(repository.seenHistoryFilters.last.store, isNull);
+    expect(repository.seenHistoryFilters.last.captureSource, CaptureSource.ai);
   });
 
   testWidgets(
@@ -1137,21 +1281,25 @@ void main() {
     expect(find.textContaining('la IA prepara'), findsNothing);
   });
 
-  testWidgets(
-    'expenses hub calculates and displays balance, incomes, and account balances',
-    (tester) async {
-      final repository = WidgetExpensesRepository()..expenses = [];
-      await pumpExpensesApp(tester, repository, initialLocation: '/home');
+  testWidgets('expenses hub shows the stock balance and the month flow chips', (
+    tester,
+  ) async {
+    final repository = WidgetExpensesRepository()..expenses = [];
+    await pumpExpensesApp(tester, repository, initialLocation: '/home');
 
-      expect(find.text(r'$ 100 COP'), findsOneWidget);
-      expect(find.text(r'+ $ 0'), findsOneWidget);
-      expect(find.text(r'- $ 0'), findsOneWidget);
-      expect(
-        find.text(r'1 cuenta activa · $ 100 COP · Ver saldos'),
-        findsOneWidget,
-      );
-    },
-  );
+    expect(find.text('Saldo en cuentas'), findsOneWidget);
+    // Stock: the live balance of the only active account.
+    expect(find.text(r'$ 100 COP'), findsOneWidget);
+    // Flow chips are the current month (2026-09 from the pinned clock): no
+    // incomes in the fake, one 25.00 expense in the history fixture.
+    expect(find.text('Movimientos de septiembre'), findsOneWidget);
+    expect(find.text(r'+$ 0'), findsOneWidget);
+    expect(find.text(r'-$ 25'), findsOneWidget);
+    expect(
+      find.text(r'1 cuenta activa · $ 100 COP · Ver saldos'),
+      findsOneWidget,
+    );
+  });
 
   testWidgets('hub groups balances by currency without mixing them', (
     tester,
@@ -1172,8 +1320,29 @@ void main() {
       ),
       findsOneWidget,
     );
-    expect(find.text(r'+ $ 0'), findsOneWidget);
-    expect(find.text(r'- $ 0'), findsOneWidget);
+    expect(find.text(r'+$ 0'), findsOneWidget);
+    expect(find.text(r'-$ 25'), findsOneWidget);
+  });
+
+  testWidgets('gastos hub and dashboard show the same balance', (tester) async {
+    tester.view.physicalSize = const Size(800, 2400);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+
+    final repository = WidgetExpensesRepository();
+    await pumpExpensesApp(tester, repository, initialLocation: '/home');
+
+    expect(find.text(r'$ 100 COP'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('bottom-nav-dashboard')));
+    await tester.pumpAndSettle();
+
+    // Same number and same label on both tabs: they share the definition.
+    expect(find.text('Saldo en cuentas'), findsOneWidget);
+    expect(find.text(r'$ 100 COP'), findsOneWidget);
+    expect(find.text(r'+$ 0'), findsOneWidget);
+    // The flow chip and the month breakdown row both show the same expense.
+    expect(find.text(r'-$ 25'), findsWidgets);
   });
 
   testWidgets(
@@ -1204,7 +1373,9 @@ void main() {
       expect(find.byKey(const Key('expense-card-7')), findsOneWidget);
       expect(find.byKey(const Key('income-card-42')), findsOneWidget);
       expect(find.text('Pago de nómina'), findsOneWidget);
-      expect(find.text('+ COP 500.00'), findsOneWidget);
+      // The income card and the month chip both read `+$ 500` (the fixture is
+      // inside the pinned month).
+      expect(find.text(r'+$ 500'), findsWidgets);
 
       await tester.tap(find.byKey(const Key('income-card-42')));
       await tester.pumpAndSettle();

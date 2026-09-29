@@ -1,5 +1,6 @@
 import 'package:finance_ai/app.dart';
 import 'package:finance_ai/core/router/app_router.dart';
+import 'package:finance_ai/core/time/clock_provider.dart';
 import 'package:finance_ai/features/accounts/data/accounts_repository.dart';
 import 'package:finance_ai/features/accounts/domain/account_models.dart';
 import 'package:finance_ai/features/budgets/data/budgets_repository.dart';
@@ -118,13 +119,57 @@ class _FakeExpensesRepository implements ExpensesRepository {
 
   @override
   Future<HistoryResult> history(HistoryFilters filters) async => HistoryResult(
-    items: const [],
-    total: 0,
+    items: expenses.isEmpty ? const [] : [_historyItem()],
+    total: expenses.isEmpty ? 0 : 1,
     page: 1,
     pageSize: 50,
     hasNext: false,
   );
 }
+
+/// The month's expense entry as the history endpoint reports it: the Dashboard
+/// breakdown is built from this, not from the first page of `/expenses`.
+HistoryItem _historyItem() => HistoryItem(
+  id: 8,
+  type: TransactionType.expense,
+  status: ExpenseStatus.confirmed,
+  occurredAt: DateTime.utc(2026, 9, 17, 12, 30),
+  description: 'Purchase at Market',
+  captureSource: CaptureSource.manual,
+  incomeSource: null,
+  movements: [
+    HistoryMovement(
+      accountId: 11,
+      accountName: 'Cash',
+      amount: MoneyAmount.parseApi('-25.00'),
+      currency: _cop,
+      currencyCode: 'COP',
+    ),
+  ],
+  expense: HistoryExpense(
+    receiptId: 9,
+    name: 'Market',
+    occurredAt: DateTime.utc(2026, 9, 17, 12, 30),
+    purchasedAt: DateTime.utc(2026, 9, 17, 12, 30),
+    totalAmount: MoneyAmount.parseApi('25.00'),
+    note: null,
+    store: 'Market',
+    storeName: 'Market',
+    items: [
+      HistoryExpenseItem(
+        id: 7,
+        name: 'Groceries',
+        amount: MoneyAmount.parseApi('25.00'),
+        quantity: '1.000',
+        unitPrice: MoneyAmount.parseApi('25.00'),
+        note: null,
+        category: ExpenseCategory(id: 3, name: 'Food'),
+        imagePath: null,
+      ),
+    ],
+    receiptImage: null,
+  ),
+);
 
 class _FakeAccountsRepository implements AccountsRepository {
   @override
@@ -280,6 +325,8 @@ Future<void> _pumpAt(
         incomeSourcesRepositoryProvider.overrideWithValue(
           _FakeIncomeSourcesRepository(),
         ),
+        // Month-scoped cards read "now" from here.
+        clockProvider.overrideWithValue(() => DateTime(2026, 9, 29, 12)),
       ],
       child: FinanceApp(router: router),
     ),
@@ -291,13 +338,15 @@ void main() {
   testWidgets('dashboard renders balance summary with data', (tester) async {
     await _pumpAt(tester, '/dashboard');
 
-    expect(find.text('Balance del mes'), findsOneWidget);
-    expect(find.text('Ingresos'), findsOneWidget);
-    expect(find.text('Gastos'), findsWidgets);
+    // Same definition as the Gastos hub: stock (live account balances), so the
+    // two tabs can never disagree. Chips below are the current month's flow.
+    expect(find.text('Saldo en cuentas'), findsOneWidget);
+    expect(find.text(r'$ 100 COP'), findsOneWidget);
+    expect(find.text('Movimientos de septiembre'), findsOneWidget);
+    expect(find.text(r'+$ 500'), findsOneWidget);
+    expect(find.text(r'-$ 25'), findsWidgets);
     await tester.scrollUntilVisible(find.text('Gastos por categoría'), 200);
     expect(find.text('Gastos por categoría'), findsOneWidget);
-    // 500 income - 25 expenses = 475 balance.
-    expect(find.textContaining('475'), findsWidgets);
     await tester.scrollUntilVisible(find.text('Market'), 200);
     expect(find.text('Market'), findsOneWidget);
     expect(find.text('Food'), findsOneWidget);
@@ -306,7 +355,9 @@ void main() {
   testWidgets('dashboard renders empty state without expenses', (tester) async {
     await _pumpAt(tester, '/dashboard', expenses: const [], incomes: const []);
 
-    expect(find.text('Balance del mes'), findsOneWidget);
+    expect(find.text('Saldo en cuentas'), findsOneWidget);
+    expect(find.text(r'+$ 0'), findsOneWidget);
+    expect(find.text(r'-$ 0'), findsOneWidget);
     await tester.scrollUntilVisible(find.text('Sin datos suficientes'), 200);
     expect(find.text('Sin datos suficientes'), findsOneWidget);
   });

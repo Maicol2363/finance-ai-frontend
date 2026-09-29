@@ -37,6 +37,15 @@ enum HistoryPeriod {
   }
 }
 
+/// Shape of a receipt entry, used by the history `receipt_kind` filter.
+enum ReceiptKind {
+  /// A receipt with a single expense line.
+  single,
+
+  /// A receipt with several expense lines.
+  multi,
+}
+
 /// Signed account movement with its own currency metadata.
 class HistoryMovement {
   const HistoryMovement({
@@ -361,6 +370,9 @@ class HistoryFilters {
     this.period,
     this.startDate,
     this.endDate,
+    this.store,
+    this.captureSource,
+    this.receiptKind,
     this.page = 1,
     this.pageSize = 50,
   });
@@ -372,8 +384,31 @@ class HistoryFilters {
   final HistoryPeriod? period;
   final DateTime? startDate;
   final DateTime? endDate;
+
+  /// Merchant filter, matched against the receipt store.
+  final String? store;
+
+  /// Capture-source group (`ai` covers photo, text and voice captures).
+  final CaptureSource? captureSource;
+
+  /// Receipt shape: one expense line or several.
+  final ReceiptKind? receiptKind;
   final int page;
   final int pageSize;
+
+  /// True when at least one user-facing filter is set (paging excluded), so the
+  /// screen can show the active-filter chips and the "clear filters" action.
+  bool get hasActiveFilters =>
+      (search?.trim().isNotEmpty ?? false) ||
+      type != null ||
+      categoryId != null ||
+      accountId != null ||
+      period != null ||
+      startDate != null ||
+      endDate != null ||
+      (store?.trim().isNotEmpty ?? false) ||
+      captureSource != null ||
+      receiptKind != null;
 
   static String _formatDate(DateTime value) {
     final date = value.toUtc();
@@ -396,6 +431,16 @@ class HistoryFilters {
     }
     if (accountId != null) {
       params['account_id'] = '$accountId';
+    }
+    final trimmedStore = store?.trim();
+    if (trimmedStore != null && trimmedStore.isNotEmpty) {
+      params['store'] = trimmedStore;
+    }
+    if (captureSource != null) {
+      params['capture_source'] = captureSource!.name;
+    }
+    if (receiptKind != null) {
+      params['receipt_kind'] = receiptKind!.name;
     }
     if (period != null) {
       params['period'] = period!.name;

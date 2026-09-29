@@ -503,6 +503,86 @@ class SegmentedControl extends StatelessWidget {
   }
 }
 
+/// One pill of a [FilterChipRow].
+class FilterChipOption<T> {
+  const FilterChipOption({required this.value, required this.label});
+
+  final T value;
+  final String label;
+}
+
+/// Mockup `.fchip`: horizontally scrollable pill filters.
+///
+/// Used by the history search screen for `Tipo` and `Periodo`. Pass a
+/// [keyPrefix] to expose `Key('$keyPrefix-$index')` on each pill so widget
+/// tests can tap a specific option.
+class FilterChipRow<T> extends StatelessWidget {
+  const FilterChipRow({
+    super.key,
+    required this.options,
+    required this.selected,
+    required this.onChanged,
+    this.keyPrefix,
+  });
+
+  final List<FilterChipOption<T>> options;
+  final T selected;
+  final ValueChanged<T> onChanged;
+  final String? keyPrefix;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: [
+          for (var index = 0; index < options.length; index++) ...[
+            if (index > 0) const SizedBox(width: 6),
+            Builder(
+              builder: (context) {
+                final option = options[index];
+                final isSelected = option.value == selected;
+                return Semantics(
+                  button: true,
+                  selected: isSelected,
+                  label: option.label,
+                  child: GestureDetector(
+                    key: keyPrefix == null ? null : Key('$keyPrefix-$index'),
+                    onTap: () => onChanged(option.value),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 180),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 13,
+                        vertical: 9,
+                      ),
+                      decoration: BoxDecoration(
+                        color: isSelected ? palette.primary : palette.card,
+                        border: Border.all(
+                          color: isSelected ? palette.primary : palette.line,
+                        ),
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: Text(
+                        option.label,
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: isSelected ? palette.onPrimary : palette.muted,
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
 /// Mockup `.f-label`: compact label above a form field.
 class FieldLabel extends StatelessWidget {
   const FieldLabel(

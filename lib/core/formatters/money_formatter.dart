@@ -48,6 +48,17 @@ class MoneyFormatter {
     return '$sign\$ $formattedWhole$decimalStr';
   }
 
+  /// Like [formatMinorUnits] but always prints the sign, for flow figures
+  /// (chips, balances and month results).
+  /// E.g. -450000 -> "-$ 4.500", 50000000 -> "+$ 500.000"
+  static String formatSignedMinorUnits(int minorUnits, {String? currencyCode}) {
+    final formatted = formatMinorUnits(
+      minorUnits.abs(),
+      currencyCode: currencyCode,
+    );
+    return '${minorUnits < 0 ? '-' : '+'}$formatted';
+  }
+
   /// Formats [minorUnits] (cents) into an input-friendly string without currency symbol.
   /// E.g. 160000000 -> "1.600.000"
   /// E.g. 160000050 -> "1.600.000,50"
