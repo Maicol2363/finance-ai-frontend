@@ -121,7 +121,8 @@ void main() {
       find.byWidgetPredicate(
         (widget) =>
             widget is Semantics &&
-            widget.properties.label == 'Mercado: 120 por ciento usado',
+            widget.properties.label ==
+                'Mercado: 120 por ciento usado, excedido',
       ),
       findsOneWidget,
     );

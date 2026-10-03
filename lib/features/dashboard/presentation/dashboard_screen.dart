@@ -22,6 +22,8 @@ import '../../expenses/application/expenses_state.dart';
 import '../../expenses/application/monthly_totals.dart';
 import '../../expenses/presentation/transaction_visuals.dart';
 import '../../incomes/data/incomes_repository.dart';
+import 'spending_trend.dart';
+import 'spending_trend_card.dart';
 
 /// Resumen y tendencias.
 ///
@@ -84,6 +86,13 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         : orderedCodes.first;
     final otherCodes = orderedCodes.where((code) => code != currency).toList();
     final breakdown = _breakdownFor(monthlyTotals, currency);
+    // Fast v1 tendency reuses the month items already loaded above: no new
+    // request, no new package, one currency at a time.
+    final trend = dailyExpenseSeries(
+      items: monthlyTotals?.expenseItems ?? const [],
+      currencyCode: currency,
+      now: now,
+    );
 
     return Scaffold(
       body: SafeArea(
@@ -115,6 +124,13 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                           onRetry: () => ref.invalidate(monthlyTotalsProvider),
                         ),
                       ],
+                      const SizedBox(height: 24),
+
+                      SpendingTrendCard(
+                        days: trend,
+                        currency: currency,
+                        available: monthTotalsAsync.hasValue,
+                      ),
                       const SizedBox(height: 24),
 
                       BudgetDashboardSection(
