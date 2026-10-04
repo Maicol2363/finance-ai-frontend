@@ -1,3 +1,5 @@
+import '../../../core/formatters/money_formatter.dart';
+
 enum AccountType {
   cash('cash', 'Cash'),
   bank('bank', 'Bank account'),
@@ -83,7 +85,7 @@ class MoneyAmount {
   }
 
   String formatWithCurrency(String currencyCode) =>
-      '$currencyCode ${toApiString()}';
+      MoneyFormatter.formatMinorUnits(minorUnits, currencyCode: currencyCode);
 
   @override
   bool operator ==(Object other) =>

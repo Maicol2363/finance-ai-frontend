@@ -120,7 +120,7 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('income-row-7')), findsOneWidget);
-    expect(find.text('COP 25.50'), findsOneWidget);
+    expect(find.text(r'$ 25,50 COP'), findsOneWidget);
     await tester.tap(find.byKey(const Key('income-row-7')));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('income-delete-button')), findsOneWidget);
@@ -219,7 +219,7 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(find.text('Editar ingreso'), findsOneWidget);
-    expect(find.text('25.50'), findsOneWidget);
+    expect(find.text('25,50'), findsOneWidget);
     await tester.tap(find.byKey(const Key('income-save-button')));
     await tester.pumpAndSettle();
     expect(find.text('Error code: income_account_unavailable'), findsOneWidget);
