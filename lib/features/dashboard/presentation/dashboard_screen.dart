@@ -127,12 +127,24 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       windowStart: window.start,
       windowEnd: window.end,
     );
-    // Honest badge: current window vs the previous equivalent window.
+    final summaryAsync = ref.watch(dashboardSummaryProvider);
+    final summary = summaryAsync.value;
+
+    // Honest badge: check summary first if available, otherwise fallback to compareWindows.
     final totals = monthlyTotals?.byCurrency[currency];
-    final comparison = compareWindows(
-      current: totals?.expenses ?? 0,
-      previous: monthlyTotals?.previousExpensesByCurrency[currency] ?? 0,
-    );
+    final comparison = summary != null
+        ? (
+            ratio: summary.comparison.pct != null
+                ? (summary.comparison.direction == 'down'
+                    ? (1.0 - (summary.comparison.pct! / 100.0))
+                    : (1.0 + (summary.comparison.pct! / 100.0)))
+                : 1.0,
+            direction: summary.comparison.direction,
+          )
+        : compareWindows(
+            current: totals?.expenses ?? 0,
+            previous: monthlyTotals?.previousExpensesByCurrency[currency] ?? 0,
+          );
     final comparisonLabel = _comparisonLabel(comparison, window, now);
     final bucketTotal = useYear || useWeeks
         ? (trendWeeks ?? const <WeeklySpend>[]).fold<int>(
@@ -143,9 +155,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         useYear || useWeeks ? (trendWeeks?.length ?? 0) : trend.length;
     final average =
         bucketCount > 0 ? (bucketTotal / bucketCount).round() : null;
-
-    final summaryAsync = ref.watch(dashboardSummaryProvider);
-    final summary = summaryAsync.value;
 
     final isCurrent = period == DashboardPeriod.thisMonth;
     final int daysElapsed = summary?.period.daysElapsed ??
@@ -225,6 +234,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                         available: monthTotalsAsync.hasValue || summary != null,
                         weekly: trendWeeks,
                         comparisonLabel: comparisonLabel,
+                        comparisonDirection: comparison?.direction,
                         averageMinorUnits: average,
                       ),
                       const SizedBox(height: 24),
@@ -483,10 +493,10 @@ class _UnifiedNetFlowCard extends StatelessWidget {
     final positive = saved >= 0;
 
     final incomesLabel = monthAvailable
-        ? MoneyFormatter.formatSignedMinorUnits(incomes)
+        ? MoneyFormatter.display(incomes, currency, signed: true)
         : '—';
     final expensesLabel = monthAvailable
-        ? '-${MoneyFormatter.formatMinorUnits(expenses)}'
+        ? MoneyFormatter.display(-expenses, currency, signed: true)
         : '—';
 
     final progressPct = (daysTotal > 0 && daysElapsed > 0)
@@ -520,7 +530,7 @@ class _UnifiedNetFlowCard extends StatelessWidget {
           ),
           const SizedBox(height: 6),
           Text(
-            '${MoneyFormatter.formatMinorUnits(stock[currency]?.balance ?? 0)} $currency',
+            MoneyFormatter.display(stock[currency]?.balance ?? 0, currency),
             style: TextStyle(
               fontSize: 26,
               fontWeight: FontWeight.w800,
@@ -531,7 +541,7 @@ class _UnifiedNetFlowCard extends StatelessWidget {
           for (final code in otherCodes) ...[
             const SizedBox(height: 2),
             Text(
-              '${MoneyFormatter.formatMinorUnits(stock[code]?.balance ?? 0)} $code',
+              MoneyFormatter.display(stock[code]?.balance ?? 0, code),
               style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
@@ -647,9 +657,7 @@ class _UnifiedNetFlowCard extends StatelessWidget {
                 Text(
                   !monthAvailable
                       ? '—'
-                      : saved == 0
-                          ? r'$ 0'
-                          : MoneyFormatter.formatSignedMinorUnits(saved),
+                      : MoneyFormatter.display(saved, currency, signed: true),
                   key: const Key('dashboard-savings-amount'),
                   style: TextStyle(
                     fontSize: 16,
@@ -786,6 +794,7 @@ class _CategoryBreakdown extends StatelessWidget {
                 if (index > 0) Divider(height: 1, color: palette.line),
                 _BreakdownTile(
                   row: visible[index],
+                  currency: currency,
                   share: total > 0 ? visible[index].minorUnits / total : 0,
                   onTap: () {
                     ref
@@ -808,9 +817,15 @@ class _CategoryBreakdown extends StatelessWidget {
 }
 
 class _BreakdownTile extends StatelessWidget {
-  const _BreakdownTile({required this.row, required this.share, required this.onTap});
+  const _BreakdownTile({
+    required this.row,
+    required this.currency,
+    required this.share,
+    required this.onTap,
+  });
 
   final _BreakdownRow row;
+  final String currency;
   final double share;
   final VoidCallback onTap;
 
@@ -893,7 +908,7 @@ class _BreakdownTile extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   Text(
-                    '-${MoneyFormatter.formatMinorUnits(row.minorUnits)}',
+                    MoneyFormatter.display(-row.minorUnits, currency, signed: true),
                     style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w700,

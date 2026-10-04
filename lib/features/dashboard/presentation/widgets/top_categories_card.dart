@@ -124,9 +124,9 @@ class _CategoryProgressRow extends StatelessWidget {
                 ),
                 const SizedBox(width: 8),
                 Text(
-                  MoneyFormatter.formatMinorUnits(
+                  MoneyFormatter.display(
                     item.total.minorUnits,
-                    currencyCode: currency,
+                    currency,
                   ),
                   style: TextStyle(
                     fontSize: 13,

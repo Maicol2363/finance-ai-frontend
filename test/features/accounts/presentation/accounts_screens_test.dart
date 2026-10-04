@@ -184,7 +184,7 @@ void main() {
     expect(find.byKey(const Key('accounts-list')), findsOneWidget);
     expect(find.text(r'-$ 250,75 COP'), findsOneWidget);
     expect(
-      find.bySemanticsLabel(RegExp(r'Negative balance -\$ 250,75 COP')),
+      find.bySemanticsLabel(RegExp(r'Saldo negativo: -\$ 250,75 COP')),
       findsOneWidget,
     );
 

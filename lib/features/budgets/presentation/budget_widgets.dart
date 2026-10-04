@@ -191,16 +191,10 @@ class BudgetProgressCard extends StatelessWidget {
   }
 
   static String _money(MoneyAmount amount, String currency) =>
-      MoneyFormatter.formatMinorUnits(
-        amount.minorUnits,
-        currencyCode: currency,
-      );
+      MoneyFormatter.display(amount.minorUnits, currency);
 
   static String _moneyAbs(MoneyAmount amount, String currency) =>
-      MoneyFormatter.formatMinorUnits(
-        amount.minorUnits.abs(),
-        currencyCode: currency,
-      );
+      MoneyFormatter.display(amount.minorUnits.abs(), currency);
 
   static String _date(DateTime date) =>
       '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}';

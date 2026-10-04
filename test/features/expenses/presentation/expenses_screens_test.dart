@@ -554,7 +554,7 @@ void main() {
     expect(find.byKey(const Key('expenses-list')), findsOneWidget);
     // Hub cards use the app money format (cents as minor units), not the raw
     // `COP 25.00` wire string.
-    expect(find.text(r'$ 25'), findsOneWidget);
+    expect(find.text(r'$ 25 COP'), findsOneWidget);
 
     await tester.tap(find.byKey(const Key('expense-card-7')));
     await tester.pumpAndSettle();
@@ -809,7 +809,7 @@ void main() {
     // Day header for the fixture (2026-09-17) and the app money format: the
     // card must not print the raw wire amount (`COP -25.00`).
     expect(find.textContaining('sep'), findsWidgets);
-    expect(find.text('-\$ 25'), findsOneWidget);
+    expect(find.text('-\$ 25 COP'), findsOneWidget);
     expect(find.text('Balance -\$ 25 COP'), findsOneWidget);
 
     await tester.enterText(
@@ -834,7 +834,7 @@ void main() {
     await pumpExpensesApp(tester, repository, initialLocation: '/history');
 
     expect(find.byKey(const Key('history-card-15')), findsOneWidget);
-    expect(find.text('+\$ 500'), findsOneWidget);
+    expect(find.text('+\$ 500 COP'), findsOneWidget);
   });
 
   testWidgets('history type chips filter the feed and clear it again', (
@@ -1293,8 +1293,8 @@ void main() {
     // Flow chips are the current month (2026-09 from the pinned clock): no
     // incomes in the fake, one 25.00 expense in the history fixture.
     expect(find.text('Movimientos de septiembre'), findsOneWidget);
-    expect(find.text(r'+$ 0'), findsOneWidget);
-    expect(find.text(r'-$ 25'), findsOneWidget);
+    expect(find.text(r'$ 0 COP'), findsOneWidget);
+    expect(find.text(r'-$ 25 COP'), findsOneWidget);
     expect(
       find.text(r'1 cuenta activa · $ 100 COP · Ver saldos'),
       findsOneWidget,
@@ -1320,8 +1320,8 @@ void main() {
       ),
       findsOneWidget,
     );
-    expect(find.text(r'+$ 0'), findsOneWidget);
-    expect(find.text(r'-$ 25'), findsOneWidget);
+    expect(find.text(r'$ 0 COP'), findsOneWidget);
+    expect(find.text(r'-$ 25 COP'), findsOneWidget);
   });
 
   testWidgets('gastos hub and dashboard show the same balance', (tester) async {
@@ -1341,9 +1341,9 @@ void main() {
     expect(find.text('Saldo en cuentas'), findsOneWidget);
     expect(find.text(r'$ 100 COP'), findsOneWidget);
     // Header chip + savings card both show the zero income.
-    expect(find.text(r'+$ 0'), findsWidgets);
+    expect(find.text(r'$ 0 COP'), findsWidgets);
     // The flow chip and the grouped category row both show the same expense.
-    expect(find.text(r'-$ 25'), findsWidgets);
+    expect(find.text(r'-$ 25 COP'), findsWidgets);
   });
 
   testWidgets(
@@ -1374,9 +1374,9 @@ void main() {
       expect(find.byKey(const Key('expense-card-7')), findsOneWidget);
       expect(find.byKey(const Key('income-card-42')), findsOneWidget);
       expect(find.text('Pago de nómina'), findsOneWidget);
-      // The income card and the month chip both read `+$ 500` (the fixture is
+      // The income card and the month chip both read `+$ 500 COP` (the fixture is
       // inside the pinned month).
-      expect(find.text(r'+$ 500'), findsWidgets);
+      expect(find.text(r'+$ 500 COP'), findsWidgets);
 
       await tester.tap(find.byKey(const Key('income-card-42')));
       await tester.pumpAndSettle();

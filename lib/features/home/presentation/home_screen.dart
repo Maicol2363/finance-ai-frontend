@@ -478,14 +478,10 @@ class _HubBalanceCard extends StatelessWidget {
     final totalIncomes = monthTotals[currency]?.incomes ?? 0;
     final totalExpenses = monthTotals[currency]?.expenses ?? 0;
 
-    final isNegative = netBalance < 0;
-    final absBalance = netBalance.abs();
-    final balanceSign = isNegative ? '-' : '';
-    final formattedBalance = MoneyFormatter.formatWhole(absBalance ~/ 100);
     final activeAccounts = accounts.where((a) => a.isActive).toList();
     final activeCount = activeAccounts.length;
     String balanceLine(int minorUnits, String code) =>
-        '${MoneyFormatter.formatMinorUnits(minorUnits)} $code';
+        MoneyFormatter.display(minorUnits, code);
 
     final otherBalanceLines = otherCodes
         .map((code) => balanceLine(stock[code]?.balance ?? 0, code))
@@ -494,10 +490,10 @@ class _HubBalanceCard extends StatelessWidget {
         .map((code) => balanceLine(stock[code]?.balance ?? 0, code))
         .join(' · ');
     final incomesLabel = monthTotalsAvailable
-        ? MoneyFormatter.formatSignedMinorUnits(totalIncomes)
+        ? MoneyFormatter.display(totalIncomes, currency, signed: true)
         : '—';
     final expensesLabel = monthTotalsAvailable
-        ? '-${MoneyFormatter.formatMinorUnits(totalExpenses)}'
+        ? MoneyFormatter.display(-totalExpenses, currency, signed: true)
         : '—';
 
     return Container(
@@ -539,7 +535,7 @@ class _HubBalanceCard extends StatelessWidget {
           ),
           const SizedBox(height: 6),
           Text(
-            '$balanceSign\$ $formattedBalance $currency',
+            MoneyFormatter.display(netBalance, currency),
             style: TextStyle(
               fontSize: 24,
               fontWeight: FontWeight.w800,
@@ -823,7 +819,11 @@ class _HubExpenseCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   Text(
-                    MoneyFormatter.formatMinorUnits(displayAmount.minorUnits),
+                    MoneyFormatter.display(
+                      displayAmount.minorUnits,
+                      expense.currencyCode,
+                      signed: false,
+                    ),
                     style: TextStyle(
                       fontSize: 14.5,
                       fontWeight: FontWeight.w800,
@@ -832,16 +832,6 @@ class _HubExpenseCard extends StatelessWidget {
                           : palette.text,
                     ),
                     textAlign: TextAlign.end,
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    expense.currencyCode,
-                    style: TextStyle(
-                      fontSize: 9.5,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 0.3,
-                      color: palette.muted,
-                    ),
                   ),
                 ],
               ),
@@ -960,23 +950,17 @@ class _HubIncomeCard extends ConsumerWidget {
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   Text(
-                    '+${MoneyFormatter.formatMinorUnits(income.amount.minorUnits)}',
+                    MoneyFormatter.display(
+                      income.amount.minorUnits,
+                      income.currencyCode,
+                      signed: true,
+                    ),
                     style: TextStyle(
                       fontSize: 14.5,
                       fontWeight: FontWeight.w800,
                       color: palette.income,
                     ),
                     textAlign: TextAlign.end,
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    income.currencyCode,
-                    style: TextStyle(
-                      fontSize: 9.5,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 0.3,
-                      color: palette.muted,
-                    ),
                   ),
                 ],
               ),

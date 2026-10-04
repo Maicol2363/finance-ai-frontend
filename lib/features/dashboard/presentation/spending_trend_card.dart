@@ -13,6 +13,7 @@ class SpendingTrendCard extends StatelessWidget {
     required this.available,
     this.weekly,
     this.comparisonLabel,
+    this.comparisonDirection,
     this.averageMinorUnits,
     super.key,
   });
@@ -27,6 +28,9 @@ class SpendingTrendCard extends StatelessWidget {
   /// Honest badge text, e.g. `+48% vs ago`. Null falls back to the legacy
   /// in-window label.
   final String? comparisonLabel;
+
+  /// Direction ('up', 'down', 'flat', 'empty') for the badge arrow and color.
+  final String? comparisonDirection;
 
   /// Mean per bucket, drawn as a dashed line. Null hides the line.
   final int? averageMinorUnits;
@@ -53,7 +57,9 @@ class SpendingTrendCard extends StatelessWidget {
           _ => 'Estable por ahora',
         };
     final String resolvedDirection;
-    if (comparisonLabel != null) {
+    if (comparisonDirection != null && comparisonDirection != 'none') {
+      resolvedDirection = comparisonDirection!;
+    } else if (comparisonLabel != null) {
       final lower = comparisonLabel!.toLowerCase();
       if (comparisonLabel!.startsWith('+') || lower.contains('subiendo')) {
         resolvedDirection = 'up';
@@ -168,27 +174,32 @@ class _TrendBodyState extends State<_TrendBody> {
                   style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
                 ),
               ),
-              Container(
-                key: const Key('dashboard-trend-badge'),
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: palette.soft,
-                  borderRadius: BorderRadius.circular(99),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(widget.icon, size: 14, color: widget.color),
-                    const SizedBox(width: 4),
-                    Text(
-                      widget.headline,
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                        color: widget.color,
+              Flexible(
+                child: Container(
+                  key: const Key('dashboard-trend-badge'),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: palette.soft,
+                    borderRadius: BorderRadius.circular(99),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(widget.icon, size: 14, color: widget.color),
+                      const SizedBox(width: 4),
+                      Flexible(
+                        child: Text(
+                          widget.headline,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            color: widget.color,
+                          ),
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ],
@@ -272,7 +283,7 @@ class _TrendBodyState extends State<_TrendBody> {
                 ),
                 const SizedBox(width: 6),
                 Text(
-                  'Línea punteada: Promedio (${MoneyFormatter.formatMinorUnits(widget.averageMinorUnits!, currencyCode: widget.currency)})',
+                  'Línea punteada: Promedio (${MoneyFormatter.display(widget.averageMinorUnits!, widget.currency)})',
                   style: TextStyle(fontSize: 10, color: palette.muted),
                 ),
               ],
@@ -284,7 +295,7 @@ class _TrendBodyState extends State<_TrendBody> {
               Expanded(
                 child: Text(
                   widget.available
-                      ? 'Total: ${MoneyFormatter.formatMinorUnits(widget.shownTotal)} ${widget.currency}'
+                      ? 'Total: ${MoneyFormatter.display(widget.shownTotal, widget.currency)}'
                       : 'Total: --',
                   style: TextStyle(fontSize: 11, color: palette.muted),
                 ),

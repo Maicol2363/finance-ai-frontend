@@ -846,8 +846,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
       return null;
     }
     final entry = totals.entries.single;
-    final formatted = MoneyFormatter.formatMinorUnits(entry.value.abs());
-    return 'Balance ${entry.value < 0 ? '-' : '+'}$formatted ${entry.key}';
+    return 'Balance ${MoneyFormatter.display(entry.value, entry.key, signed: true)}';
   }
 }
 
@@ -1155,9 +1154,15 @@ class _HistoryCard extends ConsumerWidget {
     return '$time · ${items == 1 ? '1 elemento' : '$items elementos'}';
   }
 
-  String _amountLabel(MoneyAmount amount) {
-    final formatted = MoneyFormatter.formatMinorUnits(amount.minorUnits.abs());
-    return '${amount.isNegative ? '-' : '+'}$formatted';
+  String _amountLabel(MoneyAmount amount, [String? currencyCode]) {
+    if (currencyCode != null && currencyCode.isNotEmpty) {
+      return MoneyFormatter.display(
+        amount.minorUnits,
+        currencyCode,
+        signed: true,
+      );
+    }
+    return MoneyFormatter.formatSignedMinorUnits(amount.minorUnits);
   }
 
   @override
@@ -1172,7 +1177,9 @@ class _HistoryCard extends ConsumerWidget {
     final canNavigate =
         (item.type == TransactionType.expense && expenseId != null) ||
         item.type == TransactionType.income;
-    final amountText = amount == null ? 'sin monto' : _amountLabel(amount);
+    final amountText = amount == null
+        ? 'sin monto'
+        : _amountLabel(amount, currencyCode);
 
     return Semantics(
       container: true,
@@ -1309,7 +1316,7 @@ class _HistoryCard extends ConsumerWidget {
       crossAxisAlignment: CrossAxisAlignment.end,
       children: [
         Text(
-          amount == null ? '—' : _amountLabel(amount),
+          amount == null ? '—' : _amountLabel(amount, currencyCode),
           style: TextStyle(
             fontSize: 14.5,
             fontWeight: FontWeight.w800,
@@ -1318,18 +1325,6 @@ class _HistoryCard extends ConsumerWidget {
                 : (amount.isNegative ? palette.discard : palette.income),
           ),
         ),
-        if (currencyCode != null) ...[
-          const SizedBox(height: 2),
-          Text(
-            currencyCode,
-            style: TextStyle(
-              fontSize: 9.5,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 0.3,
-              color: palette.muted,
-            ),
-          ),
-        ],
       ],
     );
   }

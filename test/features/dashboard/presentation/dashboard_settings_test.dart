@@ -343,8 +343,8 @@ void main() {
     expect(find.text('Saldo en cuentas'), findsOneWidget);
     expect(find.text(r'$ 100 COP'), findsOneWidget);
     expect(find.text('Movimientos de septiembre'), findsOneWidget);
-    expect(find.text(r'+$ 500'), findsOneWidget);
-    expect(find.text(r'-$ 25'), findsWidgets);
+    expect(find.text(r'+$ 500 COP'), findsOneWidget);
+    expect(find.text(r'-$ 25 COP'), findsWidgets);
     expect(find.text('Este mes'), findsOneWidget);
     expect(find.text('Mes anterior'), findsOneWidget);
     expect(find.text('Últimos 3 meses'), findsOneWidget);
@@ -388,8 +388,7 @@ void main() {
     await _pumpAt(tester, '/dashboard', expenses: const [], incomes: const []);
 
     expect(find.text('Saldo en cuentas'), findsOneWidget);
-    expect(find.text(r'+$ 0'), findsOneWidget);
-    expect(find.text(r'-$ 0'), findsOneWidget);
+    expect(find.text(r'$ 0 COP'), findsWidgets);
     await tester.scrollUntilVisible(find.text('Sin datos suficientes'), 200);
     expect(find.text('Sin datos suficientes'), findsOneWidget);
   });
