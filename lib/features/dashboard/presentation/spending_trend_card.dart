@@ -52,13 +52,28 @@ class SpendingTrendCard extends StatelessWidget {
           'empty' => 'Sin gasto reciente',
           _ => 'Estable por ahora',
         };
-    final icon = switch (tendency) {
+    final String resolvedDirection;
+    if (comparisonLabel != null) {
+      final lower = comparisonLabel!.toLowerCase();
+      if (comparisonLabel!.startsWith('+') || lower.contains('subiendo')) {
+        resolvedDirection = 'up';
+      } else if (comparisonLabel!.startsWith('-') || lower.contains('bajando')) {
+        resolvedDirection = 'down';
+      } else if (lower.contains('igual')) {
+        resolvedDirection = 'flat';
+      } else {
+        resolvedDirection = tendency;
+      }
+    } else {
+      resolvedDirection = tendency;
+    }
+    final icon = switch (resolvedDirection) {
       'up' => Icons.trending_up,
       'down' => Icons.trending_down,
       'empty' => Icons.remove,
       _ => Icons.trending_flat,
     };
-    final color = switch (tendency) {
+    final color = switch (resolvedDirection) {
       'up' => palette.discard,
       'down' => palette.income,
       _ => palette.muted,
@@ -69,11 +84,7 @@ class SpendingTrendCard extends StatelessWidget {
         ? [for (final w in weekDays) DailySpend(day: w.start, minorUnits: w.minorUnits)]
         : days;
     final axis = useWeeks
-        ? [
-            for (var i = 0; i < weekDays.length; i += 1)
-              if (i == 0 || i == weekDays.length - 1 || i == weekDays.length ~/ 2)
-                weekDays[i].start,
-          ]
+        ? [for (final w in weekDays) w.start]
         : axisDays(days);
     return _TrendBody(
       painted: painted,
@@ -230,13 +241,43 @@ class _TrendBodyState extends State<_TrendBody> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              for (final d in widget.axis)
-                Text(
-                  widget.useWeeks ? _weekLabel(d) : '${d.day}',
-                  style: TextStyle(fontSize: 10, color: palette.muted),
-                ),
+              if (widget.useWeeks && widget.weeks != null)
+                for (final w in widget.weeks!)
+                  Expanded(
+                    child: Text(
+                      '${w.start.day}-${w.end.day}',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(fontSize: 10, color: palette.muted),
+                    ),
+                  )
+              else
+                for (final d in widget.axis)
+                  Text(
+                    '${d.day}',
+                    style: TextStyle(fontSize: 10, color: palette.muted),
+                  ),
             ],
           ),
+          if (widget.averageMinorUnits != null && widget.averageMinorUnits! > 0) ...[
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Container(
+                  width: 16,
+                  height: 1.5,
+                  decoration: BoxDecoration(
+                    color: palette.muted,
+                    borderRadius: BorderRadius.circular(1),
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  'Línea punteada: Promedio (${MoneyFormatter.formatMinorUnits(widget.averageMinorUnits!, currencyCode: widget.currency)})',
+                  style: TextStyle(fontSize: 10, color: palette.muted),
+                ),
+              ],
+            ),
+          ],
           const SizedBox(height: 4),
           Row(
             children: [
@@ -275,8 +316,6 @@ class _TrendBodyState extends State<_TrendBody> {
     return '${bucket.day.day}/${bucket.day.month}: $amount';
   }
 }
-
-String _weekLabel(DateTime monday) => '${monday.day}/${monday.month}';
 
 List<DateTime> axisDays(List<DailySpend> v) {
   if (v.isEmpty) return const [];

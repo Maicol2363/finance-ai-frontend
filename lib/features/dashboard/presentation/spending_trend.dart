@@ -61,8 +61,10 @@ List<WeeklySpend> weeklyExpenseSeries({
   return [
     for (final w in weeks)
       WeeklySpend(
-        start: w,
-        end: w.add(const Duration(days: 6)),
+        start: w.isBefore(startDay) ? startDay : w,
+        end: w.add(const Duration(days: 6)).isAfter(endDay)
+            ? endDay
+            : w.add(const Duration(days: 6)),
         minorUnits: totals[w]!,
       ),
   ];

@@ -23,8 +23,13 @@ import '../../expenses/application/history_controller.dart';
 import '../../expenses/application/monthly_totals.dart';
 import '../../expenses/presentation/transaction_visuals.dart';
 import '../../incomes/data/incomes_repository.dart';
+import '../application/dashboard_metrics.dart';
+import '../application/dashboard_summary_provider.dart';
 import 'spending_trend.dart';
 import 'spending_trend_card.dart';
+import 'widgets/daily_allowance_card.dart';
+import 'widgets/insights_card.dart';
+import 'widgets/recent_movements_card.dart';
 
 /// Resumen y tendencias.
 ///
@@ -139,6 +144,26 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     final average =
         bucketCount > 0 ? (bucketTotal / bucketCount).round() : null;
 
+    final summaryAsync = ref.watch(dashboardSummaryProvider);
+    final summary = summaryAsync.value;
+
+    final isCurrent = period == DashboardPeriod.thisMonth;
+    final int daysElapsed = summary?.period.daysElapsed ??
+        (isCurrent ? now.day : window.end.difference(window.start).inDays + 1);
+    final int daysTotal = summary?.period.daysTotal ??
+        (window.end.difference(window.start).inDays + 1);
+
+    final dailyAllowance = summary != null
+        ? DashboardMetrics.calculateDailyAllowance(summary: summary)
+        : null;
+
+    final insights = summary != null
+        ? DashboardMetrics.buildInsights(
+            summary: summary,
+            currencyCode: currency,
+          )
+        : const <DashboardInsight>[];
+
     return Scaffold(
       body: SafeArea(
         child: Column(
@@ -162,18 +187,34 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                             .select(value),
                       ),
                       const SizedBox(height: 12),
-                      _DashboardBalanceCard(
+                      _UnifiedNetFlowCard(
                         currency: currency,
                         otherCodes: otherCodes,
                         stock: stock,
                         monthTotals: monthlyTotals?.byCurrency ?? const {},
                         monthName: windowName,
-                        monthAvailable: monthTotalsAsync.hasValue,
+                        monthAvailable: monthTotalsAsync.hasValue || summary != null,
+                        isCurrent: isCurrent,
+                        daysElapsed: daysElapsed,
+                        daysTotal: daysTotal,
                       ),
-                      if (monthTotalsAsync.hasError) ...[
+                      if (monthTotalsAsync.hasError && summaryAsync.hasError) ...[
                         const SizedBox(height: 12),
                         _MonthTotalsError(
-                          onRetry: () => ref.invalidate(periodTotalsProvider),
+                          onRetry: () {
+                            ref.invalidate(periodTotalsProvider);
+                            ref.invalidate(dashboardSummaryProvider);
+                          },
+                        ),
+                      ],
+                      if (isCurrent && dailyAllowance != null && summary != null) ...[
+                        const SizedBox(height: 24),
+                        DailyAllowanceCard(
+                          dailyAllowanceMinorUnits: dailyAllowance,
+                          spentMtdMinorUnits: summary.projection.spentMtd.minorUnits,
+                          projectedMinorUnits: summary.projection.projected.minorUnits,
+                          remainingDays: daysTotal > daysElapsed ? (daysTotal - daysElapsed) : 0,
+                          currency: currency,
                         ),
                       ],
                       const SizedBox(height: 24),
@@ -181,18 +222,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                       SpendingTrendCard(
                         days: trend,
                         currency: currency,
-                        available: monthTotalsAsync.hasValue,
+                        available: monthTotalsAsync.hasValue || summary != null,
                         weekly: trendWeeks,
                         comparisonLabel: comparisonLabel,
                         averageMinorUnits: average,
-                      ),
-                      const SizedBox(height: 24),
-
-                      _SavingsCard(
-                        totals: monthlyTotals?.byCurrency[currency],
-                        currency: currency,
-                        windowName: windowName,
-                        available: monthTotalsAsync.hasValue,
                       ),
                       const SizedBox(height: 24),
 
@@ -203,6 +236,18 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                             .load,
                         onManage: () => context.go('/budgets'),
                       ),
+                      if (insights.isNotEmpty) ...[
+                        const SizedBox(height: 24),
+                        InsightsCard(insights: insights),
+                      ],
+                      if (summary != null && summary.recent.isNotEmpty) ...[
+                        const SizedBox(height: 24),
+                        RecentMovementsCard(
+                          movements: summary.recent,
+                          currency: currency,
+                          onViewAll: () => context.go('/history'),
+                        ),
+                      ],
                       const SizedBox(height: 24),
 
                       Text(
@@ -403,167 +448,19 @@ class _PeriodChip extends StatelessWidget {
 ///
 /// Answers "¿cómo voy?": the header chips show the two flows but never
 /// subtract them. Savings rate = saved / incomes, hidden when no income.
-class _SavingsCard extends StatelessWidget {
-  const _SavingsCard({
-    required this.totals,
-    required this.currency,
-    required this.windowName,
-    required this.available,
-  });
-
-  final CurrencyTotals? totals;
-  final String currency;
-  final String windowName;
-  final bool available;
-
-  @override
-  Widget build(BuildContext context) {
-    final palette = context.palette;
-    final incomes = totals?.incomes ?? 0;
-    final expenses = totals?.expenses ?? 0;
-    final saved = incomes - expenses;
-    final rate = incomes > 0 ? saved / incomes : null;
-    final positive = saved >= 0;
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: palette.card,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: palette.line),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Balance de $windowName',
-            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
-          ),
-          const SizedBox(height: 10),
-          if (!available)
-            Text('cargando...', style: TextStyle(fontSize: 12, color: palette.muted))
-          else ...[
-            Row(
-              children: [
-                Expanded(
-                  child: _FlowCell(
-                    label: 'Ingresos',
-                    amount: incomes,
-                    color: palette.income,
-                    signed: true,
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: _FlowCell(
-                    label: 'Gastos',
-                    amount: -expenses,
-                    color: palette.discard,
-                    signed: true,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    positive ? 'Ahorro' : 'Déficit',
-                    style: TextStyle(fontSize: 12, color: palette.muted),
-                  ),
-                ),
-                Text(
-                  MoneyFormatter.formatSignedMinorUnits(saved),
-                  key: const Key('dashboard-savings-amount'),
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w800,
-                    color: positive ? palette.income : palette.discard,
-                  ),
-                ),
-              ],
-            ),
-            if (rate != null) ...[
-              const SizedBox(height: 4),
-              Row(
-                children: [
-                  const Spacer(),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: palette.soft,
-                      borderRadius: BorderRadius.circular(99),
-                    ),
-                    child: Text(
-                      positive
-                          ? 'Ahorras ${(rate * 100).round()}%'
-                          : 'Te pasaste ${(-rate * 100).round()}%',
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                        color: positive ? palette.income : palette.discard,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ],
-        ],
-      ),
-    );
-  }
-}
-
-class _FlowCell extends StatelessWidget {
-  const _FlowCell({
-    required this.label,
-    required this.amount,
-    required this.color,
-    required this.signed,
-  });
-
-  final String label;
-  final int amount;
-  final Color color;
-  final bool signed;
-
-  @override
-  Widget build(BuildContext context) {
-    final palette = context.palette;
-    final text = signed
-        ? MoneyFormatter.formatSignedMinorUnits(amount)
-        : MoneyFormatter.formatMinorUnits(amount);
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: palette.soft,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(label, style: TextStyle(fontSize: 11, color: palette.muted)),
-          const SizedBox(height: 4),
-          Text(
-            text,
-            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: color),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// The Dashboard balance card: stock headline + the window's flow chips.
-class _DashboardBalanceCard extends StatelessWidget {
-  const _DashboardBalanceCard({
+/// The Unified Net Flow and Balance card: combines stock accounts balance,
+/// period progress, single income/expense chips, and honest net flow (superávit/déficit).
+class _UnifiedNetFlowCard extends StatelessWidget {
+  const _UnifiedNetFlowCard({
     required this.currency,
     required this.otherCodes,
     required this.stock,
     required this.monthTotals,
     required this.monthName,
     required this.monthAvailable,
+    required this.isCurrent,
+    required this.daysElapsed,
+    required this.daysTotal,
   });
 
   final String currency;
@@ -571,20 +468,30 @@ class _DashboardBalanceCard extends StatelessWidget {
   final Map<String, CurrencyTotals> stock;
   final Map<String, CurrencyTotals> monthTotals;
   final String monthName;
-
-  /// False while the month totals load or fail: the chips show `—` then.
   final bool monthAvailable;
+  final bool isCurrent;
+  final int daysElapsed;
+  final int daysTotal;
 
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
     final totals = monthTotals[currency] ?? const CurrencyTotals();
+    final incomes = totals.incomes;
+    final expenses = totals.expenses;
+    final saved = incomes - expenses;
+    final positive = saved >= 0;
+
     final incomesLabel = monthAvailable
-        ? MoneyFormatter.formatSignedMinorUnits(totals.incomes)
+        ? MoneyFormatter.formatSignedMinorUnits(incomes)
         : '—';
     final expensesLabel = monthAvailable
-        ? '-${MoneyFormatter.formatMinorUnits(totals.expenses)}'
+        ? '-${MoneyFormatter.formatMinorUnits(expenses)}'
         : '—';
+
+    final progressPct = (daysTotal > 0 && daysElapsed > 0)
+        ? (daysElapsed / daysTotal).clamp(0.0, 1.0)
+        : null;
 
     return Container(
       padding: const EdgeInsets.all(20),
@@ -632,16 +539,40 @@ class _DashboardBalanceCard extends StatelessWidget {
               ),
             ),
           ],
+          const SizedBox(height: 16),
+          Divider(height: 1, color: palette.line),
           const SizedBox(height: 14),
-          Text(
-            'Movimientos de $monthName',
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-              color: palette.muted,
-            ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Movimientos de $monthName',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: palette.text,
+                ),
+              ),
+              if (isCurrent && progressPct != null)
+                Text(
+                  'Día $daysElapsed de $daysTotal (${(progressPct * 100).round()}%)',
+                  style: TextStyle(fontSize: 11, color: palette.muted),
+                ),
+            ],
           ),
-          const SizedBox(height: 6),
+          if (isCurrent && progressPct != null) ...[
+            const SizedBox(height: 6),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(4),
+              child: LinearProgressIndicator(
+                value: progressPct,
+                backgroundColor: palette.soft,
+                valueColor: AlwaysStoppedAnimation<Color>(palette.primary),
+                minHeight: 4,
+              ),
+            ),
+          ],
+          const SizedBox(height: 12),
           Row(
             children: [
               Expanded(
@@ -649,6 +580,7 @@ class _DashboardBalanceCard extends StatelessWidget {
                   label: 'Ingresos',
                   value: incomesLabel,
                   color: palette.income,
+                  icon: Icons.arrow_downward,
                 ),
               ),
               const SizedBox(width: 12),
@@ -657,9 +589,76 @@ class _DashboardBalanceCard extends StatelessWidget {
                   label: 'Gastos',
                   value: expensesLabel,
                   color: palette.discard,
+                  icon: Icons.arrow_upward,
                 ),
               ),
             ],
+          ),
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: BoxDecoration(
+              color: palette.soft,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  positive ? Icons.check_circle_outline : Icons.error_outline,
+                  size: 18,
+                  color: positive ? palette.income : palette.discard,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Text(
+                            'Balance de $monthName',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              color: palette.muted,
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            positive ? 'Ahorro' : 'Déficit',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                              color: positive ? palette.income : palette.discard,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        positive
+                            ? 'Superávit del periodo'
+                            : 'Gastos superan ingresos',
+                        style: TextStyle(fontSize: 10, color: palette.muted),
+                      ),
+                    ],
+                  ),
+                ),
+                Text(
+                  !monthAvailable
+                      ? '—'
+                      : saved == 0
+                          ? r'$ 0'
+                          : MoneyFormatter.formatSignedMinorUnits(saved),
+                  key: const Key('dashboard-savings-amount'),
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                    color: positive ? palette.income : palette.discard,
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -667,17 +666,18 @@ class _DashboardBalanceCard extends StatelessWidget {
   }
 }
 
-/// Income/expense chip of the month (`+ $ 500.000` / `- $ 25.000`).
 class _FlowChip extends StatelessWidget {
   const _FlowChip({
     required this.label,
     required this.value,
     required this.color,
+    this.icon,
   });
 
   final String label;
   final String value;
   final Color color;
+  final IconData? icon;
 
   @override
   Widget build(BuildContext context) {
@@ -693,12 +693,17 @@ class _FlowChip extends StatelessWidget {
         children: [
           Row(
             children: [
-              Container(
-                width: 8,
-                height: 8,
-                decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-              ),
-              const SizedBox(width: 6),
+              if (icon != null) ...[
+                Icon(icon, size: 12, color: color),
+                const SizedBox(width: 4),
+              ] else ...[
+                Container(
+                  width: 8,
+                  height: 8,
+                  decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+                ),
+                const SizedBox(width: 6),
+              ],
               Text(
                 label,
                 style: TextStyle(
@@ -723,6 +728,7 @@ class _FlowChip extends StatelessWidget {
     );
   }
 }
+
 
 /// One expense of the month, for the category breakdown.
 @immutable
