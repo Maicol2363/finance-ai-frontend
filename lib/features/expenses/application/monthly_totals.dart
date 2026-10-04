@@ -51,6 +51,19 @@ class DashboardPeriodController extends Notifier<DashboardPeriod> {
 DateTime _monthEnd(int year, int month) =>
     DateTime.utc(year, month + 1).subtract(const Duration(days: 1));
 
+/// The window immediately before [window], with the same length in days.
+///
+/// Used for the honest comparison badge: `Mes anterior` compares against the
+/// month before, `Últimos 3 meses` against the 3 months before, etc.
+({DateTime start, DateTime end}) previousWindow(
+  ({DateTime start, DateTime end}) window,
+) {
+  final length = window.end.difference(window.start).inDays + 1;
+  final end = window.start.subtract(const Duration(days: 1));
+  final start = end.subtract(Duration(days: length - 1));
+  return (start: start, end: end);
+}
+
 /// True when [date] falls inside [window] (calendar-day precision).
 bool isInPeriodWindow(DateTime date, ({DateTime start, DateTime end}) window) {
   final day = DateTime.utc(date.year, date.month, date.day);
@@ -91,6 +104,7 @@ class MonthlyTotals {
     required this.expenseItems,
     this.period = DashboardPeriod.thisMonth,
     DateTime? windowEnd,
+    this.previousExpensesByCurrency = const {},
   }) : windowEnd = windowEnd ?? monthStart;
 
   /// First day of the reported window (UTC midnight, for display helpers).
@@ -101,6 +115,11 @@ class MonthlyTotals {
 
   /// Which preset produced these totals.
   final DashboardPeriod period;
+
+  /// Expense magnitudes per currency in the previous equivalent window
+  /// ([previousWindow]), for the honest window-over-window badge. Incomes are
+  /// not compared: only spend gets a tendency.
+  final Map<String, int> previousExpensesByCurrency;
 
   /// Income/expense flow per currency for the month.
   final Map<String, CurrencyTotals> byCurrency;
@@ -172,12 +191,38 @@ Future<MonthlyTotals> loadPeriodTotals(
     }
   }
 
+  // Previous equivalent window: one extra first-page read, expenses only.
+  // Incomes are not compared (only spend gets a tendency). When the previous
+  // window is busier than one page the badge still compares first-page sums;
+  // acceptable: the badge is a hint, totals stay exact.
+  final prev = previousWindow(window);
+  final prevExpenses = <String, int>{};
+  final prevResult = await repository.history(
+    HistoryFilters(
+      type: TransactionType.expense,
+      startDate: prev.start,
+      endDate: prev.end,
+      page: 1,
+      pageSize: _pageSize,
+    ),
+  );
+  for (final item in prevResult.items) {
+    for (final movement in item.movements) {
+      final minorUnits = movement.amount.minorUnits;
+      if (minorUnits < 0) {
+        prevExpenses[movement.currencyCode] =
+            (prevExpenses[movement.currencyCode] ?? 0) - minorUnits;
+      }
+    }
+  }
+
   return MonthlyTotals(
     monthStart: window.start,
     windowEnd: window.end,
     period: period,
     byCurrency: builder.build(),
     expenseItems: List.unmodifiable(expenseItems),
+    previousExpensesByCurrency: Map.unmodifiable(prevExpenses),
   );
 }
 

@@ -1340,8 +1340,9 @@ void main() {
     // Same number and same label on both tabs: they share the definition.
     expect(find.text('Saldo en cuentas'), findsOneWidget);
     expect(find.text(r'$ 100 COP'), findsOneWidget);
-    expect(find.text(r'+$ 0'), findsOneWidget);
-    // The flow chip and the month breakdown row both show the same expense.
+    // Header chip + savings card both show the zero income.
+    expect(find.text(r'+$ 0'), findsWidgets);
+    // The flow chip and the grouped category row both show the same expense.
     expect(find.text(r'-$ 25'), findsWidgets);
   });
 

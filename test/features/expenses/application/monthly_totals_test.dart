@@ -168,11 +168,17 @@ void main() {
     expect(totals.expenseItems, hasLength(2));
     expect(totals.monthStart, DateTime.utc(2026, 9, 1));
 
-    final sent = expenses.seenFilters.single;
+    // Current window + one previous-window first page.
+    expect(expenses.seenFilters, hasLength(2));
+    final sent = expenses.seenFilters.first;
     expect(sent.type, TransactionType.expense);
     expect(sent.startDate, DateTime.utc(2026, 9, 1));
     expect(sent.endDate, DateTime.utc(2026, 9, 30));
     expect(sent.pageSize, 100);
+    final prev = expenses.seenFilters.last;
+    expect(prev.startDate, DateTime.utc(2026, 8, 2));
+    expect(prev.endDate, DateTime.utc(2026, 8, 31));
+    expect(prev.page, 1);
   });
 
   test(
@@ -190,7 +196,10 @@ void main() {
 
       expect(totals.byCurrency['COP']!.expenses, 6000);
       expect(totals.expenseItems, hasLength(3));
-      expect(expenses.seenFilters.map((filters) => filters.page), [1, 2, 3]);
+      expect(
+        expenses.seenFilters.map((filters) => filters.page),
+        [1, 2, 3, 1],
+      );
     },
   );
 
@@ -270,7 +279,7 @@ void main() {
     ).read(periodTotalsProvider.future);
 
     expect(totals.period, DashboardPeriod.lastMonth);
-    final sent = expenses.seenFilters.single;
+    final sent = expenses.seenFilters.first;
     expect(sent.startDate, DateTime.utc(2026, 8, 1));
     expect(sent.endDate, DateTime.utc(2026, 8, 31));
     // The Sep-18 income fixture belongs to septiembre; agosto preset ignores it.
@@ -294,7 +303,7 @@ void main() {
       period: DashboardPeriod.last3Months,
     ).read(periodTotalsProvider.future);
 
-    final sent = expenses.seenFilters.single;
+    final sent = expenses.seenFilters.first;
     expect(sent.startDate, DateTime.utc(2026, 7, 1));
     expect(sent.endDate, DateTime.utc(2026, 9, 30));
   });
@@ -310,5 +319,30 @@ void main() {
     ).read(periodTotalsProvider.future);
 
     expect(totals.byCurrency['COP']!.incomes, 50000);
+  });
+
+  test('previous window covers the same length right before', () {
+    expect(
+      previousWindow((start: DateTime.utc(2026, 9, 1), end: DateTime.utc(2026, 9, 30))),
+      (start: DateTime.utc(2026, 8, 2), end: DateTime.utc(2026, 8, 31)),
+    );
+    expect(
+      previousWindow((start: DateTime.utc(2026, 10, 1), end: DateTime.utc(2026, 10, 3))),
+      (start: DateTime.utc(2026, 9, 28), end: DateTime.utc(2026, 9, 30)),
+    );
+  });
+
+  test('previous-window expenses land in previousExpensesByCurrency', () async {
+    final expenses = _FakeExpensesRepository(
+      pages: {
+        1: [expenseItem(id: 1, amount: '-25.00')],
+      },
+    );
+    final totals = await _container(
+      expenses: expenses,
+    ).read(monthlyTotalsProvider.future);
+
+    // Same fake serves both windows: previous sums the same first page.
+    expect(totals.previousExpensesByCurrency['COP'], 2500);
   });
 }

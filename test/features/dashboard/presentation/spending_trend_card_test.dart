@@ -55,4 +55,47 @@ void main() {
     expect(find.text('Total: --'), findsOneWidget);
     expect(find.text('cargando...'), findsOneWidget);
   });
+
+  testWidgets('honest badge overrides the in-window label', (t) async {
+    await _pump(
+      t,
+      SpendingTrendCard(
+        days: _days([100, 100, 100, 100]),
+        currency: 'COP',
+        available: true,
+        comparisonLabel: '+48% vs ago',
+      ),
+    );
+    expect(find.text('+48% vs ago'), findsOneWidget);
+    expect(find.textContaining('Subiendo'), findsNothing);
+  });
+
+  testWidgets('weekly buckets render weeks and tap shows the value', (t) async {
+    await _pump(
+      t,
+      SpendingTrendCard(
+        days: _days([100, 100]),
+        currency: 'COP',
+        available: true,
+        weekly: [
+          WeeklySpend(
+            start: DateTime(2026, 9, 1),
+            end: DateTime(2026, 9, 7),
+            minorUnits: 15200000,
+          ),
+          WeeklySpend(
+            start: DateTime(2026, 9, 8),
+            end: DateTime(2026, 9, 14),
+            minorUnits: 4800000,
+          ),
+        ],
+      ),
+    );
+    expect(find.text('2 semanas en COP'), findsOneWidget);
+    // Tap inside the chart area: the selected bucket value appears.
+    final chartCenter = t.getCenter(find.byKey(const Key('dashboard-trend-chart')));
+    await t.tapAt(chartCenter);
+    await t.pumpAndSettle();
+    expect(find.byKey(const Key('dashboard-trend-selected')), findsOneWidget);
+  });
 }

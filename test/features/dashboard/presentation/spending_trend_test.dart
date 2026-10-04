@@ -75,4 +75,56 @@ void main() {
     expect(spendingTendency(mk([100, 100, 105, 105])), 'flat');
     expect(spendingTendency(mk([0, 0, 50, 50])), 'up');
   });
+
+  test('weekly buckets keep volume per bar', () {
+    final items = [
+      _item(id: 1, at: '2026-09-05T12:00:00Z', amount: '-152000.00'),
+      _item(id: 2, at: '2026-09-08T12:00:00Z', amount: '-48000.00'),
+      _item(id: 3, at: '2026-09-12T12:00:00Z', amount: '-90000.00'),
+    ];
+    final weeks = weeklyExpenseSeries(
+      items: items,
+      currencyCode: 'COP',
+      windowStart: DateTime.utc(2026, 9, 1),
+      windowEnd: DateTime.utc(2026, 9, 30),
+    );
+    expect(weeks, hasLength(5));
+    expect(
+      weeks.fold<int>(0, (s, w) => s + w.minorUnits),
+      15200000 + 4800000 + 9000000,
+    );
+    // Sep 5 (Sat) belongs to the Mon Sep-1 week.
+    expect(weeks.first.minorUnits, 15200000);
+  });
+
+  test('monthly buckets split the year view', () {
+    final items = [
+      _item(id: 1, at: '2026-08-10T12:00:00Z', amount: '-100.00'),
+      _item(id: 2, at: '2026-09-05T12:00:00Z', amount: '-200.00'),
+    ];
+    final months = monthlyExpenseSeries(
+      items: items,
+      currencyCode: 'COP',
+      windowStart: DateTime.utc(2026),
+      windowEnd: DateTime.utc(2026, 12, 31),
+    );
+    expect(months, hasLength(12));
+    expect(months[7].minorUnits, 10000);
+    expect(months[8].minorUnits, 20000);
+    expect(shortMonthName(9), 'sep');
+  });
+
+  test('compareWindows is honest about restarts and silence', () {
+    expect(compareWindows(current: 0, previous: 0), isNull);
+    expect(
+      compareWindows(current: 100, previous: 0),
+      (ratio: double.infinity, direction: 'up'),
+    );
+    expect(
+      compareWindows(current: 0, previous: 100),
+      (ratio: 0, direction: 'down'),
+    );
+    expect(compareWindows(current: 148, previous: 100)!.direction, 'up');
+    expect(compareWindows(current: 100, previous: 100)!.direction, 'flat');
+  });
 }

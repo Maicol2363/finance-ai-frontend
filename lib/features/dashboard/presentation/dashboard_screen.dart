@@ -19,6 +19,7 @@ import '../../budgets/application/budgets_state.dart';
 import '../../budgets/presentation/budget_dashboard_section.dart';
 import '../../expenses/application/expenses_controller.dart';
 import '../../expenses/application/expenses_state.dart';
+import '../../expenses/application/history_controller.dart';
 import '../../expenses/application/monthly_totals.dart';
 import '../../expenses/presentation/transaction_visuals.dart';
 import '../../incomes/data/incomes_repository.dart';
@@ -93,17 +94,50 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         : orderedCodes.first;
     final otherCodes = orderedCodes.where((code) => code != currency).toList();
     final breakdown = _breakdownFor(monthlyTotals, currency);
-    // Tendency reuses the window items already loaded above: no new request,
-    // no new package, one currency at a time. Longer windows still show the
-    // last 30 days so the bars stay readable.
+    // Tendency: daily bars for short windows, weekly for longer ones, monthly
+    // buckets for the year. Longer windows show the last 30 days worth of
+    // buckets so bars keep volume instead of turning into zero-filled noise.
+    final useYear = period == DashboardPeriod.thisYear;
+    final useWeeks = !useYear && window.end.difference(window.start).inDays > 21;
+    final trendWeeks = useYear
+        ? monthlyExpenseSeries(
+            items: monthlyTotals?.expenseItems ?? const [],
+            currencyCode: currency,
+            windowStart: window.start,
+            windowEnd: window.end,
+          )
+        : useWeeks
+            ? weeklyExpenseSeries(
+                items: monthlyTotals?.expenseItems ?? const [],
+                currencyCode: currency,
+                windowStart: window.start,
+                windowEnd: window.end,
+              )
+            : null;
     final trend = dailyExpenseSeries(
       items: monthlyTotals?.expenseItems ?? const [],
       currencyCode: currency,
       now: now,
-      maxDays: period == DashboardPeriod.thisYear ? 30 : 14,
+      maxDays: useYear ? 365 : 14,
       windowStart: window.start,
       windowEnd: window.end,
     );
+    // Honest badge: current window vs the previous equivalent window.
+    final totals = monthlyTotals?.byCurrency[currency];
+    final comparison = compareWindows(
+      current: totals?.expenses ?? 0,
+      previous: monthlyTotals?.previousExpensesByCurrency[currency] ?? 0,
+    );
+    final comparisonLabel = _comparisonLabel(comparison, window, now);
+    final bucketTotal = useYear || useWeeks
+        ? (trendWeeks ?? const <WeeklySpend>[]).fold<int>(
+            0, (s, w) => s + w.minorUnits,
+          )
+        : trend.fold<int>(0, (s, d) => s + d.minorUnits);
+    final bucketCount =
+        useYear || useWeeks ? (trendWeeks?.length ?? 0) : trend.length;
+    final average =
+        bucketCount > 0 ? (bucketTotal / bucketCount).round() : null;
 
     return Scaffold(
       body: SafeArea(
@@ -148,6 +182,17 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                         days: trend,
                         currency: currency,
                         available: monthTotalsAsync.hasValue,
+                        weekly: trendWeeks,
+                        comparisonLabel: comparisonLabel,
+                        averageMinorUnits: average,
+                      ),
+                      const SizedBox(height: 24),
+
+                      _SavingsCard(
+                        totals: monthlyTotals?.byCurrency[currency],
+                        currency: currency,
+                        windowName: windowName,
+                        available: monthTotalsAsync.hasValue,
                       ),
                       const SizedBox(height: 24),
 
@@ -178,7 +223,12 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                       if (breakdown.isEmpty)
                         _EmptyBreakdown(monthName: windowName)
                       else
-                        _CategoryBreakdown(rows: breakdown),
+                        _CategoryBreakdown(
+                          rows: breakdown,
+                          currency: currency,
+                          window: window,
+                          windowName: windowName,
+                        ),
                     ],
                   ),
                 ),
@@ -190,12 +240,13 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     );
   }
 
-  /// The month's expenses in [currency], as the category breakdown rows.
+  /// The window's expenses in [currency], grouped by category with the top
+  /// merchant of each group (that's the "dónde se va" answer).
   List<_BreakdownRow> _breakdownFor(MonthlyTotals? totals, String currency) {
     if (totals == null) {
       return const [];
     }
-    final rows = <_BreakdownRow>[];
+    final byCategory = <String, _CategoryAcc>{};
     for (final item in totals.expenseItems) {
       if (item.movements.isEmpty) {
         continue;
@@ -204,17 +255,73 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       if (movement.currencyCode != currency) {
         continue;
       }
+      final minorUnits = movement.amount.minorUnits.abs();
+      final category = item.expense?.items.firstOrNull?.category?.name;
+      final key = category ?? '';
+      final acc = byCategory.putIfAbsent(key, () => _CategoryAcc());
+      acc.total += minorUnits;
+      final store = (item.expense?.store ?? '').trim();
+      if (store.isNotEmpty) {
+        acc.stores[store] = (acc.stores[store] ?? 0) + minorUnits;
+      }
+      final itemCategoryId =
+          item.expense?.items.firstOrNull?.category?.id;
+      if (itemCategoryId != null && itemCategoryId > 0) {
+        acc.categoryId ??= itemCategoryId;
+      }
+    }
+    final rows = <_BreakdownRow>[];
+    for (final entry in byCategory.entries) {
+      final acc = entry.value;
+      final topStore = acc.stores.entries.fold<MapEntry<String, int>?>(null, (
+        best,
+        e,
+      ) {
+        if (best == null || e.value > best.value) return e;
+        return best;
+      });
       rows.add(
         _BreakdownRow(
-          category: item.expense?.items.firstOrNull?.category?.name,
-          title: item.expense?.store ?? item.description ?? 'Gasto',
-          minorUnits: movement.amount.minorUnits.abs(),
+          category: entry.key.isEmpty ? null : entry.key,
+          categoryId: acc.categoryId,
+          title: topStore?.key ?? 'Varios comercios',
+          minorUnits: acc.total,
         ),
       );
     }
     rows.sort((a, b) => b.minorUnits.compareTo(a.minorUnits));
     return rows;
   }
+}
+
+class _CategoryAcc {
+  int total = 0;
+  int? categoryId;
+  final Map<String, int> stores = {};
+}
+
+/// Honest badge: `+48% vs ago`, `-12% vs sep`, `Igual que antes`, or null when
+/// there is nothing to compare.
+String? _comparisonLabel(
+  ({double ratio, String direction})? comparison,
+  ({DateTime start, DateTime end}) window,
+  DateTime now,
+) {
+  if (comparison == null) return null;
+  final prev = previousWindow(window);
+  final prevName = shortMonthName(prev.start.month);
+  switch (comparison.direction) {
+    case 'up':
+      if (comparison.ratio.isInfinite) return 'Gastando de nuevo';
+      final pct = ((comparison.ratio - 1) * 100).round();
+      return '+$pct% vs $prevName';
+    case 'down':
+      final pct = ((1 - comparison.ratio) * 100).round();
+      return '-$pct% vs $prevName';
+    case 'flat':
+      return 'Igual que $prevName';
+  }
+  return null;
 }
 
 /// Window presets above the balance card: Este mes / Mes anterior /
@@ -287,6 +394,162 @@ class _PeriodChip extends StatelessWidget {
             color: selected ? palette.onPrimary : palette.muted,
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// Balance del periodo: ingresos − gastos = ahorro, con tasa de ahorro.
+///
+/// Answers "¿cómo voy?": the header chips show the two flows but never
+/// subtract them. Savings rate = saved / incomes, hidden when no income.
+class _SavingsCard extends StatelessWidget {
+  const _SavingsCard({
+    required this.totals,
+    required this.currency,
+    required this.windowName,
+    required this.available,
+  });
+
+  final CurrencyTotals? totals;
+  final String currency;
+  final String windowName;
+  final bool available;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+    final incomes = totals?.incomes ?? 0;
+    final expenses = totals?.expenses ?? 0;
+    final saved = incomes - expenses;
+    final rate = incomes > 0 ? saved / incomes : null;
+    final positive = saved >= 0;
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: palette.card,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: palette.line),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Balance de $windowName',
+            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 10),
+          if (!available)
+            Text('cargando...', style: TextStyle(fontSize: 12, color: palette.muted))
+          else ...[
+            Row(
+              children: [
+                Expanded(
+                  child: _FlowCell(
+                    label: 'Ingresos',
+                    amount: incomes,
+                    color: palette.income,
+                    signed: true,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: _FlowCell(
+                    label: 'Gastos',
+                    amount: -expenses,
+                    color: palette.discard,
+                    signed: true,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    positive ? 'Ahorro' : 'Déficit',
+                    style: TextStyle(fontSize: 12, color: palette.muted),
+                  ),
+                ),
+                Text(
+                  MoneyFormatter.formatSignedMinorUnits(saved),
+                  key: const Key('dashboard-savings-amount'),
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                    color: positive ? palette.income : palette.discard,
+                  ),
+                ),
+              ],
+            ),
+            if (rate != null) ...[
+              const SizedBox(height: 4),
+              Row(
+                children: [
+                  const Spacer(),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: palette.soft,
+                      borderRadius: BorderRadius.circular(99),
+                    ),
+                    child: Text(
+                      positive
+                          ? 'Ahorras ${(rate * 100).round()}%'
+                          : 'Te pasaste ${(-rate * 100).round()}%',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: positive ? palette.income : palette.discard,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _FlowCell extends StatelessWidget {
+  const _FlowCell({
+    required this.label,
+    required this.amount,
+    required this.color,
+    required this.signed,
+  });
+
+  final String label;
+  final int amount;
+  final Color color;
+  final bool signed;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+    final text = signed
+        ? MoneyFormatter.formatSignedMinorUnits(amount)
+        : MoneyFormatter.formatMinorUnits(amount);
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: palette.soft,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label, style: TextStyle(fontSize: 11, color: palette.muted)),
+          const SizedBox(height: 4),
+          Text(
+            text,
+            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: color),
+          ),
+        ],
       ),
     );
   }
@@ -466,88 +729,177 @@ class _FlowChip extends StatelessWidget {
 class _BreakdownRow {
   const _BreakdownRow({
     required this.category,
+    required this.categoryId,
     required this.title,
     required this.minorUnits,
   });
 
   final String? category;
+
+  /// Backend category id for the history drill-down. Null when the items
+  /// carry no id (older captures): the row then navigates unfiltered.
+  final int? categoryId;
   final String title;
   final int minorUnits;
 }
 
 class _CategoryBreakdown extends StatelessWidget {
-  const _CategoryBreakdown({required this.rows});
+  const _CategoryBreakdown({
+    required this.rows,
+    required this.currency,
+    required this.window,
+    required this.windowName,
+  });
 
   final List<_BreakdownRow> rows;
+
+  /// Headline currency of the dashboard (single-currency rows).
+  final String currency;
+
+  /// Current window for the history drill-down.
+  final ({DateTime start, DateTime end}) window;
+  final String windowName;
+
+  @override
+  Widget build(BuildContext context) {
+    return Consumer(
+      builder: (context, ref, _) {
+        final palette = context.palette;
+        final visible = rows.take(5).toList();
+        final total = rows.fold<int>(0, (s, r) => s + r.minorUnits);
+        return Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: palette.card,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: palette.line),
+          ),
+          child: Column(
+            children: [
+              for (var index = 0; index < visible.length; index++) ...[
+                if (index > 0) Divider(height: 1, color: palette.line),
+                _BreakdownTile(
+                  row: visible[index],
+                  share: total > 0 ? visible[index].minorUnits / total : 0,
+                  onTap: () {
+                    ref
+                        .read(historyControllerProvider.notifier)
+                        .showWindowForCategory(
+                          categoryId: visible[index].categoryId,
+                          startDate: window.start,
+                          endDate: window.end,
+                        );
+                    context.push('/history');
+                  },
+                ),
+              ],
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _BreakdownTile extends StatelessWidget {
+  const _BreakdownTile({required this.row, required this.share, required this.onTap});
+
+  final _BreakdownRow row;
+  final double share;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
-    final visible = rows.take(5).toList();
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: palette.card,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: palette.line),
-      ),
-      child: Column(
-        children: [
-          for (var index = 0; index < visible.length; index++) ...[
-            if (index > 0) Divider(height: 1, color: palette.line),
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 8),
-              child: Row(
-                children: [
-                  Container(
-                    width: 32,
-                    height: 32,
-                    decoration: BoxDecoration(
-                      color: palette.primarySoft,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Center(
-                      child: Text(
-                        categoryEmoji(visible[index].category),
-                        style: const TextStyle(fontSize: 14),
-                      ),
-                    ),
+    final pct = (share * 100).round();
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        key: Key('dashboard-category-${row.category ?? 'sin-categoria'}'),
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          child: Row(
+            children: [
+              Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: palette.primarySoft,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Center(
+                  child: Text(
+                    categoryEmoji(row.category),
+                    style: const TextStyle(fontSize: 14),
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
                       children: [
-                        Text(
-                          visible[index].category ?? 'Sin categoría',
-                          style: TextStyle(
-                            fontSize: 13.5,
-                            fontWeight: FontWeight.w600,
-                            color: palette.text,
+                        Expanded(
+                          child: Text(
+                            row.category ?? 'Sin categoría',
+                            style: TextStyle(
+                              fontSize: 13.5,
+                              fontWeight: FontWeight.w600,
+                              color: palette.text,
+                            ),
                           ),
                         ),
                         Text(
-                          visible[index].title,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(fontSize: 11, color: palette.muted),
+                          '$pct%',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w800,
+                            color: palette.text,
+                          ),
                         ),
                       ],
                     ),
-                  ),
+                    Text(
+                      row.title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(fontSize: 11, color: palette.muted),
+                    ),
+                    const SizedBox(height: 6),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(99),
+                      child: LinearProgressIndicator(
+                        value: share.clamp(0.0, 1.0),
+                        minHeight: 6,
+                        backgroundColor: palette.soft,
+                        color: palette.primary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
                   Text(
-                    '-${MoneyFormatter.formatMinorUnits(visible[index].minorUnits)}',
+                    '-${MoneyFormatter.formatMinorUnits(row.minorUnits)}',
                     style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w700,
                       color: palette.discard,
                     ),
                   ),
+                  Icon(Icons.chevron_right, size: 16, color: palette.muted),
                 ],
               ),
-            ),
-          ],
-        ],
+            ],
+          ),
+        ),
       ),
     );
   }
