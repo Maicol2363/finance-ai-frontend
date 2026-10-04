@@ -364,7 +364,10 @@ String? _comparisonLabel(
 ) {
   if (comparison == null) return null;
   final prev = previousWindow(window);
-  final prevName = shortMonthName(prev.start.month);
+  final isMultiMonth = prev.start.month != prev.end.month;
+  final prevName = isMultiMonth
+      ? '${shortMonthName(prev.start.month)}\u2013${shortMonthName(prev.end.month)}'
+      : shortMonthName(prev.start.month);
   switch (comparison.direction) {
     case 'up':
       if (comparison.ratio.isInfinite) return 'Gastando de nuevo';

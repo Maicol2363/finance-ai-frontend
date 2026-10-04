@@ -249,26 +249,48 @@ class _TrendBodyState extends State<_TrendBody> {
             ),
           ),
           const SizedBox(height: 8),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              if (widget.useWeeks && widget.weeks != null)
-                for (final w in widget.weeks!)
-                  Expanded(
-                    child: Text(
-                      '${w.start.day}-${w.end.day}',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(fontSize: 10, color: palette.muted),
-                    ),
-                  )
-              else
+          if (widget.useWeeks && widget.weeks != null && widget.weeks!.isNotEmpty)
+            _buildWeeksAxis(palette)
+          else
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
                 for (final d in widget.axis)
                   Text(
-                    '${d.day}',
+                    widget.axis.length <= 7
+                        ? '${d.day} ${shortMonthName(d.month)}'
+                        : '${d.day}',
                     style: TextStyle(fontSize: 10, color: palette.muted),
                   ),
-            ],
-          ),
+              ],
+            ),
+          if (sel != null && sel >= 0 && sel < painted.length) ...[
+            const SizedBox(height: 10),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+              decoration: BoxDecoration(
+                color: palette.soft,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: palette.line),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.calendar_month, size: 14, color: palette.primary),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      _detailedSelection(sel),
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w600,
+                        color: palette.text,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
           if (widget.averageMinorUnits != null && widget.averageMinorUnits! > 0) ...[
             const SizedBox(height: 8),
             Row(
@@ -317,14 +339,137 @@ class _TrendBodyState extends State<_TrendBody> {
     );
   }
 
+  Widget _buildWeeksAxis(AppPalette palette) {
+    final weeks = widget.weeks!;
+    final spans = _monthSpans(weeks);
+    final isMultiMonth = spans.length > 1;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (isMultiMonth) ...[
+          Row(
+            children: [
+              for (final span in spans)
+                Expanded(
+                  flex: span.count,
+                  child: Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 1.5),
+                    padding: const EdgeInsets.symmetric(vertical: 2),
+                    decoration: BoxDecoration(
+                      color: palette.soft,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(
+                      span.name.toUpperCase(),
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 9.5,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0.5,
+                        color: palette.text,
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Row(
+            children: [
+              for (final w in weeks)
+                Expanded(
+                  child: Text(
+                    '${w.start.day}-${w.end.day}',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 9, color: palette.muted),
+                  ),
+                ),
+            ],
+          ),
+        ] else ...[
+          Row(
+            children: [
+              for (final w in weeks)
+                Expanded(
+                  child: Text(
+                    weeks.length <= 5
+                        ? '${w.start.day}\u2013${w.end.day} ${shortMonthName(w.start.month)}'
+                        : '${w.start.day}-${w.end.day}',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: weeks.length <= 5 ? 10.5 : 9.5,
+                      fontWeight: FontWeight.w500,
+                      color: palette.muted,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ],
+      ],
+    );
+  }
+
+  List<({String name, int count, int month})> _monthSpans(List<WeeklySpend> weeks) {
+    if (weeks.isEmpty) return const [];
+    final spans = <({String name, int count, int month})>[];
+    String currentName = '';
+    int currentCount = 0;
+    int currentMonth = 0;
+    for (final w in weeks) {
+      final m = w.start.month;
+      final name = shortMonthName(m);
+      if (name == currentName) {
+        currentCount++;
+      } else {
+        if (currentCount > 0) {
+          spans.add((name: currentName, count: currentCount, month: currentMonth));
+        }
+        currentName = name;
+        currentCount = 1;
+        currentMonth = m;
+      }
+    }
+    if (currentCount > 0) {
+      spans.add((name: currentName, count: currentCount, month: currentMonth));
+    }
+    return spans;
+  }
+
+  String _detailedSelection(int index) {
+    if (index < 0 || index >= widget.painted.length) return '';
+    final bucket = widget.painted[index];
+    final amount = MoneyFormatter.display(bucket.minorUnits, widget.currency);
+    if (widget.useWeeks && widget.weeks != null && index < widget.weeks!.length) {
+      final week = widget.weeks![index];
+      final mStart = fullMonthName(week.start.month);
+      final mEnd = fullMonthName(week.end.month);
+      if (week.start.month == week.end.month) {
+        return 'Semana del ${week.start.day} al ${week.end.day} de $mStart: $amount';
+      } else {
+        return 'Semana del ${week.start.day} de $mStart al ${week.end.day} de $mEnd: $amount';
+      }
+    }
+    final m = fullMonthName(bucket.day.month);
+    return 'Día ${bucket.day.day} de $m: $amount';
+  }
+
   String _bucketLabel(int index) {
     final bucket = widget.painted[index];
-    final amount = MoneyFormatter.formatMinorUnits(bucket.minorUnits);
-    if (widget.useWeeks) {
+    final amount = MoneyFormatter.display(bucket.minorUnits, widget.currency);
+    if (widget.useWeeks && widget.weeks != null && index < widget.weeks!.length) {
       final week = widget.weeks![index];
-      return 'Sem ${week.start.day}/${week.start.month}\u2013${week.end.day}/${week.end.month}: $amount';
+      final mStart = shortMonthName(week.start.month);
+      final mEnd = shortMonthName(week.end.month);
+      if (week.start.month == week.end.month) {
+        return 'Sem ${week.start.day}\u2013${week.end.day} $mStart: $amount';
+      } else {
+        return 'Sem ${week.start.day} $mStart\u2013${week.end.day} $mEnd: $amount';
+      }
     }
-    return '${bucket.day.day}/${bucket.day.month}: $amount';
+    final m = shortMonthName(bucket.day.month);
+    return '${bucket.day.day} $m: $amount';
   }
 }
 

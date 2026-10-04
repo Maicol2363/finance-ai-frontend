@@ -173,6 +173,12 @@ String shortMonthName(int month) => const [
   'jul', 'ago', 'sep', 'oct', 'nov', 'dic',
 ][month - 1];
 
+/// Full Spanish month label (`enero`, `septiembre`).
+String fullMonthName(int month) => const [
+  'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
+  'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre',
+][month - 1];
+
 /// Cheap tendency label for [days]: compares the second half against the
 /// first half. Returns 'up', 'down', 'flat', or 'empty' (no spend at all).
 String spendingTendency(List<DailySpend> days) {
