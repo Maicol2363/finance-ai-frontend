@@ -9,29 +9,42 @@ class DailySpend {
   final int minorUnits;
 }
 
-/// Daily expense series for the fast Dashboard tendency (v1).
+/// Daily expense series for the Dashboard tendency.
 ///
 /// Sums only the negative movements of [items] in [currencyCode], bucketed by
-/// the item's local calendar day. The window ends today (local) and covers at
-/// most [maxDays] days, never reaching before the local month start: v1 reuses
-/// the month-scoped items the Dashboard already loads, so days from the
-/// previous month are out of scope until the backend summary lands.
+/// the item's local calendar day. The window ends at [windowEnd] (default:
+/// today, local) and covers at most [maxDays] days, never reaching before
+/// [windowStart] (default: local month start): single-month presets reuse the
+/// window items the Dashboard already loads, so days outside the window are
+/// out of scope until the backend summary lands.
 List<DailySpend> dailyExpenseSeries({
   required List<HistoryItem> items,
   required String currencyCode,
   required DateTime now,
   int maxDays = 14,
+  DateTime? windowStart,
+  DateTime? windowEnd,
 }) {
   assert(maxDays > 0);
   final local = now.toLocal();
+  final endDay = windowEnd == null
+      ? DateTime(local.year, local.month, local.day)
+      : DateTime(
+          windowEnd.year,
+          windowEnd.month,
+          windowEnd.day,
+        );
   final today = DateTime(local.year, local.month, local.day);
-  final monthStart = DateTime(local.year, local.month, 1);
-  var start = today.subtract(Duration(days: maxDays - 1));
-  if (start.isBefore(monthStart)) start = monthStart;
+  final effectiveEnd = endDay.isAfter(today) ? today : endDay;
+  final rangeStart = windowStart == null
+      ? DateTime(local.year, local.month, 1)
+      : DateTime(windowStart.year, windowStart.month, windowStart.day);
+  var start = effectiveEnd.subtract(Duration(days: maxDays - 1));
+  if (start.isBefore(rangeStart)) start = rangeStart;
   final days = <DateTime>[];
   for (
     var day = start;
-    !day.isAfter(today);
+    !day.isAfter(effectiveEnd);
     day = day.add(const Duration(days: 1))
   ) {
     days.add(day);

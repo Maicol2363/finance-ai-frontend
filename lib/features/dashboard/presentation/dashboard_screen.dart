@@ -74,7 +74,14 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
     final now = ref.watch(clockProvider)();
     final stock = activeAccountBalances(accounts);
-    final monthTotalsAsync = ref.watch(monthlyTotalsProvider);
+    final period = ref.watch(dashboardPeriodProvider);
+    final window = period == DashboardPeriod.thisMonth
+        ? currentMonthWindow(now)
+        : periodWindow(period, now);
+    final windowName = period == DashboardPeriod.thisMonth
+        ? DateLabels.monthName(now)
+        : periodLabel(period, now);
+    final monthTotalsAsync = ref.watch(periodTotalsProvider);
     final monthlyTotals = monthTotalsAsync.value;
 
     final orderedCodes = orderedCurrencyCodes({
@@ -86,12 +93,16 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         : orderedCodes.first;
     final otherCodes = orderedCodes.where((code) => code != currency).toList();
     final breakdown = _breakdownFor(monthlyTotals, currency);
-    // Fast v1 tendency reuses the month items already loaded above: no new
-    // request, no new package, one currency at a time.
+    // Tendency reuses the window items already loaded above: no new request,
+    // no new package, one currency at a time. Longer windows still show the
+    // last 30 days so the bars stay readable.
     final trend = dailyExpenseSeries(
       items: monthlyTotals?.expenseItems ?? const [],
       currencyCode: currency,
       now: now,
+      maxDays: period == DashboardPeriod.thisYear ? 30 : 14,
+      windowStart: window.start,
+      windowEnd: window.end,
     );
 
     return Scaffold(
@@ -110,18 +121,25 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   child: ListView(
                     padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
                     children: [
+                      _DashboardPeriodChips(
+                        selected: period,
+                        onSelect: (value) => ref
+                            .read(dashboardPeriodProvider.notifier)
+                            .select(value),
+                      ),
+                      const SizedBox(height: 12),
                       _DashboardBalanceCard(
                         currency: currency,
                         otherCodes: otherCodes,
                         stock: stock,
                         monthTotals: monthlyTotals?.byCurrency ?? const {},
-                        monthName: DateLabels.monthName(now),
+                        monthName: windowName,
                         monthAvailable: monthTotalsAsync.hasValue,
                       ),
                       if (monthTotalsAsync.hasError) ...[
                         const SizedBox(height: 12),
                         _MonthTotalsError(
-                          onRetry: () => ref.invalidate(monthlyTotalsProvider),
+                          onRetry: () => ref.invalidate(periodTotalsProvider),
                         ),
                       ],
                       const SizedBox(height: 24),
@@ -152,13 +170,13 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        'Movimientos de ${DateLabels.monthName(now)}',
+                        'Movimientos de $windowName',
                         style: TextStyle(fontSize: 11, color: palette.muted),
                       ),
                       const SizedBox(height: 12),
 
                       if (breakdown.isEmpty)
-                        _EmptyBreakdown(monthName: DateLabels.monthName(now))
+                        _EmptyBreakdown(monthName: windowName)
                       else
                         _CategoryBreakdown(rows: breakdown),
                     ],
@@ -199,7 +217,82 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   }
 }
 
-/// The Dashboard balance card: stock headline + the month's flow chips.
+/// Window presets above the balance card: Este mes / Mes anterior /
+/// Últimos 3 meses / Este año. Reuses the history screen chip look.
+class _DashboardPeriodChips extends StatelessWidget {
+  const _DashboardPeriodChips({required this.selected, required this.onSelect});
+
+  final DashboardPeriod selected;
+  final ValueChanged<DashboardPeriod> onSelect;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+    const options = [
+      (DashboardPeriod.thisMonth, 'Este mes'),
+      (DashboardPeriod.lastMonth, 'Mes anterior'),
+      (DashboardPeriod.last3Months, 'Últimos 3 meses'),
+      (DashboardPeriod.thisYear, 'Este año'),
+    ];
+    return Semantics(
+      label: 'Periodo del dashboard',
+      child: Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        children: [
+          for (final option in options)
+            _PeriodChip(
+              label: option.$2,
+              selected: option.$1 == selected,
+              onTap: () => onSelect(option.$1),
+              palette: palette,
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PeriodChip extends StatelessWidget {
+  const _PeriodChip({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+    required this.palette,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+  final AppPalette palette;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      key: Key('dashboard-period-$label'),
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 9),
+        decoration: BoxDecoration(
+          color: selected ? palette.primary : palette.card,
+          border: Border.all(color: selected ? palette.primary : palette.line),
+          borderRadius: BorderRadius.circular(999),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: selected ? palette.onPrimary : palette.muted,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// The Dashboard balance card: stock headline + the window's flow chips.
 class _DashboardBalanceCard extends StatelessWidget {
   const _DashboardBalanceCard({
     required this.currency,

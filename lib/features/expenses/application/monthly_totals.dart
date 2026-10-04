@@ -8,18 +8,99 @@ import '../data/expenses_repository.dart';
 import '../domain/history_models.dart';
 import 'expenses_controller.dart';
 
-/// Current-month movement totals, shared by the Gastos hub and the Dashboard so
-/// both cards report the same flow figures.
+/// Which window the Dashboard reports on.
+///
+/// The stock balance card is always all-time; only the flow figures
+/// (chips, tendency, category breakdown) follow this selection.
+enum DashboardPeriod { thisMonth, lastMonth, last3Months, thisYear }
+
+/// Currently selected Dashboard window. Changing it re-runs
+/// [periodTotalsProvider] with the new dates.
+final dashboardPeriodProvider = NotifierProvider<DashboardPeriodController, DashboardPeriod>(
+  DashboardPeriodController.new,
+);
+
+class DashboardPeriodController extends Notifier<DashboardPeriod> {
+  @override
+  DashboardPeriod build() => DashboardPeriod.thisMonth;
+
+  void select(DashboardPeriod period) {
+    if (state != period) state = period;
+  }
+}
+
+/// Start/end of [period] as UTC-midnight calendar dates for the API
+/// (`yyyy-MM-dd`) and the month check for incomes.
+({DateTime start, DateTime end}) periodWindow(DashboardPeriod period, DateTime now) {
+  final local = now.toLocal();
+  final monthStart = DateTime.utc(local.year, local.month);
+  switch (period) {
+    case DashboardPeriod.thisMonth:
+      return (start: monthStart, end: _monthEnd(local.year, local.month));
+    case DashboardPeriod.lastMonth:
+      final prev = DateTime.utc(local.year, local.month - 1);
+      return (start: DateTime.utc(prev.year, prev.month), end: _monthEnd(prev.year, prev.month));
+    case DashboardPeriod.last3Months:
+      final from = DateTime.utc(local.year, local.month - 2);
+      return (start: DateTime.utc(from.year, from.month), end: _monthEnd(local.year, local.month));
+    case DashboardPeriod.thisYear:
+      return (start: DateTime.utc(local.year), end: DateTime.utc(local.year, 12, 31));
+  }
+}
+
+DateTime _monthEnd(int year, int month) =>
+    DateTime.utc(year, month + 1).subtract(const Duration(days: 1));
+
+/// True when [date] falls inside [window] (calendar-day precision).
+bool isInPeriodWindow(DateTime date, ({DateTime start, DateTime end}) window) {
+  final day = DateTime.utc(date.year, date.month, date.day);
+  return !day.isBefore(window.start) && !day.isAfter(window.end);
+}
+
+/// Human label for the selected window (`octubre`, `septiembre`,
+/// `jul – oct`, `2026`).
+String periodLabel(DashboardPeriod period, DateTime now) {
+  const short = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+  const long = [
+    'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
+    'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre',
+  ];
+  final local = now.toLocal();
+  switch (period) {
+    case DashboardPeriod.thisMonth:
+      return long[local.month - 1];
+    case DashboardPeriod.lastMonth:
+      final prev = DateTime(local.year, local.month - 1);
+      return long[prev.month - 1];
+    case DashboardPeriod.last3Months:
+      final from = DateTime(local.year, local.month - 2);
+      return '${short[from.month - 1]} – ${short[local.month - 1]}';
+    case DashboardPeriod.thisYear:
+      return '${local.year}';
+  }
+}
+
+/// Movement totals for the selected Dashboard window, shared by the Gastos hub
+/// (Este mes) and the Dashboard (all presets) so both cards report the same
+/// flow figures.
 @immutable
 class MonthlyTotals {
   const MonthlyTotals({
     required this.monthStart,
     required this.byCurrency,
     required this.expenseItems,
-  });
+    this.period = DashboardPeriod.thisMonth,
+    DateTime? windowEnd,
+  }) : windowEnd = windowEnd ?? monthStart;
 
-  /// First day of the reported month (UTC midnight, for display helpers).
+  /// First day of the reported window (UTC midnight, for display helpers).
   final DateTime monthStart;
+
+  /// Last day of the reported window (UTC midnight).
+  final DateTime windowEnd;
+
+  /// Which preset produced these totals.
+  final DashboardPeriod period;
 
   /// Income/expense flow per currency for the month.
   final Map<String, CurrencyTotals> byCurrency;
@@ -32,26 +113,34 @@ class MonthlyTotals {
       : byCurrency[currencyCode] ?? const CurrencyTotals();
 }
 
-/// Current-month income/expense totals per currency.
+/// Income/expense totals per currency for a Dashboard window.
 ///
 /// * Incomes come from `GET /incomes`, which is not paginated, so the list is
-///   complete and can be filtered by month on the client.
-/// * Expenses come from the paginated `GET /history` for the month instead of
+///   complete and can be filtered by window on the client.
+/// * Expenses come from the paginated `GET /history` for the window instead of
 ///   the expenses list, because that list only holds the first page: summing it
-///   would silently under-report a busy month.
+///   would silently under-report a busy window.
 ///
 /// It re-runs when the expenses list reloads (mutations and pull to refresh),
 /// so the figures never go stale. The `select` keeps it from re-running on mere
 /// loading-status transitions.
-final monthlyTotalsProvider = FutureProvider<MonthlyTotals>((ref) async {
+Future<MonthlyTotals> loadPeriodTotals(
+  Ref ref, {
+  DashboardPeriod period = DashboardPeriod.thisMonth,
+}) async {
   ref.watch(expensesControllerProvider.select((state) => state.result));
   final now = ref.watch(clockProvider)();
-  final window = currentMonthWindow(now);
+  final window = period == DashboardPeriod.thisMonth
+      ? currentMonthWindow(now)
+      : periodWindow(period, now);
   final builder = CurrencyTotalsBuilder();
 
   final incomes = await ref.watch(incomesListProvider.future);
   for (final income in incomes) {
-    if (!isInCalendarMonth(income.date, now)) {
+    final inWindow = period == DashboardPeriod.thisMonth
+        ? isInCalendarMonth(income.date, now)
+        : isInPeriodWindow(income.date, window);
+    if (!inWindow) {
       continue;
     }
     builder.addIncome(income.currencyCode, income.amount.minorUnits);
@@ -85,9 +174,22 @@ final monthlyTotalsProvider = FutureProvider<MonthlyTotals>((ref) async {
 
   return MonthlyTotals(
     monthStart: window.start,
+    windowEnd: window.end,
+    period: period,
     byCurrency: builder.build(),
     expenseItems: List.unmodifiable(expenseItems),
   );
+}
+
+/// Gastos hub totals: always Este mes (unchanged behavior).
+final monthlyTotalsProvider = FutureProvider<MonthlyTotals>((ref) async {
+  return loadPeriodTotals(ref, period: DashboardPeriod.thisMonth);
+});
+
+/// Dashboard totals: follows the selected preset in [dashboardPeriodProvider].
+final periodTotalsProvider = FutureProvider<MonthlyTotals>((ref) async {
+  final period = ref.watch(dashboardPeriodProvider);
+  return loadPeriodTotals(ref, period: period);
 });
 
 /// A month never needs an unbounded walk: 5 pages of 100 cover 500 movements.

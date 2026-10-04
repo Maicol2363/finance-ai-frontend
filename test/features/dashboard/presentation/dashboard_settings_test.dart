@@ -345,11 +345,24 @@ void main() {
     expect(find.text('Movimientos de septiembre'), findsOneWidget);
     expect(find.text(r'+$ 500'), findsOneWidget);
     expect(find.text(r'-$ 25'), findsWidgets);
+    expect(find.text('Este mes'), findsOneWidget);
+    expect(find.text('Mes anterior'), findsOneWidget);
+    expect(find.text('Últimos 3 meses'), findsOneWidget);
+    expect(find.text('Este año'), findsOneWidget);
     await tester.scrollUntilVisible(find.text('Gastos por categoría'), 200);
     expect(find.text('Gastos por categoría'), findsOneWidget);
     await tester.scrollUntilVisible(find.text('Market'), 200);
     expect(find.text('Market'), findsOneWidget);
     expect(find.text('Food'), findsOneWidget);
+  });
+
+  testWidgets('dashboard period chip switches the window label', (tester) async {
+    await _pumpAt(tester, '/dashboard');
+
+    expect(find.text('Movimientos de septiembre'), findsOneWidget);
+    await tester.tap(find.text('Este año'));
+    await tester.pumpAndSettle();
+    expect(find.text('Movimientos de 2026'), findsOneWidget);
   });
 
   testWidgets('dashboard renders empty state without expenses', (tester) async {
