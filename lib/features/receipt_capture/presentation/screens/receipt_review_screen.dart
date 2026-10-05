@@ -771,7 +771,10 @@ class _ReceiptReviewScreenState extends ConsumerState<ReceiptReviewScreen> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
-                        MoneyFormatter.displayMajor(item.totalPrice, formData.currency),
+                        MoneyFormatter.displayMajor(
+                          item.totalPrice,
+                          formData.currency,
+                        ),
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
                           color: palette.text,

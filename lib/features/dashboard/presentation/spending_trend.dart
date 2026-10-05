@@ -35,7 +35,11 @@ List<WeeklySpend> weeklyExpenseSeries({
   required DateTime windowStart,
   required DateTime windowEnd,
 }) {
-  final startDay = DateTime(windowStart.year, windowStart.month, windowStart.day);
+  final startDay = DateTime(
+    windowStart.year,
+    windowStart.month,
+    windowStart.day,
+  );
   final endDay = DateTime(windowEnd.year, windowEnd.month, windowEnd.day);
   if (endDay.isBefore(startDay)) return const [];
   // Monday-start weeks containing the window.
@@ -90,11 +94,7 @@ List<DailySpend> dailyExpenseSeries({
   final local = now.toLocal();
   final endDay = windowEnd == null
       ? DateTime(local.year, local.month, local.day)
-      : DateTime(
-          windowEnd.year,
-          windowEnd.month,
-          windowEnd.day,
-        );
+      : DateTime(windowEnd.year, windowEnd.month, windowEnd.day);
   final today = DateTime(local.year, local.month, local.day);
   final effectiveEnd = endDay.isAfter(today) ? today : endDay;
   final rangeStart = windowStart == null
@@ -169,14 +169,34 @@ List<WeeklySpend> monthlyExpenseSeries({
 
 /// Short Spanish month label (`ene`, `sep`) for axis ticks.
 String shortMonthName(int month) => const [
-  'ene', 'feb', 'mar', 'abr', 'may', 'jun',
-  'jul', 'ago', 'sep', 'oct', 'nov', 'dic',
+  'ene',
+  'feb',
+  'mar',
+  'abr',
+  'may',
+  'jun',
+  'jul',
+  'ago',
+  'sep',
+  'oct',
+  'nov',
+  'dic',
 ][month - 1];
 
 /// Full Spanish month label (`enero`, `septiembre`).
 String fullMonthName(int month) => const [
-  'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
-  'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre',
+  'enero',
+  'febrero',
+  'marzo',
+  'abril',
+  'mayo',
+  'junio',
+  'julio',
+  'agosto',
+  'septiembre',
+  'octubre',
+  'noviembre',
+  'diciembre',
 ][month - 1];
 
 /// Cheap tendency label for [days]: compares the second half against the

@@ -47,7 +47,11 @@ class SpendingTrendCard extends StatelessWidget {
         : 0;
     final shownTotal = useWeeks ? weekTotal : total;
     final bucketCount = useWeeks ? weekDays.length : days.length;
-    final unit = bucketCount == 1 ? 'semana' : useWeeks ? 'semanas' : 'días';
+    final unit = bucketCount == 1
+        ? 'semana'
+        : useWeeks
+        ? 'semanas'
+        : 'días';
     final headline =
         comparisonLabel ??
         switch (tendency) {
@@ -63,7 +67,8 @@ class SpendingTrendCard extends StatelessWidget {
       final lower = comparisonLabel!.toLowerCase();
       if (comparisonLabel!.startsWith('+') || lower.contains('subiendo')) {
         resolvedDirection = 'up';
-      } else if (comparisonLabel!.startsWith('-') || lower.contains('bajando')) {
+      } else if (comparisonLabel!.startsWith('-') ||
+          lower.contains('bajando')) {
         resolvedDirection = 'down';
       } else if (lower.contains('igual')) {
         resolvedDirection = 'flat';
@@ -87,7 +92,10 @@ class SpendingTrendCard extends StatelessWidget {
     // Painter input: weeks collapse to (start, amount) so one painter serves
     // both granularities without a new package.
     final painted = useWeeks
-        ? [for (final w in weekDays) DailySpend(day: w.start, minorUnits: w.minorUnits)]
+        ? [
+            for (final w in weekDays)
+              DailySpend(day: w.start, minorUnits: w.minorUnits),
+          ]
         : days;
     final axis = useWeeks
         ? [for (final w in weekDays) w.start]
@@ -177,7 +185,10 @@ class _TrendBodyState extends State<_TrendBody> {
               Flexible(
                 child: Container(
                   key: const Key('dashboard-trend-badge'),
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
                     color: palette.soft,
                     borderRadius: BorderRadius.circular(99),
@@ -224,8 +235,12 @@ class _TrendBodyState extends State<_TrendBody> {
                       final chartWidth = box.size.width - 32;
                       if (chartWidth <= 0) return;
                       final slot = chartWidth / painted.length;
-                      final dx = box.globalToLocal(details.globalPosition).dx - 16;
-                      final index = (dx / slot).floor().clamp(0, painted.length - 1);
+                      final dx =
+                          box.globalToLocal(details.globalPosition).dx - 16;
+                      final index = (dx / slot).floor().clamp(
+                        0,
+                        painted.length - 1,
+                      );
                       setState(() => selected = index);
                     }
                   : null,
@@ -249,7 +264,9 @@ class _TrendBodyState extends State<_TrendBody> {
             ),
           ),
           const SizedBox(height: 8),
-          if (widget.useWeeks && widget.weeks != null && widget.weeks!.isNotEmpty)
+          if (widget.useWeeks &&
+              widget.weeks != null &&
+              widget.weeks!.isNotEmpty)
             _buildWeeksAxis(palette)
           else
             Row(
@@ -291,7 +308,8 @@ class _TrendBodyState extends State<_TrendBody> {
               ),
             ),
           ],
-          if (widget.averageMinorUnits != null && widget.averageMinorUnits! > 0) ...[
+          if (widget.averageMinorUnits != null &&
+              widget.averageMinorUnits! > 0) ...[
             const SizedBox(height: 8),
             Row(
               children: [
@@ -411,7 +429,9 @@ class _TrendBodyState extends State<_TrendBody> {
     );
   }
 
-  List<({String name, int count, int month})> _monthSpans(List<WeeklySpend> weeks) {
+  List<({String name, int count, int month})> _monthSpans(
+    List<WeeklySpend> weeks,
+  ) {
     if (weeks.isEmpty) return const [];
     final spans = <({String name, int count, int month})>[];
     String currentName = '';
@@ -424,7 +444,11 @@ class _TrendBodyState extends State<_TrendBody> {
         currentCount++;
       } else {
         if (currentCount > 0) {
-          spans.add((name: currentName, count: currentCount, month: currentMonth));
+          spans.add((
+            name: currentName,
+            count: currentCount,
+            month: currentMonth,
+          ));
         }
         currentName = name;
         currentCount = 1;
@@ -441,7 +465,9 @@ class _TrendBodyState extends State<_TrendBody> {
     if (index < 0 || index >= widget.painted.length) return '';
     final bucket = widget.painted[index];
     final amount = MoneyFormatter.display(bucket.minorUnits, widget.currency);
-    if (widget.useWeeks && widget.weeks != null && index < widget.weeks!.length) {
+    if (widget.useWeeks &&
+        widget.weeks != null &&
+        index < widget.weeks!.length) {
       final week = widget.weeks![index];
       final mStart = fullMonthName(week.start.month);
       final mEnd = fullMonthName(week.end.month);
@@ -458,7 +484,9 @@ class _TrendBodyState extends State<_TrendBody> {
   String _bucketLabel(int index) {
     final bucket = widget.painted[index];
     final amount = MoneyFormatter.display(bucket.minorUnits, widget.currency);
-    if (widget.useWeeks && widget.weeks != null && index < widget.weeks!.length) {
+    if (widget.useWeeks &&
+        widget.weeks != null &&
+        index < widget.weeks!.length) {
       final week = widget.weeks![index];
       final mStart = shortMonthName(week.start.month);
       final mEnd = shortMonthName(week.end.month);
@@ -516,7 +544,9 @@ class TrendBarsPainter extends CustomPainter {
     );
     // Average: dashed horizontal line.
     if (avg != null && avg > 0) {
-      final y = size.height - (avg / peak * (size.height - 10)).clamp(4.0, size.height - 4);
+      final y =
+          size.height -
+          (avg / peak * (size.height - 10)).clamp(4.0, size.height - 4);
       final dash = Paint()
         ..color = lineColor
         ..strokeWidth = 1
@@ -539,11 +569,12 @@ class TrendBarsPainter extends CustomPainter {
           Rect.fromLTWH(left, size.height - h, barWidth, h),
           const Radius.circular(4),
         ),
-        Paint()..color = isSel
-            ? (selectedColor ?? barColor)
-            : v <= 0
-                ? emptyColor
-                : barColor,
+        Paint()
+          ..color = isSel
+              ? (selectedColor ?? barColor)
+              : v <= 0
+              ? emptyColor
+              : barColor,
       );
     }
   }

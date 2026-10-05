@@ -51,8 +51,7 @@ class DashboardMetrics {
     int? budgetSumMinorUnits,
   }) {
     if (!summary.period.isCurrent) return null;
-    final remainingDays =
-        summary.period.daysTotal - summary.period.daysElapsed;
+    final remainingDays = summary.period.daysTotal - summary.period.daysElapsed;
     if (remainingDays <= 0) return null;
 
     final spentMtd = summary.projection.spentMtd.minorUnits;
@@ -106,7 +105,8 @@ class DashboardMetrics {
     final weekendUnits = summary.weekdayPattern.weekendAvg.minorUnits;
     final weekdayUnits = summary.weekdayPattern.weekdayAvg.minorUnits;
     if (weekdayUnits > 0 && weekendUnits > (weekdayUnits * 1.3).round()) {
-      final pct = (((weekendUnits - weekdayUnits) / weekdayUnits) * 100).round();
+      final pct = (((weekendUnits - weekdayUnits) / weekdayUnits) * 100)
+          .round();
       insights.add(
         DashboardInsight(
           title: 'Patrón de fin de semana',
@@ -124,8 +124,7 @@ class DashboardMetrics {
       insights.add(
         DashboardInsight(
           title: 'Ingresos variables ($cv%)',
-          message:
-              'Como contratista, tus ingresos fluctúan entre meses. Presupuesta tus gastos fijos con base en el promedio de 6 meses.',
+          message: 'Como contratista, tus ingresos fluctúan entre meses. Presupuesta tus gastos fijos con base en el promedio de 6 meses.',
           type: InsightType.info,
         ),
       );

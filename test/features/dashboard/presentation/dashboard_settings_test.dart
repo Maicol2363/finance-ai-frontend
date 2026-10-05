@@ -355,14 +355,17 @@ void main() {
     expect(find.text('Ahorro'), findsOneWidget);
     await tester.scrollUntilVisible(find.text('Gastos por categoría'), 200);
     expect(find.text('Gastos por categoría'), findsOneWidget);
-    await tester.scrollUntilVisible(find.text('Market'), 200);
-    expect(find.text('Market'), findsOneWidget);
+    // Market is also a card of the history section above the breakdown.
+    await tester.scrollUntilVisible(find.text('Market').last, 200);
+    expect(find.text('Market'), findsWidgets);
     expect(find.text('Food'), findsOneWidget);
     // Grouped by category: one row with share.
     expect(find.text('100%'), findsOneWidget);
   });
 
-  testWidgets('dashboard category tap drills to filtered history', (tester) async {
+  testWidgets('dashboard category tap drills to filtered history', (
+    tester,
+  ) async {
     await _pumpAt(tester, '/dashboard');
 
     final tile = find.byKey(const Key('dashboard-category-Food'));
@@ -375,7 +378,9 @@ void main() {
     expect(find.text('Historial'), findsOneWidget);
   });
 
-  testWidgets('dashboard period chip switches the window label', (tester) async {
+  testWidgets('dashboard period chip switches the window label', (
+    tester,
+  ) async {
     await _pumpAt(tester, '/dashboard');
 
     expect(find.text('Movimientos de septiembre'), findsOneWidget);

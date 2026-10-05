@@ -56,10 +56,7 @@ void main() {
           'share_pct': 24.0,
         },
       ],
-      'projection': {
-        'spent_mtd': '2500000.00',
-        'projected': '3750000.00',
-      },
+      'projection': {'spent_mtd': '2500000.00', 'projected': '3750000.00'},
       'balance': {
         'total': '15000000.00',
         'avg_monthly_spend': '3000000.00',
@@ -134,13 +131,24 @@ void main() {
       // 10 remaining days. avg spend = 3.000.000 (300.000.000 minor units).
       // spent MTD = 2.500.000 (250.000.000 minor units).
       // remaining = 50.000.000 minor units / 10 days = 5.000.000 minor units ($ 50.000).
-      final allowance = DashboardMetrics.calculateDailyAllowance(summary: summary);
+      final allowance = DashboardMetrics.calculateDailyAllowance(
+        summary: summary,
+      );
       expect(allowance, 5000000);
     });
 
     test('DashboardMetrics.sortBudgetsBySeverity orders exceeded first, then highest %', () {
-      const currency = CurrencySummary(id: 1, code: 'COP', name: 'COP', decimals: 2);
-      Budget createBudget({required int id, required String spent, required String total}) {
+      const currency = CurrencySummary(
+        id: 1,
+        code: 'COP',
+        name: 'COP',
+        decimals: 2,
+      );
+      Budget createBudget({
+        required int id,
+        required String spent,
+        required String total,
+      }) {
         return Budget(
           id: id,
           name: 'Budget $id',
@@ -171,16 +179,28 @@ void main() {
       expect(sorted.map((b) => b.id).toList(), [2, 3, 1]);
     });
 
-    test('DashboardMetrics.buildInsights generates contractor-focused insights', () {
-      final summary = DashboardSummary.fromJson(sampleJson);
-      final insights = DashboardMetrics.buildInsights(summary: summary);
+    test(
+      'DashboardMetrics.buildInsights generates contractor-focused insights',
+      () {
+        final summary = DashboardSummary.fromJson(sampleJson);
+        final insights = DashboardMetrics.buildInsights(summary: summary);
 
-      // Weekend pattern (180k vs 90k is 2x > 1.3x)
-      expect(insights.any((i) => i.title.contains('Patrón de fin de semana')), isTrue);
-      // Variability (0.42 >= 0.35)
-      expect(insights.any((i) => i.title.contains('Ingresos variables')), isTrue);
-      // Recurring candidate (Spotify)
-      expect(insights.any((i) => i.title.contains('Próximo recurrente')), isTrue);
-    });
+        // Weekend pattern (180k vs 90k is 2x > 1.3x)
+        expect(
+          insights.any((i) => i.title.contains('Patrón de fin de semana')),
+          isTrue,
+        );
+        // Variability (0.42 >= 0.35)
+        expect(
+          insights.any((i) => i.title.contains('Ingresos variables')),
+          isTrue,
+        );
+        // Recurring candidate (Spotify)
+        expect(
+          insights.any((i) => i.title.contains('Próximo recurrente')),
+          isTrue,
+        );
+      },
+    );
   });
 }

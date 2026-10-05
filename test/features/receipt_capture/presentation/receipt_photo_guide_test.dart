@@ -15,9 +15,9 @@ void main() {
     });
 
     test('guide can be shown again after clear', () async {
-      SharedPreferences.setMockInitialValues(
-        {ReceiptPhotoGuidePrefs.guideSeenKey: true},
-      );
+      SharedPreferences.setMockInitialValues({
+        ReceiptPhotoGuidePrefs.guideSeenKey: true,
+      });
       expect(await ReceiptPhotoGuidePrefs.shouldShowGuide(), isFalse);
 
       await ReceiptPhotoGuidePrefs.clear();
@@ -35,9 +35,7 @@ void main() {
   group('ReceiptPhotoGuideDialog', () {
     testWidgets('renders 3 tips and confirm button', (tester) async {
       await tester.pumpWidget(
-        const MaterialApp(
-          home: Scaffold(body: ReceiptPhotoGuideDialog()),
-        ),
+        const MaterialApp(home: Scaffold(body: ReceiptPhotoGuideDialog())),
       );
       await tester.pumpAndSettle();
 
@@ -51,9 +49,7 @@ void main() {
 
     testWidgets('default confirm pops the dialog', (tester) async {
       await tester.pumpWidget(
-        const MaterialApp(
-          home: Scaffold(body: ReceiptPhotoGuideDialog()),
-        ),
+        const MaterialApp(home: Scaffold(body: ReceiptPhotoGuideDialog())),
       );
       await tester.pumpAndSettle();
 

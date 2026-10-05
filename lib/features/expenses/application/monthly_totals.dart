@@ -16,9 +16,10 @@ enum DashboardPeriod { thisMonth, lastMonth, last3Months, thisYear }
 
 /// Currently selected Dashboard window. Changing it re-runs
 /// [periodTotalsProvider] with the new dates.
-final dashboardPeriodProvider = NotifierProvider<DashboardPeriodController, DashboardPeriod>(
-  DashboardPeriodController.new,
-);
+final dashboardPeriodProvider =
+    NotifierProvider<DashboardPeriodController, DashboardPeriod>(
+      DashboardPeriodController.new,
+    );
 
 class DashboardPeriodController extends Notifier<DashboardPeriod> {
   @override
@@ -31,7 +32,10 @@ class DashboardPeriodController extends Notifier<DashboardPeriod> {
 
 /// Start/end of [period] as UTC-midnight calendar dates for the API
 /// (`yyyy-MM-dd`) and the month check for incomes.
-({DateTime start, DateTime end}) periodWindow(DashboardPeriod period, DateTime now) {
+({DateTime start, DateTime end}) periodWindow(
+  DashboardPeriod period,
+  DateTime now,
+) {
   final local = now.toLocal();
   final monthStart = DateTime.utc(local.year, local.month);
   switch (period) {
@@ -39,12 +43,21 @@ class DashboardPeriodController extends Notifier<DashboardPeriod> {
       return (start: monthStart, end: _monthEnd(local.year, local.month));
     case DashboardPeriod.lastMonth:
       final prev = DateTime.utc(local.year, local.month - 1);
-      return (start: DateTime.utc(prev.year, prev.month), end: _monthEnd(prev.year, prev.month));
+      return (
+        start: DateTime.utc(prev.year, prev.month),
+        end: _monthEnd(prev.year, prev.month),
+      );
     case DashboardPeriod.last3Months:
       final from = DateTime.utc(local.year, local.month - 2);
-      return (start: DateTime.utc(from.year, from.month), end: _monthEnd(local.year, local.month));
+      return (
+        start: DateTime.utc(from.year, from.month),
+        end: _monthEnd(local.year, local.month),
+      );
     case DashboardPeriod.thisYear:
-      return (start: DateTime.utc(local.year), end: DateTime.utc(local.year, 12, 31));
+      return (
+        start: DateTime.utc(local.year),
+        end: DateTime.utc(local.year, 12, 31),
+      );
   }
 }
 
@@ -73,10 +86,33 @@ bool isInPeriodWindow(DateTime date, ({DateTime start, DateTime end}) window) {
 /// Human label for the selected window (`octubre`, `septiembre`,
 /// `jul – oct`, `2026`).
 String periodLabel(DashboardPeriod period, DateTime now) {
-  const short = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+  const short = [
+    'ene',
+    'feb',
+    'mar',
+    'abr',
+    'may',
+    'jun',
+    'jul',
+    'ago',
+    'sep',
+    'oct',
+    'nov',
+    'dic',
+  ];
   const long = [
-    'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
-    'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre',
+    'enero',
+    'febrero',
+    'marzo',
+    'abril',
+    'mayo',
+    'junio',
+    'julio',
+    'agosto',
+    'septiembre',
+    'octubre',
+    'noviembre',
+    'diciembre',
   ];
   final local = now.toLocal();
   switch (period) {

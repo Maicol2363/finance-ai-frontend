@@ -14,6 +14,7 @@ import 'features/expenses/application/history_controller.dart';
 import 'features/income_sources/presentation/income_sources_controller.dart';
 import 'features/incomes/data/incomes_repository.dart';
 import 'features/receipt_capture/application/receipt_capture_notifier.dart';
+import 'features/text_capture/application/text_capture_controller.dart';
 
 class FinanceApp extends ConsumerStatefulWidget {
   const FinanceApp({super.key, this.router});
@@ -44,6 +45,7 @@ class _FinanceAppState extends ConsumerState<FinanceApp> {
       ref.invalidate(incomeRevisionProvider);
       ref.invalidate(incomeSourcesControllerProvider);
       ref.invalidate(receiptCaptureNotifierProvider);
+      ref.invalidate(textCaptureControllerProvider);
     }
 
     _authSubscription = ref.listenManual<AuthSessionState>(

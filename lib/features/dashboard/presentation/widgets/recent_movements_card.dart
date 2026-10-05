@@ -45,7 +45,10 @@ class RecentMovementsCard extends StatelessWidget {
                 onTap: onViewAll,
                 borderRadius: BorderRadius.circular(4),
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 4,
+                    vertical: 2,
+                  ),
                   child: Text(
                     'Ver historial',
                     style: TextStyle(
@@ -72,10 +75,7 @@ class RecentMovementsCard extends StatelessWidget {
           else
             for (var i = 0; i < movements.length; i++) ...[
               if (i > 0) Divider(height: 12, color: palette.line),
-              _MovementTile(
-                movement: movements[i],
-                currency: currency,
-              ),
+              _MovementTile(movement: movements[i], currency: currency),
             ],
         ],
       ),
@@ -84,10 +84,7 @@ class RecentMovementsCard extends StatelessWidget {
 }
 
 class _MovementTile extends StatelessWidget {
-  const _MovementTile({
-    required this.movement,
-    required this.currency,
-  });
+  const _MovementTile({required this.movement, required this.currency});
 
   final RecentMovementItem movement;
   final String currency;

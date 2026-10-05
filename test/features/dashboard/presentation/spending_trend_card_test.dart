@@ -93,7 +93,9 @@ void main() {
     );
     expect(find.text('2 semanas en COP'), findsOneWidget);
     // Tap inside the chart area: the selected bucket value appears.
-    final chartCenter = t.getCenter(find.byKey(const Key('dashboard-trend-chart')));
+    final chartCenter = t.getCenter(
+      find.byKey(const Key('dashboard-trend-chart')),
+    );
     await t.tapAt(chartCenter);
     await t.pumpAndSettle();
     expect(find.byKey(const Key('dashboard-trend-selected')), findsOneWidget);

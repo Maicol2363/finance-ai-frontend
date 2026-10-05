@@ -116,14 +116,14 @@ void main() {
 
   test('compareWindows is honest about restarts and silence', () {
     expect(compareWindows(current: 0, previous: 0), isNull);
-    expect(
-      compareWindows(current: 100, previous: 0),
-      (ratio: double.infinity, direction: 'up'),
-    );
-    expect(
-      compareWindows(current: 0, previous: 100),
-      (ratio: 0, direction: 'down'),
-    );
+    expect(compareWindows(current: 100, previous: 0), (
+      ratio: double.infinity,
+      direction: 'up',
+    ));
+    expect(compareWindows(current: 0, previous: 100), (
+      ratio: 0,
+      direction: 'down',
+    ));
     expect(compareWindows(current: 148, previous: 100)!.direction, 'up');
     expect(compareWindows(current: 100, previous: 100)!.direction, 'flat');
   });

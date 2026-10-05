@@ -134,10 +134,7 @@ class TopCategoryItem {
 
 @immutable
 class ProjectionSummary {
-  const ProjectionSummary({
-    required this.spentMtd,
-    required this.projected,
-  });
+  const ProjectionSummary({required this.spentMtd, required this.projected});
 
   factory ProjectionSummary.fromJson(Map<String, dynamic> json) {
     return ProjectionSummary(
@@ -162,8 +159,12 @@ class BalanceSummary {
     final runwayRaw = json['runway_months'];
     return BalanceSummary(
       total: MoneyAmount.parseApi(json['total'] as String),
-      avgMonthlySpend: MoneyAmount.parseApi(json['avg_monthly_spend'] as String),
-      runwayMonths: runwayRaw != null ? double.tryParse(runwayRaw.toString()) : null,
+      avgMonthlySpend: MoneyAmount.parseApi(
+        json['avg_monthly_spend'] as String,
+      ),
+      runwayMonths: runwayRaw != null
+          ? double.tryParse(runwayRaw.toString())
+          : null,
     );
   }
 
@@ -196,10 +197,7 @@ class IncomeAverageSummary {
 
 @immutable
 class WeekdayPattern {
-  const WeekdayPattern({
-    required this.weekendAvg,
-    required this.weekdayAvg,
-  });
+  const WeekdayPattern({required this.weekendAvg, required this.weekdayAvg});
 
   factory WeekdayPattern.fromJson(Map<String, dynamic> json) {
     return WeekdayPattern(
@@ -299,9 +297,12 @@ class DashboardSummary {
       weekdayPattern: WeekdayPattern.fromJson(
         json['weekday_pattern'] as Map<String, dynamic>,
       ),
-      recurringCandidates: (json['recurring_candidates'] as List<dynamic>? ?? const [])
-          .map((e) => RecurringCandidate.fromJson(e as Map<String, dynamic>))
-          .toList(),
+      recurringCandidates:
+          (json['recurring_candidates'] as List<dynamic>? ?? const [])
+              .map(
+                (e) => RecurringCandidate.fromJson(e as Map<String, dynamic>),
+              )
+              .toList(),
       recent: (json['recent'] as List<dynamic>? ?? const [])
           .map((e) => RecentMovementItem.fromJson(e as Map<String, dynamic>))
           .toList(),

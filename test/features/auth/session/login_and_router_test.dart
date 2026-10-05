@@ -200,10 +200,15 @@ void main() {
     await tester.tap(find.byKey(const Key('login-submit-button')));
     await tester.pumpAndSettle();
 
+    // The Gastos chat comes first; balance and accounts live in the dashboard.
     expect(find.byKey(const Key('home-title')), findsOneWidget);
-    expect(find.byKey(const Key('home-accounts-button')), findsOneWidget);
-    expect(find.textContaining('person@example.com'), findsOneWidget);
+    expect(find.byKey(const Key('chat-composer-field')), findsOneWidget);
+    expect(find.byKey(const Key('home-accounts-button')), findsNothing);
     expect(store.value, renewable);
+
+    await tester.tap(find.byKey(const Key('bottom-nav-dashboard')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('home-accounts-button')), findsOneWidget);
 
     await tester.tap(find.byKey(const Key('home-accounts-button')));
     await tester.pumpAndSettle();
@@ -215,6 +220,8 @@ void main() {
     await tester.tap(find.byTooltip('Back to home'));
     await tester.pumpAndSettle();
 
+    await tester.tap(find.byKey(const Key('bottom-nav-gastos')));
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('logout-button')));
     await tester.pumpAndSettle();
     expect(find.text('Iniciar sesión'), findsOneWidget);
