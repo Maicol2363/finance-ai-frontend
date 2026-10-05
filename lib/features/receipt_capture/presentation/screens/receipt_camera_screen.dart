@@ -7,7 +7,6 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../application/receipt_capture_notifier.dart';
 import '../../data/receipt_photo_guide_prefs.dart';
-import '../widgets/receipt_photo_frame_overlay.dart';
 import '../widgets/receipt_photo_guide_dialog.dart';
 
 /// Signature of the strategy that opens the in-app camera and resolves with
@@ -246,12 +245,6 @@ class _ReceiptCameraScreenState extends ConsumerState<ReceiptCameraScreen>
         fit: StackFit.expand,
         children: [
           Positioned.fill(child: _buildBody()),
-          // Framing guide: darkens outside the receipt box so the user
-          // knows where to place the ticket. Visual only, no cropping.
-          if (_errorMessage == null)
-            const Positioned.fill(
-              child: IgnorePointer(child: ReceiptPhotoFrameOverlay()),
-            ),
           _buildTopBar(),
           _buildBottomBar(),
         ],
