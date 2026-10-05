@@ -13,35 +13,38 @@ void main() {
       expect(MoneyFormatter.formatWhole(0), '0');
     });
 
-    test('formatMinorUnits formats cents to currency with dots and suffix code', () {
-      expect(MoneyFormatter.formatMinorUnits(160000000), '\$ 1.600.000');
-      expect(MoneyFormatter.formatMinorUnits(160000050), '\$ 1.600.000,50');
-      expect(
-        MoneyFormatter.formatMinorUnits(160000000, currencyCode: 'COP'),
-        '\$ 1.600.000 COP',
-      );
-      expect(
-        MoneyFormatter.formatMinorUnits(-10570000, currencyCode: 'COP'),
-        '-\$ 105.700 COP',
-      );
-      expect(
-        MoneyFormatter.formatMinorUnits(-25075, currencyCode: 'COP'),
-        '-\$ 250,75 COP',
-      );
-      expect(
-        MoneyFormatter.formatMinorUnits(2550, currencyCode: 'COP'),
-        '\$ 25,50 COP',
-      );
-      expect(
-        MoneyFormatter.formatMinorUnits(125000, currencyCode: 'EUR'),
-        '€ 1.250 EUR',
-      );
-      expect(
-        MoneyFormatter.formatMinorUnits(125000, currencyCode: 'USD'),
-        '\$ 1.250 USD',
-      );
-      expect(MoneyFormatter.formatMinorUnits(-250000), '-\$ 2.500');
-    });
+    test(
+      'formatMinorUnits formats cents to currency with dots and suffix code',
+      () {
+        expect(MoneyFormatter.formatMinorUnits(160000000), '\$ 1.600.000');
+        expect(MoneyFormatter.formatMinorUnits(160000050), '\$ 1.600.000,50');
+        expect(
+          MoneyFormatter.formatMinorUnits(160000000, currencyCode: 'COP'),
+          '\$ 1.600.000 COP',
+        );
+        expect(
+          MoneyFormatter.formatMinorUnits(-10570000, currencyCode: 'COP'),
+          '-\$ 105.700 COP',
+        );
+        expect(
+          MoneyFormatter.formatMinorUnits(-25075, currencyCode: 'COP'),
+          '-\$ 250,75 COP',
+        );
+        expect(
+          MoneyFormatter.formatMinorUnits(2550, currencyCode: 'COP'),
+          '\$ 25,50 COP',
+        );
+        expect(
+          MoneyFormatter.formatMinorUnits(125000, currencyCode: 'EUR'),
+          '€ 1.250 EUR',
+        );
+        expect(
+          MoneyFormatter.formatMinorUnits(125000, currencyCode: 'USD'),
+          '\$ 1.250 USD',
+        );
+        expect(MoneyFormatter.formatMinorUnits(-250000), '-\$ 2.500');
+      },
+    );
 
     test('formatSignedMinorUnits formats zero and signed values honestly', () {
       expect(
@@ -60,14 +63,8 @@ void main() {
     });
 
     test('display and displayMajor format minor/major values with suffix', () {
-      expect(
-        MoneyFormatter.display(77180000, 'COP'),
-        '\$ 771.800 COP',
-      );
-      expect(
-        MoneyFormatter.displayMajor(25.5, 'COP'),
-        '\$ 25,50 COP',
-      );
+      expect(MoneyFormatter.display(77180000, 'COP'), '\$ 771.800 COP');
+      expect(MoneyFormatter.displayMajor(25.5, 'COP'), '\$ 25,50 COP');
       expect(
         MoneyFormatter.displayMajor(5000.0, 'COP', signed: true),
         '+\$ 5.000 COP',

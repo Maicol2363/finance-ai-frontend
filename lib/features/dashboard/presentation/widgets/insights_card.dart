@@ -4,10 +4,7 @@ import '../../../../core/theme/app_palette.dart';
 import '../../application/dashboard_metrics.dart';
 
 class InsightsCard extends StatelessWidget {
-  const InsightsCard({
-    required this.insights,
-    super.key,
-  });
+  const InsightsCard({required this.insights, super.key});
 
   final List<DashboardInsight> insights;
 

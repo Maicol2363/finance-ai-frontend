@@ -363,7 +363,9 @@ void main() {
     expect(find.text('100%'), findsOneWidget);
   });
 
-  testWidgets('dashboard category tap drills to filtered history', (tester) async {
+  testWidgets('dashboard category tap drills to filtered history', (
+    tester,
+  ) async {
     await _pumpAt(tester, '/dashboard');
 
     final tile = find.byKey(const Key('dashboard-category-Food'));
@@ -376,7 +378,9 @@ void main() {
     expect(find.text('Historial'), findsOneWidget);
   });
 
-  testWidgets('dashboard period chip switches the window label', (tester) async {
+  testWidgets('dashboard period chip switches the window label', (
+    tester,
+  ) async {
     await _pumpAt(tester, '/dashboard');
 
     expect(find.text('Movimientos de septiembre'), findsOneWidget);

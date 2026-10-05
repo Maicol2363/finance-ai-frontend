@@ -132,9 +132,7 @@ ProviderContainer _container({
         _FakeIncomesRepository(incomes),
       ),
       clockProvider.overrideWithValue(() => DateTime(2026, 9, 29, 12)),
-      dashboardPeriodProvider.overrideWith(
-        () => _FixedPeriod(period),
-      ),
+      dashboardPeriodProvider.overrideWith(() => _FixedPeriod(period)),
     ],
   );
   addTearDown(container.dispose);
@@ -196,10 +194,7 @@ void main() {
 
       expect(totals.byCurrency['COP']!.expenses, 6000);
       expect(totals.expenseItems, hasLength(3));
-      expect(
-        expenses.seenFilters.map((filters) => filters.page),
-        [1, 2, 3, 1],
-      );
+      expect(expenses.seenFilters.map((filters) => filters.page), [1, 2, 3, 1]);
     },
   );
 
@@ -231,9 +226,8 @@ void main() {
           ],
         },
       );
-      final totals = await _container(
-        expenses: expenses,
-      ).read(monthlyTotalsProvider.future);
+      final totals = await _container(expenses: expenses)
+          .read(monthlyTotalsProvider.future);
 
       expect(totals.byCurrency['COP']!.expenses, 2500);
       expect(totals.byCurrency['USD']!.expenses, 1000);
@@ -244,22 +238,22 @@ void main() {
 
   test('period windows resolve the expected date ranges', () {
     final now = DateTime(2026, 10, 3, 12);
-    expect(
-      periodWindow(DashboardPeriod.thisMonth, now),
-      (start: DateTime.utc(2026, 10, 1), end: DateTime.utc(2026, 10, 31)),
-    );
-    expect(
-      periodWindow(DashboardPeriod.lastMonth, now),
-      (start: DateTime.utc(2026, 9, 1), end: DateTime.utc(2026, 9, 30)),
-    );
-    expect(
-      periodWindow(DashboardPeriod.last3Months, now),
-      (start: DateTime.utc(2026, 8, 1), end: DateTime.utc(2026, 10, 31)),
-    );
-    expect(
-      periodWindow(DashboardPeriod.thisYear, now),
-      (start: DateTime.utc(2026), end: DateTime.utc(2026, 12, 31)),
-    );
+    expect(periodWindow(DashboardPeriod.thisMonth, now), (
+      start: DateTime.utc(2026, 10, 1),
+      end: DateTime.utc(2026, 10, 31),
+    ));
+    expect(periodWindow(DashboardPeriod.lastMonth, now), (
+      start: DateTime.utc(2026, 9, 1),
+      end: DateTime.utc(2026, 9, 30),
+    ));
+    expect(periodWindow(DashboardPeriod.last3Months, now), (
+      start: DateTime.utc(2026, 8, 1),
+      end: DateTime.utc(2026, 10, 31),
+    ));
+    expect(periodWindow(DashboardPeriod.thisYear, now), (
+      start: DateTime.utc(2026),
+      end: DateTime.utc(2026, 12, 31),
+    ));
     expect(periodLabel(DashboardPeriod.thisMonth, now), 'octubre');
     expect(periodLabel(DashboardPeriod.lastMonth, now), 'septiembre');
     expect(periodLabel(DashboardPeriod.last3Months, now), 'ago – oct');
@@ -323,11 +317,17 @@ void main() {
 
   test('previous window covers the same length right before', () {
     expect(
-      previousWindow((start: DateTime.utc(2026, 9, 1), end: DateTime.utc(2026, 9, 30))),
+      previousWindow((
+        start: DateTime.utc(2026, 9, 1),
+        end: DateTime.utc(2026, 9, 30),
+      )),
       (start: DateTime.utc(2026, 8, 2), end: DateTime.utc(2026, 8, 31)),
     );
     expect(
-      previousWindow((start: DateTime.utc(2026, 10, 1), end: DateTime.utc(2026, 10, 3))),
+      previousWindow((
+        start: DateTime.utc(2026, 10, 1),
+        end: DateTime.utc(2026, 10, 3),
+      )),
       (start: DateTime.utc(2026, 9, 28), end: DateTime.utc(2026, 9, 30)),
     );
   });
@@ -338,9 +338,8 @@ void main() {
         1: [expenseItem(id: 1, amount: '-25.00')],
       },
     );
-    final totals = await _container(
-      expenses: expenses,
-    ).read(monthlyTotalsProvider.future);
+    final totals = await _container(expenses: expenses)
+        .read(monthlyTotalsProvider.future);
 
     // Same fake serves both windows: previous sums the same first page.
     expect(totals.previousExpensesByCurrency['COP'], 2500);

@@ -6,8 +6,9 @@ import '../../expenses/application/monthly_totals.dart';
 import '../data/dashboard_repository.dart';
 import '../domain/dashboard_summary.dart';
 
-final dashboardSummaryProvider =
-    FutureProvider.autoDispose<DashboardSummary>((ref) async {
+final dashboardSummaryProvider = FutureProvider.autoDispose<DashboardSummary>((
+  ref,
+) async {
   final period = ref.watch(dashboardPeriodProvider);
   final now = ref.watch(clockProvider)();
   final window = periodWindow(period, now);

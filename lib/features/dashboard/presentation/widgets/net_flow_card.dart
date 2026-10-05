@@ -44,7 +44,10 @@ class NetFlowCard extends StatelessWidget {
         ? MoneyFormatter.formatSignedMinorUnits(incomes, currencyCode: currency)
         : '—';
     final expensesText = available
-        ? MoneyFormatter.formatSignedMinorUnits(-expenses, currencyCode: currency)
+        ? MoneyFormatter.formatSignedMinorUnits(
+            -expenses,
+            currencyCode: currency,
+          )
         : '—';
     final netText = available
         ? MoneyFormatter.formatSignedMinorUnits(net, currencyCode: currency)
@@ -78,7 +81,10 @@ class NetFlowCard extends StatelessWidget {
           ),
           const SizedBox(height: 6),
           Text(
-            MoneyFormatter.formatMinorUnits(stockBalance, currencyCode: currency),
+            MoneyFormatter.formatMinorUnits(
+              stockBalance,
+              currencyCode: currency,
+            ),
             style: TextStyle(
               fontSize: 26,
               fontWeight: FontWeight.w800,
@@ -212,10 +218,7 @@ class NetFlowCard extends StatelessWidget {
             ),
           ),
           // Hidden semantic anchor for test compatibility with "Balance de $monthName"
-          Offstage(
-            offstage: true,
-            child: Text('Balance de $periodName'),
-          ),
+          Offstage(offstage: true, child: Text('Balance de $periodName')),
         ],
       ),
     );

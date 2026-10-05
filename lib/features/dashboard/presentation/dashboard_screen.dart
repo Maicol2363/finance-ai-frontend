@@ -105,7 +105,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     // buckets for the year. Longer windows show the last 30 days worth of
     // buckets so bars keep volume instead of turning into zero-filled noise.
     final useYear = period == DashboardPeriod.thisYear;
-    final useWeeks = !useYear && window.end.difference(window.start).inDays > 21;
+    final useWeeks =
+        !useYear && window.end.difference(window.start).inDays > 21;
     final trendWeeks = useYear
         ? monthlyExpenseSeries(
             items: monthlyTotals?.expenseItems ?? const [],
@@ -114,13 +115,13 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             windowEnd: window.end,
           )
         : useWeeks
-            ? weeklyExpenseSeries(
-                items: monthlyTotals?.expenseItems ?? const [],
-                currencyCode: currency,
-                windowStart: window.start,
-                windowEnd: window.end,
-              )
-            : null;
+        ? weeklyExpenseSeries(
+            items: monthlyTotals?.expenseItems ?? const [],
+            currencyCode: currency,
+            windowStart: window.start,
+            windowEnd: window.end,
+          )
+        : null;
     final trend = dailyExpenseSeries(
       items: monthlyTotals?.expenseItems ?? const [],
       currencyCode: currency,
@@ -138,8 +139,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         ? (
             ratio: summary.comparison.pct != null
                 ? (summary.comparison.direction == 'down'
-                    ? (1.0 - (summary.comparison.pct! / 100.0))
-                    : (1.0 + (summary.comparison.pct! / 100.0)))
+                      ? (1.0 - (summary.comparison.pct! / 100.0))
+                      : (1.0 + (summary.comparison.pct! / 100.0)))
                 : 1.0,
             direction: summary.comparison.direction,
           )
@@ -150,18 +151,23 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     final comparisonLabel = _comparisonLabel(comparison, window, now);
     final bucketTotal = useYear || useWeeks
         ? (trendWeeks ?? const <WeeklySpend>[]).fold<int>(
-            0, (s, w) => s + w.minorUnits,
+            0,
+            (s, w) => s + w.minorUnits,
           )
         : trend.fold<int>(0, (s, d) => s + d.minorUnits);
-    final bucketCount =
-        useYear || useWeeks ? (trendWeeks?.length ?? 0) : trend.length;
-    final average =
-        bucketCount > 0 ? (bucketTotal / bucketCount).round() : null;
+    final bucketCount = useYear || useWeeks
+        ? (trendWeeks?.length ?? 0)
+        : trend.length;
+    final average = bucketCount > 0
+        ? (bucketTotal / bucketCount).round()
+        : null;
 
     final isCurrent = period == DashboardPeriod.thisMonth;
-    final int daysElapsed = summary?.period.daysElapsed ??
+    final int daysElapsed =
+        summary?.period.daysElapsed ??
         (isCurrent ? now.day : window.end.difference(window.start).inDays + 1);
-    final int daysTotal = summary?.period.daysTotal ??
+    final int daysTotal =
+        summary?.period.daysTotal ??
         (window.end.difference(window.start).inDays + 1);
 
     final dailyAllowance = summary != null
@@ -204,7 +210,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                         stock: stock,
                         monthTotals: monthlyTotals?.byCurrency ?? const {},
                         monthName: windowName,
-                        monthAvailable: monthTotalsAsync.hasValue || summary != null,
+                        monthAvailable:
+                            monthTotalsAsync.hasValue || summary != null,
                         isCurrent: isCurrent,
                         daysElapsed: daysElapsed,
                         daysTotal: daysTotal,
@@ -216,7 +223,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                         orderedCodes: orderedCodes,
                         onTap: () => context.push('/accounts'),
                       ),
-                      if (monthTotalsAsync.hasError && summaryAsync.hasError) ...[
+                      if (monthTotalsAsync.hasError &&
+                          summaryAsync.hasError) ...[
                         const SizedBox(height: 12),
                         _MonthTotalsError(
                           onRetry: () {
@@ -225,13 +233,19 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                           },
                         ),
                       ],
-                      if (isCurrent && dailyAllowance != null && summary != null) ...[
+                      if (isCurrent &&
+                          dailyAllowance != null &&
+                          summary != null) ...[
                         const SizedBox(height: 24),
                         DailyAllowanceCard(
                           dailyAllowanceMinorUnits: dailyAllowance,
-                          spentMtdMinorUnits: summary.projection.spentMtd.minorUnits,
-                          projectedMinorUnits: summary.projection.projected.minorUnits,
-                          remainingDays: daysTotal > daysElapsed ? (daysTotal - daysElapsed) : 0,
+                          spentMtdMinorUnits:
+                              summary.projection.spentMtd.minorUnits,
+                          projectedMinorUnits:
+                              summary.projection.projected.minorUnits,
+                          remainingDays: daysTotal > daysElapsed
+                              ? (daysTotal - daysElapsed)
+                              : 0,
                           currency: currency,
                         ),
                       ],
@@ -333,8 +347,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       if (store.isNotEmpty) {
         acc.stores[store] = (acc.stores[store] ?? 0) + minorUnits;
       }
-      final itemCategoryId =
-          item.expense?.items.firstOrNull?.category?.id;
+      final itemCategoryId = item.expense?.items.firstOrNull?.category?.id;
       if (itemCategoryId != null && itemCategoryId > 0) {
         acc.categoryId ??= itemCategoryId;
       }
@@ -656,7 +669,9 @@ class _UnifiedNetFlowCard extends StatelessWidget {
                             style: TextStyle(
                               fontSize: 11,
                               fontWeight: FontWeight.w700,
-                              color: positive ? palette.income : palette.discard,
+                              color: positive
+                                  ? palette.income
+                                  : palette.discard,
                             ),
                           ),
                         ],
@@ -725,7 +740,10 @@ class _FlowChip extends StatelessWidget {
                 Container(
                   width: 8,
                   height: 8,
-                  decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+                  decoration: BoxDecoration(
+                    color: color,
+                    shape: BoxShape.circle,
+                  ),
                 ),
                 const SizedBox(width: 6),
               ],
@@ -753,7 +771,6 @@ class _FlowChip extends StatelessWidget {
     );
   }
 }
-
 
 /// One expense of the month, for the category breakdown.
 @immutable
@@ -925,7 +942,11 @@ class _BreakdownTile extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   Text(
-                    MoneyFormatter.display(-row.minorUnits, currency, signed: true),
+                    MoneyFormatter.display(
+                      -row.minorUnits,
+                      currency,
+                      signed: true,
+                    ),
                     style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w700,
