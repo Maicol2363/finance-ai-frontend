@@ -357,6 +357,41 @@ void main() {
     expect(byKey('proposal-card'), findsOneWidget);
   });
 
+  testWidgets('a missing concept is asked with a tappable way to skip it', (
+    tester,
+  ) async {
+    final repository = FakeTextCaptureRepository(
+      proposals: [
+        proposal(
+          status: 'needs_clarification',
+          oneTap: false,
+          description: null,
+          category: null,
+          clarification: const {
+            'field': 'description',
+            'question':
+                '¿En qué fue el gasto? Escríbelo o toca «Sin descripción».',
+            'options': [
+              {'value': 'skip', 'label': 'Sin descripción'},
+            ],
+          },
+        ),
+        proposal(revision: 2, description: null, category: null),
+      ],
+    );
+    await pumpChat(tester, repository);
+
+    await send(tester, '13 mil pesos');
+
+    expect(find.textContaining('¿En qué fue el gasto?'), findsOneWidget);
+    await tester.tap(byKey('clarification-option-skip'));
+    await tester.pumpAndSettle();
+
+    final call = repository.proposeCalls.last;
+    expect(call.choice, (field: 'description', value: 'skip'));
+    expect(byKey('proposal-card'), findsOneWidget);
+  });
+
   testWidgets('a typed question explains where to answer', (tester) async {
     final repository = FakeTextCaptureRepository(
       proposals: [
