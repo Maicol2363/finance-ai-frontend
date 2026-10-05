@@ -431,7 +431,7 @@ void main() {
     await tester.tap(find.byKey(const Key('account-save-button')));
     await tester.pumpAndSettle();
     expect(find.text('Account details'), findsOneWidget);
-    expect(find.text('COP 50000.25'), findsNWidgets(2));
+    expect(find.text(r'$ 50.000,25 COP'), findsNWidgets(2));
 
     await tester.drag(find.byType(ListView), const Offset(0, -220));
     await tester.pumpAndSettle();
