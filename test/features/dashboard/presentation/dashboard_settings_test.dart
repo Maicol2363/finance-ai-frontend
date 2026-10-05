@@ -343,12 +343,15 @@ void main() {
     expect(find.text('Saldo en cuentas'), findsOneWidget);
     expect(find.text(r'$ 100 COP'), findsOneWidget);
     expect(find.text('Movimientos de septiembre'), findsOneWidget);
-    expect(find.text(r'+$ 500'), findsOneWidget);
+    // The flow chip and the income card of the recent history.
+    expect(find.text(r'+$ 500'), findsWidgets);
     expect(find.text(r'-$ 25'), findsWidgets);
+    expect(find.text('Historial reciente'), findsOneWidget);
     await tester.scrollUntilVisible(find.text('Gastos por categoría'), 200);
     expect(find.text('Gastos por categoría'), findsOneWidget);
-    await tester.scrollUntilVisible(find.text('Market'), 200);
-    expect(find.text('Market'), findsOneWidget);
+    // Market is also a card of the recent history above the breakdown.
+    await tester.scrollUntilVisible(find.text('Market').last, 200);
+    expect(find.text('Market'), findsWidgets);
     expect(find.text('Food'), findsOneWidget);
   });
 

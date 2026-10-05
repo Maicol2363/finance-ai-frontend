@@ -20,6 +20,7 @@ import '../../budgets/presentation/budget_dashboard_section.dart';
 import '../../expenses/application/expenses_controller.dart';
 import '../../expenses/application/expenses_state.dart';
 import '../../expenses/application/monthly_totals.dart';
+import '../../expenses/presentation/recent_movements_section.dart';
 import '../../expenses/presentation/transaction_visuals.dart';
 import '../../incomes/data/incomes_repository.dart';
 
@@ -66,9 +67,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         ref.watch(accountsControllerProvider).result?.accounts ??
         const <Account>[];
     final budgetsState = ref.watch(budgetsControllerProvider);
-    final preferredCurrency =
-        ref.watch(authSessionControllerProvider).user?.preferredCurrency ??
-        'COP';
+    final sessionUser = ref.watch(authSessionControllerProvider).user;
+    final preferredCurrency = sessionUser?.preferredCurrency ?? 'COP';
 
     final now = ref.watch(clockProvider)();
     final stock = activeAccountBalances(accounts);
@@ -98,54 +98,73 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               child: Center(
                 child: ConstrainedBox(
                   constraints: const BoxConstraints(maxWidth: 760),
-                  child: ListView(
-                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
-                    children: [
-                      _DashboardBalanceCard(
-                        currency: currency,
-                        otherCodes: otherCodes,
-                        stock: stock,
-                        monthTotals: monthlyTotals?.byCurrency ?? const {},
-                        monthName: DateLabels.monthName(now),
-                        monthAvailable: monthTotalsAsync.hasValue,
-                      ),
-                      if (monthTotalsAsync.hasError) ...[
+                  child: RefreshIndicator(
+                    onRefresh: () async {
+                      await Future.wait([
+                        ref.read(expensesControllerProvider.notifier).load(),
+                        ref.read(accountsControllerProvider.notifier).load(),
+                        ref.refresh(incomesListProvider.future),
+                      ]);
+                    },
+                    child: ListView(
+                      key: const Key('dashboard-list'),
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
+                      children: [
+                        _DashboardBalanceCard(
+                          currency: currency,
+                          otherCodes: otherCodes,
+                          stock: stock,
+                          monthTotals: monthlyTotals?.byCurrency ?? const {},
+                          monthName: DateLabels.monthName(now),
+                          monthAvailable: monthTotalsAsync.hasValue,
+                          accounts: accounts,
+                          orderedCodes: orderedCodes,
+                          userEmail: sessionUser?.email,
+                          onOpenAccounts: () => context.push('/accounts'),
+                        ),
+                        if (monthTotalsAsync.hasError) ...[
+                          const SizedBox(height: 12),
+                          _MonthTotalsError(
+                            onRetry: () =>
+                                ref.invalidate(monthlyTotalsProvider),
+                          ),
+                        ],
+                        const SizedBox(height: 24),
+
+                        const RecentMovementsSection(),
+                        const SizedBox(height: 24),
+
+                        BudgetDashboardSection(
+                          state: budgetsState,
+                          onRetry: ref
+                              .read(budgetsControllerProvider.notifier)
+                              .load,
+                          onManage: () => context.go('/budgets'),
+                        ),
+                        const SizedBox(height: 24),
+
+                        Text(
+                          'Gastos por categoría',
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
+                            color: palette.text,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Movimientos de ${DateLabels.monthName(now)}',
+                          style: TextStyle(fontSize: 11, color: palette.muted),
+                        ),
                         const SizedBox(height: 12),
-                        _MonthTotalsError(
-                          onRetry: () => ref.invalidate(monthlyTotalsProvider),
-                        ),
+
+                        if (breakdown.isEmpty)
+                          _EmptyBreakdown(monthName: DateLabels.monthName(now))
+                        else
+                          _CategoryBreakdown(rows: breakdown),
                       ],
-                      const SizedBox(height: 24),
-
-                      BudgetDashboardSection(
-                        state: budgetsState,
-                        onRetry: ref
-                            .read(budgetsControllerProvider.notifier)
-                            .load,
-                        onManage: () => context.go('/budgets'),
-                      ),
-                      const SizedBox(height: 24),
-
-                      Text(
-                        'Gastos por categoría',
-                        style: TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w700,
-                          color: palette.text,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'Movimientos de ${DateLabels.monthName(now)}',
-                        style: TextStyle(fontSize: 11, color: palette.muted),
-                      ),
-                      const SizedBox(height: 12),
-
-                      if (breakdown.isEmpty)
-                        _EmptyBreakdown(monthName: DateLabels.monthName(now))
-                      else
-                        _CategoryBreakdown(rows: breakdown),
-                    ],
+                    ),
                   ),
                 ),
               ),
@@ -192,6 +211,10 @@ class _DashboardBalanceCard extends StatelessWidget {
     required this.monthTotals,
     required this.monthName,
     required this.monthAvailable,
+    required this.accounts,
+    required this.orderedCodes,
+    required this.userEmail,
+    required this.onOpenAccounts,
   });
 
   final String currency;
@@ -202,6 +225,16 @@ class _DashboardBalanceCard extends StatelessWidget {
 
   /// False while the month totals load or fail: the chips show `—` then.
   final bool monthAvailable;
+
+  /// Every account, to count the active ones for the shortcut below.
+  final List<Account> accounts;
+  final List<String> orderedCodes;
+
+  /// The signed-in account, shown as context next to the balance.
+  final String? userEmail;
+
+  /// Opens the accounts and balances screen.
+  final VoidCallback onOpenAccounts;
 
   @override
   Widget build(BuildContext context) {
@@ -231,13 +264,27 @@ class _DashboardBalanceCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Saldo en cuentas',
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              color: palette.muted,
-            ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Saldo en cuentas',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: palette.muted,
+                ),
+              ),
+              if (userEmail != null)
+                Flexible(
+                  child: Text(
+                    userEmail!,
+                    key: const Key('home-user-context'),
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(fontSize: 11, color: palette.muted),
+                  ),
+                ),
+            ],
           ),
           const SizedBox(height: 6),
           Text(
@@ -289,7 +336,76 @@ class _DashboardBalanceCard extends StatelessWidget {
               ),
             ],
           ),
+          const SizedBox(height: 12),
+          Divider(height: 1, color: palette.line),
+          const SizedBox(height: 4),
+          _AccountsShortcut(
+            accounts: accounts,
+            stock: stock,
+            orderedCodes: orderedCodes,
+            onTap: onOpenAccounts,
+          ),
         ],
+      ),
+    );
+  }
+}
+
+/// "3 cuentas activas · … · Ver saldos": the way into accounts and balances.
+class _AccountsShortcut extends StatelessWidget {
+  const _AccountsShortcut({
+    required this.accounts,
+    required this.stock,
+    required this.orderedCodes,
+    required this.onTap,
+  });
+
+  final List<Account> accounts;
+  final Map<String, CurrencyTotals> stock;
+  final List<String> orderedCodes;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+    final activeCount = accounts.where((account) => account.isActive).length;
+    final perCurrency = orderedCodes
+        .map(
+          (code) =>
+              '${MoneyFormatter.formatMinorUnits(stock[code]?.balance ?? 0)} $code',
+        )
+        .join(' · ');
+    final label = activeCount > 0
+        ? '$activeCount ${activeCount == 1 ? 'cuenta activa' : 'cuentas activas'}'
+              '${perCurrency.isEmpty ? '' : ' · $perCurrency'} · Ver saldos'
+        : 'Gestionar cuentas y saldos';
+    return InkWell(
+      key: const Key('home-accounts-button'),
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: 48),
+        child: Row(
+          children: [
+            Icon(
+              Icons.account_balance_wallet_outlined,
+              size: 18,
+              color: palette.primary,
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                label,
+                style: TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w600,
+                  color: palette.primary,
+                ),
+              ),
+            ),
+            Icon(Icons.chevron_right, size: 18, color: palette.muted),
+          ],
+        ),
       ),
     );
   }

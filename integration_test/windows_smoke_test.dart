@@ -411,6 +411,10 @@ void main() {
     expect(find.byKey(const Key('home-title')), findsOneWidget);
     expect(store.value, _SuccessfulSessionRepository.renewable);
 
+    // Balance and the accounts shortcut live in the dashboard; the Gastos tab
+    // opens on the capture chat.
+    await tester.tap(find.byKey(const Key('bottom-nav-dashboard')));
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('home-accounts-button')));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('accounts-add-button')));
@@ -442,6 +446,8 @@ void main() {
     await tester.tap(find.byTooltip('Back to home'));
     await tester.pumpAndSettle();
 
+    await tester.tap(find.byKey(const Key('bottom-nav-gastos')));
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('logout-button')));
     await tester.pumpAndSettle();
     expect(find.text('Bienvenido de nuevo'), findsOneWidget);

@@ -2,6 +2,10 @@
 
 Shared Android and Windows Flutter client for the manual-first Finance AI application. The current slices support registration, Login, secure session restoration, protected Home, Logout, owned financial-account management, manual expense tracking, and personalized budgets with derived progress. Budgets may cover all expenses or one category, use an optional custom name, and run daily, weekly, fortnightly, monthly, quarterly, yearly, every custom number of days/weeks/months/years, or over a one-time date range. Users can create, list, inspect, edit, deactivate, reactivate, and permanently delete unused Cash, bank, digital-wallet, savings, credit-card, and other accounts with exact server-derived balances. Accounts with financial activity must be deactivated so history remains intact. Synchronization queues and AI remain later stories. Both targets use the same Dart UI, state, validation, and API client.
 
+## Gastos chat (HU-013)
+
+The Gastos tab opens on a capture chat. The user writes what happened in their own words; the assistant proposes an expense, income or transfer in a compact review card, and the user confirms it in one tap, edits it in place or discards it. Only genuine ambiguity triggers one short question, answered by tapping an option or typing. Corrections keep the original text, failures use the shared copyable diagnostics with Retry, and the manual forms stay one tap away in the composer menu (`+`). Accept sends the final values to the same validated operation as the manual forms. The balance and the recent history now live in the Dashboard.
+
 ## Local quality commands
 
 Use Flutter 3.47.2 / Dart 3.13.2 from the repository root:
