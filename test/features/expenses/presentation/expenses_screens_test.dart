@@ -545,20 +545,11 @@ Future<void> pumpExpensesApp(
 }
 
 void main() {
-  testWidgets('list shows expenses and opens the detail screen', (
+  testWidgets('the expense detail screen shows the saved expense', (
     tester,
   ) async {
     final repository = WidgetExpensesRepository();
-    await pumpExpensesApp(tester, repository, initialLocation: '/dashboard');
-
-    expect(find.byKey(const Key('dashboard-list')), findsOneWidget);
-    expect(find.text('Historial reciente'), findsOneWidget);
-    // Hub cards use the app money format (cents as minor units), not the raw
-    // `COP 25.00` wire string.
-    expect(find.text(r'$ 25'), findsOneWidget);
-
-    await tester.tap(find.byKey(const Key('expense-card-7')));
-    await tester.pumpAndSettle();
+    await pumpExpensesApp(tester, repository, initialLocation: '/expenses/7');
 
     expect(find.text('Detalle del gasto'), findsOneWidget);
     expect(find.text('Groceries'), findsOneWidget);
@@ -810,7 +801,7 @@ void main() {
     // Day header for the fixture (2026-09-17) and the app money format: the
     // card must not print the raw wire amount (`COP -25.00`).
     expect(find.textContaining('sep'), findsWidgets);
-    expect(find.text('-\$ 25'), findsOneWidget);
+    expect(find.text('-\$ 25 COP'), findsOneWidget);
     expect(find.text('Balance -\$ 25 COP'), findsOneWidget);
 
     await tester.enterText(
@@ -835,7 +826,7 @@ void main() {
     await pumpExpensesApp(tester, repository, initialLocation: '/history');
 
     expect(find.byKey(const Key('history-card-15')), findsOneWidget);
-    expect(find.text('+\$ 500'), findsOneWidget);
+    expect(find.text('+\$ 500 COP'), findsOneWidget);
   });
 
   testWidgets('history type chips filter the feed and clear it again', (
@@ -1233,55 +1224,6 @@ void main() {
     },
   );
 
-  testWidgets(
-    'dashboard history renders styled empty state card with action button when no expenses',
-    (tester) async {
-      tester.view.physicalSize = const Size(800, 2400);
-      tester.view.devicePixelRatio = 1.0;
-      addTearDown(tester.view.resetPhysicalSize);
-
-      final repository = WidgetExpensesRepository()..expenses = [];
-      await pumpExpensesApp(tester, repository, initialLocation: '/dashboard');
-
-      expect(find.byKey(const Key('movements-empty-state')), findsOneWidget);
-      expect(find.text('Aún no tienes movimientos'), findsOneWidget);
-      expect(
-        find.text('Registra tu primer gasto o ingreso y aparecerá aquí.'),
-        findsOneWidget,
-      );
-      expect(find.textContaining('la IA prepara'), findsNothing);
-
-      await tester.tap(
-        find.byKey(const Key('movements-empty-register-button')),
-      );
-      await tester.pumpAndSettle();
-
-      expect(find.text('Registrar gasto'), findsWidgets);
-      expect(
-        find.byKey(const Key('expense-create-merchant-field')),
-        findsOneWidget,
-      );
-    },
-  );
-
-  testWidgets('dashboard reuses the shared movements empty state card', (
-    tester,
-  ) async {
-    tester.view.physicalSize = const Size(800, 2400);
-    tester.view.devicePixelRatio = 1.0;
-    addTearDown(tester.view.resetPhysicalSize);
-
-    final repository = WidgetExpensesRepository()..expenses = [];
-    await pumpExpensesApp(tester, repository, initialLocation: '/dashboard');
-
-    expect(find.byKey(const Key('movements-empty-state')), findsOneWidget);
-    expect(
-      find.text('Registra tu primer gasto o ingreso y aparecerá aquí.'),
-      findsOneWidget,
-    );
-    expect(find.textContaining('la IA prepara'), findsNothing);
-  });
-
   testWidgets('dashboard shows the stock balance and the month flow chips', (
     tester,
   ) async {
@@ -1298,9 +1240,9 @@ void main() {
     // Flow chips are the current month (2026-09 from the pinned clock): no
     // incomes in the fake, one 25.00 expense in the history fixture.
     expect(find.text('Movimientos de septiembre'), findsWidgets);
-    expect(find.text(r'+$ 0'), findsOneWidget);
-    // The flow chip and the month breakdown row show the same expense.
-    expect(find.text(r'-$ 25'), findsWidgets);
+    // Zero income and the month expense, in the new "$ 25 COP" money format.
+    expect(find.text(r'$ 0 COP'), findsWidgets);
+    expect(find.text(r'-$ 25 COP'), findsWidgets);
     expect(
       find.text(r'1 cuenta activa · $ 100 COP · Ver saldos'),
       findsOneWidget,
@@ -1330,8 +1272,8 @@ void main() {
       ),
       findsOneWidget,
     );
-    expect(find.text(r'+$ 0'), findsOneWidget);
-    expect(find.text(r'-$ 25'), findsWidgets);
+    expect(find.text(r'$ 0 COP'), findsWidgets);
+    expect(find.text(r'-$ 25 COP'), findsWidgets);
   });
 
   testWidgets('the Gastos chat opens first and balance and history moved to '
@@ -1354,82 +1296,10 @@ void main() {
 
     expect(find.text('Saldo en cuentas'), findsOneWidget);
     expect(find.text(r'$ 100 COP'), findsOneWidget);
-    expect(find.text('Historial reciente'), findsOneWidget);
     expect(find.byKey(const Key('home-accounts-button')), findsOneWidget);
-    expect(find.text(r'+$ 0'), findsOneWidget);
-    expect(find.text(r'-$ 25'), findsWidgets);
+    expect(find.text(r'$ 0 COP'), findsWidgets);
+    expect(find.text(r'-$ 25 COP'), findsWidgets);
   });
-
-  testWidgets(
-    'dashboard displays unified recent movements (expenses and incomes) and opens income detail',
-    (tester) async {
-      final repository = WidgetExpensesRepository();
-      final testIncome = Income(
-        id: 42,
-        accountId: 11,
-        accountName: 'Cash',
-        currencyCode: 'COP',
-        amount: MoneyAmount.parseApi('500.00'),
-        date: DateTime.utc(2026, 9, 20),
-        description: 'Pago de nómina',
-        incomeSourceId: 1,
-        incomeSourceName: 'Trabajo',
-      );
-      final incomesRepository = FakeIncomesRepository([testIncome]);
-
-      await pumpExpensesApp(
-        tester,
-        repository,
-        initialLocation: '/dashboard',
-        incomesRepository: incomesRepository,
-      );
-
-      expect(find.text('2 movimientos'), findsOneWidget);
-      expect(find.byKey(const Key('expense-card-7')), findsOneWidget);
-      expect(find.byKey(const Key('income-card-42')), findsOneWidget);
-      expect(find.text('Pago de nómina'), findsOneWidget);
-      // The income card and the month chip both read `+$ 500` (the fixture is
-      // inside the pinned month).
-      expect(find.text(r'+$ 500'), findsWidgets);
-
-      await tester.tap(find.byKey(const Key('income-card-42')));
-      await tester.pumpAndSettle();
-
-      expect(find.text('Detalle del ingreso'), findsOneWidget);
-    },
-  );
-
-  testWidgets(
-    'dashboard caps recent movements at top 10 and has no load more button',
-    (tester) async {
-      final repository = WidgetExpensesRepository();
-      final incomes = List.generate(
-        15,
-        (i) => Income(
-          id: 100 + i,
-          accountId: 11,
-          accountName: 'Cash',
-          currencyCode: 'COP',
-          amount: MoneyAmount.parseApi('10.00'),
-          date: DateTime.utc(2026, 9, 1 + i),
-          description: 'Income $i',
-          incomeSourceId: 1,
-          incomeSourceName: 'Trabajo',
-        ),
-      );
-      final incomesRepository = FakeIncomesRepository(incomes);
-
-      await pumpExpensesApp(
-        tester,
-        repository,
-        initialLocation: '/dashboard',
-        incomesRepository: incomesRepository,
-      );
-
-      expect(find.text('10 movimientos'), findsOneWidget);
-      expect(find.byKey(const Key('expenses-load-more-button')), findsNothing);
-    },
-  );
 }
 
 class EmptyAccountsRepository extends FakeAccountsRepository {

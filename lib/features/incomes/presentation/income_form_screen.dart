@@ -97,7 +97,8 @@ class _IncomeFormScreenState extends ConsumerState<IncomeFormScreen> {
                 ?.id;
         _sourceId = income?.incomeSourceId;
         if (income != null) {
-          _amount.text = income.amount.toApiString();
+          _amount.text =
+              MoneyFormatter.formatInputAmount(income.amount.minorUnits);
           _date.text = incomeDateWire(income.date);
           _description.text = income.description ?? '';
         }

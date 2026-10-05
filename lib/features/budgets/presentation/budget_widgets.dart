@@ -26,12 +26,21 @@ class BudgetProgressCard extends StatelessWidget {
     final title = budget.name == 'All expenses' ? scope : budget.name;
     final schedule = budget.scheduleLabel;
     final exceeded = budget.remainingAmount.isNegative;
+    // Fast v1 proximity: warn when the budget is active and usage hit 80%.
+    final nearLimit =
+        !exceeded && budget.isActive && budget.progressPercent >= 80;
     final card = Container(
       padding: EdgeInsets.all(compact ? 14 : 16),
       decoration: BoxDecoration(
         color: palette.card,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: palette.line),
+        border: Border.all(
+          color: exceeded
+              ? palette.discard
+              : nearLimit
+              ? palette.warnFg
+              : palette.line,
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -80,9 +89,44 @@ class BudgetProgressCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 14),
+          if (nearLimit) ...[
+            Container(
+              key: Key('budget-near-limit-${budget.id}'),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: palette.warnBg,
+                borderRadius: BorderRadius.circular(99),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.warning_amber_rounded,
+                    size: 14,
+                    color: palette.warnFg,
+                  ),
+                  const SizedBox(width: 6),
+                  Flexible(
+                    child: Text(
+                      '¡Casi al límite! Te acercas al tope',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: palette.warnFg,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 10),
+          ],
           Semantics(
-            label:
-                '$title: ${budget.progressPercent.toStringAsFixed(0)} por ciento usado',
+            label: exceeded
+                ? '$title: ${budget.progressPercent.toStringAsFixed(0)} por ciento usado, excedido'
+                : nearLimit
+                ? '$title: ${budget.progressPercent.toStringAsFixed(0)} por ciento usado, casi al límite'
+                : '$title: ${budget.progressPercent.toStringAsFixed(0)} por ciento usado',
             value: budget.progressFraction.toStringAsFixed(2),
             child: ClipRRect(
               borderRadius: BorderRadius.circular(99),
@@ -91,7 +135,11 @@ class BudgetProgressCard extends StatelessWidget {
                 value: budget.progressFraction,
                 minHeight: 9,
                 backgroundColor: palette.soft,
-                color: exceeded ? palette.discard : palette.primary,
+                color: exceeded
+                    ? palette.discard
+                    : nearLimit
+                    ? palette.warnFg
+                    : palette.primary,
               ),
             ),
           ),
@@ -112,11 +160,17 @@ class BudgetProgressCard extends StatelessWidget {
               Text(
                 exceeded
                     ? 'Excedido ${_moneyAbs(budget.remainingAmount, budget.currency.code)}'
+                    : nearLimit
+                    ? '¡Quedan ${_money(budget.remainingAmount, budget.currency.code)}!'
                     : 'Quedan ${_money(budget.remainingAmount, budget.currency.code)}',
                 style: TextStyle(
                   fontSize: 11,
                   fontWeight: FontWeight.w600,
-                  color: exceeded ? palette.discard : palette.muted,
+                  color: exceeded
+                      ? palette.discard
+                      : nearLimit
+                      ? palette.warnFg
+                      : palette.muted,
                 ),
               ),
             ],
@@ -137,16 +191,10 @@ class BudgetProgressCard extends StatelessWidget {
   }
 
   static String _money(MoneyAmount amount, String currency) =>
-      MoneyFormatter.formatMinorUnits(
-        amount.minorUnits,
-        currencyCode: currency,
-      );
+      MoneyFormatter.display(amount.minorUnits, currency);
 
   static String _moneyAbs(MoneyAmount amount, String currency) =>
-      MoneyFormatter.formatMinorUnits(
-        amount.minorUnits.abs(),
-        currencyCode: currency,
-      );
+      MoneyFormatter.display(amount.minorUnits.abs(), currency);
 
   static String _date(DateTime date) =>
       '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}';

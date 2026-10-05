@@ -6,6 +6,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../application/receipt_capture_notifier.dart';
+import '../../data/receipt_photo_guide_prefs.dart';
+import '../widgets/receipt_photo_guide_dialog.dart';
 
 /// Signature of the strategy that opens the in-app camera and resolves with
 /// the captured (or gallery selected) image, or null when the user cancels.
@@ -52,6 +54,26 @@ class _ReceiptCameraScreenState extends ConsumerState<ReceiptCameraScreen>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _openCamera();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _maybeShowGuide());
+  }
+
+  /// Shows the one-time photo guide ("cómo tomar una buena foto").
+  ///
+  /// Persisted via [ReceiptPhotoGuidePrefs] so it appears only once per
+  /// device. Fail-open: if storage fails the guide is shown again instead
+  /// of blocking capture.
+  Future<void> _maybeShowGuide() async {
+    if (!mounted) return;
+    final shouldShow = await ReceiptPhotoGuidePrefs.shouldShowGuide();
+    if (!mounted || !shouldShow) return;
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: true,
+      builder: (dialogContext) => ReceiptPhotoGuideDialog(
+        onConfirm: () => Navigator.of(dialogContext).pop(),
+      ),
+    );
+    await ReceiptPhotoGuidePrefs.markGuideSeen();
   }
 
   @override

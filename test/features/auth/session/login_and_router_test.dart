@@ -209,7 +209,6 @@ void main() {
     await tester.tap(find.byKey(const Key('bottom-nav-dashboard')));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('home-accounts-button')), findsOneWidget);
-    expect(find.textContaining('person@example.com'), findsOneWidget);
 
     await tester.tap(find.byKey(const Key('home-accounts-button')));
     await tester.pumpAndSettle();

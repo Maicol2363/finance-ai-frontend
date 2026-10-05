@@ -114,14 +114,15 @@ void main() {
     expect(find.byKey(const Key('budgets-list')), findsOneWidget);
     expect(find.byKey(const Key('budget-card-7')), findsOneWidget);
     expect(find.byKey(const Key('budget-card-8')), findsOneWidget);
-    expect(find.textContaining('COP \$ 125.000,50'), findsOneWidget);
-    expect(find.textContaining('USD \$ 120'), findsOneWidget);
-    expect(find.text('Excedido USD \$ 20'), findsOneWidget);
+    expect(find.textContaining(r'$ 125.000,50 COP'), findsOneWidget);
+    expect(find.textContaining(r'$ 120 USD'), findsOneWidget);
+    expect(find.text(r'Excedido $ 20 USD'), findsOneWidget);
     expect(
       find.byWidgetPredicate(
         (widget) =>
             widget is Semantics &&
-            widget.properties.label == 'Mercado: 120 por ciento usado',
+            widget.properties.label ==
+                'Mercado: 120 por ciento usado, excedido',
       ),
       findsOneWidget,
     );
