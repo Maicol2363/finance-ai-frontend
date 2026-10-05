@@ -19,8 +19,10 @@ class MoneyFormatter {
 
   /// Formats [minorUnits] (cents) into a readable currency string.
   /// E.g. 160000000 -> "$ 1.600.000"
+  /// E.g. 160000000, COP -> "$ 1.600.000 COP"
   /// E.g. 1250 -> "$ 12,50"
   /// E.g. -450000 -> "-$ 4.500"
+  /// E.g. -10570000, COP -> "-$ 105.700 COP"
   static String formatMinorUnits(
     int minorUnits, {
     String? currencyCode,
@@ -42,8 +44,10 @@ class MoneyFormatter {
         : '';
     final sign = isNeg ? '-' : '';
 
+    final symbol = currencyCode?.toUpperCase() == 'EUR' ? '€' : r'$';
+
     if (currencyCode != null) {
-      return '$currencyCode $sign\$ $formattedWhole$decimalStr';
+      return '$sign$symbol $formattedWhole$decimalStr $currencyCode';
     }
     return '$sign\$ $formattedWhole$decimalStr';
   }
@@ -51,12 +55,44 @@ class MoneyFormatter {
   /// Like [formatMinorUnits] but always prints the sign, for flow figures
   /// (chips, balances and month results).
   /// E.g. -450000 -> "-$ 4.500", 50000000 -> "+$ 500.000"
+  /// Zero never carries a plus or minus sign: "$ 0" or "$ 0 COP".
   static String formatSignedMinorUnits(int minorUnits, {String? currencyCode}) {
+    if (currencyCode != null && minorUnits == 0) {
+      final symbol = currencyCode.toUpperCase() == 'EUR' ? '€' : r'$';
+      return '$symbol 0 $currencyCode';
+    }
     final formatted = formatMinorUnits(
       minorUnits.abs(),
       currencyCode: currencyCode,
     );
     return '${minorUnits < 0 ? '-' : '+'}$formatted';
+  }
+
+  /// Unified display formatting with standard suffix notation: "$ 771.800 COP".
+  static String display(
+    int minorUnits,
+    String currencyCode, {
+    bool signed = false,
+    bool trimZeroDecimals = true,
+  }) {
+    if (signed) {
+      return formatSignedMinorUnits(minorUnits, currencyCode: currencyCode);
+    }
+    return formatMinorUnits(
+      minorUnits,
+      currencyCode: currencyCode,
+      trimZeroDecimals: trimZeroDecimals,
+    );
+  }
+
+  /// Formats major units (e.g. from receipt items or form totals) into display format.
+  static String displayMajor(
+    double amount,
+    String currencyCode, {
+    bool signed = false,
+  }) {
+    final minorUnits = (amount * 100).round();
+    return display(minorUnits, currencyCode, signed: signed);
   }
 
   /// Formats [minorUnits] (cents) into an input-friendly string without currency symbol.

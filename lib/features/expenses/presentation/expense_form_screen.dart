@@ -757,14 +757,14 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
                     ),
                   ),
                   subtitle: Text(
-                    '$qStr ${item.unitPrice != null ? 'x \$${MoneyFormatter.formatWhole(item.unitPrice!.round())}' : ''}',
+                    '$qStr ${item.unitPrice != null ? 'x ${MoneyFormatter.displayMajor(item.unitPrice!, currencyCode)}' : ''}',
                     style: TextStyle(color: palette.muted, fontSize: 12),
                   ),
                   trailing: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
-                        '\$${MoneyFormatter.formatWhole(item.amount.round())}',
+                        MoneyFormatter.displayMajor(item.amount, currencyCode),
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
                           color: palette.text,

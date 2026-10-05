@@ -21,6 +21,10 @@ class BudgetDashboardSection extends StatelessWidget {
   Widget build(BuildContext context) {
     final palette = context.palette;
     final budgets = state.result?.budgets ?? const [];
+    // Fast v1: riskiest first, so a budget close to its limit is never
+    // buried below safe ones on the Dashboard preview.
+    final ordered = [...budgets]
+      ..sort((a, b) => b.progressPercent.compareTo(a.progressPercent));
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -82,7 +86,7 @@ class BudgetDashboardSection extends StatelessWidget {
             ),
           )
         else
-          for (final budget in budgets.take(3)) ...[
+          for (final budget in ordered.take(3)) ...[
             BudgetProgressCard(budget: budget, compact: true),
             const SizedBox(height: 10),
           ],

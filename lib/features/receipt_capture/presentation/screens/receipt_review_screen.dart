@@ -297,7 +297,7 @@ class _ReceiptReviewScreenState extends ConsumerState<ReceiptReviewScreen> {
                             bgColor: Colors.amber.shade50,
                             title: 'Diferencia en la suma de productos',
                             subtitle:
-                                'Suma de items: \$${MoneyFormatter.formatWhole(formData.itemsSum.round())} | Total: \$${MoneyFormatter.formatWhole(formData.totalAmount.round())}.\nEl total confirmado será el monto oficial del gasto.',
+                                'Suma de items: ${MoneyFormatter.displayMajor(formData.itemsSum, formData.currency)} | Total: ${MoneyFormatter.displayMajor(formData.totalAmount, formData.currency)}.\nEl total confirmado será el monto oficial del gasto.',
                           ),
                           const SizedBox(height: 16),
                         ],
@@ -764,14 +764,14 @@ class _ReceiptReviewScreenState extends ConsumerState<ReceiptReviewScreen> {
                     ),
                   ),
                   subtitle: Text(
-                    '${item.quantity.toStringAsFixed(item.quantity % 1 == 0 ? 0 : 2)} ${item.unitPrice != null ? 'x \$${MoneyFormatter.formatWhole(item.unitPrice!.round())}' : ''}',
+                    '${item.quantity.toStringAsFixed(item.quantity % 1 == 0 ? 0 : 2)} ${item.unitPrice != null ? 'x ${MoneyFormatter.displayMajor(item.unitPrice!, formData.currency)}' : ''}',
                     style: TextStyle(color: palette.muted, fontSize: 13),
                   ),
                   trailing: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
-                        '\$${MoneyFormatter.formatWhole(item.totalPrice.round())}',
+                        MoneyFormatter.displayMajor(item.totalPrice, formData.currency),
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
                           color: palette.text,

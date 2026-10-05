@@ -188,6 +188,23 @@ class HistoryController extends Notifier<HistoryState> {
   Future<void> clearFilters() =>
       _applyFilters(HistoryFilters(pageSize: state.filters.pageSize));
 
+  /// Drill-down from the Dashboard: shows the window's movements for one
+  /// category (custom range + category id), replacing any previous filters.
+  Future<void> showWindowForCategory({
+    required int? categoryId,
+    required DateTime startDate,
+    required DateTime endDate,
+  }) => _applyFilters(
+    HistoryFilters(
+      type: TransactionType.expense,
+      categoryId: categoryId,
+      period: HistoryPeriod.custom,
+      startDate: DateTime.utc(startDate.year, startDate.month, startDate.day),
+      endDate: DateTime.utc(endDate.year, endDate.month, endDate.day),
+      pageSize: state.filters.pageSize,
+    ),
+  );
+
   Future<void> _applyFilters(HistoryFilters filters) async {
     if (state.status == HistoryLoadStatus.loading ||
         state.status == HistoryLoadStatus.loadingMore) {

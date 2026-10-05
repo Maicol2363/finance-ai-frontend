@@ -123,6 +123,7 @@ class _FakeIncomesRepository implements IncomesRepository {
 ProviderContainer _container({
   required _FakeExpensesRepository expenses,
   List<Income> incomes = const [],
+  DashboardPeriod period = DashboardPeriod.thisMonth,
 }) {
   final container = ProviderContainer(
     overrides: [
@@ -131,10 +132,22 @@ ProviderContainer _container({
         _FakeIncomesRepository(incomes),
       ),
       clockProvider.overrideWithValue(() => DateTime(2026, 9, 29, 12)),
+      dashboardPeriodProvider.overrideWith(
+        () => _FixedPeriod(period),
+      ),
     ],
   );
   addTearDown(container.dispose);
   return container;
+}
+
+class _FixedPeriod extends DashboardPeriodController {
+  _FixedPeriod(this.fixed);
+
+  final DashboardPeriod fixed;
+
+  @override
+  DashboardPeriod build() => fixed;
 }
 
 void main() {
@@ -155,11 +168,17 @@ void main() {
     expect(totals.expenseItems, hasLength(2));
     expect(totals.monthStart, DateTime.utc(2026, 9, 1));
 
-    final sent = expenses.seenFilters.single;
+    // Current window + one previous-window first page.
+    expect(expenses.seenFilters, hasLength(2));
+    final sent = expenses.seenFilters.first;
     expect(sent.type, TransactionType.expense);
     expect(sent.startDate, DateTime.utc(2026, 9, 1));
     expect(sent.endDate, DateTime.utc(2026, 9, 30));
     expect(sent.pageSize, 100);
+    final prev = expenses.seenFilters.last;
+    expect(prev.startDate, DateTime.utc(2026, 8, 2));
+    expect(prev.endDate, DateTime.utc(2026, 8, 31));
+    expect(prev.page, 1);
   });
 
   test(
@@ -177,7 +196,10 @@ void main() {
 
       expect(totals.byCurrency['COP']!.expenses, 6000);
       expect(totals.expenseItems, hasLength(3));
-      expect(expenses.seenFilters.map((filters) => filters.page), [1, 2, 3]);
+      expect(
+        expenses.seenFilters.map((filters) => filters.page),
+        [1, 2, 3, 1],
+      );
     },
   );
 
@@ -209,8 +231,9 @@ void main() {
           ],
         },
       );
-      final totals = await _container(expenses: expenses)
-          .read(monthlyTotalsProvider.future);
+      final totals = await _container(
+        expenses: expenses,
+      ).read(monthlyTotalsProvider.future);
 
       expect(totals.byCurrency['COP']!.expenses, 2500);
       expect(totals.byCurrency['USD']!.expenses, 1000);
@@ -218,4 +241,108 @@ void main() {
       expect(totals.forCurrency(null), const CurrencyTotals());
     },
   );
+
+  test('period windows resolve the expected date ranges', () {
+    final now = DateTime(2026, 10, 3, 12);
+    expect(
+      periodWindow(DashboardPeriod.thisMonth, now),
+      (start: DateTime.utc(2026, 10, 1), end: DateTime.utc(2026, 10, 31)),
+    );
+    expect(
+      periodWindow(DashboardPeriod.lastMonth, now),
+      (start: DateTime.utc(2026, 9, 1), end: DateTime.utc(2026, 9, 30)),
+    );
+    expect(
+      periodWindow(DashboardPeriod.last3Months, now),
+      (start: DateTime.utc(2026, 8, 1), end: DateTime.utc(2026, 10, 31)),
+    );
+    expect(
+      periodWindow(DashboardPeriod.thisYear, now),
+      (start: DateTime.utc(2026), end: DateTime.utc(2026, 12, 31)),
+    );
+    expect(periodLabel(DashboardPeriod.thisMonth, now), 'octubre');
+    expect(periodLabel(DashboardPeriod.lastMonth, now), 'septiembre');
+    expect(periodLabel(DashboardPeriod.last3Months, now), 'ago – oct');
+    expect(periodLabel(DashboardPeriod.thisYear, now), '2026');
+  });
+
+  test('last month preset asks for august only', () async {
+    final expenses = _FakeExpensesRepository(
+      pages: {
+        1: [expenseItem(id: 1, amount: '-25.00')],
+      },
+    );
+    final totals = await _container(
+      expenses: expenses,
+      period: DashboardPeriod.lastMonth,
+      incomes: [income(id: 1, amount: '500.00', date: '2026-08-10')],
+    ).read(periodTotalsProvider.future);
+
+    expect(totals.period, DashboardPeriod.lastMonth);
+    final sent = expenses.seenFilters.first;
+    expect(sent.startDate, DateTime.utc(2026, 8, 1));
+    expect(sent.endDate, DateTime.utc(2026, 8, 31));
+    // The Sep-18 income fixture belongs to septiembre; agosto preset ignores it.
+    final withSep = await _container(
+      expenses: _FakeExpensesRepository(),
+      period: DashboardPeriod.lastMonth,
+      incomes: [income(id: 1, amount: '500.00')],
+    ).read(periodTotalsProvider.future);
+    expect(withSep.byCurrency['COP']?.incomes ?? 0, 0);
+    expect(totals.byCurrency['COP']?.incomes ?? 0, 50000);
+  });
+
+  test('last 3 months preset spans jul-sep', () async {
+    final expenses = _FakeExpensesRepository(
+      pages: {
+        1: [expenseItem(id: 1, amount: '-25.00')],
+      },
+    );
+    await _container(
+      expenses: expenses,
+      period: DashboardPeriod.last3Months,
+    ).read(periodTotalsProvider.future);
+
+    final sent = expenses.seenFilters.first;
+    expect(sent.startDate, DateTime.utc(2026, 7, 1));
+    expect(sent.endDate, DateTime.utc(2026, 9, 30));
+  });
+
+  test('year preset filters incomes to the same year', () async {
+    final totals = await _container(
+      expenses: _FakeExpensesRepository(),
+      period: DashboardPeriod.thisYear,
+      incomes: [
+        income(id: 1, amount: '500.00', date: '2026-09-18'),
+        income(id: 2, amount: '999.00', date: '2025-09-15'),
+      ],
+    ).read(periodTotalsProvider.future);
+
+    expect(totals.byCurrency['COP']!.incomes, 50000);
+  });
+
+  test('previous window covers the same length right before', () {
+    expect(
+      previousWindow((start: DateTime.utc(2026, 9, 1), end: DateTime.utc(2026, 9, 30))),
+      (start: DateTime.utc(2026, 8, 2), end: DateTime.utc(2026, 8, 31)),
+    );
+    expect(
+      previousWindow((start: DateTime.utc(2026, 10, 1), end: DateTime.utc(2026, 10, 3))),
+      (start: DateTime.utc(2026, 9, 28), end: DateTime.utc(2026, 9, 30)),
+    );
+  });
+
+  test('previous-window expenses land in previousExpensesByCurrency', () async {
+    final expenses = _FakeExpensesRepository(
+      pages: {
+        1: [expenseItem(id: 1, amount: '-25.00')],
+      },
+    );
+    final totals = await _container(
+      expenses: expenses,
+    ).read(monthlyTotalsProvider.future);
+
+    // Same fake serves both windows: previous sums the same first page.
+    expect(totals.previousExpensesByCurrency['COP'], 2500);
+  });
 }

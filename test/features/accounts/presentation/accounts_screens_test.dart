@@ -182,9 +182,9 @@ void main() {
     await pumpAccountsApp(tester, repository);
 
     expect(find.byKey(const Key('accounts-list')), findsOneWidget);
-    expect(find.text('COP -250.75'), findsOneWidget);
+    expect(find.text(r'-$ 250,75 COP'), findsOneWidget);
     expect(
-      find.bySemanticsLabel(RegExp('Negative balance COP -250.75')),
+      find.bySemanticsLabel(RegExp(r'Saldo negativo: -\$ 250,75 COP')),
       findsOneWidget,
     );
 

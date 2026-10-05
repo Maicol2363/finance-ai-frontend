@@ -178,13 +178,13 @@ class _AccountCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final balance = account.balance.formatWithCurrency(account.currency.code);
     final balanceMeaning = account.balance.isNegative
-        ? 'Negative balance $balance'
-        : 'Balance $balance';
+        ? 'Saldo negativo: $balance'
+        : 'Saldo: $balance';
     return Semantics(
       container: true,
       button: true,
       label:
-          '${account.name}, ${account.type.label}, $balanceMeaning, ${account.isActive ? 'active' : 'inactive'}',
+          '${account.name}, ${account.type.label}, $balanceMeaning, ${account.isActive ? 'activa' : 'inactiva'}',
       child: ExcludeSemantics(
         child: Card(
           clipBehavior: Clip.antiAlias,

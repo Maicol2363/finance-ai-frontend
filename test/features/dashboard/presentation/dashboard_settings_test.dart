@@ -343,21 +343,52 @@ void main() {
     expect(find.text('Saldo en cuentas'), findsOneWidget);
     expect(find.text(r'$ 100 COP'), findsOneWidget);
     expect(find.text('Movimientos de septiembre'), findsOneWidget);
-    expect(find.text(r'+$ 500'), findsOneWidget);
-    expect(find.text(r'-$ 25'), findsWidgets);
+    expect(find.text(r'+$ 500 COP'), findsOneWidget);
+    expect(find.text(r'-$ 25 COP'), findsWidgets);
+    expect(find.text('Este mes'), findsOneWidget);
+    expect(find.text('Mes anterior'), findsOneWidget);
+    expect(find.text('Últimos 3 meses'), findsOneWidget);
+    expect(find.text('Este año'), findsOneWidget);
+    // Savings card: 500 − 25 = 475.
+    await tester.scrollUntilVisible(find.text('Balance de septiembre'), 200);
+    expect(find.text('Balance de septiembre'), findsOneWidget);
+    expect(find.text('Ahorro'), findsOneWidget);
     await tester.scrollUntilVisible(find.text('Gastos por categoría'), 200);
     expect(find.text('Gastos por categoría'), findsOneWidget);
     await tester.scrollUntilVisible(find.text('Market'), 200);
     expect(find.text('Market'), findsOneWidget);
     expect(find.text('Food'), findsOneWidget);
+    // Grouped by category: one row with share.
+    expect(find.text('100%'), findsOneWidget);
+  });
+
+  testWidgets('dashboard category tap drills to filtered history', (tester) async {
+    await _pumpAt(tester, '/dashboard');
+
+    final tile = find.byKey(const Key('dashboard-category-Food'));
+    await tester.scrollUntilVisible(tile, 200);
+    await tester.ensureVisible(tile);
+    await tester.pumpAndSettle();
+    await tester.tap(tile, warnIfMissed: false);
+    await tester.pumpAndSettle();
+    // History screen with the drill-down filters applied.
+    expect(find.text('Historial'), findsOneWidget);
+  });
+
+  testWidgets('dashboard period chip switches the window label', (tester) async {
+    await _pumpAt(tester, '/dashboard');
+
+    expect(find.text('Movimientos de septiembre'), findsOneWidget);
+    await tester.tap(find.text('Este año'));
+    await tester.pumpAndSettle();
+    expect(find.text('Movimientos de 2026'), findsOneWidget);
   });
 
   testWidgets('dashboard renders empty state without expenses', (tester) async {
     await _pumpAt(tester, '/dashboard', expenses: const [], incomes: const []);
 
     expect(find.text('Saldo en cuentas'), findsOneWidget);
-    expect(find.text(r'+$ 0'), findsOneWidget);
-    expect(find.text(r'-$ 0'), findsOneWidget);
+    expect(find.text(r'$ 0 COP'), findsWidgets);
     await tester.scrollUntilVisible(find.text('Sin datos suficientes'), 200);
     expect(find.text('Sin datos suficientes'), findsOneWidget);
   });
