@@ -21,6 +21,7 @@ import '../../expenses/application/expenses_controller.dart';
 import '../../expenses/application/expenses_state.dart';
 import '../../expenses/application/history_controller.dart';
 import '../../expenses/application/monthly_totals.dart';
+import '../../expenses/presentation/recent_movements_section.dart';
 import '../../expenses/presentation/transaction_visuals.dart';
 import '../../incomes/data/incomes_repository.dart';
 import '../application/dashboard_metrics.dart';
@@ -266,6 +267,11 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                           onViewAll: () => context.go('/history'),
                         ),
                       ],
+                      const SizedBox(height: 24),
+
+                      // The history that used to live in the Gastos tab: every
+                      // movement opens its detail.
+                      const RecentMovementsSection(),
                       const SizedBox(height: 24),
 
                       Text(

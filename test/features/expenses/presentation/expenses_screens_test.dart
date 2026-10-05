@@ -1276,6 +1276,112 @@ void main() {
     expect(find.text(r'-$ 25 COP'), findsWidgets);
   });
 
+  testWidgets('the dashboard keeps the history that used to be in Gastos', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(800, 6000);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    final testIncome = Income(
+      id: 42,
+      accountId: 11,
+      accountName: 'Cash',
+      currencyCode: 'COP',
+      amount: MoneyAmount.parseApi('500.00'),
+      date: DateTime.utc(2026, 9, 20),
+      description: 'Pago de nómina',
+      incomeSourceId: 1,
+      incomeSourceName: 'Trabajo',
+    );
+
+    await pumpExpensesApp(
+      tester,
+      WidgetExpensesRepository(),
+      initialLocation: '/dashboard',
+      incomesRepository: FakeIncomesRepository([testIncome]),
+    );
+
+    expect(find.text('Historial reciente'), findsOneWidget);
+    expect(find.text('2 movimientos'), findsOneWidget);
+    expect(find.byKey(const Key('expense-card-7')), findsOneWidget);
+    expect(find.byKey(const Key('income-card-42')), findsOneWidget);
+    expect(find.text('Pago de nómina'), findsOneWidget);
+    expect(find.text(r'+$ 500 COP'), findsWidgets);
+    expect(find.byKey(const Key('home-accounts-button')), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('income-card-42')));
+    await tester.pumpAndSettle();
+    expect(find.text('Detalle del ingreso'), findsOneWidget);
+  });
+
+  testWidgets('a history movement opens the expense detail', (tester) async {
+    tester.view.physicalSize = const Size(800, 6000);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+
+    await pumpExpensesApp(
+      tester,
+      WidgetExpensesRepository(),
+      initialLocation: '/dashboard',
+    );
+    await tester.tap(find.byKey(const Key('expense-card-7')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Detalle del gasto'), findsOneWidget);
+    expect(find.text('Groceries'), findsOneWidget);
+  });
+
+  testWidgets('the dashboard history shows at most the 10 newest movements', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(800, 8000);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    final incomes = List.generate(
+      15,
+      (i) => Income(
+        id: 100 + i,
+        accountId: 11,
+        accountName: 'Cash',
+        currencyCode: 'COP',
+        amount: MoneyAmount.parseApi('10.00'),
+        date: DateTime.utc(2026, 9, 1 + i),
+        description: 'Income $i',
+        incomeSourceId: 1,
+        incomeSourceName: 'Trabajo',
+      ),
+    );
+
+    await pumpExpensesApp(
+      tester,
+      WidgetExpensesRepository(),
+      initialLocation: '/dashboard',
+      incomesRepository: FakeIncomesRepository(incomes),
+    );
+
+    expect(find.text('10 movimientos'), findsOneWidget);
+    expect(find.byKey(const Key('expenses-load-more-button')), findsNothing);
+  });
+
+  testWidgets('with no movements the history offers to register the first', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(800, 6000);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+
+    await pumpExpensesApp(
+      tester,
+      WidgetExpensesRepository()..expenses = [],
+      initialLocation: '/dashboard',
+    );
+
+    expect(find.byKey(const Key('movements-empty-state')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('movements-empty-register-button')));
+    await tester.pumpAndSettle();
+    expect(find.text('Registrar gasto'), findsWidgets);
+  });
+
   testWidgets('the Gastos chat opens first and balance and history moved to '
       'the dashboard', (tester) async {
     tester.view.physicalSize = const Size(800, 2400);
