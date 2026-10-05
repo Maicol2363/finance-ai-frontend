@@ -1,23 +1,24 @@
 import 'package:flutter/material.dart';
 
-/// Framing overlay painted over the live camera preview.
+/// Expensify-style free-framing hint painted over the live camera preview.
 ///
-/// Darkens everything outside a centered receipt rectangle (portrait 3:4
-/// ratio) and draws white corner marks so the user knows where to place
-/// the receipt. Purely visual — it does not crop the captured photo.
+/// No fixed rectangle, no dimmed background: receipts vary too much
+/// (tirilla larga del Exito vs factura corta del D1) for a single box.
+/// Shows only subtle corner marks near the screen edges plus a hint pill
+/// so the user fills the screen with the receipt. Purely visual.
 class ReceiptPhotoFrameOverlay extends StatelessWidget {
-  const ReceiptPhotoFrameOverlay({super.key, this.hint = 'Coloca el recibo aquí'});
+  const ReceiptPhotoFrameOverlay({
+    super.key,
+    this.hint = 'Llena la pantalla con el recibo',
+  });
 
-  /// Hint rendered just below the frame.
+  /// Hint rendered in a pill above the shutter area.
   final String hint;
 
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        // Receipt-like portrait box: 74% of width, 1.38 ratio, centered
-        // slightly above center to leave room for the shutter bar.
-        // Fully guarded so tiny/test viewports never hit an inverted clamp.
         final maxW = constraints.maxWidth.isFinite
             ? constraints.maxWidth
             : 360.0;
@@ -28,64 +29,34 @@ class ReceiptPhotoFrameOverlay extends StatelessWidget {
           return Stack(
             fit: StackFit.expand,
             children: [
-              Text(
-                hint,
-                textAlign: TextAlign.center,
-                style: const TextStyle(color: Colors.white, fontSize: 13),
+              Center(
+                child: _HintPill(hint: hint),
               ),
             ],
           );
         }
 
-        var frameWidth = maxW * 0.74;
-        // Keep side margins.
-        if (frameWidth > maxW - 32) frameWidth = maxW - 32;
-        var frameHeight = frameWidth * 1.38;
-        // Keep vertical room for top bar + shutter + hint.
-        final maxFrameHeight = maxH - 180;
-        if (maxFrameHeight > 120 && frameHeight > maxFrameHeight) {
-          frameHeight = maxFrameHeight;
-          frameWidth = frameHeight / 1.38;
-        }
-
-        var frameLeft = (maxW - frameWidth) / 2;
-        if (frameLeft < 8) frameLeft = 8;
-        var frameTop = (maxH - frameHeight) / 2 - 30;
-        if (frameTop < 8) frameTop = 8;
-        final maxTop = maxH - frameHeight - 34;
-        if (maxTop >= 8 && frameTop > maxTop) frameTop = maxTop;
-
-        final frameRect = Rect.fromLTWH(
-          frameLeft,
-          frameTop,
-          frameWidth,
-          frameHeight,
+        // Safe area: 20px margins, room for top bar (~90) and shutter (~140).
+        const margin = 20.0;
+        final guideRect = Rect.fromLTWH(
+          margin,
+          96,
+          maxW - margin * 2,
+          maxH - 96 - 150,
         );
 
         return Stack(
           fit: StackFit.expand,
           children: [
             CustomPaint(
-              painter: _FramePainter(frameRect),
+              painter: _CornersPainter(guideRect),
             ),
             Positioned(
               left: 0,
               right: 0,
-              top: frameRect.bottom + 10,
-              child: Text(
-                hint,
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                  shadows: [
-                    Shadow(
-                      color: Colors.black87,
-                      blurRadius: 6,
-                    ),
-                  ],
-                ),
+              bottom: 128,
+              child: Center(
+                child: _HintPill(hint: hint),
               ),
             ),
           ],
@@ -95,56 +66,65 @@ class ReceiptPhotoFrameOverlay extends StatelessWidget {
   }
 }
 
-class _FramePainter extends CustomPainter {
-  _FramePainter(this.frame);
+/// Translucent dark pill with the hint text.
+class _HintPill extends StatelessWidget {
+  const _HintPill({required this.hint});
 
-  final Rect frame;
+  final String hint;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      decoration: BoxDecoration(
+        color: const Color(0xB3000000),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Text(
+        hint,
+        textAlign: TextAlign.center,
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 13,
+          fontWeight: FontWeight.w500,
+        ),
+      ),
+    );
+  }
+}
+
+class _CornersPainter extends CustomPainter {
+  _CornersPainter(this.area);
+
+  final Rect area;
 
   @override
   void paint(Canvas canvas, Size size) {
-    // Dim everything outside the frame.
-    final dim = Path()
-      ..addRect(Rect.fromLTWH(0, 0, size.width, size.height))
-      ..addRRect(
-        RRect.fromRectAndRadius(frame, const Radius.circular(14)),
-      )
-      ..fillType = PathFillType.evenOdd;
-    canvas.drawPath(dim, Paint()..color = const Color(0x99000000));
-
-    // Thin white border.
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(frame, const Radius.circular(14)),
-      Paint()
-        ..color = Colors.white.withValues(alpha: 0.85)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.5,
-    );
-
-    // Accent corner marks (L-shaped, primary green).
-    const cornerLen = 28.0;
-    const cornerWidth = 4.5;
+    // Subtle L-shaped corner marks only — no border, no dim.
+    const cornerLen = 34.0;
+    const cornerWidth = 3.5;
     final cornerPaint = Paint()
-      ..color = const Color(0xFF8FB42C)
+      ..color = Colors.white.withValues(alpha: 0.75)
       ..style = PaintingStyle.stroke
       ..strokeWidth = cornerWidth
       ..strokeCap = StrokeCap.round;
 
     final corners = <Offset, List<Offset>>{
-      frame.topLeft: [
-        frame.topLeft + const Offset(cornerLen, 0),
-        frame.topLeft + const Offset(0, cornerLen),
+      area.topLeft: [
+        area.topLeft + const Offset(cornerLen, 0),
+        area.topLeft + const Offset(0, cornerLen),
       ],
-      frame.topRight: [
-        frame.topRight + const Offset(-cornerLen, 0),
-        frame.topRight + const Offset(0, cornerLen),
+      area.topRight: [
+        area.topRight + const Offset(-cornerLen, 0),
+        area.topRight + const Offset(0, cornerLen),
       ],
-      frame.bottomLeft: [
-        frame.bottomLeft + const Offset(cornerLen, 0),
-        frame.bottomLeft + const Offset(0, -cornerLen),
+      area.bottomLeft: [
+        area.bottomLeft + const Offset(cornerLen, 0),
+        area.bottomLeft + const Offset(0, -cornerLen),
       ],
-      frame.bottomRight: [
-        frame.bottomRight + const Offset(-cornerLen, 0),
-        frame.bottomRight + const Offset(0, -cornerLen),
+      area.bottomRight: [
+        area.bottomRight + const Offset(-cornerLen, 0),
+        area.bottomRight + const Offset(0, -cornerLen),
       ],
     };
 
@@ -156,6 +136,7 @@ class _FramePainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant _FramePainter oldDelegate) =>
-      oldDelegate.frame != frame;
+  bool shouldRepaint(covariant _CornersPainter oldDelegate) =>
+      oldDelegate.area != area;
 }
+

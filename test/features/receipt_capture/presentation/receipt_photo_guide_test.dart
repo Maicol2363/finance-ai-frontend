@@ -67,7 +67,7 @@ void main() {
   });
 
   group('ReceiptPhotoFrameOverlay', () {
-    testWidgets('renders hint below the frame', (tester) async {
+    testWidgets('renders free-framing hint pill', (tester) async {
       await tester.pumpWidget(
         const MaterialApp(
           home: Scaffold(
@@ -78,7 +78,7 @@ void main() {
       );
       await tester.pump();
 
-      expect(find.text('Coloca el recibo aquí'), findsOneWidget);
+      expect(find.text('Llena la pantalla con el recibo'), findsOneWidget);
     });
 
     testWidgets('accepts custom hint', (tester) async {
