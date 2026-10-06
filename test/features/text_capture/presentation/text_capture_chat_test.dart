@@ -6,6 +6,8 @@ import 'package:finance_ai/features/categories/application/categories_controller
 import 'package:finance_ai/features/text_capture/application/text_capture_controller.dart';
 import 'package:finance_ai/features/text_capture/domain/text_capture_models.dart';
 import 'package:finance_ai/features/text_capture/presentation/text_capture_chat.dart';
+import 'package:finance_ai/features/voice_capture/data/native_speech_service.dart';
+import 'package:finance_ai/features/voice_capture/domain/speech_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -22,6 +24,7 @@ Future<ProviderContainer> pumpChat(
   double textScale = 1.0,
   ThemeData? theme,
   FakeExpensesRepository? expenses,
+  SpeechService? speech,
 }) async {
   tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1.0;
@@ -47,10 +50,10 @@ Future<ProviderContainer> pumpChat(
   addTearDown(router.dispose);
   await tester.pumpWidget(
     ProviderScope(
-      overrides: baseOverrides(
-        repository: repository,
-        expensesRepository: expenses,
-      ),
+      overrides: [
+        ...baseOverrides(repository: repository, expensesRepository: expenses),
+        if (speech != null) speechServiceProvider.overrideWithValue(speech),
+      ],
       child: MaterialApp.router(
         routerConfig: router,
         theme: theme ?? AppTheme.light(),
@@ -681,7 +684,7 @@ void main() {
     },
   );
 
-  testWidgets('the voice option explains it is not available yet', (
+  testWidgets('the voice option opens local dictation with a safe fallback', (
     tester,
   ) async {
     await pumpChat(tester, FakeTextCaptureRepository());
@@ -691,7 +694,10 @@ void main() {
     await tester.tap(byKey('expenses-wheel-voice'));
     await tester.pump();
 
-    expect(find.text('Captura por nota de voz próximamente'), findsOneWidget);
+    await tester.pumpAndSettle();
+    expect(byKey('voice-controls'), findsOneWidget);
+    expect(byKey('voice-error-details'), findsOneWidget);
+    expect(find.text('Captura por nota de voz próximamente'), findsNothing);
   });
 
   testWidgets('the floating + never hides the newest message', (tester) async {

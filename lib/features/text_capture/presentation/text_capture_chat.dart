@@ -6,6 +6,9 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../../core/theme/app_palette.dart';
 import '../../receipt_capture/presentation/receipt_capture_flow.dart';
+import '../../voice_capture/application/voice_capture_controller.dart';
+import '../../voice_capture/data/native_speech_service.dart';
+import '../../voice_capture/presentation/voice_controls.dart';
 import '../application/text_capture_controller.dart';
 import '../application/text_capture_state.dart';
 import 'widgets/chat_bubbles.dart';
@@ -30,25 +33,104 @@ class TextCaptureChat extends ConsumerStatefulWidget {
   ConsumerState<TextCaptureChat> createState() => _TextCaptureChatState();
 }
 
-class _TextCaptureChatState extends ConsumerState<TextCaptureChat> {
+class _TextCaptureChatState extends ConsumerState<TextCaptureChat>
+    with WidgetsBindingObserver {
   final _scroll = ScrollController();
   final _input = TextEditingController();
   final _focus = FocusNode();
+  final _voiceTarget = GlobalKey();
+  late final VoiceCaptureController _voice;
+  bool _voiceExpanded = false, _gestureActive = false;
+  bool _nearVoiceTarget = false, _occupiedVoiceTarget = false;
+  double _gestureKeyboardInset = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _voice = VoiceCaptureController(
+      service: ref.read(speechServiceProvider),
+      onTranscript: (text) {
+        if (!mounted) return;
+        _input.value = TextEditingValue(
+          text: text,
+          selection: TextSelection.collapsed(offset: text.length),
+        );
+      },
+      canSubmit: () =>
+          mounted && !ref.read(textCaptureControllerProvider).isBusy,
+      onAccepted: (_) => _send(requestFocus: false),
+    )..addListener(_voiceChanged);
+    Future<void>.microtask(() {
+      if (mounted) _voice.prepare();
+    });
+  }
+
+  void _voiceChanged() {
+    if (mounted) setState(() {});
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (ModalRoute.of(context)?.isCurrent == false) {
+      Future<void>.microtask(() {
+        if (mounted) _voice.interrupt();
+      });
+    }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state != AppLifecycleState.resumed) _voice.interrupt();
+  }
+
+  @override
+  void didChangeMetrics() {
+    if (mounted && _gestureActive) setState(() {});
+  }
+
+  void _openVoice() {
+    _focus.unfocus();
+    setState(() => _voiceExpanded = true);
+    if (_voice.phase == VoicePhase.failed) _voice.prepare();
+  }
+
+  void _beginVoice() {
+    _focus.unfocus();
+    setState(() => _voiceExpanded = true);
+    _voice.begin(_input.text);
+  }
+
+  void _closeVoice() {
+    _voice.interrupt();
+    setState(() => _voiceExpanded = false);
+  }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _voice.removeListener(_voiceChanged);
+    _voice.dispose();
     _scroll.dispose();
     _input.dispose();
     _focus.dispose();
     super.dispose();
   }
 
-  void _send() {
+  void _send({bool requestFocus = true}) {
+    if (ref.read(textCaptureControllerProvider).isBusy) return;
+    if (_voice.capturing) {
+      _voice.finishForSend();
+      return;
+    }
+    if (_voice.active) return;
     final text = _input.text.trim();
-    if (text.isEmpty) return;
+    if (text.isEmpty || text.length > maxMessageLength) return;
+    _voice.clearAfterSend();
     _input.clear();
     ref.read(textCaptureControllerProvider.notifier).send(text);
-    _focus.requestFocus();
+    if (requestFocus) _focus.requestFocus();
   }
 
   void _scrollToEnd() {
@@ -79,6 +161,7 @@ class _TextCaptureChatState extends ConsumerState<TextCaptureChat> {
           previous?.isBusy != next.isBusy) {
         _scrollToEnd();
       }
+      if (next.isBusy && _voice.active) _voice.interrupt();
     });
     final state = ref.watch(textCaptureControllerProvider);
     final latestProposalId = state.entries
@@ -86,69 +169,116 @@ class _TextCaptureChatState extends ConsumerState<TextCaptureChat> {
         .lastOrNull
         ?.id;
     final onlyWelcome = state.entries.length == 1;
-    return Column(
-      children: [
-        Expanded(
-          child: Stack(
-            children: [
-              Positioned.fill(
-                child: Center(
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 760),
-                    child: ListView.separated(
-                      key: const Key('chat-messages'),
-                      controller: _scroll,
-                      // Room at the bottom so the newest message is never hidden
-                      // behind the floating button.
-                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 88),
-                      itemCount: state.entries.length + (onlyWelcome ? 1 : 0),
-                      separatorBuilder: (_, _) => const SizedBox(height: 12),
-                      itemBuilder: (context, index) {
-                        if (index == state.entries.length) {
-                          return _Suggestions(
-                            onPick: (text) {
-                              _input
-                                ..text = text
-                                ..selection = TextSelection.collapsed(
-                                  offset: text.length,
-                                );
-                              _focus.requestFocus();
-                            },
+    final view = View.of(context);
+    final keyboardInset = view.viewInsets.bottom / view.devicePixelRatio;
+    // Scaffolds consume MediaQuery.viewInsets. Actual view metrics keep the
+    // composer under the finger while the keyboard closes during a hold.
+    final compensation = _gestureActive
+        ? (_gestureKeyboardInset - keyboardInset).clamp(
+            0.0,
+            _gestureKeyboardInset,
+          )
+        : 0.0;
+    return AnimatedPadding(
+      padding: EdgeInsets.only(bottom: compensation),
+      duration: _gestureActive || MediaQuery.disableAnimationsOf(context)
+          ? Duration.zero
+          : const Duration(milliseconds: 160),
+      child: Column(
+        children: [
+          Expanded(
+            child: Stack(
+              children: [
+                Positioned.fill(
+                  child: Center(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 760),
+                      child: ListView.separated(
+                        key: const Key('chat-messages'),
+                        controller: _scroll,
+                        // Room at the bottom so the newest message is never hidden
+                        // behind the floating button.
+                        padding: const EdgeInsets.fromLTRB(16, 12, 16, 88),
+                        itemCount: state.entries.length + (onlyWelcome ? 1 : 0),
+                        separatorBuilder: (_, _) => const SizedBox(height: 12),
+                        itemBuilder: (context, index) {
+                          if (index == state.entries.length) {
+                            return _Suggestions(
+                              onPick: (text) {
+                                _voice.clearAfterSend();
+                                _input
+                                  ..text = text
+                                  ..selection = TextSelection.collapsed(
+                                    offset: text.length,
+                                  );
+                                _focus.requestFocus();
+                              },
+                            );
+                          }
+                          return _EntryView(
+                            key: ValueKey(state.entries[index].id),
+                            entry: state.entries[index],
+                            isLatestProposal:
+                                state.entries[index].id == latestProposalId,
                           );
-                        }
-                        return _EntryView(
-                          key: ValueKey(state.entries[index].id),
-                          entry: state.entries[index],
-                          isLatestProposal:
-                              state.entries[index].id == latestProposalId,
-                        );
-                      },
+                        },
+                      ),
                     ),
                   ),
                 ),
-              ),
-              CaptureWheel(
-                onPhoto: () =>
-                    startReceiptCapture(context, source: ImageSource.camera),
-                onVoice: () => ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Captura por nota de voz próximamente'),
-                  ),
+                CaptureWheel(
+                  onPhoto: () {
+                    _voice.interrupt();
+                    startReceiptCapture(context, source: ImageSource.camera);
+                  },
+                  onVoice: _openVoice,
+                  onText: () {
+                    _voice.interrupt();
+                    _focus.requestFocus();
+                  },
+                  onManual: () {
+                    _voice.interrupt();
+                    context.push('/expenses/new');
+                  },
                 ),
-                onText: _focus.requestFocus,
-                onManual: () => context.push('/expenses/new'),
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
-        _Composer(
-          controller: _input,
-          focusNode: _focus,
-          isBusy: state.isBusy,
-          hint: _hintFor(state),
-          onSend: _send,
-        ),
-      ],
+          if (_voiceExpanded)
+            VoiceControls(
+              controller: _voice,
+              targetKey: _voiceTarget,
+              nearTarget: _nearVoiceTarget,
+              occupied: _occupiedVoiceTarget,
+              keepTarget: _gestureActive,
+              onClose: _closeVoice,
+            ),
+          _Composer(
+            controller: _input,
+            focusNode: _focus,
+            isBusy: state.isBusy || _voice.phase == VoicePhase.finalizing,
+            hint: _hintFor(state),
+            onSend: _send,
+            isDictating: _voice.active,
+            voiceButton: VoiceMicButton(
+              controller: _voice,
+              targetKey: _voiceTarget,
+              isBusy: state.isBusy,
+              onBegin: _beginVoice,
+              onGesture: (active, near, occupied) => setState(() {
+                if (active && !_gestureActive) {
+                  final view = View.of(context);
+                  _gestureKeyboardInset =
+                      view.viewInsets.bottom / view.devicePixelRatio;
+                }
+                _gestureActive = active;
+                _nearVoiceTarget = near;
+                _occupiedVoiceTarget = occupied;
+              }),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -270,6 +400,8 @@ class _Composer extends StatefulWidget {
     required this.isBusy,
     required this.hint,
     required this.onSend,
+    required this.isDictating,
+    required this.voiceButton,
   });
 
   final TextEditingController controller;
@@ -277,12 +409,15 @@ class _Composer extends StatefulWidget {
   final bool isBusy;
   final String hint;
   final VoidCallback onSend;
+  final bool isDictating;
+  final Widget voiceButton;
 
   @override
   State<_Composer> createState() => _ComposerState();
 }
 
 class _ComposerState extends State<_Composer> {
+  final _dictationScroll = ScrollController();
   @override
   void initState() {
     super.initState();
@@ -300,11 +435,21 @@ class _ComposerState extends State<_Composer> {
 
   @override
   void dispose() {
+    _dictationScroll.dispose();
     widget.controller.removeListener(_changed);
     super.dispose();
   }
 
-  void _changed() => setState(() {});
+  void _changed() {
+    setState(() {});
+    if (widget.isDictating) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && _dictationScroll.hasClients) {
+          _dictationScroll.jumpTo(_dictationScroll.position.maxScrollExtent);
+        }
+      });
+    }
+  }
 
   KeyEventResult _onKey(FocusNode node, KeyEvent event) {
     final isEnter =
@@ -321,7 +466,9 @@ class _ComposerState extends State<_Composer> {
   }
 
   bool get _canSend =>
-      !widget.isBusy && widget.controller.text.trim().isNotEmpty;
+      !widget.isBusy &&
+      widget.controller.text.trim().isNotEmpty &&
+      widget.controller.text.trim().length <= maxMessageLength;
 
   @override
   Widget build(BuildContext context) {
@@ -345,7 +492,9 @@ class _ComposerState extends State<_Composer> {
                   child: TextField(
                     key: const Key('chat-composer-field'),
                     controller: widget.controller,
+                    scrollController: _dictationScroll,
                     focusNode: widget.focusNode,
+                    readOnly: widget.isDictating,
                     minLines: 1,
                     maxLines: 5,
                     maxLength: maxMessageLength,
@@ -383,6 +532,11 @@ class _ComposerState extends State<_Composer> {
                     ),
                   ),
                 ),
+              ),
+              const SizedBox(width: 6),
+              Padding(
+                padding: const EdgeInsets.only(bottom: 2),
+                child: widget.voiceButton,
               ),
               const SizedBox(width: 6),
               Padding(

@@ -6,6 +6,13 @@ Shared Android and Windows Flutter client for the manual-first Finance AI applic
 
 The Gastos tab opens on a capture chat. The user writes what happened in their own words; the assistant proposes an expense, income or transfer in a compact review card, and the user confirms it in one tap, edits it in place or discards it. Only genuine ambiguity triggers one short question, answered by tapping an option or typing. Corrections keep the original text, failures use the shared copyable diagnostics with Retry, and the manual forms stay one tap away in the composer menu (`+`). Accept sends the final values to the same validated operation as the manual forms. The balance and the recent history now live in the Dashboard.
 
+## Local voice input
+
+Local Spanish/English dictation uses the existing Gastos composer and text-AI
+proposal flow. Android supports hold/release and drag-to-review; Windows supports
+click-to-start and explicit review/send. Recognition requires an installed local
+engine/model and never uploads audio. See [voice behavior and device checks](docs/offline-voice-capture.md).
+
 ## Local quality commands
 
 Use Flutter 3.47.2 / Dart 3.13.2 from the repository root:

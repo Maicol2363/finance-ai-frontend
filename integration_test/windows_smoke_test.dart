@@ -1,4 +1,6 @@
 import 'package:finance_ai/app.dart';
+import 'package:finance_ai/features/voice_capture/data/native_speech_service.dart';
+import 'package:finance_ai/features/voice_capture/domain/speech_service.dart';
 import 'package:finance_ai/features/accounts/data/accounts_repository.dart';
 import 'package:finance_ai/features/accounts/domain/account_models.dart';
 import 'package:finance_ai/features/auth/register/data/auth_repository.dart';
@@ -275,6 +277,40 @@ class _EmptyIncomesRepository implements IncomesRepository {
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
+
+  testWidgets(
+    'Windows discovers local speech models without opening the microphone',
+    (tester) async {
+      await tester.runAsync(() async {
+        final service = NativeSpeechService();
+        final watch = Stopwatch()..start();
+        final result = service.events.firstWhere(
+          (event) => event.session == 900001,
+        );
+        await service.prepare(900001, SpeechLanguage.english);
+        final event = await result.timeout(const Duration(seconds: 12));
+        watch.stop();
+        expect(event.text, isEmpty);
+        expect([
+          SpeechEventType.ready,
+          SpeechEventType.error,
+        ], contains(event.type));
+        if (event.type == SpeechEventType.error) {
+          expect([
+            'speech_language_unavailable',
+            'speech_offline_unavailable',
+          ], contains(event.code));
+        }
+        // Only a synthetic session identifier and duration; no audio is captured.
+        debugPrint(
+          'Windows local speech preparation: ${watch.elapsedMilliseconds} ms (${event.type.name})',
+        );
+        await service.cancel(900001);
+        await service.dispose();
+      });
+    },
+    skip: defaultTargetPlatform != TargetPlatform.windows,
+  );
 
   testWidgets(
     'the native Windows client completes the shared registration UI flow',

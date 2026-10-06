@@ -82,7 +82,7 @@ class _CaptureWheelState extends State<CaptureWheel>
             key: const Key('expenses-wheel-photo'),
             right: 16,
             bottom: 156,
-            icon: '📷',
+            icon: Icons.camera_alt_outlined,
             label: 'Foto',
             description: 'Foto de un recibo',
             animation: _animation,
@@ -93,9 +93,9 @@ class _CaptureWheelState extends State<CaptureWheel>
             key: const Key('expenses-wheel-voice'),
             right: 76,
             bottom: 136,
-            icon: '🎤',
+            icon: Icons.mic_outlined,
             label: 'Voz',
-            description: 'Nota de voz, próximamente',
+            description: 'Dictar en el chat',
             animation: _animation,
             delayRatio: 0.1,
             onTap: () => _choose(widget.onVoice),
@@ -104,7 +104,7 @@ class _CaptureWheelState extends State<CaptureWheel>
             key: const Key('expenses-wheel-text'),
             right: 136,
             bottom: 91,
-            icon: 'T',
+            icon: Icons.text_fields,
             label: 'Texto',
             description: 'Escribir en el chat',
             animation: _animation,
@@ -115,7 +115,7 @@ class _CaptureWheelState extends State<CaptureWheel>
             key: const Key('expenses-wheel-manual'),
             right: 156,
             bottom: 21,
-            icon: '✎',
+            icon: Icons.edit_outlined,
             label: 'Manual',
             description: 'Formulario manual',
             animation: _animation,
@@ -165,7 +165,7 @@ class _WheelBubble extends StatelessWidget {
 
   final double right;
   final double bottom;
-  final String icon;
+  final IconData icon;
   final String label;
   final String description;
   final Animation<double> animation;
@@ -210,8 +210,7 @@ class _WheelBubble extends StatelessWidget {
                         ),
                       ],
                     ),
-                    // Emoji fonts have taller lines than text fonts: scaling the
-                    // content down keeps it inside the 52 px circle everywhere.
+                    // Keep the Material icon and label inside the 52 px circle.
                     child: Padding(
                       padding: const EdgeInsets.all(5),
                       child: FittedBox(
@@ -219,15 +218,7 @@ class _WheelBubble extends StatelessWidget {
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Text(
-                              icon,
-                              style: TextStyle(
-                                fontSize: 16,
-                                height: 1.1,
-                                fontWeight: FontWeight.w800,
-                                color: palette.text,
-                              ),
-                            ),
+                            Icon(icon, size: 18, color: palette.text),
                             Text(
                               label,
                               style: TextStyle(
