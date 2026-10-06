@@ -166,6 +166,14 @@ internal class LocalSpeechBridge(private val activity: Activity) :
     }
 
     private fun listen() {
+        // Rearming runs from posted callbacks, outside the method-call handler.
+        // Provider/permission failures must still reach the safe error contract.
+        try { listenSegment() }
+        catch (_: SecurityException) { fail("speech_permission_denied") }
+        catch (_: Exception) { fail("speech_provider_error") }
+    }
+
+    private fun listenSegment() {
         if (!continuing || recognizer == null) return
         val id = session; val stamp = generation; val chunk = ++segment
         partial = ""; utteranceRunning = true
@@ -248,7 +256,10 @@ internal class LocalSpeechBridge(private val activity: Activity) :
     private fun release() {
         generation++; segment++; continuing = false; utteranceRunning = false; prepared = false
         main.removeCallbacksAndMessages(null)
-        recognizer?.cancel(); recognizer?.destroy(); recognizer = null
+        val previous = recognizer; recognizer = null
+        // A failed provider may also throw during cancel. Still attempt destroy.
+        try { previous?.cancel() } catch (_: Exception) { }
+        try { previous?.destroy() } catch (_: Exception) { }
     }
 
     fun pause() {

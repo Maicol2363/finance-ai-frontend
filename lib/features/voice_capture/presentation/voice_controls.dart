@@ -315,7 +315,7 @@ class _VoiceMicButtonState extends State<VoiceMicButton>
   }
 
   void _toggle() {
-    if (widget.controller.capturing) {
+    if (widget.controller.active) {
       widget.controller.finishForReview();
     } else {
       widget.onBegin();
@@ -437,7 +437,7 @@ class _VoiceMicButtonState extends State<VoiceMicButton>
                 width: 48,
                 height: 48,
                 child: IconButton.filled(
-                  tooltip: widget.controller.capturing
+                  tooltip: widget.controller.active
                       ? (_hold
                             ? 'Suelta para analizar o sube para editar'
                             : 'Detener y revisar')

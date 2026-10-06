@@ -15,8 +15,9 @@ Future<(FakeSpeechService, FakeTextCaptureRepository)> setup(
   Size size = const Size(420, 900),
   double scale = 1,
   ThemeData? theme,
+  bool autoReady = true,
 }) async {
-  final speech = FakeSpeechService();
+  final speech = FakeSpeechService()..autoReady = autoReady;
   addTearDown(speech.dispose);
   final repository = FakeTextCaptureRepository(proposals: [proposal()]);
   await pumpChat(
@@ -191,6 +192,26 @@ void main() {
     await tester.pumpAndSettle();
     expect(repository.proposeCalls.single.text, 'Paid for lunch');
   }, variant: TargetPlatformVariant({TargetPlatform.windows}));
+
+  testWidgets(
+    'Windows stop during preparation cancels the queued microphone start',
+    (tester) async {
+      final (speech, repository) = await setup(tester, autoReady: false);
+      await tester.tap(key('chat-voice-button'));
+      await tester.pump();
+      expect(speech.starts, isEmpty);
+      await tester.tap(key('chat-voice-button'));
+      await tester.pump();
+      speech.event(speech.preparations.single.$1, SpeechEventType.ready);
+      await tester.pumpAndSettle();
+      expect(speech.starts, isEmpty);
+      expect(repository.proposeCalls, isEmpty);
+      await tester.tap(key('chat-voice-button'));
+      await tester.pump();
+      expect(speech.starts, hasLength(1));
+    },
+    variant: TargetPlatformVariant({TargetPlatform.windows}),
+  );
 
   testWidgets('permission failure has the shared copy UI without draft text', (
     tester,
