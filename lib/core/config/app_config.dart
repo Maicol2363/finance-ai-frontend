@@ -26,7 +26,12 @@ class AppConfig {
         : 'http://127.0.0.1:8000';
   }
 
-  static const requestTimeout = Duration(seconds: 15);
+  static const requestTimeout = Duration(seconds: 30);
+  static const aiRequestTimeout = Duration(seconds: 60);
+
+  /// A chat turn waits for one short AI call (the server stops at 25 s), so the
+  /// client gives up just after it instead of leaving the user waiting a minute.
+  static const textCaptureTimeout = Duration(seconds: 30);
 
   static String get sessionPlatform =>
       defaultTargetPlatform == TargetPlatform.android ? 'android' : 'windows';

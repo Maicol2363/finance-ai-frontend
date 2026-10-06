@@ -1,75 +1,90 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
+import '../../../core/theme/app_palette.dart';
+import '../../../core/widgets/theme_toggle_button.dart';
+import '../../accounts/application/accounts_controller.dart';
+import '../../accounts/application/accounts_state.dart';
 import '../../auth/session/application/auth_session_controller.dart';
 import '../../auth/session/application/auth_session_state.dart';
+import '../../categories/application/categories_controller.dart';
+import '../../categories/application/categories_state.dart';
+import '../../text_capture/presentation/text_capture_chat.dart';
 
-class HomeScreen extends ConsumerWidget {
+/// Gastos tab: the capture chat comes first.
+///
+/// The user writes what happened and the assistant prepares the operation for
+/// a quick review. Balance and recent movements live in the Dashboard; the
+/// manual forms stay one tap away in the composer's menu.
+class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final state = ref.watch(authSessionControllerProvider);
-    final controller = ref.read(authSessionControllerProvider.notifier);
-    final user = state.user;
+  ConsumerState<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends ConsumerState<HomeScreen> {
+  @override
+  void initState() {
+    super.initState();
+    // The review card offers these lists when the user edits a proposal.
+    Future<void>.microtask(() {
+      if (!mounted) return;
+      if (ref.read(accountsControllerProvider).listStatus ==
+          AccountsLoadStatus.initial) {
+        ref.read(accountsControllerProvider.notifier).load();
+      }
+      if (ref.read(categoriesControllerProvider).loadStatus ==
+          CategoriesLoadStatus.initial) {
+        ref.read(categoriesControllerProvider.notifier).load();
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+    final sessionState = ref.watch(authSessionControllerProvider);
+    final sessionController = ref.read(authSessionControllerProvider.notifier);
     return PopScope(
       canPop: false,
       child: Scaffold(
         appBar: AppBar(
-          title: const Text('Budget Home'),
+          automaticallyImplyLeading: false,
+          title: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Gastos', key: Key('home-title')),
+              Text(
+                'cuéntame qué pasó — la IA lo prepara y tú confirmas',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w400,
+                  color: palette.muted,
+                ),
+              ),
+            ],
+          ),
           actions: [
-            TextButton.icon(
-              key: const Key('logout-button'),
-              onPressed: state.status == AuthSessionStatus.loggingOut
-                  ? null
-                  : controller.logout,
-              icon: const Icon(Icons.logout),
-              label: const Text('Logout'),
+            IconButton(
+              key: const Key('home-search-button'),
+              tooltip: 'Buscar en historial',
+              onPressed: () => context.push('/history'),
+              icon: const Icon(Icons.search),
             ),
-            const SizedBox(width: 8),
+            const ThemeToggleButton(),
+            IconButton(
+              key: const Key('logout-button'),
+              tooltip: 'Cerrar sesión',
+              onPressed: sessionState.status == AuthSessionStatus.loggingOut
+                  ? null
+                  : sessionController.logout,
+              icon: const Icon(Icons.logout),
+            ),
           ],
         ),
-        body: SafeArea(
-          child: Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 720),
-              child: ListView(
-                padding: const EdgeInsets.all(24),
-                children: [
-                  Text(
-                    'Your secure session is active',
-                    key: const Key('home-title'),
-                    style: Theme.of(context).textTheme.headlineMedium,
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    user == null
-                        ? 'Authenticated account'
-                        : '${user.email} · ${user.preferredCurrency}',
-                    key: const Key('home-user-context'),
-                  ),
-                  const SizedBox(height: 24),
-                  const Card(
-                    child: Padding(
-                      padding: EdgeInsets.all(20),
-                      child: Text(
-                        'The budgeting forms will be added in the next stories. They will work manually first; optional AI assistance will use the same forms later.',
-                      ),
-                    ),
-                  ),
-                  if (state.status == AuthSessionStatus.loggingOut) ...[
-                    const SizedBox(height: 24),
-                    Semantics(
-                      liveRegion: true,
-                      label: 'Logging out',
-                      child: const LinearProgressIndicator(),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-          ),
-        ),
+        body: const SafeArea(child: TextCaptureChat()),
       ),
     );
   }

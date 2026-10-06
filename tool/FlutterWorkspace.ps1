@@ -1,5 +1,25 @@
 $ErrorActionPreference = "Stop"
 
+function Get-WorkspaceRelativePath {
+    param(
+        [Parameter(Mandatory = $true)][string]$BasePath,
+        [Parameter(Mandatory = $true)][string]$TargetPath
+    )
+
+    $normalizedBase = [System.IO.Path]::GetFullPath($BasePath).TrimEnd("\", "/")
+    $normalizedTarget = [System.IO.Path]::GetFullPath($TargetPath)
+    $basePrefix = $normalizedBase + [System.IO.Path]::DirectorySeparatorChar
+
+    if ($normalizedTarget.Equals($normalizedBase, [System.StringComparison]::OrdinalIgnoreCase)) {
+        return "."
+    }
+    if (-not $normalizedTarget.StartsWith($basePrefix, [System.StringComparison]::OrdinalIgnoreCase)) {
+        throw "[FLUTTER_PATH_ALIAS_TARGET_OUTSIDE_ROOT] '$normalizedTarget' is not below '$normalizedBase'."
+    }
+
+    return $normalizedTarget.Substring($basePrefix.Length)
+}
+
 function Enter-FlutterWorkspace {
     param([Parameter(Mandatory = $true)][string]$FrontendRoot)
 
@@ -15,13 +35,31 @@ function Enter-FlutterWorkspace {
         $dartExecutable = (Resolve-Path -LiteralPath $localDartPath).Path
     }
     else {
-        $flutterCommand = Get-Command flutter.bat -ErrorAction SilentlyContinue
-        $dartCommand = Get-Command dart.bat -ErrorAction SilentlyContinue
-        if ($null -eq $flutterCommand -or $null -eq $dartCommand) {
-            throw "[FLUTTER_TOOLCHAIN_UNAVAILABLE] Install Flutter 3.47.2, add it to PATH, or place it under .tools\flutter."
+        $configuredRoot = $env:FINANCE_AI_FLUTTER_ROOT
+        $workspaceRoot = Split-Path -Parent $repositoryRoot
+        $siblingRoot = Join-Path $workspaceRoot "finance-ai\.tools\flutter"
+        $candidateRoot = if (-not [string]::IsNullOrWhiteSpace($configuredRoot)) {
+            $configuredRoot
         }
-        $flutterExecutable = $flutterCommand.Source
-        $dartExecutable = $dartCommand.Source
+        elseif (Test-Path -LiteralPath (Join-Path $siblingRoot "bin\flutter.bat")) {
+            $siblingRoot
+        }
+        else {
+            $null
+        }
+        if ($null -ne $candidateRoot) {
+            $flutterExecutable = (Resolve-Path -LiteralPath (Join-Path $candidateRoot "bin\flutter.bat")).Path
+            $dartExecutable = (Resolve-Path -LiteralPath (Join-Path $candidateRoot "bin\dart.bat")).Path
+        }
+        else {
+            $flutterCommand = Get-Command flutter.bat -ErrorAction SilentlyContinue
+            $dartCommand = Get-Command dart.bat -ErrorAction SilentlyContinue
+            if ($null -eq $flutterCommand -or $null -eq $dartCommand) {
+                throw "[FLUTTER_TOOLCHAIN_UNAVAILABLE] Install Flutter 3.47.2, set FINANCE_AI_FLUTTER_ROOT, add Flutter to PATH, or place it under .tools\flutter."
+            }
+            $flutterExecutable = $flutterCommand.Source
+            $dartExecutable = $dartCommand.Source
+        }
     }
     $localPropertiesPath = Join-Path $resolvedFrontend "android\local.properties"
     $hadLocalProperties = Test-Path -LiteralPath $localPropertiesPath
@@ -90,13 +128,13 @@ function Enter-FlutterWorkspace {
 
     try {
         $aliasDriveRoot = "${driveLetter}:\"
-        $frontendRelativeToAlias = [System.IO.Path]::GetRelativePath($aliasRoot, $resolvedFrontend)
+        $frontendRelativeToAlias = Get-WorkspaceRelativePath -BasePath $aliasRoot -TargetPath $resolvedFrontend
         $aliasedFrontend = (Join-Path $aliasDriveRoot $frontendRelativeToAlias)
         $aliasedFlutter = if ($usesLocalToolchain -or $flutterExecutable -match "\s") {
-            Join-Path $aliasDriveRoot ([System.IO.Path]::GetRelativePath($aliasRoot, $flutterExecutable))
+            Join-Path $aliasDriveRoot (Get-WorkspaceRelativePath -BasePath $aliasRoot -TargetPath $flutterExecutable)
         } else { $flutterExecutable }
         $aliasedDart = if ($usesLocalToolchain -or $dartExecutable -match "\s") {
-            Join-Path $aliasDriveRoot ([System.IO.Path]::GetRelativePath($aliasRoot, $dartExecutable))
+            Join-Path $aliasDriveRoot (Get-WorkspaceRelativePath -BasePath $aliasRoot -TargetPath $dartExecutable)
         } else { $dartExecutable }
 
         return [pscustomobject]@{

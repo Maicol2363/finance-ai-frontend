@@ -1,4 +1,10 @@
 import 'package:finance_ai/app.dart';
+import 'package:finance_ai/features/accounts/application/accounts_controller.dart';
+import 'package:finance_ai/features/accounts/application/accounts_state.dart';
+import 'package:finance_ai/features/accounts/data/accounts_repository.dart';
+import 'package:finance_ai/features/accounts/domain/account_models.dart';
+import 'package:finance_ai/features/expenses/application/expenses_controller.dart';
+import 'package:finance_ai/features/expenses/application/expenses_state.dart';
 import 'package:finance_ai/features/auth/session/data/auth_session_repository.dart';
 import 'package:finance_ai/features/auth/session/data/secure_credential_store.dart';
 import 'package:finance_ai/features/auth/session/domain/session_models.dart';
@@ -78,11 +84,49 @@ class WidgetAuthRepository implements AuthSessionRepository {
   }
 }
 
+class WidgetAccountsRepository implements AccountsRepository {
+  @override
+  Future<AccountListResult> list({required bool includeInactive}) async {
+    return AccountListResult(
+      accounts: const [],
+      suggestedCurrencyCode: 'COP',
+      supportedCurrencies: const [
+        CurrencySummary(
+          id: 1,
+          code: 'COP',
+          name: 'Colombian Peso',
+          decimals: 2,
+        ),
+      ],
+      accountTypes: AccountType.values,
+    );
+  }
+
+  @override
+  Future<Account> get(int accountId) => throw UnimplementedError();
+
+  @override
+  Future<Account> create(AccountCreateCommand command) =>
+      throw UnimplementedError();
+
+  @override
+  Future<Account> update(int accountId, AccountUpdateCommand command) =>
+      throw UnimplementedError();
+
+  @override
+  Future<Account> setActive(int accountId, {required bool isActive}) =>
+      throw UnimplementedError();
+
+  @override
+  Future<void> deleteAccount(int accountId) => throw UnimplementedError();
+}
+
 Widget appWith(WidgetAuthRepository repository, MemoryStore store) {
   return ProviderScope(
     overrides: [
       authSessionRepositoryProvider.overrideWithValue(repository),
       secureCredentialStoreProvider.overrideWithValue(store),
+      accountsRepositoryProvider.overrideWithValue(WidgetAccountsRepository()),
     ],
     child: const FinanceApp(),
   );
@@ -95,7 +139,7 @@ void main() {
       await tester.pumpWidget(appWith(WidgetAuthRepository(), MemoryStore()));
       await tester.pumpAndSettle();
 
-      expect(find.text('Welcome back'), findsOneWidget);
+      expect(find.text('Iniciar sesión'), findsOneWidget);
       expect(find.byKey(const Key('login-email-input')), findsOneWidget);
       expect(find.byKey(const Key('login-password-input')), findsOneWidget);
       expect(
@@ -133,9 +177,18 @@ void main() {
   testWidgets('successful Login reaches Home and Logout protects it again', (
     tester,
   ) async {
+    // The hub card grew (balance caption + month chips): give the window room so
+    // the accounts row is not hidden behind the bottom navigation bar.
+    tester.view.physicalSize = const Size(800, 1600);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+
     final store = MemoryStore();
     await tester.pumpWidget(appWith(WidgetAuthRepository(), store));
     await tester.pumpAndSettle();
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(FinanceApp)),
+    );
     await tester.enterText(
       find.byKey(const Key('login-email-input')),
       'person@example.com',
@@ -147,15 +200,43 @@ void main() {
     await tester.tap(find.byKey(const Key('login-submit-button')));
     await tester.pumpAndSettle();
 
+    // The Gastos chat comes first; balance and accounts live in the dashboard.
     expect(find.byKey(const Key('home-title')), findsOneWidget);
-    expect(find.textContaining('person@example.com'), findsOneWidget);
+    expect(find.byKey(const Key('chat-composer-field')), findsOneWidget);
+    expect(find.byKey(const Key('home-accounts-button')), findsNothing);
     expect(store.value, renewable);
 
+    await tester.tap(find.byKey(const Key('bottom-nav-dashboard')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('home-accounts-button')), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('home-accounts-button')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('accounts-list')), findsOneWidget);
+    expect(
+      container.read(accountsControllerProvider).listStatus,
+      AccountsLoadStatus.ready,
+    );
+    await tester.tap(find.byTooltip('Back to home'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('bottom-nav-gastos')));
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('logout-button')));
     await tester.pumpAndSettle();
-    expect(find.text('Welcome back'), findsOneWidget);
+    expect(find.text('Iniciar sesión'), findsOneWidget);
     expect(find.byKey(const Key('home-title')), findsNothing);
     expect(store.value, isNull);
+    expect(
+      container.read(accountsControllerProvider).listStatus,
+      AccountsLoadStatus.initial,
+    );
+    expect(container.read(accountsControllerProvider).result, isNull);
+    expect(
+      container.read(expensesControllerProvider).listStatus,
+      ExpensesLoadStatus.initial,
+    );
+    expect(container.read(expensesControllerProvider).result, isNull);
   });
 
   testWidgets('generic invalid credentials remain safe and editable', (
@@ -203,8 +284,32 @@ void main() {
 
       await tester.tap(find.byKey(const Key('restore-clear-button')));
       await tester.pumpAndSettle();
-      expect(find.text('Welcome back'), findsOneWidget);
+      expect(find.text('Iniciar sesión'), findsOneWidget);
       expect(store.value, isNull);
+    },
+  );
+  testWidgets(
+    'login lays out at the mockup phone size in light and dark without overflow',
+    (tester) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      await tester.pumpWidget(appWith(WidgetAuthRepository(), MemoryStore()));
+      await tester.pumpAndSettle();
+
+      expect(tester.takeException(), isNull);
+      expect(find.text('Finance AI'), findsOneWidget);
+      expect(find.text('Tu dinero, más claro.'), findsOneWidget);
+      expect(find.byKey(const Key('login-submit-button')), findsOneWidget);
+
+      await tester.tap(find.byKey(const Key('theme-toggle-button')));
+      await tester.pumpAndSettle();
+
+      expect(tester.takeException(), isNull);
+      expect(find.text('Tu dinero, más claro.'), findsOneWidget);
+      expect(find.byKey(const Key('login-submit-button')), findsOneWidget);
     },
   );
 }

@@ -4,8 +4,17 @@ import 'package:go_router/go_router.dart';
 
 import 'core/router/app_router.dart';
 import 'core/theme/app_theme.dart';
+import 'core/theme/theme_controller.dart';
+import 'features/accounts/application/accounts_controller.dart';
 import 'features/auth/session/application/auth_session_controller.dart';
 import 'features/auth/session/application/auth_session_state.dart';
+import 'features/categories/application/categories_controller.dart';
+import 'features/expenses/application/expenses_controller.dart';
+import 'features/expenses/application/history_controller.dart';
+import 'features/income_sources/presentation/income_sources_controller.dart';
+import 'features/incomes/data/incomes_repository.dart';
+import 'features/receipt_capture/application/receipt_capture_notifier.dart';
+import 'features/text_capture/application/text_capture_controller.dart';
 
 class FinanceApp extends ConsumerStatefulWidget {
   const FinanceApp({super.key, this.router});
@@ -24,18 +33,41 @@ class _FinanceAppState extends ConsumerState<FinanceApp> {
   @override
   void initState() {
     super.initState();
+    ref.read(themeControllerProvider.notifier).load();
+    ref.read(authSessionControllerProvider);
+
+    void clearUserData() {
+      ref.invalidate(accountsControllerProvider);
+      ref.invalidate(categoriesControllerProvider);
+      ref.invalidate(expensesControllerProvider);
+      ref.invalidate(historyControllerProvider);
+      ref.invalidate(incomesListProvider);
+      ref.invalidate(incomeRevisionProvider);
+      ref.invalidate(incomeSourcesControllerProvider);
+      ref.invalidate(receiptCaptureNotifierProvider);
+      ref.invalidate(textCaptureControllerProvider);
+    }
+
+    _authSubscription = ref.listenManual<AuthSessionState>(
+      authSessionControllerProvider,
+      (previous, next) {
+        final userChanged = previous?.user?.id != next.user?.id;
+        final unauthenticated =
+            next.status == AuthSessionStatus.unauthenticated;
+        if (userChanged || unauthenticated) {
+          clearUserData();
+        }
+        _routerRefresh?.notifyRouter();
+      },
+    );
+
     final providedRouter = widget.router;
     if (providedRouter != null) {
       _router = providedRouter;
       return;
     }
-    ref.read(authSessionControllerProvider);
     final routerRefresh = _RouterRefresh();
     _routerRefresh = routerRefresh;
-    _authSubscription = ref.listenManual<AuthSessionState>(
-      authSessionControllerProvider,
-      (previous, next) => routerRefresh.notifyRouter(),
-    );
     _router = createAppRouter(
       initialLocation: '/bootstrap',
       authState: () => ref.read(authSessionControllerProvider),
@@ -49,6 +81,8 @@ class _FinanceAppState extends ConsumerState<FinanceApp> {
       title: 'Finance AI',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light(),
+      darkTheme: AppTheme.dark(),
+      themeMode: ref.watch(themeControllerProvider),
       routerConfig: _router,
     );
   }

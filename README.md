@@ -1,6 +1,10 @@
 # Finance AI Flutter Client
 
-Shared Android and Windows Flutter client for the manual-first Finance AI application. The current identity slice supports registration, Login, secure session restoration, protected Home, and Logout. Budgeting, synchronization, and AI remain later stories. Both targets use the same Dart UI, state, validation, and API client.
+Shared Android and Windows Flutter client for the manual-first Finance AI application. The current slices support registration, Login, secure session restoration, protected Home, Logout, owned financial-account management, manual expense tracking, and personalized budgets with derived progress. Budgets may cover all expenses or one category, use an optional custom name, and run daily, weekly, fortnightly, monthly, quarterly, yearly, every custom number of days/weeks/months/years, or over a one-time date range. Users can create, list, inspect, edit, deactivate, reactivate, and permanently delete unused Cash, bank, digital-wallet, savings, credit-card, and other accounts with exact server-derived balances. Accounts with financial activity must be deactivated so history remains intact. Synchronization queues and AI remain later stories. Both targets use the same Dart UI, state, validation, and API client.
+
+## Gastos chat (HU-013)
+
+The Gastos tab opens on a capture chat. The user writes what happened in their own words; the assistant proposes an expense, income or transfer in a compact review card, and the user confirms it in one tap, edits it in place or discards it. Only genuine ambiguity triggers one short question, answered by tapping an option or typing. Corrections keep the original text, failures use the shared copyable diagnostics with Retry, and the manual forms stay one tap away in the composer menu (`+`). Accept sends the final values to the same validated operation as the manual forms. The balance and the recent history now live in the Dashboard.
 
 ## Local quality commands
 
@@ -16,7 +20,7 @@ The helpers create and remove a temporary no-space drive alias when required by 
 
 The debug outputs are generated at `build/app/outputs/flutter-apk/app-debug.apk` and `build/windows/x64/runner/Debug/finance_ai.exe`.
 
-Native Windows integration tests temporarily place their headless test harness in the shared debug output directory. Use `tool/test_windows_and_restore.ps1` instead of invoking the test alone: it verifies registration, Login/Home/Logout, and real Windows secure-storage replacement/deletion, then deletes the test build cache and rebuilds the normal application—even when a test fails. If an older build leaves `finance_ai.exe` running without a window, stop that process and run the helper before opening the executable again. The native runner now detects an incomplete bundle, reports a stable startup error if Flutter cannot render its first frame, and permits only one desktop instance; another launch focuses the existing window.
+Native Windows integration tests temporarily place their headless test harness in the shared debug output directory. Use `tool/test_windows_and_restore.ps1` instead of invoking the test alone: it verifies registration, Login/Home/Logout, a synthetic account-management flow, safe failure copying, and real Windows secure-storage replacement/deletion, then deletes the test build cache and rebuilds the normal application—even when a test fails. If an older build leaves `finance_ai.exe` running without a window, stop that process and run the helper before opening the executable again. The native runner now detects an incomplete bundle, reports a stable startup error if Flutter cannot render its first frame, and permits only one desktop instance; another launch focuses the existing window.
 
 ## API configuration
 
@@ -38,7 +42,7 @@ The integration image verifies Register → Login → session restoration → Lo
 
 ## Copyable errors
 
-Registration, Login, restoration, and Logout failures display a stable error code and a `Copy error details` action. The copied report contains safe diagnostic context and deliberately excludes email, password, and credential values. Future client features must use the shared components in `lib/core/diagnostics/`.
+Registration, Login, restoration, Logout, and financial-account failures display a stable error code and a `Copy error details` action. The copied report contains safe diagnostic context and deliberately excludes email, password, credential, account-name, and balance values. Future client features must use the shared components in `lib/core/diagnostics/`.
 
 The access credential exists only in application memory. Only the rotating renewable credential is stored through `flutter_secure_storage`; Android backups are disabled and Windows uses the native credential store.
 
