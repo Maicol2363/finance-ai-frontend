@@ -23,14 +23,14 @@ void main() {
       ),
     );
 
-    expect(find.text('Gastos'), findsOneWidget);
-    expect(find.text('Dashboard'), findsOneWidget);
+    expect(find.text('Inicio'), findsOneWidget);
+    expect(find.text('Movimientos'), findsOneWidget);
     expect(find.text('Ajustes'), findsOneWidget);
 
     final activeIcon = tester.widget<AnimatedContainer>(
       find
           .ancestor(
-            of: find.byIcon(Icons.receipt_long_outlined),
+            of: find.byIcon(Icons.home_outlined),
             matching: find.byType(AnimatedContainer),
           )
           .first,
@@ -40,7 +40,10 @@ void main() {
       AppPalette.light.primarySoft,
     );
 
+    await tester.tap(find.byKey(const Key('bottom-nav-movimientos')));
+    expect(taps, [1]);
+
     await tester.tap(find.byKey(const Key('bottom-nav-ajustes')));
-    expect(taps, [2]);
+    expect(taps, [1, 2]);
   });
 }

@@ -27,7 +27,16 @@ const _suggestions = <String>[
 /// The Gastos chat: the user writes what happened, the assistant proposes the
 /// operation, and the user confirms, edits or discards it.
 class TextCaptureChat extends ConsumerStatefulWidget {
-  const TextCaptureChat({super.key});
+  const TextCaptureChat({
+    super.key,
+    this.showWheel = true,
+    this.autoFocus = false,
+    this.startVoice = false,
+  });
+
+  final bool showWheel;
+  final bool autoFocus;
+  final bool startVoice;
 
   @override
   ConsumerState<TextCaptureChat> createState() => _TextCaptureChatState();
@@ -62,7 +71,14 @@ class _TextCaptureChatState extends ConsumerState<TextCaptureChat>
       onAccepted: (_) => _send(requestFocus: false),
     )..addListener(_voiceChanged);
     Future<void>.microtask(() {
-      if (mounted) _voice.prepare();
+      if (mounted) {
+        _voice.prepare();
+        if (widget.startVoice) {
+          _beginVoice();
+        } else if (widget.autoFocus) {
+          _focus.requestFocus();
+        }
+      }
     });
   }
 
@@ -226,21 +242,22 @@ class _TextCaptureChatState extends ConsumerState<TextCaptureChat>
                     ),
                   ),
                 ),
-                CaptureWheel(
-                  onPhoto: () {
-                    _voice.interrupt();
-                    startReceiptCapture(context, source: ImageSource.camera);
-                  },
-                  onVoice: _openVoice,
-                  onText: () {
-                    _voice.interrupt();
-                    _focus.requestFocus();
-                  },
-                  onManual: () {
-                    _voice.interrupt();
-                    context.push('/expenses/new');
-                  },
-                ),
+                if (widget.showWheel)
+                  CaptureWheel(
+                    onPhoto: () {
+                      _voice.interrupt();
+                      startReceiptCapture(context, source: ImageSource.camera);
+                    },
+                    onVoice: _openVoice,
+                    onText: () {
+                      _voice.interrupt();
+                      _focus.requestFocus();
+                    },
+                    onManual: () {
+                      _voice.interrupt();
+                      context.push('/expenses/new');
+                    },
+                  ),
               ],
             ),
           ),

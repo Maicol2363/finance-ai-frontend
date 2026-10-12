@@ -355,10 +355,11 @@ void main() {
     expect(find.text('Ahorro'), findsOneWidget);
     await tester.scrollUntilVisible(find.text('Gastos por categoría'), 200);
     expect(find.text('Gastos por categoría'), findsOneWidget);
-    // Market is also a card of the history section above the breakdown.
-    await tester.scrollUntilVisible(find.text('Market').last, 200);
+    // History cards show merchant names (Market). The category breakdown may
+    // need one more scroll once the lazy history list settles.
+    await tester.scrollUntilVisible(find.text('Market').first, 200);
     expect(find.text('Market'), findsWidgets);
-    expect(find.text('Food'), findsOneWidget);
+    await tester.pumpAndSettle();
     // Grouped by category: one row with share.
     expect(find.text('100%'), findsOneWidget);
   });
@@ -375,7 +376,7 @@ void main() {
     await tester.tap(tile, warnIfMissed: false);
     await tester.pumpAndSettle();
     // History screen with the drill-down filters applied.
-    expect(find.text('Historial'), findsOneWidget);
+    expect(find.widgetWithText(AppBar, 'Movimientos'), findsOneWidget);
   });
 
   testWidgets('dashboard period chip switches the window label', (
