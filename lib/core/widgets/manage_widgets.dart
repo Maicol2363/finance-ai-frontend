@@ -80,50 +80,58 @@ class SettingsRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        key: rowKey,
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
-          child: Row(
-            children: [
-              if (leading != null) ...[leading!, const SizedBox(width: 10)],
-              Expanded(
-                child: Text(
-                  label,
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                    color: palette.text,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              if (value != null)
-                Text(
-                  value!,
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                    color: palette.text,
-                  ),
-                )
-              else if (subtitle != null)
-                Flexible(
+    return MergeSemantics(
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          key: rowKey,
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
+            child: Row(
+              children: [
+                if (leading != null) ...[leading!, const SizedBox(width: 10)],
+                Expanded(
                   child: Text(
-                    subtitle!,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(fontSize: 11, color: palette.muted),
+                    label,
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                      color: palette.text,
+                    ),
                   ),
                 ),
-              if (onTap != null) ...[
-                const SizedBox(width: 6),
-                Icon(Icons.chevron_right, size: 18, color: palette.nav),
+                const SizedBox(width: 8),
+                if (value != null)
+                  Text(
+                    value!,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: palette.text,
+                    ),
+                  )
+                else if (subtitle != null)
+                  Flexible(
+                    child: Text(
+                      subtitle!,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(fontSize: 11, color: palette.muted),
+                    ),
+                  ),
+                if (onTap != null) ...[
+                  const SizedBox(width: 6),
+                  ExcludeSemantics(
+                    child: Icon(
+                      Icons.chevron_right,
+                      size: 18,
+                      color: palette.nav,
+                    ),
+                  ),
+                ],
               ],
-            ],
+            ),
           ),
         ),
       ),
@@ -461,43 +469,56 @@ class SegmentedControl extends StatelessWidget {
         color: palette.soft,
         borderRadius: BorderRadius.circular(8),
       ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          for (var index = 0; index < labels.length; index++)
-            Semantics(
-              button: true,
-              selected: index == selectedIndex,
-              label: labels[index],
-              child: GestureDetector(
-                key: keyPrefix == null ? null : Key('$keyPrefix-$index'),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            for (var index = 0; index < labels.length; index++)
+              Semantics(
+                button: true,
+                selected: index == selectedIndex,
+                label: labels[index],
+                excludeSemantics: true,
                 onTap: () => onChanged(index),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 180),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 6,
-                  ),
-                  decoration: BoxDecoration(
-                    color: index == selectedIndex
-                        ? palette.primary
-                        : Colors.transparent,
-                    borderRadius: BorderRadius.circular(7),
-                  ),
-                  child: Text(
-                    labels[index],
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: index == selectedIndex
-                          ? palette.onPrimary
-                          : palette.muted,
+                child: GestureDetector(
+                  key: keyPrefix == null ? null : Key('$keyPrefix-$index'),
+                  onTap: () => onChanged(index),
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(
+                      minWidth: 48,
+                      minHeight: 48,
+                    ),
+                    child: Center(
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 180),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: index == selectedIndex
+                              ? palette.primary
+                              : Colors.transparent,
+                          borderRadius: BorderRadius.circular(7),
+                        ),
+                        child: Text(
+                          labels[index],
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: index == selectedIndex
+                                ? palette.onPrimary
+                                : palette.muted,
+                          ),
+                        ),
+                      ),
                     ),
                   ),
                 ),
               ),
-            ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -547,28 +568,42 @@ class FilterChipRow<T> extends StatelessWidget {
                   button: true,
                   selected: isSelected,
                   label: option.label,
+                  excludeSemantics: true,
+                  onTap: () => onChanged(option.value),
                   child: GestureDetector(
                     key: keyPrefix == null ? null : Key('$keyPrefix-$index'),
                     onTap: () => onChanged(option.value),
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 180),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 13,
-                        vertical: 9,
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(
+                        minWidth: 48,
+                        minHeight: 48,
                       ),
-                      decoration: BoxDecoration(
-                        color: isSelected ? palette.primary : palette.card,
-                        border: Border.all(
-                          color: isSelected ? palette.primary : palette.line,
-                        ),
-                        borderRadius: BorderRadius.circular(999),
-                      ),
-                      child: Text(
-                        option.label,
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: isSelected ? palette.onPrimary : palette.muted,
+                      child: Center(
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 180),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 13,
+                            vertical: 9,
+                          ),
+                          decoration: BoxDecoration(
+                            color: isSelected ? palette.primary : palette.card,
+                            border: Border.all(
+                              color: isSelected
+                                  ? palette.primary
+                                  : palette.line,
+                            ),
+                            borderRadius: BorderRadius.circular(999),
+                          ),
+                          child: Text(
+                            option.label,
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: isSelected
+                                  ? palette.onPrimary
+                                  : palette.muted,
+                            ),
+                          ),
                         ),
                       ),
                     ),
@@ -618,6 +653,7 @@ class FieldLabel extends StatelessWidget {
 InputDecoration pillInputDecoration(
   BuildContext context, {
   required String hint,
+  String? labelText,
   Widget? prefixIcon,
   Widget? suffixIcon,
   String? errorText,
@@ -631,6 +667,9 @@ InputDecoration pillInputDecoration(
   }
 
   return InputDecoration(
+    labelText: labelText,
+    labelStyle: TextStyle(color: palette.muted),
+    floatingLabelStyle: TextStyle(color: palette.primary),
     hintText: hint,
     errorText: errorText,
     prefixIcon: prefixIcon,

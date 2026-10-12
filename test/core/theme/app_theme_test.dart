@@ -6,6 +6,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../support/accessibility_test_helpers.dart';
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
@@ -13,7 +15,9 @@ void main() {
     final light = AppTheme.light().extension<AppPalette>()!;
     expect(light.background, const Color(0xFFF5F6F8));
     expect(light.card, const Color(0xFFFFFFFF));
-    expect(light.primary, const Color(0xFF6B8E00));
+    expect(light.primary, const Color(0xFF546E00));
+    expectContrastRatio(light.primary, light.onPrimary);
+    expectContrastRatio(light.warnFg, light.warnBg);
     expect(light.text, const Color(0xFF1F2933));
     expect(light.income, const Color(0xFF0E9F6E));
     expect(light.discard, const Color(0xFFDC2626));
@@ -22,6 +26,8 @@ void main() {
     expect(dark.background, const Color(0xFF101318));
     expect(dark.card, const Color(0xFF1A2027));
     expect(dark.primary, const Color(0xFF8FB42C));
+    expectContrastRatio(dark.primary, dark.onPrimary);
+    expectContrastRatio(dark.warnFg, dark.warnBg);
     expect(dark.text, const Color(0xFFE8EBF0));
     expect(dark.income, const Color(0xFF2DB886));
 

@@ -30,7 +30,7 @@ class ErrorDiagnosticPanel extends StatelessWidget {
               const SizedBox(height: 8),
               SelectionArea(
                 child: Text(
-                  'Error code: ${diagnostic.code}',
+                  'Código de error: ${diagnostic.code}',
                   key: const Key('error-diagnostic-code'),
                   style: TextStyle(
                     color: colors.onErrorContainer,
@@ -40,7 +40,7 @@ class ErrorDiagnosticPanel extends StatelessWidget {
               ),
               const SizedBox(height: 4),
               Text(
-                'Copy the safe report when asking for help. Form values are excluded.',
+                'Copia el reporte seguro al pedir ayuda. No incluye los datos del formulario.',
                 style: TextStyle(color: colors.onErrorContainer),
               ),
               const SizedBox(height: 8),
@@ -50,7 +50,7 @@ class ErrorDiagnosticPanel extends StatelessWidget {
                   key: const Key('copy-error-details-button'),
                   onPressed: () => _copy(context),
                   icon: const Icon(Icons.copy),
-                  label: const Text('Copy error details'),
+                  label: const Text('Copiar detalles del error'),
                 ),
               ),
             ],
@@ -66,7 +66,9 @@ class ErrorDiagnosticPanel extends StatelessWidget {
       return;
     }
     ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-      const SnackBar(content: Text('Safe error details copied.')),
+      const SnackBar(
+        content: Text('Se copiaron los detalles seguros del error.'),
+      ),
     );
   }
 }

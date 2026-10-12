@@ -136,12 +136,17 @@ void main() {
   testWidgets(
     'Login is the unauthenticated start and exposes accessible controls',
     (tester) async {
+      final semantics = tester.ensureSemantics();
       await tester.pumpWidget(appWith(WidgetAuthRepository(), MemoryStore()));
       await tester.pumpAndSettle();
 
       expect(find.text('Iniciar sesión'), findsOneWidget);
       expect(find.byKey(const Key('login-email-input')), findsOneWidget);
       expect(find.byKey(const Key('login-password-input')), findsOneWidget);
+      expect(find.text('Correo electrónico'), findsOneWidget);
+      expect(find.text('Contraseña'), findsOneWidget);
+      expect(find.bySemanticsLabel('Correo electrónico'), findsOneWidget);
+      expect(find.bySemanticsLabel('Contraseña'), findsOneWidget);
       expect(
         find.byKey(const Key('login-password-visibility-button')),
         findsOneWidget,
@@ -151,6 +156,7 @@ void main() {
         find.byKey(const Key('login-create-account-button')),
         findsOneWidget,
       );
+      semantics.dispose();
     },
   );
 
@@ -165,7 +171,7 @@ void main() {
 
       expect(find.text('Email is required.'), findsOneWidget);
       expect(find.text('Password is required.'), findsOneWidget);
-      expect(find.text('Error code: login_invalid'), findsOneWidget);
+      expect(find.text('Código de error: login_invalid'), findsOneWidget);
       expect(
         find.byKey(const Key('copy-error-details-button')),
         findsOneWidget,
@@ -217,7 +223,7 @@ void main() {
       container.read(accountsControllerProvider).listStatus,
       AccountsLoadStatus.ready,
     );
-    await tester.tap(find.byTooltip('Back to home'));
+    await tester.tap(find.byTooltip('Volver al inicio'));
     await tester.pumpAndSettle();
 
     await tester.tap(find.byKey(const Key('bottom-nav-gastos')));
@@ -260,7 +266,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Invalid email or password.'), findsOneWidget);
-    expect(find.text('Error code: invalid_credentials'), findsOneWidget);
+    expect(find.text('Código de error: invalid_credentials'), findsOneWidget);
     expect(find.byKey(const Key('login-email-input')), findsOneWidget);
   });
 

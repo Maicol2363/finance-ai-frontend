@@ -5,10 +5,13 @@ import 'package:finance_ai/core/widgets/app_bottom_nav.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import '../../support/accessibility_test_helpers.dart';
+
 void main() {
   testWidgets('bottom nav renders both tabs and reports the tapped index', (
     tester,
   ) async {
+    final semantics = tester.ensureSemantics();
     final taps = <int>[];
     await tester.pumpWidget(
       MaterialApp(
@@ -26,6 +29,22 @@ void main() {
     expect(find.text('Gastos'), findsOneWidget);
     expect(find.text('Dashboard'), findsOneWidget);
     expect(find.text('Ajustes'), findsOneWidget);
+    expect(find.bySemanticsLabel('Gastos'), findsOneWidget);
+    expect(find.bySemanticsLabel('Dashboard'), findsOneWidget);
+    expect(find.bySemanticsLabel('Ajustes'), findsOneWidget);
+    expect(
+      tester
+          .getSemantics(find.bySemanticsLabel('Gastos'))
+          .flagsCollection
+          .isSelected,
+      Tristate.isTrue,
+    );
+    expect(
+      tester
+          .getSemantics(find.bySemanticsLabel('Gastos'))
+          .hasAction(SemanticsAction.tap),
+      isTrue,
+    );
 
     final activeIcon = tester.widget<AnimatedContainer>(
       find
@@ -42,5 +61,6 @@ void main() {
 
     await tester.tap(find.byKey(const Key('bottom-nav-ajustes')));
     expect(taps, [2]);
+    semantics.dispose();
   });
 }

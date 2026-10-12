@@ -97,11 +97,6 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                                   height: 1.45,
                                 ),
                               ),
-                              const FieldLabel(
-                                'Correo electrónico',
-                                uppercase: false,
-                                topSpacing: 12,
-                              ),
                               TextField(
                                 key: const Key('register-email-input'),
                                 controller: _emailController,
@@ -114,6 +109,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                                 decoration: pillInputDecoration(
                                   context,
                                   hint: 'tu@correo.com',
+                                  labelText: 'Correo electrónico',
                                   errorText: _firstError(state, 'email'),
                                 ),
                                 onChanged: (_) =>
@@ -121,7 +117,6 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                                 onSubmitted: (_) =>
                                     _passwordFocus.requestFocus(),
                               ),
-                              const FieldLabel('Contraseña', uppercase: false),
                               TextField(
                                 key: const Key('register-password-input'),
                                 controller: _passwordController,
@@ -137,6 +132,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                                 decoration: pillInputDecoration(
                                   context,
                                   hint: 'Mínimo 8 caracteres',
+                                  labelText: 'Contraseña',
                                   errorText: _firstError(state, 'password'),
                                   suffixIcon: IconButton(
                                     key: const Key(
@@ -164,10 +160,6 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                                 onSubmitted: (_) =>
                                     _confirmationFocus.requestFocus(),
                               ),
-                              const FieldLabel(
-                                'Confirmar contraseña',
-                                uppercase: false,
-                              ),
                               TextField(
                                 key: const Key(
                                   'register-password-confirmation-input',
@@ -185,6 +177,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                                 decoration: pillInputDecoration(
                                   context,
                                   hint: 'Repite tu contraseña',
+                                  labelText: 'Confirmar contraseña',
                                   errorText: _firstError(
                                     state,
                                     'password_confirmation',

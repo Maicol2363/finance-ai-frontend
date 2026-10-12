@@ -1,3 +1,5 @@
+import 'package:finance_ai/core/theme/app_palette.dart';
+import 'package:finance_ai/core/theme/app_theme.dart';
 import 'package:finance_ai/features/receipt_capture/data/receipt_photo_guide_prefs.dart';
 import 'package:finance_ai/features/receipt_capture/presentation/widgets/receipt_photo_guide_dialog.dart';
 import 'package:flutter/material.dart';
@@ -45,6 +47,54 @@ void main() {
       expect(find.text('3. Ponlo recto'), findsOneWidget);
       expect(find.byKey(const Key('receipt-guide-confirm')), findsOneWidget);
       expect(find.text('Solo te mostramos esto una vez.'), findsOneWidget);
+    });
+
+    testWidgets('guide copy and illustrations use both theme palettes', (
+      tester,
+    ) async {
+      for (final theme in [AppTheme.light(), AppTheme.dark()]) {
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Theme(
+              data: theme,
+              child: const Scaffold(body: ReceiptPhotoGuideDialog()),
+            ),
+          ),
+        );
+
+        final palette = theme.extension<AppPalette>()!;
+        expect(
+          tester
+              .widget<Text>(
+                find.text(
+                  'Sigue estos 3 tips para que la IA lea tu recibo a la primera:',
+                ),
+              )
+              .style!
+              .color,
+          palette.muted,
+        );
+        expect(
+          tester
+              .widget<Text>(
+                find.text('Evita sombras y brillos sobre el papel.'),
+              )
+              .style!
+              .color,
+          palette.muted,
+        );
+        expect(
+          tester.widget<Icon>(find.byIcon(Icons.light_mode_outlined)).color,
+          palette.primaryDark,
+        );
+        expect(
+          tester
+              .widget<Text>(find.text('Solo te mostramos esto una vez.'))
+              .style!
+              .color,
+          palette.muted,
+        );
+      }
     });
 
     testWidgets('default confirm pops the dialog', (tester) async {

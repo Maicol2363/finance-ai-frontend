@@ -217,7 +217,7 @@ class _AccountFormScreenState extends ConsumerState<AccountFormScreen> {
           decoration: InputDecoration(
             labelText: 'Moneda',
             helperText: currencyLocked
-                ? 'Currency is locked after confirmed account activity.'
+                ? 'No puedes cambiar la moneda porque esta cuenta ya tiene movimientos confirmados.'
                 : 'La sugerencia es editable y no modifica cuentas guardadas.',
             errorText: _firstError(state, 'currency_code'),
           ),

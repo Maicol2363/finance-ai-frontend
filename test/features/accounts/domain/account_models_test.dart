@@ -19,6 +19,25 @@ Map<String, Object?> accountJson({
 };
 
 void main() {
+  test('account type labels are Spanish while API wire values stay stable', () {
+    expect(AccountType.values.map((type) => type.label).toList(), [
+      'Efectivo',
+      'Cuenta bancaria',
+      'Billetera digital',
+      'Ahorros',
+      'Tarjeta de crédito',
+      'Otra',
+    ]);
+    expect(AccountType.values.map((type) => type.wireValue).toList(), [
+      'cash',
+      'bank',
+      'digital_wallet',
+      'savings',
+      'credit_card',
+      'other',
+    ]);
+  });
+
   group('MoneyAmount', () {
     test('round-trips exact positive, negative, and zero API strings', () {
       for (final value in ['0.00', '100000.05', '-9999999999999999.99']) {

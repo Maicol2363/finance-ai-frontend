@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/theme/app_palette.dart';
+
 /// One-time educational dialog shown before the first receipt photo.
 ///
 /// Explains how to capture correctly (light, framing, flat) so the AI
@@ -13,6 +15,7 @@ class ReceiptPhotoGuideDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.palette;
     return AlertDialog(
       key: const Key('receipt-guide-dialog'),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
@@ -28,31 +31,34 @@ class ReceiptPhotoGuideDialog extends StatelessWidget {
           ),
         ],
       ),
-      content: const Column(
+      content: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             'Sigue estos 3 tips para que la IA lea tu recibo a la primera:',
-            style: TextStyle(fontSize: 13, color: Colors.black54),
+            style: TextStyle(fontSize: 13, color: palette.muted),
           ),
           SizedBox(height: 14),
           _GuideTip(
             icon: Icons.light_mode_outlined,
             title: '1. Busca buena luz',
             subtitle: 'Evita sombras y brillos sobre el papel.',
+            palette: palette,
           ),
           SizedBox(height: 10),
           _GuideTip(
             icon: Icons.crop_free_outlined,
             title: '2. Encuadra completo',
             subtitle: 'Que se vean los bordes, el total y el comercio.',
+            palette: palette,
           ),
           SizedBox(height: 10),
           _GuideTip(
             icon: Icons.straighten_outlined,
             title: '3. Ponlo recto',
             subtitle: 'Apóyalo en una superficie plana y oscura.',
+            palette: palette,
           ),
         ],
       ),
@@ -78,12 +84,12 @@ class ReceiptPhotoGuideDialog extends StatelessWidget {
             style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
           ),
         ),
-        const Center(
+        Center(
           child: Padding(
-            padding: EdgeInsets.only(top: 4, bottom: 4),
+            padding: const EdgeInsets.only(top: 4, bottom: 4),
             child: Text(
               'Solo te mostramos esto una vez.',
-              style: TextStyle(fontSize: 11, color: Colors.black45),
+              style: TextStyle(fontSize: 11, color: palette.muted),
             ),
           ),
         ),
@@ -98,11 +104,13 @@ class _GuideTip extends StatelessWidget {
     required this.icon,
     required this.title,
     required this.subtitle,
+    required this.palette,
   });
 
   final IconData icon;
   final String title;
   final String subtitle;
+  final AppPalette palette;
 
   @override
   Widget build(BuildContext context) {
@@ -113,10 +121,10 @@ class _GuideTip extends StatelessWidget {
           width: 38,
           height: 38,
           decoration: BoxDecoration(
-            color: const Color(0xFFE9F2D8),
+            color: palette.primarySoft,
             borderRadius: BorderRadius.circular(10),
           ),
-          child: Icon(icon, size: 20, color: const Color(0xFF546E00)),
+          child: Icon(icon, size: 20, color: palette.primaryDark),
         ),
         const SizedBox(width: 10),
         Expanded(
@@ -133,7 +141,7 @@ class _GuideTip extends StatelessWidget {
               const SizedBox(height: 2),
               Text(
                 subtitle,
-                style: const TextStyle(fontSize: 12, color: Colors.black54),
+                style: TextStyle(fontSize: 12, color: palette.muted),
               ),
             ],
           ),

@@ -1,12 +1,12 @@
 import '../../../core/formatters/money_formatter.dart';
 
 enum AccountType {
-  cash('cash', 'Cash'),
-  bank('bank', 'Bank account'),
-  digitalWallet('digital_wallet', 'Digital wallet'),
-  savings('savings', 'Savings'),
-  creditCard('credit_card', 'Credit card'),
-  other('other', 'Other');
+  cash('cash', 'Efectivo'),
+  bank('bank', 'Cuenta bancaria'),
+  digitalWallet('digital_wallet', 'Billetera digital'),
+  savings('savings', 'Ahorros'),
+  creditCard('credit_card', 'Tarjeta de crédito'),
+  other('other', 'Otra');
 
   const AccountType(this.wireValue, this.label);
 

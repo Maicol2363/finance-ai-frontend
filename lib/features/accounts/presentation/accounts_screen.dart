@@ -37,7 +37,7 @@ class _AccountsScreenState extends ConsumerState<AccountsScreen> {
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(
-          tooltip: 'Back to home',
+          tooltip: 'Volver al inicio',
           onPressed: () {
             if (context.canPop()) {
               context.pop();
@@ -47,13 +47,13 @@ class _AccountsScreenState extends ConsumerState<AccountsScreen> {
           },
           icon: const Icon(Icons.arrow_back),
         ),
-        title: const Text('Accounts'),
+        title: const Text('Cuentas'),
       ),
       floatingActionButton: FloatingActionButton.extended(
         key: const Key('accounts-add-button'),
         onPressed: result == null ? null : () => context.go('/accounts/new'),
         icon: const Icon(Icons.add),
-        label: const Text('New account'),
+        label: const Text('Nueva cuenta'),
       ),
       body: SafeArea(
         child: Center(
@@ -69,9 +69,9 @@ class _AccountsScreenState extends ConsumerState<AccountsScreen> {
                   SwitchListTile.adaptive(
                     key: const Key('accounts-show-inactive'),
                     contentPadding: EdgeInsets.zero,
-                    title: const Text('Show inactive accounts'),
+                    title: const Text('Mostrar cuentas inactivas'),
                     subtitle: const Text(
-                      'Inactive accounts stay visible in financial history.',
+                      'Las cuentas inactivas siguen visibles en tu historial financiero.',
                     ),
                     value: state.includeInactive,
                     onChanged: state.listStatus == AccountsLoadStatus.loading
@@ -81,7 +81,7 @@ class _AccountsScreenState extends ConsumerState<AccountsScreen> {
                   if (state.listStatus == AccountsLoadStatus.loading) ...[
                     Semantics(
                       liveRegion: true,
-                      label: 'Loading accounts',
+                      label: 'Cargando cuentas',
                       child: const LinearProgressIndicator(),
                     ),
                     const SizedBox(height: 16),
@@ -92,7 +92,7 @@ class _AccountsScreenState extends ConsumerState<AccountsScreen> {
                     OutlinedButton.icon(
                       onPressed: controller.load,
                       icon: const Icon(Icons.refresh),
-                      label: const Text('Retry'),
+                      label: const Text('Reintentar'),
                     ),
                     const SizedBox(height: 16),
                   ],
@@ -154,13 +154,13 @@ class _AccountsEmptyState extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           Text(
-            'Add where your money is held',
+            'Agrega dónde guardas tu dinero',
             style: Theme.of(context).textTheme.titleLarge,
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 8),
           const Text(
-            'An account can be Cash, Nequi, Bancolombia, savings, a credit card, or another place you track money.',
+            'Puedes registrar efectivo, Nequi, Bancolombia, ahorros, una tarjeta de crédito u otra cuenta.',
             textAlign: TextAlign.center,
           ),
         ],
@@ -213,7 +213,7 @@ class _AccountCard extends StatelessWidget {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          '${account.type.label} · ${account.currency.code}${account.isActive ? '' : ' · Inactive'}',
+                          '${account.type.label} · ${account.currency.code}${account.isActive ? '' : ' · Inactiva'}',
                         ),
                       ],
                     ),

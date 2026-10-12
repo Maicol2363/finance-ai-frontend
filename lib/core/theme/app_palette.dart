@@ -54,7 +54,7 @@ class AppPalette extends ThemeExtension<AppPalette> {
   static const light = AppPalette(
     background: Color(0xFFF5F6F8),
     card: Color(0xFFFFFFFF),
-    primary: Color(0xFF6B8E00),
+    primary: Color(0xFF546E00),
     onPrimary: Color(0xFFFFFFFF),
     primarySoft: Color(0xFFE9F2D8),
     primaryDark: Color(0xFF546E00),
@@ -71,7 +71,7 @@ class AppPalette extends ThemeExtension<AppPalette> {
     soft2: Color(0xFFFAFAFB),
     rowLine: Color(0xFFF3F4F6),
     warnBg: Color(0xFFFDF3D8),
-    warnFg: Color(0xFF9A7B00),
+    warnFg: Color(0xFF755D00),
     placeholder: Color(0xFF9AA0A6),
   );
 

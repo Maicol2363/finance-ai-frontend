@@ -15,11 +15,13 @@ class SpendingTrendCard extends StatelessWidget {
     this.comparisonLabel,
     this.comparisonDirection,
     this.averageMinorUnits,
+    this.initialShowTable = false,
     super.key,
   });
   final List<DailySpend> days;
   final String currency;
   final bool available;
+  final bool initialShowTable;
 
   /// Weekly buckets for long windows. When non-null, the card renders weeks
   /// instead of days (same painter input shape: start + amount).
@@ -114,6 +116,7 @@ class SpendingTrendCard extends StatelessWidget {
       useWeeks: useWeeks,
       weeks: weekDays,
       axis: axis,
+      initialShowTable: initialShowTable,
     );
   }
 }
@@ -133,6 +136,7 @@ class _TrendBody extends StatefulWidget {
     required this.useWeeks,
     required this.weeks,
     required this.axis,
+    this.initialShowTable = false,
   });
 
   final List<DailySpend> painted;
@@ -148,6 +152,7 @@ class _TrendBody extends StatefulWidget {
   final bool useWeeks;
   final List<WeeklySpend>? weeks;
   final List<DateTime> axis;
+  final bool initialShowTable;
 
   @override
   State<_TrendBody> createState() => _TrendBodyState();
@@ -155,6 +160,15 @@ class _TrendBody extends StatefulWidget {
 
 class _TrendBodyState extends State<_TrendBody> {
   int? selected;
+  late bool _showTable = widget.initialShowTable;
+
+  @override
+  void didUpdateWidget(covariant _TrendBody oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.initialShowTable != widget.initialShowTable) {
+      _showTable = widget.initialShowTable;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -264,23 +278,25 @@ class _TrendBodyState extends State<_TrendBody> {
             ),
           ),
           const SizedBox(height: 8),
-          if (widget.useWeeks &&
-              widget.weeks != null &&
-              widget.weeks!.isNotEmpty)
-            _buildWeeksAxis(palette)
-          else
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                for (final d in widget.axis)
-                  Text(
-                    widget.axis.length <= 7
-                        ? '${d.day} ${shortMonthName(d.month)}'
-                        : '${d.day}',
-                    style: TextStyle(fontSize: 10, color: palette.muted),
+          ExcludeSemantics(
+            child:
+                widget.useWeeks &&
+                    widget.weeks != null &&
+                    widget.weeks!.isNotEmpty
+                ? _buildWeeksAxis(palette)
+                : Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      for (final d in widget.axis)
+                        Text(
+                          widget.axis.length <= 7
+                              ? '${d.day} ${shortMonthName(d.month)}'
+                              : '${d.day}',
+                          style: TextStyle(fontSize: 10, color: palette.muted),
+                        ),
+                    ],
                   ),
-              ],
-            ),
+          ),
           if (sel != null && sel >= 0 && sel < painted.length) ...[
             const SizedBox(height: 10),
             Container(
@@ -352,6 +368,131 @@ class _TrendBodyState extends State<_TrendBody> {
                 ),
             ],
           ),
+          if (widget.available && painted.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Semantics(
+              button: true,
+              excludeSemantics: true,
+              label: _showTable
+                  ? 'Ocultar tabla de valores de tendencia'
+                  : 'Ver tabla de valores de tendencia',
+              child: InkWell(
+                key: const Key('dashboard-trend-toggle-table'),
+                onTap: () => setState(() => _showTable = !_showTable),
+                borderRadius: BorderRadius.circular(8),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(
+                    minHeight: 48,
+                    minWidth: 48,
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      vertical: 8,
+                      horizontal: 4,
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          _showTable
+                              ? Icons.keyboard_arrow_up
+                              : Icons.table_chart_outlined,
+                          size: 16,
+                          color: palette.primary,
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          _showTable
+                              ? 'Ocultar tabla de valores'
+                              : 'Ver tabla de valores',
+                          style: TextStyle(
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w600,
+                            color: palette.primary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            if (_showTable) ...[
+              const SizedBox(height: 8),
+              Semantics(
+                container: true,
+                label: 'Tabla de valores de tendencia',
+                child: Container(
+                  key: const Key('dashboard-trend-table'),
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: palette.soft,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: palette.line),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      for (var i = 0; i < painted.length; i++)
+                        Semantics(
+                          label:
+                              '${_periodName(i)}: ${MoneyFormatter.display(painted[i].minorUnits, widget.currency)}',
+                          child: InkWell(
+                            key: ValueKey('dashboard-trend-row-$i'),
+                            onTap: () => setState(() => selected = i),
+                            borderRadius: BorderRadius.circular(6),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 6,
+                              ),
+                              margin: const EdgeInsets.only(bottom: 2),
+                              decoration: BoxDecoration(
+                                color: selected == i
+                                    ? palette.card
+                                    : Colors.transparent,
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      _periodName(i),
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: selected == i
+                                            ? FontWeight.w700
+                                            : FontWeight.w500,
+                                        color: selected == i
+                                            ? palette.text
+                                            : palette.muted,
+                                      ),
+                                    ),
+                                  ),
+                                  Text(
+                                    MoneyFormatter.display(
+                                      painted[i].minorUnits,
+                                      widget.currency,
+                                    ),
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w700,
+                                      color: palette.text,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ],
         ],
       ),
     );
@@ -461,10 +602,9 @@ class _TrendBodyState extends State<_TrendBody> {
     return spans;
   }
 
-  String _detailedSelection(int index) {
+  String _periodName(int index) {
     if (index < 0 || index >= widget.painted.length) return '';
     final bucket = widget.painted[index];
-    final amount = MoneyFormatter.display(bucket.minorUnits, widget.currency);
     if (widget.useWeeks &&
         widget.weeks != null &&
         index < widget.weeks!.length) {
@@ -472,13 +612,20 @@ class _TrendBodyState extends State<_TrendBody> {
       final mStart = fullMonthName(week.start.month);
       final mEnd = fullMonthName(week.end.month);
       if (week.start.month == week.end.month) {
-        return 'Semana del ${week.start.day} al ${week.end.day} de $mStart: $amount';
+        return 'Semana del ${week.start.day} al ${week.end.day} de $mStart';
       } else {
-        return 'Semana del ${week.start.day} de $mStart al ${week.end.day} de $mEnd: $amount';
+        return 'Semana del ${week.start.day} de $mStart al ${week.end.day} de $mEnd';
       }
     }
     final m = fullMonthName(bucket.day.month);
-    return 'Día ${bucket.day.day} de $m: $amount';
+    return 'Día ${bucket.day.day} de $m';
+  }
+
+  String _detailedSelection(int index) {
+    if (index < 0 || index >= widget.painted.length) return '';
+    final bucket = widget.painted[index];
+    final amount = MoneyFormatter.display(bucket.minorUnits, widget.currency);
+    return '${_periodName(index)}: $amount';
   }
 
   String _bucketLabel(int index) {

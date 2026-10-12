@@ -182,6 +182,15 @@ void main() {
     await pumpAccountsApp(tester, repository);
 
     expect(find.byKey(const Key('accounts-list')), findsOneWidget);
+    expect(find.text('Cuentas'), findsOneWidget);
+    expect(find.text('Mostrar cuentas inactivas'), findsOneWidget);
+    expect(
+      find.text(
+        'Las cuentas inactivas siguen visibles en tu historial financiero.',
+      ),
+      findsOneWidget,
+    );
+    expect(find.text('Tarjeta de crédito · COP'), findsOneWidget);
     expect(find.text(r'-$ 250,75 COP'), findsOneWidget);
     expect(
       find.bySemanticsLabel(RegExp(r'Saldo negativo: -\$ 250,75 COP')),
@@ -194,10 +203,10 @@ void main() {
 
     await tester.tap(find.byKey(const Key('account-card-11')));
     await tester.pumpAndSettle();
-    expect(find.text('Account details'), findsOneWidget);
+    expect(find.text('Detalle de cuenta'), findsOneWidget);
     expect(
       find.text(
-        'Currency is locked because this account has confirmed activity.',
+        'No puedes cambiar la moneda porque esta cuenta ya tiene movimientos confirmados.',
       ),
       findsOneWidget,
     );
@@ -215,7 +224,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(
       find.text(
-        'This account will remain in your history but will no longer be available for new financial entries.',
+        'Esta cuenta seguirá apareciendo en tu historial, pero no estará disponible para nuevos movimientos financieros.',
       ),
       findsOneWidget,
     );
@@ -224,7 +233,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Inactive'), findsOneWidget);
+    expect(find.text('Inactiva'), findsOneWidget);
     expect(find.byKey(const Key('account-reactivate-button')), findsOneWidget);
     expect(repository.current.accountById(11)?.isActive, isFalse);
   });
@@ -251,7 +260,7 @@ void main() {
     expect(repository.createdCommand?.type, AccountType.cash);
     expect(repository.createdCommand?.currencyCode, 'COP');
     expect(repository.createdCommand?.openingBalance.toApiString(), '-1234.50');
-    expect(find.text('Account details'), findsOneWidget);
+    expect(find.text('Detalle de cuenta'), findsOneWidget);
   });
 
   testWidgets('permanent deletion requires confirmation and returns to list', (
@@ -264,17 +273,17 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('account-delete-button')));
     await tester.pumpAndSettle();
-    expect(find.text('Delete this account permanently?'), findsOneWidget);
+    expect(find.text('¿Eliminar esta cuenta permanentemente?'), findsOneWidget);
     expect(
-      find.textContaining('Accounts with activity must be deactivated'),
+      find.textContaining('desactívala para conservar su historial'),
       findsOneWidget,
     );
     await tester.tap(find.byKey(const Key('account-confirm-delete-button')));
     await tester.pumpAndSettle();
 
-    expect(find.text('Accounts'), findsOneWidget);
+    expect(find.text('Cuentas'), findsOneWidget);
     expect(repository.current.accountById(11), isNull);
-    expect(find.text('Account permanently deleted.'), findsOneWidget);
+    expect(find.text('Cuenta eliminada permanentemente.'), findsOneWidget);
   });
 
   testWidgets('blocked deletion stays on detail with copyable safe failure', (
@@ -313,7 +322,10 @@ void main() {
     await tester.tap(find.byKey(const Key('account-confirm-delete-button')));
     await tester.pumpAndSettle();
 
-    expect(find.text('Error code: account_delete_blocked'), findsOneWidget);
+    expect(
+      find.text('Código de error: account_delete_blocked'),
+      findsOneWidget,
+    );
     await tester.drag(find.byType(ListView), const Offset(0, -320));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('copy-error-details-button')));
@@ -336,7 +348,9 @@ void main() {
     );
     expect(currency.onChanged, isNull);
     expect(
-      find.text('Currency is locked after confirmed account activity.'),
+      find.text(
+        'No puedes cambiar la moneda porque esta cuenta ya tiene movimientos confirmados.',
+      ),
       findsOneWidget,
     );
   });
@@ -382,7 +396,7 @@ void main() {
     await tester.ensureVisible(find.byKey(const Key('account-save-button')));
     await tester.tap(find.byKey(const Key('account-save-button')));
     await tester.pumpAndSettle();
-    expect(find.text('Error code: account_name_conflict'), findsOneWidget);
+    expect(find.text('Código de error: account_name_conflict'), findsOneWidget);
 
     await tester.ensureVisible(
       find.byKey(const Key('copy-error-details-button')),
