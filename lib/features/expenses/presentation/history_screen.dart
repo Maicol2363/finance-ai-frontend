@@ -80,7 +80,6 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
   late final TextEditingController _searchController;
   late final TextEditingController _storeController;
   Timer? _debounce;
-  bool _showFilters = false;
 
   @override
   void initState() {
@@ -163,18 +162,15 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        leading: IconButton(
-          tooltip: 'Volver',
-          onPressed: () {
-            if (context.canPop()) {
-              context.pop();
-            } else {
-              context.go('/home');
-            }
-          },
-          icon: const Icon(Icons.arrow_back),
-        ),
-        title: const Text('Historial'),
+        automaticallyImplyLeading: false,
+        leading: context.canPop()
+            ? IconButton(
+                tooltip: 'Volver',
+                onPressed: () => context.pop(),
+                icon: const Icon(Icons.arrow_back),
+              )
+            : null,
+        title: const Text('Movimientos'),
       ),
       body: SafeArea(
         child: Center(
@@ -296,13 +292,26 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
     );
   }
 
+  int _activeFilterCount(HistoryFilters filters) {
+    var count = 0;
+    if (filters.search?.trim().isNotEmpty ?? false) count++;
+    if (filters.type != null) count++;
+    if (filters.period != null) count++;
+    if (filters.captureSource != null) count++;
+    if (filters.receiptKind != null) count++;
+    if (filters.store?.trim().isNotEmpty ?? false) count++;
+    if (filters.accountId != null) count++;
+    if (filters.categoryId != null) count++;
+    return count;
+  }
+
   Widget _buildFilterPanel({
     required HistoryFilters filters,
     required List<Account> accounts,
     required List<Category> categories,
     required List<String> storeSuggestions,
   }) {
-    final controller = ref.read(historyControllerProvider.notifier);
+    final activeCount = _activeFilterCount(filters);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -310,15 +319,15 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
           children: [
             Expanded(child: _buildSearchField()),
             const SizedBox(width: 8),
-            HeaderIconButton(
-              key: const Key('history-filter-toggle'),
-              icon: _showFilters ? Icons.filter_alt_off_outlined : Icons.tune,
-              tooltip: _showFilters ? 'Ocultar filtros' : 'Mostrar filtros',
+            _FilterButtonWithBadge(
+              count: activeCount,
               onPressed: () {
-                setState(() => _showFilters = !_showFilters);
-                if (_showFilters) {
-                  _ensureFilterOptions();
-                }
+                _ensureFilterOptions();
+                _openFiltersSheet(
+                  accounts: accounts,
+                  categories: categories,
+                  storeSuggestions: storeSuggestions,
+                );
               },
             ),
           ],
@@ -327,109 +336,175 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
           const SizedBox(height: 10),
           _buildActiveFilters(filters, accounts, categories),
         ],
-        if (_showFilters) ...[
-          const FieldLabel('Tipo', topSpacing: 14),
-          FilterChipRow<TransactionType?>(
-            keyPrefix: 'history-type-chip',
-            options: _typeOptions,
-            selected: filters.type,
-            onChanged: controller.setType,
-          ),
-          const FieldLabel('Periodo', topSpacing: 14),
-          FilterChipRow<HistoryPeriod?>(
-            keyPrefix: 'history-period-chip',
-            options: _periodOptions,
-            selected: filters.period,
-            onChanged: (period) => _selectPeriod(period, filters),
-          ),
-          const FieldLabel('Origen', topSpacing: 14),
-          FilterChipRow<CaptureSource?>(
-            keyPrefix: 'history-source-chip',
-            options: _sourceOptions,
-            selected: filters.captureSource,
-            onChanged: controller.setCaptureSource,
-          ),
-          const FieldLabel('Registro', topSpacing: 14),
-          FilterChipRow<ReceiptKind?>(
-            keyPrefix: 'history-receipt-chip',
-            options: _receiptOptions,
-            selected: filters.receiptKind,
-            onChanged: controller.setReceiptKind,
-          ),
-          const FieldLabel('Comercio', topSpacing: 16),
-          _buildStoreField(),
-          if (storeSuggestions.isNotEmpty) ...[
-            const SizedBox(height: 6),
-            FilterChipRow<String>(
-              keyPrefix: 'history-store-suggestion',
-              options: [
-                for (final store in storeSuggestions)
-                  FilterChipOption(value: store, label: store),
-              ],
-              selected: filters.store ?? '',
-              onChanged: (store) =>
-                  controller.setStore(store == filters.store ? null : store),
-            ),
-          ],
-          if (filters.period == HistoryPeriod.custom) ...[
-            const SizedBox(height: 10),
-            Row(
-              children: [
-                Expanded(
-                  child: Tooltip(
-                    message: 'Fecha inicial',
-                    child: OutlinedButton.icon(
-                      key: const Key('history-start-date-button'),
-                      onPressed: () =>
-                          _pickCustomDate(isStart: true, filters: filters),
-                      icon: const Icon(Icons.calendar_today_outlined, size: 16),
-                      label: Text(
-                        filters.startDate == null
-                            ? 'Desde'
-                            : _formatDate(filters.startDate!),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
+        const SizedBox(height: 8),
+        FilterChipRow<HistoryPeriod?>(
+          keyPrefix: 'history-period-chip',
+          options: _periodOptions,
+          selected: filters.period,
+          onChanged: (period) => _selectPeriod(period, filters),
+        ),
+        if (filters.period == HistoryPeriod.custom) ...[
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: Tooltip(
+                  message: 'Fecha inicial',
+                  child: OutlinedButton.icon(
+                    key: const Key('history-start-date-button'),
+                    onPressed: () =>
+                        _pickCustomDate(isStart: true, filters: filters),
+                    icon: const Icon(Icons.calendar_today_outlined, size: 16),
+                    label: Text(
+                      filters.startDate == null
+                          ? 'Desde'
+                          : _formatDate(filters.startDate!),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
                 ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Tooltip(
-                    message: 'Fecha final',
-                    child: OutlinedButton.icon(
-                      key: const Key('history-end-date-button'),
-                      onPressed: () =>
-                          _pickCustomDate(isStart: false, filters: filters),
-                      icon: const Icon(Icons.calendar_today_outlined, size: 16),
-                      label: Text(
-                        filters.endDate == null
-                            ? 'Hasta'
-                            : _formatDate(filters.endDate!),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Tooltip(
+                  message: 'Fecha final',
+                  child: OutlinedButton.icon(
+                    key: const Key('history-end-date-button'),
+                    onPressed: () =>
+                        _pickCustomDate(isStart: false, filters: filters),
+                    icon: const Icon(Icons.calendar_today_outlined, size: 16),
+                    label: Text(
+                      filters.endDate == null
+                          ? 'Hasta'
+                          : _formatDate(filters.endDate!),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
                 ),
-              ],
-            ),
-          ],
-          const SizedBox(height: 16),
-          _buildAccountDropdown(filters, accounts),
-          const SizedBox(height: 12),
-          _buildCategoryDropdown(filters, categories),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: TextButton.icon(
-              key: const Key('history-clear-filters-button'),
-              onPressed: filters.hasActiveFilters ? _clearFilters : null,
-              icon: const Icon(Icons.filter_alt_off_outlined, size: 18),
-              label: const Text('Limpiar filtros'),
-            ),
+              ),
+            ],
           ),
         ],
       ],
+    );
+  }
+
+  void _openFiltersSheet({
+    required List<Account> accounts,
+    required List<Category> categories,
+    required List<String> storeSuggestions,
+  }) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (sheetContext) {
+        return Consumer(
+          builder: (context, ref, _) {
+            final live = ref.watch(historyControllerProvider).filters;
+            final controller = ref.read(historyControllerProvider.notifier);
+            final sheetAccounts =
+                ref.watch(accountsControllerProvider).result?.accounts ??
+                accounts;
+            final sheetCategories =
+                ref.watch(categoriesControllerProvider).result?.categories ??
+                categories;
+            return SafeArea(
+              child: Padding(
+                padding: EdgeInsets.only(
+                  left: 20,
+                  right: 20,
+                  top: 4,
+                  bottom: MediaQuery.of(sheetContext).viewInsets.bottom + 20,
+                ),
+                child: SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Row(
+                        children: [
+                          const Expanded(
+                            child: Text(
+                              'Filtros',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                          TextButton(
+                            onPressed: live.hasActiveFilters
+                                ? () {
+                                    _searchController.clear();
+                                    _storeController.clear();
+                                    controller.clearFilters();
+                                  }
+                                : null,
+                            child: const Text('Limpiar'),
+                          ),
+                        ],
+                      ),
+                      const FieldLabel('Tipo', topSpacing: 8),
+                      FilterChipRow<TransactionType?>(
+                        keyPrefix: 'history-type-chip',
+                        options: _typeOptions,
+                        selected: live.type,
+                        onChanged: controller.setType,
+                      ),
+                      const FieldLabel('Origen', topSpacing: 14),
+                      FilterChipRow<CaptureSource?>(
+                        keyPrefix: 'history-source-chip',
+                        options: _sourceOptions,
+                        selected: live.captureSource,
+                        onChanged: controller.setCaptureSource,
+                      ),
+                      const FieldLabel('Registro', topSpacing: 14),
+                      FilterChipRow<ReceiptKind?>(
+                        keyPrefix: 'history-receipt-chip',
+                        options: _receiptOptions,
+                        selected: live.receiptKind,
+                        onChanged: controller.setReceiptKind,
+                      ),
+                      const FieldLabel('Comercio', topSpacing: 16),
+                      _buildStoreField(),
+                      if (storeSuggestions.isNotEmpty) ...[
+                        const SizedBox(height: 6),
+                        FilterChipRow<String>(
+                          keyPrefix: 'history-store-suggestion',
+                          options: [
+                            for (final store in storeSuggestions)
+                              FilterChipOption(value: store, label: store),
+                          ],
+                          selected: live.store ?? '',
+                          onChanged: (store) => controller.setStore(
+                            store == live.store ? null : store,
+                          ),
+                        ),
+                      ],
+                      _buildAccountDropdown(live, sheetAccounts),
+                      _buildCategoryDropdown(live, sheetCategories),
+                      const SizedBox(height: 16),
+                      SizedBox(
+                        width: double.infinity,
+                        child: FilledButton(
+                          onPressed: () => Navigator.of(sheetContext).pop(),
+                          child: const Text('Ver resultados'),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
     );
   }
 
@@ -866,6 +941,54 @@ class _HistoryDayGroup {
 /// Mockup `.fchip.on` equivalent for "what is filtering the list right now".
 ///
 /// Tapping anywhere on the chip removes its filter.
+/// Tune button with an active-filter count badge. Keeps the `history-filter-toggle`
+/// key the widget tests rely on.
+class _FilterButtonWithBadge extends StatelessWidget {
+  const _FilterButtonWithBadge({required this.count, required this.onPressed});
+
+  final int count;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final button = HeaderIconButton(
+      key: const Key('history-filter-toggle'),
+      icon: count > 0 ? Icons.filter_alt_outlined : Icons.tune,
+      tooltip: count > 0 ? 'Filtros ($count)' : 'Filtros',
+      onPressed: onPressed,
+    );
+    if (count == 0) {
+      return button;
+    }
+    final palette = context.palette;
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        button,
+        Positioned(
+          right: 4,
+          top: 4,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            decoration: BoxDecoration(
+              color: palette.primary,
+              borderRadius: BorderRadius.circular(999),
+            ),
+            child: Text(
+              '$count',
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                color: palette.onPrimary,
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 class _ActiveFilterChip extends StatelessWidget {
   const _ActiveFilterChip({
     super.key,
