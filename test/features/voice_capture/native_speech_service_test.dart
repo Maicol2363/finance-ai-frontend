@@ -11,6 +11,53 @@ void main() {
   final messenger =
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
   tearDown(() => messenger.setMockMethodCallHandler(methods, null));
+  test('download events expose bounded progress and allow-listed compatibility metadata', () async {
+    final source = StreamController<Object?>.broadcast();
+    final service = NativeSpeechService(
+      methods: methods,
+      eventStream: source.stream,
+    );
+    final received = <SpeechEvent>[];
+    final failures = <Object>[];
+    final subscription = service.events.listen(
+      received.add,
+      onError: failures.add,
+    );
+    source.add({
+      'session': 2,
+      'type': 'download',
+      'engine': 'integrated',
+      'stage': 'downloading',
+      'progress': 42,
+      'apiLevel': 29,
+      'reason': 'RAW SECRET',
+    });
+    for (final invalid in [
+      {'progress': 101},
+      {'progress': 'PRIVATE'},
+      {'stage': 'PRIVATE'},
+      {'engine': 'PRIVATE'},
+      {'apiLevel': 'PRIVATE'},
+    ]) {
+      source.add({'session': 2, 'type': 'download', ...invalid});
+    }
+    await Future<void>.delayed(Duration.zero);
+    expect(received.single.progress, 42);
+    expect(received.single.engine, SpeechEngine.integrated);
+    expect(received.single.reason, 'none');
+    expect(received.single.apiLevel, 29);
+    expect(failures, hasLength(5));
+    expect(
+      failures.every(
+        (failure) =>
+            failure is SpeechFailure && failure.code == 'speech_provider_error',
+      ),
+      isTrue,
+    );
+    await subscription.cancel();
+    await service.dispose();
+    await source.close();
+  });
   test(
     'both platforms receive the same language and session contract; no audio',
     () async {
@@ -59,7 +106,14 @@ void main() {
       );
       final received = <SpeechEvent>[];
       final subscription = service.events.listen(received.add);
-      for (final type in ['ready', 'listening', 'partial', 'final', 'error']) {
+      for (final type in [
+        'ready',
+        'listening',
+        'partial',
+        'final',
+        'error',
+        'download',
+      ]) {
         source.add({
           'session': 7,
           'type': type,

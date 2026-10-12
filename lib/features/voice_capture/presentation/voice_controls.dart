@@ -30,10 +30,17 @@ class VoiceControls extends StatelessWidget {
     final pending =
         phase == VoicePhase.preparing ||
         phase == VoicePhase.starting ||
-        phase == VoicePhase.finalizing;
+        phase == VoicePhase.finalizing ||
+        controller.downloading;
     final diagnostic = controller.diagnostic;
     final desktop = defaultTargetPlatform != TargetPlatform.android;
-    final showTarget = !desktop && (controller.capturing || keepTarget);
+    final showTarget =
+        !desktop &&
+        diagnostic == null &&
+        (controller.capturing ||
+            (keepTarget &&
+                (phase == VoicePhase.finalizing ||
+                    phase == VoicePhase.review)));
     final status = switch (phase) {
       VoicePhase.preparing => 'Preparando dictado local…',
       VoicePhase.ready => 'Dictado sin conexión',
@@ -41,7 +48,21 @@ class VoiceControls extends StatelessWidget {
       VoicePhase.listening => 'Escuchando…',
       VoicePhase.finalizing => 'Micrófono detenido · terminando…',
       VoicePhase.review => 'Revisa el dictado antes de enviar',
-      VoicePhase.failed => 'Dictado no disponible',
+      VoicePhase.failed =>
+        controller.canDownload
+            ? 'Prepara el dictado sin conexión'
+            : diagnostic?.code.startsWith('speech_permission') == true
+            ? 'Permiso del micrófono'
+            : 'No se pudo iniciar el dictado',
+      VoicePhase.downloading => switch (controller.downloadStage) {
+        SpeechDownloadStage.requested => 'Preparando descarga…',
+        SpeechDownloadStage.downloading =>
+          controller.downloadProgress == null
+              ? 'Descargando modelo…'
+              : 'Descargando modelo · ${controller.downloadProgress}%',
+        SpeechDownloadStage.installing => 'Verificando e instalando modelo…',
+        SpeechDownloadStage.loading => 'Preparando dictado local…',
+      },
     };
     return Padding(
       key: const Key('voice-controls'),
@@ -89,7 +110,7 @@ class VoiceControls extends StatelessWidget {
                           child: Text(language.label),
                         ),
                     ],
-                    onChanged: controller.active
+                    onChanged: controller.active || controller.downloading
                         ? null
                         : (language) {
                             if (language != null) controller.prepare(language);
@@ -133,22 +154,47 @@ class VoiceControls extends StatelessWidget {
                     ),
                     TextButton(
                       key: const Key('voice-retry'),
-                      onPressed: controller.active ? null : controller.prepare,
+                      onPressed: controller.active || controller.downloading
+                          ? null
+                          : controller.prepare,
                       child: const Text('Comprobar dictado'),
                     ),
                     if (controller.canDownload)
                       TextButton(
                         key: const Key('voice-download'),
                         onPressed: controller.download,
-                        child: const Text('Descargar modelo'),
+                        child: Text(
+                          'Descargar ${controller.language.label} · 40 MB',
+                        ),
                       )
-                    else
+                    else if (SpeechFailure.settingsFailures.contains(
+                          diagnostic.code,
+                        ) &&
+                        (desktop ||
+                            diagnostic.code.startsWith('speech_permission')))
                       TextButton(
                         key: const Key('voice-settings'),
                         onPressed: controller.openSettings,
-                        child: const Text('Abrir ajustes'),
+                        child: Text(
+                          diagnostic.code.startsWith('speech_permission')
+                              ? 'Permiso del micrófono'
+                              : 'Ajustes de reconocimiento',
+                        ),
                       ),
                   ],
+                ),
+              ] else if (controller.downloading) ...[
+                const Text(
+                  'Una descarga por idioma. Después puedes dictar sin conexión. Puedes seguir escribiendo mientras se prepara.',
+                  style: TextStyle(fontSize: 12),
+                ),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: TextButton(
+                    key: const Key('voice-download-cancel'),
+                    onPressed: controller.closeSetup,
+                    child: const Text('Cancelar descarga'),
+                  ),
                 ),
               ] else if (phase == VoicePhase.review)
                 Align(
@@ -174,7 +220,10 @@ class VoiceControls extends StatelessWidget {
                 Padding(
                   padding: const EdgeInsets.only(bottom: 8),
                   child: Text(
-                    desktop
+                    phase == VoicePhase.preparing ||
+                            phase == VoicePhase.starting
+                        ? 'Espera a que aparezca «Escuchando» para hablar.'
+                        : desktop
                         ? 'Pulsa el micrófono para hablar.'
                         : 'Mantén para hablar · suelta para analizar.',
                     style: TextStyle(fontSize: 12, color: palette.muted),
@@ -293,10 +342,35 @@ class _VoiceMicButtonState extends State<VoiceMicButton>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    widget.controller.addListener(_captureChanged);
+  }
+
+  @override
+  void didUpdateWidget(VoiceMicButton oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.controller != widget.controller) {
+      oldWidget.controller.removeListener(_captureChanged);
+      widget.controller.addListener(_captureChanged);
+    }
+  }
+
+  void _captureChanged() {
+    if (_pointer == null ||
+        (widget.controller.diagnostic == null &&
+            !widget.controller.downloading)) {
+      return;
+    }
+    _pointer = null;
+    setState(() {
+      _offset = Offset.zero;
+      _latched = false;
+    });
+    widget.onGesture(false, false, false);
   }
 
   @override
   void dispose() {
+    widget.controller.removeListener(_captureChanged);
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -325,6 +399,7 @@ class _VoiceMicButtonState extends State<VoiceMicButton>
   void _down(PointerDownEvent event) {
     if (!_hold ||
         widget.isBusy ||
+        widget.controller.downloading ||
         widget.controller.active ||
         _pointer != null) {
       return;
@@ -341,7 +416,7 @@ class _VoiceMicButtonState extends State<VoiceMicButton>
 
   void _move(PointerMoveEvent event) {
     if (event.pointer != _pointer || _latched) return;
-    if (!widget.controller.active) return;
+    if (!widget.controller.capturing) return;
     final box =
         widget.targetKey.currentContext?.findRenderObject() as RenderBox?;
     if (box == null || !box.hasSize) return;
@@ -387,6 +462,7 @@ class _VoiceMicButtonState extends State<VoiceMicButton>
     final palette = context.palette;
     final blocked =
         widget.isBusy ||
+        widget.controller.downloading ||
         (widget.controller.phase == VoicePhase.finalizing && _pointer == null);
     return Semantics(
       button: true,

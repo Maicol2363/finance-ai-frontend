@@ -33,6 +33,104 @@ Future<(FakeSpeechService, FakeTextCaptureRepository)> setup(
 
 void main() {
   testWidgets(
+    'a permission request that cannot show its prompt still offers this app permission settings',
+    (tester) async {
+      final (speech, _) = await setup(tester);
+      final gesture = await tester.startGesture(
+        tester.getCenter(key('chat-voice-button')),
+      );
+      await tester.pump();
+      speech.event(
+        speech.starts.single.$1,
+        SpeechEventType.error,
+        code: 'speech_permission_required',
+      );
+      await gesture.up();
+      await tester.pumpAndSettle();
+      expect(key('voice-settings'), findsOneWidget);
+      await tester.tap(key('voice-settings'));
+      expect(speech.settingsOpened, 1);
+      expect(speech.starts, hasLength(1));
+    },
+  );
+  testWidgets(
+    'failure releases the held edit target and offers setup instead of unrelated settings',
+    (tester) async {
+      final (speech, repository) = await setup(tester);
+      final gesture = await tester.startGesture(
+        tester.getCenter(key('chat-voice-button')),
+      );
+      await tester.pump();
+      final controls = tester.widget<VoiceControls>(find.byType(VoiceControls));
+      speech.event(
+        speech.starts.single.$1,
+        SpeechEventType.error,
+        code: 'speech_fallback_model_missing',
+        canDownload: true,
+        engine: SpeechEngine.integrated,
+      );
+      await tester.pumpAndSettle();
+      expect(find.byKey(controls.targetKey), findsNothing);
+      expect(key('voice-settings'), findsNothing);
+      expect(key('voice-download'), findsOneWidget);
+      expect(find.text('Dictado no disponible'), findsNothing);
+      await gesture.up();
+      await tester.tap(key('voice-download'));
+      await tester.pump();
+      speech.event(
+        speech.downloads.single.$1,
+        SpeechEventType.download,
+        engine: SpeechEngine.integrated,
+        downloadStage: SpeechDownloadStage.downloading,
+        progress: 35,
+      );
+      await tester.pump();
+      expect(find.text('Descargando modelo · 35%'), findsOneWidget);
+      expect(speech.starts, hasLength(1));
+      expect(repository.proposeCalls, isEmpty);
+      speech.event(
+        speech.downloads.single.$1,
+        SpeechEventType.ready,
+        engine: SpeechEngine.integrated,
+      );
+      await tester.pumpAndSettle();
+      expect(key('voice-download-cancel'), findsNothing);
+      expect(speech.starts, hasLength(1));
+    },
+  );
+
+  testWidgets(
+    'setup recovery remains usable on a small screen with the keyboard and enlarged text',
+    (tester) async {
+      final (speech, _) = await setup(
+        tester,
+        size: const Size(320, 600),
+        scale: 1.5,
+      );
+      final gesture = await tester.startGesture(
+        tester.getCenter(key('chat-voice-button')),
+      );
+      await tester.pump();
+      speech.event(
+        speech.starts.single.$1,
+        SpeechEventType.error,
+        code: 'speech_fallback_model_missing',
+        canDownload: true,
+      );
+      await gesture.up();
+      await tester.pumpAndSettle();
+      tester.view.viewInsets = const FakeViewPadding(bottom: 180);
+      addTearDown(tester.view.resetViewInsets);
+      await tester.enterText(key('chat-composer-field'), 'I can still type');
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      expect(
+        tester.getRect(key('chat-composer-field')).bottom,
+        lessThanOrEqualTo(600 - 180),
+      );
+    },
+  );
+  testWidgets(
     'held words appear in the current composer; release uses one text turn',
     (tester) async {
       final (speech, repository) = await setup(tester);

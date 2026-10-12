@@ -82,18 +82,16 @@ class _TextCaptureChatState extends ConsumerState<TextCaptureChat>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state != AppLifecycleState.resumed) _voice.interrupt();
+    if (state != AppLifecycleState.resumed) {
+      _voice.interrupt();
+    } else if (_voiceExpanded) {
+      _voice.refreshAfterResume();
+    }
   }
 
   @override
   void didChangeMetrics() {
     if (mounted && _gestureActive) setState(() {});
-  }
-
-  void _openVoice() {
-    _focus.unfocus();
-    setState(() => _voiceExpanded = true);
-    if (_voice.phase == VoicePhase.failed) _voice.prepare();
   }
 
   void _beginVoice() {
@@ -103,7 +101,7 @@ class _TextCaptureChatState extends ConsumerState<TextCaptureChat>
   }
 
   void _closeVoice() {
-    _voice.interrupt();
+    _voice.closeSetup();
     setState(() => _voiceExpanded = false);
   }
 
@@ -184,100 +182,110 @@ class _TextCaptureChatState extends ConsumerState<TextCaptureChat>
       duration: _gestureActive || MediaQuery.disableAnimationsOf(context)
           ? Duration.zero
           : const Duration(milliseconds: 160),
-      child: Column(
-        children: [
-          Expanded(
-            child: Stack(
-              children: [
-                Positioned.fill(
-                  child: Center(
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 760),
-                      child: ListView.separated(
-                        key: const Key('chat-messages'),
-                        controller: _scroll,
-                        // Room at the bottom so the newest message is never hidden
-                        // behind the floating button.
-                        padding: const EdgeInsets.fromLTRB(16, 12, 16, 88),
-                        itemCount: state.entries.length + (onlyWelcome ? 1 : 0),
-                        separatorBuilder: (_, _) => const SizedBox(height: 12),
-                        itemBuilder: (context, index) {
-                          if (index == state.entries.length) {
-                            return _Suggestions(
-                              onPick: (text) {
-                                _voice.clearAfterSend();
-                                _input
-                                  ..text = text
-                                  ..selection = TextSelection.collapsed(
-                                    offset: text.length,
-                                  );
-                                _focus.requestFocus();
-                              },
+      child: LayoutBuilder(
+        builder: (context, constraints) => Column(
+          children: [
+            Expanded(
+              child: Stack(
+                children: [
+                  Positioned.fill(
+                    child: Center(
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 760),
+                        child: ListView.separated(
+                          key: const Key('chat-messages'),
+                          controller: _scroll,
+                          // Room at the bottom so the newest message is never hidden
+                          // behind the floating button.
+                          padding: const EdgeInsets.fromLTRB(16, 12, 16, 88),
+                          itemCount:
+                              state.entries.length + (onlyWelcome ? 1 : 0),
+                          separatorBuilder: (_, _) =>
+                              const SizedBox(height: 12),
+                          itemBuilder: (context, index) {
+                            if (index == state.entries.length) {
+                              return _Suggestions(
+                                onPick: (text) {
+                                  _voice.clearAfterSend();
+                                  _input
+                                    ..text = text
+                                    ..selection = TextSelection.collapsed(
+                                      offset: text.length,
+                                    );
+                                  _focus.requestFocus();
+                                },
+                              );
+                            }
+                            return _EntryView(
+                              key: ValueKey(state.entries[index].id),
+                              entry: state.entries[index],
+                              isLatestProposal:
+                                  state.entries[index].id == latestProposalId,
                             );
-                          }
-                          return _EntryView(
-                            key: ValueKey(state.entries[index].id),
-                            entry: state.entries[index],
-                            isLatestProposal:
-                                state.entries[index].id == latestProposalId,
-                          );
-                        },
+                          },
+                        ),
                       ),
                     ),
                   ),
+                  CaptureWheel(
+                    onPhoto: () {
+                      _voice.interrupt();
+                      startReceiptCapture(context, source: ImageSource.camera);
+                    },
+                    onText: () {
+                      _voice.interrupt();
+                      _focus.requestFocus();
+                    },
+                    onManual: () {
+                      _voice.interrupt();
+                      context.push('/expenses/new');
+                    },
+                  ),
+                ],
+              ),
+            ),
+            if (_voiceExpanded)
+              ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxHeight: constraints.maxHeight * 0.45,
                 ),
-                CaptureWheel(
-                  onPhoto: () {
-                    _voice.interrupt();
-                    startReceiptCapture(context, source: ImageSource.camera);
-                  },
-                  onVoice: _openVoice,
-                  onText: () {
-                    _voice.interrupt();
-                    _focus.requestFocus();
-                  },
-                  onManual: () {
-                    _voice.interrupt();
-                    context.push('/expenses/new');
-                  },
+                child: SingleChildScrollView(
+                  child: VoiceControls(
+                    controller: _voice,
+                    targetKey: _voiceTarget,
+                    nearTarget: _nearVoiceTarget,
+                    occupied: _occupiedVoiceTarget,
+                    keepTarget: _gestureActive,
+                    onClose: _closeVoice,
+                  ),
                 ),
-              ],
+              ),
+            _Composer(
+              controller: _input,
+              focusNode: _focus,
+              isBusy: state.isBusy || _voice.phase == VoicePhase.finalizing,
+              hint: _hintFor(state),
+              onSend: _send,
+              isDictating: _voice.active,
+              voiceButton: VoiceMicButton(
+                controller: _voice,
+                targetKey: _voiceTarget,
+                isBusy: state.isBusy,
+                onBegin: _beginVoice,
+                onGesture: (active, near, occupied) => setState(() {
+                  if (active && !_gestureActive) {
+                    final view = View.of(context);
+                    _gestureKeyboardInset =
+                        view.viewInsets.bottom / view.devicePixelRatio;
+                  }
+                  _gestureActive = active;
+                  _nearVoiceTarget = near;
+                  _occupiedVoiceTarget = occupied;
+                }),
+              ),
             ),
-          ),
-          if (_voiceExpanded)
-            VoiceControls(
-              controller: _voice,
-              targetKey: _voiceTarget,
-              nearTarget: _nearVoiceTarget,
-              occupied: _occupiedVoiceTarget,
-              keepTarget: _gestureActive,
-              onClose: _closeVoice,
-            ),
-          _Composer(
-            controller: _input,
-            focusNode: _focus,
-            isBusy: state.isBusy || _voice.phase == VoicePhase.finalizing,
-            hint: _hintFor(state),
-            onSend: _send,
-            isDictating: _voice.active,
-            voiceButton: VoiceMicButton(
-              controller: _voice,
-              targetKey: _voiceTarget,
-              isBusy: state.isBusy,
-              onBegin: _beginVoice,
-              onGesture: (active, near, occupied) => setState(() {
-                if (active && !_gestureActive) {
-                  final view = View.of(context);
-                  _gestureKeyboardInset =
-                      view.viewInsets.bottom / view.devicePixelRatio;
-                }
-                _gestureActive = active;
-                _nearVoiceTarget = near;
-                _occupiedVoiceTarget = occupied;
-              }),
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

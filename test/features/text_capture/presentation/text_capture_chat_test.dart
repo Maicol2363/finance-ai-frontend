@@ -650,7 +650,8 @@ void main() {
     await tester.tap(byKey('expenses-create-fab'));
     await tester.pumpAndSettle();
     expect(byKey('expenses-wheel-photo'), findsOneWidget);
-    expect(byKey('expenses-wheel-voice'), findsOneWidget);
+    expect(byKey('expenses-wheel-voice'), findsNothing);
+    expect(byKey('chat-voice-button'), findsOneWidget);
     expect(byKey('expenses-wheel-text'), findsOneWidget);
     expect(byKey('expenses-wheel-manual'), findsOneWidget);
     expect(find.text('Foto'), findsOneWidget);
@@ -684,15 +685,16 @@ void main() {
     },
   );
 
-  testWidgets('the voice option opens local dictation with a safe fallback', (
+  testWidgets('the composer mic opens local dictation with a safe fallback', (
     tester,
   ) async {
     await pumpChat(tester, FakeTextCaptureRepository());
 
-    await tester.tap(byKey('expenses-create-fab'));
-    await tester.pumpAndSettle();
-    await tester.tap(byKey('expenses-wheel-voice'));
+    final gesture = await tester.startGesture(
+      tester.getCenter(byKey('chat-voice-button')),
+    );
     await tester.pump();
+    await gesture.up();
 
     await tester.pumpAndSettle();
     expect(byKey('voice-controls'), findsOneWidget);

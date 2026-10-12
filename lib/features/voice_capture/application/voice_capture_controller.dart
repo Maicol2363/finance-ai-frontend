@@ -13,6 +13,7 @@ enum VoicePhase {
   finalizing,
   review,
   failed,
+  downloading,
 }
 
 /// One recognition session can produce at most one accepted text message.
@@ -27,7 +28,8 @@ class VoiceCaptureController extends ChangeNotifier {
     required this.onAccepted,
     required this.canSubmit,
     this.finalizationTimeout = const Duration(seconds: 2),
-    this.preparationTimeout = const Duration(seconds: 8),
+    this.preparationTimeout = const Duration(seconds: 20),
+    this.openingTimeout = const Duration(seconds: 12),
   }) : _service = service {
     _subscription = service.events.listen(
       _event,
@@ -41,6 +43,7 @@ class VoiceCaptureController extends ChangeNotifier {
   final bool Function() canSubmit;
   final Duration finalizationTimeout;
   final Duration preparationTimeout;
+  final Duration openingTimeout;
   late final StreamSubscription<SpeechEvent> _subscription;
   Timer? _deadline;
   bool _disposed = false, _held = false, _queued = false;
@@ -53,6 +56,12 @@ class VoiceCaptureController extends ChangeNotifier {
   String transcript = '';
   ErrorDiagnostic? diagnostic;
   bool canDownload = false;
+  SpeechEngine engine = SpeechEngine.device;
+  SpeechDownloadStage downloadStage = SpeechDownloadStage.requested;
+  int? downloadProgress, apiLevel;
+  String _reason = 'none', _operation = 'prepare';
+
+  bool get downloading => phase == VoicePhase.downloading;
 
   int get session => _session;
   bool get capturing =>
@@ -64,11 +73,12 @@ class VoiceCaptureController extends ChangeNotifier {
   }
 
   void prepare([SpeechLanguage? selected]) {
-    if (_disposed || active) return;
+    if (_disposed || active || downloading) return;
     if (selected != null) language = selected;
     phase = VoicePhase.preparing;
     diagnostic = null;
     canDownload = false;
+    _operation = 'prepare';
     final id = _session = ++_nextSession;
     _deadline?.cancel();
     _deadline = Timer(preparationTimeout, () {
@@ -81,13 +91,14 @@ class VoiceCaptureController extends ChangeNotifier {
   }
 
   void begin(String existingText) {
-    if (_disposed || active) return;
+    if (_disposed || active || downloading) return;
     _seed = existingText.trimRight();
     transcript = existingText;
     _held = true;
     _automatic = false;
     _submitted = false;
     diagnostic = null;
+    canDownload = false;
     if (phase == VoicePhase.preparing) {
       _queued = true;
       _changed();
@@ -110,10 +121,11 @@ class VoiceCaptureController extends ChangeNotifier {
     _queued = false;
     if (!_held || _disposed) return;
     phase = VoicePhase.starting;
+    _operation = 'start';
     _acceptEvents = true;
     final id = _session = ++_nextSession;
     _deadline?.cancel();
-    _deadline = Timer(preparationTimeout, () {
+    _deadline = Timer(openingTimeout, () {
       if (id == _session && phase == VoicePhase.starting) {
         _fail('speech_preparation_timeout');
       }
@@ -159,10 +171,16 @@ class VoiceCaptureController extends ChangeNotifier {
 
   void _event(SpeechEvent event) {
     if (_disposed || event.session != _session) return;
+    engine = event.engine;
+    _reason = SpeechFailure.safeReason(event.reason);
+    apiLevel = event.apiLevel ?? apiLevel;
     switch (event.type) {
       case SpeechEventType.ready:
-        if (phase != VoicePhase.preparing) return;
+        if (phase != VoicePhase.preparing && !downloading) return;
         _deadline?.cancel();
+        diagnostic = null;
+        canDownload = false;
+        downloadProgress = null;
         phase = VoicePhase.ready;
         _prepared = true;
         if (_queued && _held) {
@@ -178,6 +196,10 @@ class VoiceCaptureController extends ChangeNotifier {
       case SpeechEventType.partial:
         if (!_acceptEvents || (!capturing && phase != VoicePhase.finalizing)) {
           return;
+        }
+        if (phase == VoicePhase.starting && event.text.trim().isNotEmpty) {
+          _deadline?.cancel();
+          phase = VoicePhase.listening;
         }
         _update(event.text);
       case SpeechEventType.finalResult:
@@ -203,9 +225,27 @@ class VoiceCaptureController extends ChangeNotifier {
           _changed();
         }
       case SpeechEventType.error:
-        if (phase != VoicePhase.preparing && !_acceptEvents) return;
+        if (phase != VoicePhase.preparing && !downloading && !_acceptEvents) {
+          return;
+        }
         canDownload = event.canDownload;
         _fail(SpeechFailure.safeCode(event.code));
+      case SpeechEventType.download:
+        if (phase != VoicePhase.preparing && !downloading) return;
+        _deadline?.cancel();
+        phase = VoicePhase.downloading;
+        diagnostic = null;
+        downloadStage = event.downloadStage;
+        downloadProgress = event.progress;
+        if (downloadStage == SpeechDownloadStage.loading) {
+          final id = _session;
+          _deadline = Timer(preparationTimeout, () {
+            if (id == _session && downloading) {
+              _fail('speech_preparation_timeout');
+            }
+          });
+        }
+        _changed();
     }
   }
 
@@ -238,9 +278,15 @@ class VoiceCaptureController extends ChangeNotifier {
       code: safe,
       operation: 'voice_capture',
       userMessage: SpeechFailure(safe).userMessage,
-      technicalReason: safe,
+      technicalReason:
+          '$safe; stage=$_operation; engine=${engine.name}; '
+          'cause=$_reason${apiLevel == null ? '' : '; android_api=$apiLevel'}',
     );
-    phase = transcript.trim().isEmpty ? VoicePhase.failed : VoicePhase.review;
+    phase = transcript.trim().isNotEmpty
+        ? VoicePhase.review
+        : SpeechFailure.retryableUtterances.contains(safe)
+        ? VoicePhase.ready
+        : VoicePhase.failed;
     _changed();
   }
 
@@ -271,13 +317,14 @@ class VoiceCaptureController extends ChangeNotifier {
   }
 
   void clearAfterSend() {
+    final keepDownload = downloading;
     interrupt();
     _acceptEvents = false;
-    _session = ++_nextSession;
+    if (!keepDownload) _session = ++_nextSession;
     transcript = '';
     _seed = '';
     diagnostic = null;
-    phase = VoicePhase.ready;
+    if (!keepDownload) phase = VoicePhase.ready;
     _changed();
   }
 
@@ -293,18 +340,55 @@ class VoiceCaptureController extends ChangeNotifier {
   }
 
   void download() {
-    if (_disposed || active || !canDownload) return;
-    phase = VoicePhase.preparing;
+    if (_disposed || active || downloading || !canDownload) return;
+    phase = VoicePhase.downloading;
+    _operation = 'download';
+    _queued = false;
+    _held = false;
+    _prepared = false;
+    canDownload = false;
+    downloadStage = SpeechDownloadStage.requested;
+    downloadProgress = null;
     diagnostic = null;
     final id = _session = ++_nextSession;
-    // A download can take longer than recognizer preparation. The user checks
-    // readiness again; recognition is never started by a download callback.
+    // A download can take longer than preparation. Completion refreshes readiness,
+    // but must never start recognition or submit the existing typed draft.
     _deadline?.cancel();
     _invoke(() => _service.download(id, language), id);
     _changed();
   }
 
   Future<void> openSettings() => _invoke(_service.openSettings, _session);
+
+  /// Returning from permission settings or background downloads never starts the mic.
+  void refreshAfterResume() {
+    if (_disposed || active) return;
+    if (downloading) {
+      _invoke(() => _service.prepare(_session, language), _session);
+    } else if (diagnostic != null) {
+      prepare();
+    }
+  }
+
+  void closeSetup() {
+    if (!downloading) {
+      interrupt();
+      return;
+    }
+    _deadline?.cancel();
+    final old = _session;
+    _session = ++_nextSession;
+    unawaited(_service.cancel(old).catchError((_) {}));
+    canDownload = true;
+    phase = VoicePhase.failed;
+    diagnostic = ErrorDiagnostic.capture(
+      code: 'speech_fallback_model_missing',
+      operation: 'voice_capture',
+      userMessage: SpeechFailure('speech_fallback_model_missing').userMessage,
+      technicalReason: 'speech_fallback_model_missing',
+    );
+    _changed();
+  }
 
   @override
   void dispose() {

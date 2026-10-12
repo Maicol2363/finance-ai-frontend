@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../../core/theme/app_palette.dart';
 
 /// The floating `+` of the Gastos chat: it fans out the ways to add a movement
-/// (photo, voice, text and the manual form).
+/// (photo, text and the manual form). Voice uses the composer microphone.
 ///
 /// It is a [Stack] child: it fills the chat area, dims it while open and keeps
 /// the button in the bottom right corner, above the message box.
@@ -11,13 +11,11 @@ class CaptureWheel extends StatefulWidget {
   const CaptureWheel({
     super.key,
     required this.onPhoto,
-    required this.onVoice,
     required this.onText,
     required this.onManual,
   });
 
   final VoidCallback onPhoto;
-  final VoidCallback onVoice;
   final VoidCallback onText;
   final VoidCallback onManual;
 
@@ -90,36 +88,25 @@ class _CaptureWheelState extends State<CaptureWheel>
             onTap: () => _choose(widget.onPhoto),
           ),
           _WheelBubble(
-            key: const Key('expenses-wheel-voice'),
+            key: const Key('expenses-wheel-text'),
             right: 76,
             bottom: 136,
-            icon: Icons.mic_outlined,
-            label: 'Voz',
-            description: 'Dictar en el chat',
-            animation: _animation,
-            delayRatio: 0.1,
-            onTap: () => _choose(widget.onVoice),
-          ),
-          _WheelBubble(
-            key: const Key('expenses-wheel-text'),
-            right: 136,
-            bottom: 91,
             icon: Icons.text_fields,
             label: 'Texto',
             description: 'Escribir en el chat',
             animation: _animation,
-            delayRatio: 0.2,
+            delayRatio: 0.1,
             onTap: () => _choose(widget.onText),
           ),
           _WheelBubble(
             key: const Key('expenses-wheel-manual'),
-            right: 156,
-            bottom: 21,
+            right: 136,
+            bottom: 91,
             icon: Icons.edit_outlined,
             label: 'Manual',
             description: 'Formulario manual',
             animation: _animation,
-            delayRatio: 0.3,
+            delayRatio: 0.2,
             onTap: () => _choose(widget.onManual),
           ),
         ],
