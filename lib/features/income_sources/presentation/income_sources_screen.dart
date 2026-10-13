@@ -197,7 +197,7 @@ class _IncomeSourcesScreenState extends ConsumerState<IncomeSourcesScreen> {
           FilledButton(
             key: const Key('income-source-delete-confirm'),
             style: FilledButton.styleFrom(
-              minimumSize: const Size(0, 48),
+              minimumSize: const Size(0, 40),
               backgroundColor: Theme.of(context).colorScheme.error,
               foregroundColor: Theme.of(context).colorScheme.onError,
             ),

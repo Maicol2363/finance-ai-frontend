@@ -2,7 +2,6 @@ import 'package:finance_ai/core/theme/app_theme.dart';
 import 'package:finance_ai/features/voice_capture/domain/speech_service.dart';
 import 'package:finance_ai/features/voice_capture/presentation/voice_controls.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import '../text_capture/presentation/text_capture_chat_test.dart' show pumpChat;
@@ -195,34 +194,6 @@ void main() {
   }, variant: TargetPlatformVariant({TargetPlatform.windows}));
 
   testWidgets(
-    'Windows dictation starts and stops with focused Enter and Space',
-    (tester) async {
-      final (speech, _) = await setup(tester);
-      final mic = tester.widget<IconButton>(
-        find.descendant(
-          of: find.byType(VoiceMicButton),
-          matching: find.byType(IconButton),
-        ),
-      );
-      expect(mic.focusNode!.canRequestFocus, isTrue);
-      expect(mic.focusNode!.skipTraversal, isFalse);
-      mic.focusNode!.requestFocus();
-      await tester.pump();
-
-      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
-      await tester.pump();
-      final sessionId = speech.starts.single.$1;
-      speech.event(sessionId, SpeechEventType.partial, text: 'Dictado privado');
-      await tester.pump();
-
-      await tester.sendKeyEvent(LogicalKeyboardKey.space);
-      await tester.pump();
-      expect(speech.stops, [sessionId]);
-    },
-    variant: TargetPlatformVariant.only(TargetPlatform.windows),
-  );
-
-  testWidgets(
     'Windows stop during preparation cancels the queued microphone start',
     (tester) async {
       final (speech, repository) = await setup(tester, autoReady: false);
@@ -257,10 +228,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(key('voice-error-details'));
     await tester.pumpAndSettle();
-    expect(
-      find.text('Código de error: speech_permission_denied'),
-      findsOneWidget,
-    );
+    expect(find.text('Error code: speech_permission_denied'), findsOneWidget);
     expect(key('copy-error-details-button'), findsOneWidget);
     expect(repository.proposeCalls, isEmpty);
   });

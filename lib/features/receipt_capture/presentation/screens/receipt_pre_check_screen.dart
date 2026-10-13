@@ -276,7 +276,7 @@ class ReceiptPreCheckScreen extends ConsumerWidget {
                           label: const Text('Galería'),
                           style: OutlinedButton.styleFrom(
                             foregroundColor: palette.primary,
-                            minimumSize: const Size.fromHeight(48),
+                            minimumSize: const Size.fromHeight(44),
                           ),
                         ),
                       ),
@@ -291,7 +291,7 @@ class ReceiptPreCheckScreen extends ConsumerWidget {
                           label: const Text('Otra foto'),
                           style: OutlinedButton.styleFrom(
                             foregroundColor: palette.primary,
-                            minimumSize: const Size.fromHeight(48),
+                            minimumSize: const Size.fromHeight(44),
                           ),
                         ),
                       ),
@@ -331,7 +331,7 @@ class ReceiptPreCheckScreen extends ConsumerWidget {
                     },
                     style: TextButton.styleFrom(
                       foregroundColor: palette.muted,
-                      minimumSize: const Size.fromHeight(48),
+                      minimumSize: const Size.fromHeight(40),
                     ),
                     child: const Text('Cancelar'),
                   ),

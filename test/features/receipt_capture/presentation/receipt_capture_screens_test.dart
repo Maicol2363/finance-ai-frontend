@@ -7,7 +7,6 @@ import 'package:finance_ai/core/theme/app_theme.dart';
 import 'package:finance_ai/features/categories/data/categories_repository.dart';
 import 'package:finance_ai/features/categories/domain/category_models.dart';
 import 'package:finance_ai/features/receipt_capture/application/receipt_capture_notifier.dart';
-import 'package:finance_ai/features/receipt_capture/data/receipt_photo_guide_prefs.dart';
 import 'package:finance_ai/features/receipt_capture/domain/receipt_capture_state.dart';
 import 'package:finance_ai/features/receipt_capture/domain/receipt_review_form_data.dart';
 import 'package:finance_ai/features/receipt_capture/presentation/receipt_capture_flow.dart';
@@ -18,9 +17,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-
-import 'dart:ui' show Tristate;
 
 class _FakeCategoriesRepository extends Fake implements CategoriesRepository {
   @override
@@ -165,27 +161,6 @@ void main() {
     if (tempImage.existsSync()) {
       tempImage.deleteSync();
     }
-  });
-
-  testWidgets('camera shutter has an accessible name and disabled state', (
-    tester,
-  ) async {
-    SharedPreferences.setMockInitialValues({
-      ReceiptPhotoGuidePrefs.guideSeenKey: true,
-    });
-    final semantics = tester.ensureSemantics();
-    await tester.pumpWidget(
-      const ProviderScope(child: MaterialApp(home: ReceiptCameraScreen())),
-    );
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 100));
-
-    final shutter = tester.getSemantics(
-      find.bySemanticsLabel('Tomar foto del recibo'),
-    );
-    expect(shutter.flagsCollection.isButton, isTrue);
-    expect(shutter.flagsCollection.isEnabled, Tristate.isFalse);
-    semantics.dispose();
   });
 
   group('startReceiptCapture', () {
@@ -429,10 +404,7 @@ void main() {
       );
 
       expect(find.byType(ErrorDiagnosticPanel), findsOneWidget);
-      expect(
-        find.text('Código de error: unexpected_client_error'),
-        findsOneWidget,
-      );
+      expect(find.text('Error code: unexpected_client_error'), findsOneWidget);
       expect(
         find.byKey(const Key('copy-error-details-button')),
         findsOneWidget,
@@ -712,7 +684,7 @@ void main() {
 
       expect(find.byType(ErrorDiagnosticPanel), findsOneWidget);
       expect(
-        find.text('Código de error: receipt_proposal_not_found'),
+        find.text('Error code: receipt_proposal_not_found'),
         findsOneWidget,
       );
       expect(

@@ -287,7 +287,6 @@ class VoiceMicButton extends StatefulWidget {
 class _VoiceMicButtonState extends State<VoiceMicButton>
     with WidgetsBindingObserver {
   final _micKey = GlobalKey();
-  final _micFocusNode = FocusNode(debugLabel: 'voice-dictation-button');
   int? _pointer;
   bool _latched = false;
   Offset _origin = Offset.zero, _center = Offset.zero, _offset = Offset.zero;
@@ -302,7 +301,6 @@ class _VoiceMicButtonState extends State<VoiceMicButton>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    _micFocusNode.dispose();
     super.dispose();
   }
 
@@ -410,7 +408,8 @@ class _VoiceMicButtonState extends State<VoiceMicButton>
               widget.controller.interrupt();
               return KeyEventResult.handled;
             }
-            if (!blocked &&
+            if (_hold &&
+                !blocked &&
                 (event.logicalKey == LogicalKeyboardKey.enter ||
                     event.logicalKey == LogicalKeyboardKey.space)) {
               _toggle();
@@ -441,7 +440,6 @@ class _VoiceMicButtonState extends State<VoiceMicButton>
                 width: 48,
                 height: 48,
                 child: IconButton.filled(
-                  focusNode: _micFocusNode,
                   tooltip: widget.controller.active
                       ? (_hold
                             ? 'Suelta para analizar o sube para editar'

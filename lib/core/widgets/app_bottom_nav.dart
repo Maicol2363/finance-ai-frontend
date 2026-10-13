@@ -72,48 +72,45 @@ class _NavTab extends StatelessWidget {
       selected: selected,
       button: true,
       label: destination.label,
-      onTap: onTap,
-      child: ExcludeSemantics(
-        child: InkWell(
-          key: Key('bottom-nav-${destination.id}'),
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(16),
-          child: Padding(
-            padding: const EdgeInsets.only(top: 4, bottom: 2),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                AnimatedContainer(
-                  duration: const Duration(milliseconds: 250),
-                  width: 58,
-                  height: 30,
-                  decoration: BoxDecoration(
-                    color: selected ? palette.primarySoft : Colors.transparent,
-                    borderRadius: BorderRadius.circular(999),
-                  ),
-                  child: Icon(destination.icon, size: 22, color: color),
+      child: InkWell(
+        key: Key('bottom-nav-${destination.id}'),
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Padding(
+          padding: const EdgeInsets.only(top: 4, bottom: 2),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 250),
+                width: 58,
+                height: 30,
+                decoration: BoxDecoration(
+                  color: selected ? palette.primarySoft : Colors.transparent,
+                  borderRadius: BorderRadius.circular(999),
                 ),
-                const SizedBox(height: 3),
-                Text(
-                  destination.label,
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    color: color,
-                  ),
+                child: Icon(destination.icon, size: 22, color: color),
+              ),
+              const SizedBox(height: 3),
+              Text(
+                destination.label,
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: color,
                 ),
-                const SizedBox(height: 2),
-                AnimatedContainer(
-                  duration: const Duration(milliseconds: 250),
-                  width: 4,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: selected ? palette.primary : Colors.transparent,
-                    shape: BoxShape.circle,
-                  ),
+              ),
+              const SizedBox(height: 2),
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 250),
+                width: 4,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: selected ? palette.primary : Colors.transparent,
+                  shape: BoxShape.circle,
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),

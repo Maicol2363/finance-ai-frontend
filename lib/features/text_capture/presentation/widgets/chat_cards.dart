@@ -105,7 +105,7 @@ class ClarificationCard extends ConsumerWidget {
                     key: const Key('clarification-discard'),
                     style: TextButton.styleFrom(
                       foregroundColor: palette.discard,
-                      minimumSize: const Size(48, 48),
+                      minimumSize: const Size(48, 44),
                       padding: const EdgeInsets.symmetric(horizontal: 4),
                     ),
                     onPressed: busy ? null : () => controller.discard(entry),
@@ -282,7 +282,7 @@ class ConfirmedCard extends StatelessWidget {
                     key: const Key('confirmed-view'),
                     style: TextButton.styleFrom(
                       foregroundColor: palette.income,
-                      minimumSize: const Size(48, 48),
+                      minimumSize: const Size(48, 44),
                       padding: const EdgeInsets.symmetric(horizontal: 4),
                     ),
                     onPressed: () => context.push(route),
@@ -329,7 +329,7 @@ class FailureCard extends ConsumerWidget {
                   style: FilledButton.styleFrom(
                     backgroundColor: palette.primary,
                     foregroundColor: palette.onPrimary,
-                    minimumSize: const Size(48, 48),
+                    minimumSize: const Size(48, 44),
                   ),
                   onPressed: busy ? null : controller.retry,
                   icon: const Icon(FinanceIcons.refresh, size: 18),
@@ -340,7 +340,7 @@ class FailureCard extends ConsumerWidget {
                 style: OutlinedButton.styleFrom(
                   foregroundColor: palette.primary,
                   side: BorderSide(color: palette.primary),
-                  minimumSize: const Size(48, 48),
+                  minimumSize: const Size(48, 44),
                 ),
                 onPressed: () => context.push('/expenses/new'),
                 icon: const Icon(FinanceIcons.editOutlined, size: 18),
@@ -350,7 +350,7 @@ class FailureCard extends ConsumerWidget {
                 key: const Key('chat-dismiss'),
                 style: TextButton.styleFrom(
                   foregroundColor: palette.muted,
-                  minimumSize: const Size(48, 48),
+                  minimumSize: const Size(48, 44),
                 ),
                 onPressed: controller.dismissFailure,
                 child: const Text('Descartar'),

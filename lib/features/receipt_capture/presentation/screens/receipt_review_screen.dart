@@ -616,7 +616,7 @@ class _ReceiptReviewScreenState extends ConsumerState<ReceiptReviewScreen> {
             label: const Text('Ver foto'),
             style: OutlinedButton.styleFrom(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-              minimumSize: const Size(0, 48),
+              minimumSize: const Size(0, 36),
             ),
           ),
         ],

@@ -85,7 +85,7 @@ class RecentMovementsSection extends ConsumerWidget {
             TextButton(
               key: const Key('recent-movements-see-all'),
               style: TextButton.styleFrom(
-                minimumSize: const Size(48, 48),
+                minimumSize: const Size(48, 44),
                 foregroundColor: palette.primary,
               ),
               onPressed: () => context.push('/history'),

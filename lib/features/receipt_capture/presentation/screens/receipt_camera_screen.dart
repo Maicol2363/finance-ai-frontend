@@ -398,46 +398,33 @@ class _ReceiptCameraScreenState extends ConsumerState<ReceiptCameraScreen>
   }
 
   Widget _buildShutter() {
-    final controller = _controller;
-    final canCapture =
-        !_initializing &&
-        !_capturing &&
-        controller != null &&
-        controller.value.isInitialized;
-    return Semantics(
-      button: true,
-      label: 'Tomar foto del recibo',
-      enabled: canCapture,
-      onTap: canCapture ? _capturePhoto : null,
-      excludeSemantics: true,
-      child: GestureDetector(
-        onTap: canCapture ? _capturePhoto : null,
+    return GestureDetector(
+      onTap: _capturePhoto,
+      child: Container(
+        width: 78,
+        height: 78,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          border: Border.all(color: Colors.white, width: 4),
+        ),
+        padding: const EdgeInsets.all(5),
         child: Container(
-          width: 78,
-          height: 78,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            border: Border.all(color: Colors.white, width: 4),
+            color: _capturing ? Colors.white54 : Colors.white,
           ),
-          padding: const EdgeInsets.all(5),
-          child: Container(
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: _capturing ? Colors.white54 : Colors.white,
-            ),
-            child: _capturing
-                ? const Center(
-                    child: SizedBox(
-                      width: 26,
-                      height: 26,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2.5,
-                        color: Colors.black,
-                      ),
+          child: _capturing
+              ? const Center(
+                  child: SizedBox(
+                    width: 26,
+                    height: 26,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2.5,
+                      color: Colors.black,
                     ),
-                  )
-                : null,
-          ),
+                  ),
+                )
+              : null,
         ),
       ),
     );

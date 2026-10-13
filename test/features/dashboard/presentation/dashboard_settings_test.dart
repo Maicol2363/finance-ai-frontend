@@ -28,8 +28,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../support/accessibility_test_helpers.dart';
-
 const _cop = CurrencySummary(
   id: 1,
   code: 'COP',
@@ -674,34 +672,6 @@ void main() {
     );
   });
 
-  testWidgets('dashboard period chips have large targets and selected state', (
-    tester,
-  ) async {
-    final semantics = tester.ensureSemantics();
-    await _pumpAt(tester, '/dashboard');
-
-    for (final label in [
-      'Este mes',
-      'Mes anterior',
-      'Últimos 3 meses',
-      'Este año',
-    ]) {
-      final target = find.byKey(Key('dashboard-period-$label'));
-      expect(tester.getSize(target).width, greaterThanOrEqualTo(48));
-      expect(tester.getSize(target).height, greaterThanOrEqualTo(48));
-      expect(find.bySemanticsLabel(label), findsOneWidget);
-    }
-
-    expect(
-      tester
-          .getSemantics(find.byKey(const Key('dashboard-period-Este mes')))
-          .flagsCollection
-          .isSelected,
-      Tristate.isTrue,
-    );
-    semantics.dispose();
-  });
-
   testWidgets('dashboard renders empty state without expenses', (tester) async {
     await _pumpAt(tester, '/dashboard', expenses: const [], incomes: const []);
 
@@ -762,7 +732,6 @@ void main() {
     await tester.scrollUntilVisible(
       find.byKey(const Key('logout-button')),
       200,
-      scrollable: find.byType(Scrollable).first,
     );
     expect(find.byKey(const Key('logout-button')), findsOneWidget);
   });

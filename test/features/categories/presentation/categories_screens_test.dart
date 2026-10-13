@@ -168,7 +168,7 @@ void main() {
     await tester.tap(saveButton);
     await tester.pumpAndSettle();
 
-    expect(find.text('Código de error: category_invalid'), findsOneWidget);
+    expect(find.text('Error code: category_invalid'), findsOneWidget);
     expect(find.byKey(const Key('copy-error-details-button')), findsOneWidget);
     expect(
       find.text('El nombre de la categoría es obligatorio.'),

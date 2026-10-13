@@ -256,7 +256,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           ),
           FilledButton(
             key: const Key('confirm-logout-button'),
-            style: FilledButton.styleFrom(minimumSize: const Size(0, 48)),
+            style: FilledButton.styleFrom(minimumSize: const Size(0, 40)),
             onPressed: () {
               Navigator.of(dialogContext).pop();
               controller.logout();

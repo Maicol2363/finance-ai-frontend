@@ -858,7 +858,7 @@ class _ExpenseCreateScreenState extends ConsumerState<ExpenseCreateScreen> {
                     FilledButton.tonal(
                       key: const Key('expense-create-account-button'),
                       style: FilledButton.styleFrom(
-                        minimumSize: const Size(60, 48),
+                        minimumSize: const Size(60, 36),
                         padding: const EdgeInsets.symmetric(
                           horizontal: 12,
                           vertical: 8,

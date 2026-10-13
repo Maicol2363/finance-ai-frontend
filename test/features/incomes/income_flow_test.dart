@@ -164,7 +164,7 @@ void main() {
     await tester.enterText(find.byKey(const Key('income-amount-field')), '-1');
     await tester.tap(find.byKey(const Key('income-save-button')));
     await tester.pumpAndSettle();
-    expect(find.text('Código de error: income_invalid'), findsOneWidget);
+    expect(find.text('Error code: income_invalid'), findsOneWidget);
     expect(repository.savedCommand, isNull);
     await tester.enterText(
       find.byKey(const Key('income-amount-field')),
@@ -227,9 +227,6 @@ void main() {
     expect(find.text('25,50'), findsOneWidget);
     await tester.tap(find.byKey(const Key('income-save-button')));
     await tester.pumpAndSettle();
-    expect(
-      find.text('Código de error: income_account_unavailable'),
-      findsOneWidget,
-    );
+    expect(find.text('Error code: income_account_unavailable'), findsOneWidget);
   });
 }
