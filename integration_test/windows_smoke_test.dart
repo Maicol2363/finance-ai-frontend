@@ -600,7 +600,7 @@ void main() {
     await tester.ensureVisible(find.byKey(const Key('account-save-button')));
     await tester.tap(find.byKey(const Key('account-save-button')));
     await tester.pumpAndSettle();
-    expect(find.text('Account details'), findsOneWidget);
+    expect(find.text('Detalle de cuenta'), findsOneWidget);
     expect(find.text(r'$ 50.000,25 COP'), findsNWidgets(2));
 
     await tester.drag(find.byType(ListView), const Offset(0, -220));
@@ -609,19 +609,20 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('account-confirm-delete-button')));
     await tester.pumpAndSettle();
-    expect(find.text('Account permanently deleted.'), findsOneWidget);
+    expect(find.text('Cuenta eliminada definitivamente.'), findsOneWidget);
     expect(accounts.accounts, isEmpty);
 
     await tester.pumpAndSettle();
-    await tester.tap(find.byTooltip('Back to home'));
+    await tester.tap(find.byTooltip('Volver al inicio'));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byKey(const Key('bottom-nav-gastos')));
+    await tester.tap(find.byKey(const Key('bottom-nav-ajustes')));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('logout-button')));
     await tester.pumpAndSettle();
-    expect(find.text('Bienvenido de nuevo'), findsOneWidget);
-    expect(find.byKey(const Key('home-title')), findsNothing);
+    await tester.tap(find.byKey(const Key('confirm-logout-button')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('login-submit-button')), findsOneWidget);
     expect(store.value, isNull);
   }, skip: defaultTargetPlatform != TargetPlatform.windows);
 
