@@ -30,6 +30,7 @@ internal class LocalSpeechBridge(private val activity: Activity,
     private val main = Handler(Looper.getMainLooper())
     private val preferences = activity.getSharedPreferences("voice_setup", Activity.MODE_PRIVATE)
     private var sink: EventChannel.EventSink? = null
+    private var pendingEvent: Map<String, Any?>? = null
     private var recognizer: SpeechRecognizer? = null
     private var session = 0L
     private var generation = 0L
@@ -44,9 +45,14 @@ internal class LocalSpeechBridge(private val activity: Activity,
     private var committed = ""
     private var partial = ""
     private var lastError = ""
+    private var emptySegments = 0
 
-    override fun onListen(arguments: Any?, events: EventChannel.EventSink?) { sink = events }
-    override fun onCancel(arguments: Any?) { release(); offline.cancelDownload(); sink = null }
+    override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {
+        sink = events
+        pendingEvent?.let { events?.success(it) }
+        pendingEvent = null
+    }
+    override fun onCancel(arguments: Any?) { release(); offline.cancelDownload(); sink = null; pendingEvent = null }
 
     override fun onMethodCall(call: MethodCall, result: MethodChannel.Result) {
         if (call.method == "initialize") { result.success(null); return }
@@ -84,10 +90,11 @@ internal class LocalSpeechBridge(private val activity: Activity,
     }
 
     private fun emit(type: String, text: String = "", code: String = "", canDownload: Boolean = false) {
-        sink?.success(mapOf("session" to session, "type" to type,
+        val event = mapOf("session" to session, "type" to type,
             "text" to text, "code" to code, "canDownload" to canDownload,
             "engine" to if (usingOffline) "integrated" else "device",
-            "reason" to fallbackReason, "apiLevel" to Build.VERSION.SDK_INT))
+            "reason" to fallbackReason, "apiLevel" to Build.VERSION.SDK_INT)
+        if (sink == null) pendingEvent = event else sink?.success(event)
     }
 
     private fun emitDownload(stage: String, progress: Int?) {
@@ -225,7 +232,7 @@ internal class LocalSpeechBridge(private val activity: Activity,
         if (requestedLanguage != language || !prepared) {
             fail("speech_language_unavailable"); return
         }
-        committed = ""; partial = ""; continuing = true
+        committed = ""; partial = ""; emptySegments = 0; continuing = true
         if (usingOffline) listenOffline()
         else if (ensureRecognizer()) listen()
         else { fallbackReason = "native_service_missing"; useFallback(id, language, true) }
@@ -256,7 +263,22 @@ internal class LocalSpeechBridge(private val activity: Activity,
                 useFallback(id, requestedLanguage, true)
             }
         }
+        val inputDeadline = Runnable {
+            if (id == session && stamp == generation && chunk == segment && continuing) {
+                if (fullText().isNotBlank()) {
+                    // Preserve the last visible hypothesis if terminal callbacks stall.
+                    continuing = false; utteranceRunning = false; segment++
+                    try { recognizer?.cancel() } catch (_: Exception) { }
+                    emit("final", fullText())
+                } else if (offline.installed(requestedLanguage)) {
+                    fallbackReason = "native_service_timeout"
+                    preferences.edit().putBoolean("integrated_$requestedLanguage", true).apply()
+                    useFallback(id, requestedLanguage, true)
+                } else fail("speech_no_speech")
+            }
+        }
         main.postDelayed(openingDeadline, 6000)
+        main.postDelayed(inputDeadline, 15000)
         recognizer!!.setRecognitionListener(object : EmptyListener() {
             private fun current() = id == session && stamp == generation && chunk == segment
             override fun onReadyForSpeech(params: Bundle?) {
@@ -268,14 +290,26 @@ internal class LocalSpeechBridge(private val activity: Activity,
             override fun onPartialResults(results: Bundle?) {
                 if (!current()) return
                 partial = words(results)
-                if (partial.isNotBlank()) { main.removeCallbacks(openingDeadline); emit("partial", fullText()) }
+                if (partial.isNotBlank()) {
+                    emptySegments = 0
+                    main.removeCallbacks(openingDeadline)
+                    main.removeCallbacks(inputDeadline)
+                    main.postDelayed(inputDeadline, 15000)
+                    emit("partial", fullText())
+                }
             }
             override fun onResults(results: Bundle?) {
                 if (!current()) return
                 main.removeCallbacks(openingDeadline)
+                main.removeCallbacks(inputDeadline)
                 utteranceRunning = false
                 val text = words(results)
                 if (text.isBlank() && partial.isNotBlank()) { fail("speech_no_match"); return }
+                if (text.isBlank() && continuing) {
+                    handleEmptySegment { if (current() && continuing) listen() }
+                    return
+                }
+                if (text.isNotBlank()) emptySegments = 0
                 committed = listOf(committed, text.trim()).filter { it.isNotEmpty() }.joinToString(" ")
                 partial = ""
                 if (committed.length > 8192) { fail("speech_text_too_long"); return }
@@ -288,6 +322,7 @@ internal class LocalSpeechBridge(private val activity: Activity,
             override fun onError(error: Int) {
                 if (!current()) return
                 main.removeCallbacks(openingDeadline)
+                main.removeCallbacks(inputDeadline)
                 utteranceRunning = false
                 if (error in listOf(SpeechRecognizer.ERROR_LANGUAGE_UNAVAILABLE,
                         SpeechRecognizer.ERROR_LANGUAGE_NOT_SUPPORTED, SpeechRecognizer.ERROR_SERVER,
@@ -305,7 +340,7 @@ internal class LocalSpeechBridge(private val activity: Activity,
                 }
                 if (continuing && partial.isBlank() &&
                     (error == SpeechRecognizer.ERROR_NO_MATCH || error == SpeechRecognizer.ERROR_SPEECH_TIMEOUT)) {
-                    main.postDelayed({ if (current() && continuing) listen() }, 120)
+                    handleEmptySegment { if (current() && continuing) listen() }
                 } else if (!continuing && partial.isBlank() && committed.isNotBlank() &&
                     (error == SpeechRecognizer.ERROR_NO_MATCH || error == SpeechRecognizer.ERROR_SPEECH_TIMEOUT)) {
                     emit("final", committed)
@@ -313,6 +348,24 @@ internal class LocalSpeechBridge(private val activity: Activity,
             }
         })
         recognizer!!.startListening(intent())
+    }
+
+    private fun handleEmptySegment(retry: () -> Unit) {
+        if (committed.isNotBlank()) {
+            // A pause after valid words ends review without replacing those words
+            // with an unrelated fallback engine hypothesis.
+            continuing = false
+            emit("final", committed)
+            return
+        }
+        emptySegments++
+        if (emptySegments >= 2) {
+            if (offline.installed(requestedLanguage)) {
+                fallbackReason = "native_service_timeout"
+                preferences.edit().putBoolean("integrated_$requestedLanguage", true).apply()
+                useFallback(session, requestedLanguage, true)
+            } else fail("speech_no_speech")
+        } else main.postDelayed(retry, 120)
     }
 
     private fun words(results: Bundle?) = results

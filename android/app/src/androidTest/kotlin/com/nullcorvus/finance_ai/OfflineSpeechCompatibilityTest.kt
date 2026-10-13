@@ -39,6 +39,42 @@ class OfflineSpeechCompatibilityTest {
         return store
     }
 
+    @Test fun preparationBeforeEventSubscriptionIsReplayed() {
+        val root = root()
+        val activity = instrumentation.startActivitySync(Intent(instrumentation.targetContext,
+            VoiceProbeActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        var bridge: LocalSpeechBridge? = null
+        val worker = Executors.newSingleThreadExecutor()
+        val received = java.util.concurrent.CopyOnWriteArrayList<Map<*, *>>()
+        try {
+            instrumentation.runOnMainSync {
+                bridge = LocalSpeechBridge(activity, OfflineSpeechEngine(activity, File(root, "models"), worker), { false })
+                bridge!!.onMethodCall(MethodCall("prepare", mapOf("session" to 991L, "language" to "es-ES")),
+                    object : MethodChannel.Result {
+                        override fun success(value: Any?) = Unit
+                        override fun error(code: String, message: String?, details: Any?) { fail(code) }
+                        override fun notImplemented() { fail("prepare_unavailable") }
+                    })
+            }
+            // Wait for the worker and main callback before attaching the sink.
+            worker.submit { }.get(30, TimeUnit.SECONDS)
+            instrumentation.waitForIdleSync()
+            instrumentation.runOnMainSync {
+                bridge!!.onListen(null, object : EventChannel.EventSink {
+                    override fun success(value: Any?) { if (value is Map<*, *>) received.add(value) }
+                    override fun error(code: String, message: String?, details: Any?) { fail(code) }
+                    override fun endOfStream() = Unit
+                })
+            }
+            assertEquals(1, received.size)
+            assertEquals(991L, received.single()["session"])
+            assertEquals("speech_fallback_model_missing", received.single()["code"])
+        } finally {
+            instrumentation.runOnMainSync { bridge?.dispose(); activity.finish() }
+            root.deleteRecursively()
+        }
+    }
+
     @Test fun bothPinnedModelsLoadAndPublicEnglishAudioDecodesOffline() {
         val root = root()
         try {
