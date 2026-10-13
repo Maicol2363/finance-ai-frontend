@@ -584,7 +584,7 @@ void main() {
     expect(store.value, _SuccessfulSessionRepository.renewable);
 
     // Account management lives under Ajustes in the current mobile navigation.
-    GoRouter.of(tester.element(find.byKey(const Key('bottom-nav-ajustes'))))
+    GoRouter.of(tester.element(find.byKey(const Key('dashboard-hero'))))
         .go('/settings');
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('settings-accounts-row')));
@@ -614,7 +614,9 @@ void main() {
     expect(find.text('Cuenta eliminada definitivamente.'), findsOneWidget);
     expect(accounts.accounts, isEmpty);
 
-    GoRouter.of(tester.element(find.byKey(const Key('bottom-nav-ajustes'))))
+    await tester.tap(find.byTooltip('Volver al inicio'));
+    await tester.pumpAndSettle();
+    GoRouter.of(tester.element(find.byKey(const Key('dashboard-hero'))))
         .go('/settings');
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('logout-button')));
