@@ -731,6 +731,8 @@ class _DashboardPeriodSelector extends StatelessWidget {
         : '${customRange!.start.day}/${customRange!.start.month}–${customRange!.end.day}/${customRange!.end.month}';
 
     return Semantics(
+      container: true,
+      explicitChildNodes: true,
       label: 'Periodo de análisis',
       child: Wrap(
         key: const Key('dashboard-period-selector'),

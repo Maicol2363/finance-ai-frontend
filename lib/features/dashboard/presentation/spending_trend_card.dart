@@ -22,12 +22,14 @@ class SpendingTrendCard extends StatelessWidget {
     this.comparisonLabel,
     this.comparisonDirection,
     this.averageMinorUnits,
+    this.initialShowTable = false,
     super.key,
   });
 
   final List<DailySpend> days;
   final String currency;
   final bool available;
+  final bool initialShowTable;
 
   /// Explicit day-by-day cumulative spend series.
   /// If null, computed automatically from [days].
@@ -180,6 +182,7 @@ class SpendingTrendCard extends StatelessWidget {
       currency: currency,
       available: available,
       averageMinorUnits: averageMinorUnits,
+      initialShowTable: initialShowTable,
     );
   }
 }
@@ -203,6 +206,7 @@ class _TrendBody extends StatefulWidget {
     required this.currency,
     required this.available,
     required this.averageMinorUnits,
+    this.initialShowTable = false,
   });
 
   final List<CumulativeSpendDay> cumulative;
@@ -222,6 +226,7 @@ class _TrendBody extends StatefulWidget {
   final String currency;
   final bool available;
   final int? averageMinorUnits;
+  final bool initialShowTable;
 
   @override
   State<_TrendBody> createState() => _TrendBodyState();
@@ -229,6 +234,15 @@ class _TrendBody extends StatefulWidget {
 
 class _TrendBodyState extends State<_TrendBody> {
   int? selected;
+  late bool _showTable = widget.initialShowTable;
+
+  @override
+  void didUpdateWidget(covariant _TrendBody oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.initialShowTable != widget.initialShowTable) {
+      _showTable = widget.initialShowTable;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -469,6 +483,108 @@ class _TrendBodyState extends State<_TrendBody> {
                 ),
             ],
           ),
+          if (widget.available && widget.cumulative.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Semantics(
+              button: true,
+              excludeSemantics: true,
+              onTap: () => setState(() => _showTable = !_showTable),
+              label: _showTable
+                  ? 'Ocultar tabla de valores de tendencia'
+                  : 'Ver tabla de valores de tendencia',
+              child: InkWell(
+                key: const Key('dashboard-trend-toggle-table'),
+                onTap: () => setState(() => _showTable = !_showTable),
+                borderRadius: BorderRadius.circular(8),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(
+                    minHeight: 48,
+                    minWidth: 48,
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      vertical: 8,
+                      horizontal: 4,
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          _showTable
+                              ? Icons.keyboard_arrow_up
+                              : Icons.table_chart_outlined,
+                          size: 16,
+                          color: palette.primary,
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          _showTable
+                              ? 'Ocultar tabla de valores'
+                              : 'Ver tabla de valores',
+                          style: TextStyle(
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w600,
+                            color: palette.primary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            if (_showTable) ...[
+              const SizedBox(height: 8),
+              Semantics(
+                container: true,
+                explicitChildNodes: true,
+                label: 'Tabla de valores de tendencia',
+                child: Container(
+                  key: const Key('dashboard-trend-table'),
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: palette.soft,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: palette.line),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      if (widget.useWeeklyRows &&
+                          widget.weeks != null &&
+                          widget.weeks!.isNotEmpty)
+                        for (var i = 0; i < widget.weeks!.length; i++)
+                          _buildTableRow(
+                            index: i,
+                            period: _weekLabel(widget.weeks![i]),
+                            daily: MoneyFormatter.display(
+                              widget.weeks![i].minorUnits,
+                              widget.currency,
+                            ),
+                            cumulative: null,
+                            palette: palette,
+                          )
+                      else
+                        for (var i = 0; i < widget.cumulative.length; i++)
+                          _buildTableRow(
+                            index: i,
+                            period: _fullDayLabel(widget.cumulative[i].day),
+                            daily: MoneyFormatter.display(
+                              widget.cumulative[i].dailyMinorUnits,
+                              widget.currency,
+                            ),
+                            cumulative: MoneyFormatter.display(
+                              widget.cumulative[i].cumulativeMinorUnits,
+                              widget.currency,
+                            ),
+                            palette: palette,
+                          ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ],
         ],
       ),
     );
@@ -718,15 +834,15 @@ class _TrendBodyState extends State<_TrendBody> {
   }
 
   String _weekLabel(WeeklySpend week) {
-    final startMonth = shortMonthName(week.start.month);
-    final endMonth = shortMonthName(week.end.month);
+    final startMonth = fullMonthName(week.start.month);
+    final endMonth = fullMonthName(week.end.month);
     if (week.start.year != week.end.year) {
-      return '${week.start.day} $startMonth ${week.start.year} – ${week.end.day} $endMonth ${week.end.year}';
+      return 'Semana del ${week.start.day} de $startMonth de ${week.start.year} al ${week.end.day} de $endMonth de ${week.end.year}';
     }
     if (week.start.month == week.end.month) {
-      return '${week.start.day}–${week.end.day} $startMonth';
+      return 'Semana del ${week.start.day} al ${week.end.day} de $startMonth';
     }
-    return '${week.start.day} $startMonth – ${week.end.day} $endMonth';
+    return 'Semana del ${week.start.day} de $startMonth al ${week.end.day} de $endMonth';
   }
 
   String _detailedSelection(int index) {
@@ -739,6 +855,70 @@ class _TrendBodyState extends State<_TrendBody> {
       widget.currency,
     );
     return '${pt.day.day} de $m: +$daily (Acumulado: $cum)';
+  }
+
+  String _fullDayLabel(DateTime day) =>
+      'Día ${day.day} de ${fullMonthName(day.month)}';
+
+  Widget _buildTableRow({
+    required int index,
+    required String period,
+    required String daily,
+    required String? cumulative,
+    required AppPalette palette,
+  }) {
+    final interactive = cumulative != null;
+    final rowLabel = cumulative == null
+        ? '$period: gasto $daily.'
+        : '$period: gasto del día $daily; gasto acumulado $cumulative.';
+    final onTap = interactive ? () => setState(() => selected = index) : null;
+    return Semantics(
+      key: ValueKey('dashboard-trend-row-$index'),
+      button: interactive,
+      label: rowLabel,
+      onTap: onTap,
+      excludeSemantics: true,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(6),
+        child: Container(
+          constraints: const BoxConstraints(minHeight: 48),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+          margin: const EdgeInsets.only(bottom: 2),
+          decoration: BoxDecoration(
+            color: selected == index ? palette.card : Colors.transparent,
+            borderRadius: BorderRadius.circular(6),
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  period,
+                  style: TextStyle(fontSize: 11, color: palette.text),
+                ),
+              ),
+              Text(
+                daily,
+                textAlign: TextAlign.end,
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  color: palette.text,
+                ),
+              ),
+              if (cumulative != null) ...[
+                const SizedBox(width: 8),
+                Text(
+                  cumulative,
+                  textAlign: TextAlign.end,
+                  style: TextStyle(fontSize: 11, color: palette.muted),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   String _bucketLabel(int index) {

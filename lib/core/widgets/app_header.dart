@@ -34,12 +34,15 @@ class AppHeader extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    title,
-                    style: TextStyle(
-                      fontSize: 17,
-                      fontWeight: FontWeight.w700,
-                      color: palette.text,
+                  Semantics(
+                    header: true,
+                    child: Text(
+                      title,
+                      style: TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w700,
+                        color: palette.text,
+                      ),
                     ),
                   ),
                   if (subtitle != null)
@@ -84,28 +87,32 @@ class HeaderIconButton extends StatelessWidget {
 
     return Tooltip(
       message: tooltip,
+      excludeFromSemantics: true,
       child: Semantics(
         button: true,
         enabled: enabled,
         label: tooltip,
-        child: Material(
-          color: palette.card,
-          borderRadius: BorderRadius.circular(10),
-          child: InkWell(
-            onTap: onPressed,
+        onTap: onPressed,
+        child: ExcludeSemantics(
+          child: Material(
+            color: palette.card,
             borderRadius: BorderRadius.circular(10),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
-              child: Center(
-                child: Container(
-                  width: 34,
-                  height: 34,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    border: Border.all(color: palette.line),
-                    borderRadius: BorderRadius.circular(10),
+            child: InkWell(
+              onTap: onPressed,
+              borderRadius: BorderRadius.circular(10),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
+                child: Center(
+                  child: Container(
+                    width: 34,
+                    height: 34,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      border: Border.all(color: palette.line),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Icon(icon, size: 18, color: iconColor),
                   ),
-                  child: Icon(icon, size: 18, color: iconColor),
                 ),
               ),
             ),

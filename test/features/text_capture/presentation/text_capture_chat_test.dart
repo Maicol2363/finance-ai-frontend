@@ -12,9 +12,11 @@ import 'package:finance_ai/features/voice_capture/data/native_speech_service.dar
 import 'package:finance_ai/features/voice_capture/domain/speech_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../support/accessibility_test_helpers.dart';
 import '../text_capture_test_support.dart';
 
 const messageText = 'Almorcé en Subway 15900 con efectivo';
@@ -516,7 +518,10 @@ void main() {
 
       expect(byKey('chat-failure'), findsOneWidget);
       expect(find.textContaining('No pude leer tu mensaje'), findsOneWidget);
-      expect(find.text('Error code: text_capture_unavailable'), findsOneWidget);
+      expect(
+        find.text('Código de error: text_capture_unavailable'),
+        findsOneWidget,
+      );
       expect(byKey('copy-error-details-button'), findsOneWidget);
       expect(byKey('chat-manual'), findsOneWidget);
       // The user's own text stays in the conversation, not in the report.
@@ -734,6 +739,88 @@ void main() {
       expect(field.focusNode!.hasFocus, isTrue);
     },
   );
+
+  testWidgets(
+    'the open wheel exposes ordered actions and Escape returns focus',
+    (tester) async {
+      final semantics = tester.ensureSemantics();
+      await pumpChat(tester, FakeTextCaptureRepository());
+
+      await tester.tap(byKey('expenses-create-fab'));
+      await tester.pumpAndSettle();
+
+      final fab = tester.widget<FloatingActionButton>(
+        byKey('expenses-create-fab'),
+      );
+      fab.focusNode!.requestFocus();
+      await tester.pump();
+
+      for (final entry in {
+        'expenses-wheel-photo': 'Foto de un recibo',
+        'expenses-wheel-voice': 'Dictar en el chat',
+        'expenses-wheel-text': 'Escribir en el chat',
+        'expenses-wheel-manual': 'Formulario manual',
+      }.entries) {
+        final labelFinder = find.bySemanticsLabel(entry.value);
+        expect(labelFinder, findsOneWidget);
+        expect(
+          tester.getSemantics(labelFinder).hasAction(SemanticsAction.tap),
+          isTrue,
+        );
+      }
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+      expect(byKey('expenses-wheel-photo'), findsNothing);
+      expect(
+        FocusManager.instance.primaryFocus?.debugLabel,
+        'capture-wheel-toggle',
+      );
+      semantics.dispose();
+    },
+  );
+
+  testWidgets('Tab and Enter activate wheel choices in visual order', (
+    tester,
+  ) async {
+    await pumpChat(tester, FakeTextCaptureRepository());
+    await tester.tap(byKey('expenses-create-fab'));
+    await tester.pumpAndSettle();
+
+    final fab = tester.widget<FloatingActionButton>(
+      byKey('expenses-create-fab'),
+    );
+    fab.focusNode!.requestFocus();
+    await tester.pump();
+
+    for (final label in ['foto', 'voz', 'texto', 'manual']) {
+      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+      expect(
+        FocusManager.instance.primaryFocus?.debugLabel,
+        'capture-wheel-$label',
+      );
+    }
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pumpAndSettle();
+
+    expect(find.text('manual-form'), findsOneWidget);
+  });
+
+  testWidgets('the voice option opens local dictation with a safe fallback', (
+    tester,
+  ) async {
+    await pumpChat(tester, FakeTextCaptureRepository());
+
+    await tester.tap(byKey('expenses-create-fab'));
+    await tester.pumpAndSettle();
+    await tester.tap(byKey('expenses-wheel-voice'));
+    await tester.pump();
+
+    await tester.pumpAndSettle();
+    expect(byKey('voice-controls'), findsOneWidget);
+    expect(byKey('voice-error-details'), findsOneWidget);
+    expect(find.text('Captura por nota de voz próximamente'), findsNothing);
+  });
 
   testWidgets('the floating + never hides the newest message', (tester) async {
     final repository = FakeTextCaptureRepository(

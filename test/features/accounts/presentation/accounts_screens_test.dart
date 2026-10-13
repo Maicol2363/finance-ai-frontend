@@ -182,6 +182,15 @@ void main() {
     await pumpAccountsApp(tester, repository);
 
     expect(find.byKey(const Key('accounts-list')), findsOneWidget);
+    expect(find.text('Cuentas'), findsOneWidget);
+    expect(find.text('Mostrar cuentas inactivas'), findsOneWidget);
+    expect(
+      find.text(
+        'Las cuentas inactivas siguen visibles en tu historial financiero.',
+      ),
+      findsOneWidget,
+    );
+    expect(find.text('Tarjeta de crédito · COP'), findsOneWidget);
     expect(find.text(r'-$ 250,75 COP'), findsOneWidget);
     expect(
       find.bySemanticsLabel(RegExp(r'Saldo negativo: -\$ 250,75 COP')),
@@ -318,7 +327,10 @@ void main() {
     await tester.tap(find.byKey(const Key('account-confirm-delete-button')));
     await tester.pumpAndSettle();
 
-    expect(find.text('Error code: account_delete_blocked'), findsOneWidget);
+    expect(
+      find.text('Código de error: account_delete_blocked'),
+      findsOneWidget,
+    );
     await tester.drag(find.byType(ListView), const Offset(0, -320));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('copy-error-details-button')));
@@ -389,7 +401,7 @@ void main() {
     await tester.ensureVisible(find.byKey(const Key('account-save-button')));
     await tester.tap(find.byKey(const Key('account-save-button')));
     await tester.pumpAndSettle();
-    expect(find.text('Error code: account_name_conflict'), findsOneWidget);
+    expect(find.text('Código de error: account_name_conflict'), findsOneWidget);
 
     await tester.ensureVisible(
       find.byKey(const Key('copy-error-details-button')),

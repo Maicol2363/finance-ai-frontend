@@ -809,35 +809,61 @@ class _SummaryRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
+    final stacked = MediaQuery.textScalerOf(context).scale(1) > 1.25;
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 7),
       decoration: BoxDecoration(
         border: last ? null : Border(bottom: BorderSide(color: palette.line)),
       ),
       child: MergeSemantics(
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            SizedBox(
-              width: 112,
-              child: Text(
-                label,
-                style: TextStyle(fontSize: 12, color: palette.muted),
+        child: stacked
+            ? Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    label,
+                    style: TextStyle(fontSize: 12, color: palette.muted),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    value,
+                    style: TextStyle(
+                      fontSize: emphasized ? 16 : 13.5,
+                      fontWeight: emphasized
+                          ? FontWeight.w800
+                          : FontWeight.w600,
+                      color: palette.text,
+                    ),
+                  ),
+                ],
+              )
+            : Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Flexible(
+                    flex: 2,
+                    child: Text(
+                      label,
+                      style: TextStyle(fontSize: 12, color: palette.muted),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    flex: 3,
+                    child: Text(
+                      value,
+                      textAlign: TextAlign.end,
+                      style: TextStyle(
+                        fontSize: emphasized ? 16 : 13.5,
+                        fontWeight: emphasized
+                            ? FontWeight.w800
+                            : FontWeight.w600,
+                        color: palette.text,
+                      ),
+                    ),
+                  ),
+                ],
               ),
-            ),
-            Expanded(
-              child: Text(
-                value,
-                textAlign: TextAlign.end,
-                style: TextStyle(
-                  fontSize: emphasized ? 16 : 13.5,
-                  fontWeight: emphasized ? FontWeight.w800 : FontWeight.w600,
-                  color: palette.text,
-                ),
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }
