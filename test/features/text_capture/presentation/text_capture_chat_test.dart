@@ -106,15 +106,15 @@ void main() {
     expect(field.controller!.text, 'Pasé 50 mil de Nequi a efectivo');
   });
 
-  testWidgets('send is disabled until there is text', (tester) async {
+  testWidgets('send appears when the composer has text', (tester) async {
     await pumpChat(tester, FakeTextCaptureRepository());
 
     IconButton button() => tester.widget<IconButton>(byKey('chat-send-button'));
-    expect(button().onPressed, isNull);
+    expect(byKey('chat-send-button'), findsNothing);
 
     await tester.enterText(byKey('chat-composer-field'), '   ');
     await tester.pump();
-    expect(button().onPressed, isNull);
+    expect(byKey('chat-send-button'), findsNothing);
 
     await tester.enterText(byKey('chat-composer-field'), 'gasté 5 mil');
     await tester.pump();
@@ -621,6 +621,9 @@ void main() {
 
       expect(byKey('chat-thinking'), findsOneWidget);
       expect(find.text('Leyendo tu mensaje…'), findsOneWidget);
+      expect(byKey('chat-send-button'), findsNothing);
+      await tester.enterText(byKey('chat-composer-field'), 'otro mensaje');
+      await tester.pump();
       expect(
         tester.widget<IconButton>(byKey('chat-send-button')).onPressed,
         isNull,
@@ -777,6 +780,9 @@ void main() {
       find.bySemanticsLabel(RegExp('^Propuesta de gasto')),
       findsOneWidget,
     );
+    expect(find.byTooltip('Dictar mensaje'), findsOneWidget);
+    await tester.enterText(byKey('chat-composer-field'), 'otro mensaje');
+    await tester.pump();
     expect(find.byTooltip('Enviar mensaje'), findsOneWidget);
     handle.dispose();
   });

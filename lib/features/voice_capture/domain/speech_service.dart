@@ -63,12 +63,12 @@ class SpeechFailure implements Exception {
         'La descarga está pendiente. Comprueba el dictado cuando termine.',
     'speech_model_download_failed': 'No se pudo descargar e instalar el modelo. Revisa la conexión y el espacio libre; vuelve a intentarlo.',
     'speech_permission_required':
-        'Permite el acceso al micrófono y vuelve a mantener el botón.',
+        'Permite el acceso al micrófono y vuelve a pulsar el botón.',
     'speech_permission_denied': 'El micrófono no tiene permiso. Puedes activarlo en los ajustes o escribir el mensaje.',
     'speech_microphone_busy': 'No se pudo abrir el micrófono. Cierra otras aplicaciones que lo usen y reintenta.',
     'speech_no_match': 'No entendí esta frase. Puedes volver a dictar o editar el texto disponible.',
     'speech_no_speech':
-        'No se escucharon palabras. Mantén el botón mientras hablas.',
+        'No se escucharon palabras. Pulsa el micrófono y vuelve a hablar.',
     'speech_busy': 'El reconocedor está ocupado. Vuelve a intentarlo.',
     'speech_preparation_timeout': 'El dictado local tardó en prepararse. Puedes reintentar o escribir el mensaje.',
     'speech_finalize_timeout': 'La transcripción tardó en terminar. Revisa el texto disponible antes de enviarlo.',

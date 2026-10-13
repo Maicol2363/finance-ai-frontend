@@ -5,6 +5,13 @@ This checkpoint captures the voice reliability work and navigation fixes before
 the next UI change. Detailed engine behavior, model provenance and safe diagnostics
 are in [Local voice input](offline-voice-capture.md).
 
+UI follow-up: the current app uses the agreed Anchored Composer. One tap starts
+dictation in the existing message field; Pause/Continue and immediate Delete sit
+above it. Focusing the field stops capture for editing, and Send explicitly
+creates a proposal. The hold/drag steps below describe the earlier reliability
+checkpoint, rather than the current interaction. The shared speech controller,
+native engines, model setup, safe diagnostics and financial flow are unchanged.
+
 ## Installed build
 
 | Item | Checkpoint value |
@@ -85,6 +92,34 @@ Compose project when restoring this test environment.
 This APK's loopback URL needs USB forwarding to reach the computer. Testing over
 Wi-Fi or a hosted API requires building with that server's reachable URL.
 
+## Cable-free testing
+
+On 2026-10-13, the Anchored Composer audio-test APK was rebuilt with the
+computer's current Wi-Fi API address. The existing Docker services were restarted,
+and readiness was verified from both the computer and the phone over Wi-Fi.
+This changes the build configuration; authentication and capture logic are unchanged.
+
+Keep the computer awake, Docker running, and both devices on the same Wi-Fi.
+Use the computer's Wi-Fi IPv4 address from `ipconfig` when building:
+
+```powershell
+$wifiApiBaseUrl = 'http://<computer-wifi-ip>:8000'
+.\tool\build_android.ps1 -AudioTest -ApiBaseUrl $wifiApiBaseUrl
+```
+
+Check `http://<computer-wifi-ip>:8000/health/ready` in the phone's browser before
+installing the update. The expected response is `{"status":"ready"}`. Update the
+existing **Finance AI (audio test)** installation to preserve its app data.
+USB forwarding is unnecessary for this build. If the computer's address changes,
+rebuild with the new address.
+
+Login, session restoration and financial operations still require the API.
+Transcription can work offline after model setup. If session restoration reports
+a connection failure, restore connectivity and use **Retry restoration**; that
+failure preserves the saved renewable credential. The current router sends users
+to the recovery screen when renewal fails, which can feel like a logout.
+The authentication flow was inspected but not modified as part of this UI work.
+
 ## Reproducing verification and the APK
 
 Run the helpers from the frontend repository:
@@ -133,12 +168,12 @@ pauses and rapid stop/restart.
 | --- | --- |
 | Bottom navigation | Keep `SafeArea` system-inset spacing in portrait/landscape and for buttons/gestures; `test/core/widgets/app_bottom_nav_test.dart` |
 | Capture menu | Keep one voice entry point in the composer; photo/text/manual remain accessible; `test/features/text_capture/presentation/text_capture_chat_test.dart` |
-| Mic gesture and layout | Hold/release, latched drag-to-review, keyboard geometry, cleared failure target, small displays and larger text; `test/features/voice_capture/voice_chat_test.dart` |
+| Composer interaction and layout | One persistent message field, tap capture, anchored pause/resume, immediate discard, explicit send, keyboard access, recovery and small displays with larger text; `test/features/voice_capture/voice_chat_test.dart` |
 | Capture state | One accepted submission per session, draft prefix, replacement hypotheses, late-event rejection, retry, timeouts, download cancellation/completion and resume without auto-start; `test/features/voice_capture/voice_capture_controller_test.dart` |
 | Native events and diagnostics | Allowlisted codes/reasons/engine/API metadata and bounded progress; never copy transcripts, entered values, credentials or raw native errors; `test/features/voice_capture/native_speech_service_test.dart` |
 
 Keep the shared Dart voice controller as the owner of recognition state and
-submission. Android hold gestures and Windows click/review use that same feature
+submission. Android and Windows tap/pause/edit/resume use that same feature
 code. Download completion and returning from settings must not start a mic or
 submit a draft. Typing stays available during model setup; financial operations
 continue through the existing validated repositories and confirmation flow.

@@ -8,18 +8,24 @@ the existing `/api/v1/capture/text/proposals` contract and `text_ai` capture sou
 
 ## Interaction
 
-- Android: hold the composer microphone; recognized words replace the current
-  hypothesis in the existing editor. Release stops recognition and submits the
-  final transcript once. A typed draft is retained as the prefix.
-- Move the microphone upward into the visible edit zone to stop and enter
-  review. The microphone follows the pointer, the zone highlights on approach,
-  and zone entry gives a single haptic cue. Entry is latched: moving back or
-  releasing cannot submit. Edit in the same composer and use its Send action.
-- Windows: click to start. Click again, or use Detener y revisar, to finish in
-  review. The existing Send action can finish and analyze explicitly.
-- Keyboard and accessibility activation use start/stop-to-review; Escape stops
-  without sending. Backgrounding, switching capture methods, navigation, pointer
-  cancellation and disposal close recognition while preserving visible words.
+- Android and Windows: tap/click the composer microphone once to start hands-free
+  dictation. Recognized hypotheses update the existing message field; no second
+  transcript editor or message bubble is created before Send. A typed draft is
+  retained as the prefix, and releasing or dragging a pointer does not submit.
+- The Anchored Composer puts a compact recording toolbar above that same field.
+  Pause uses the existing stop-to-review path and retains final buffered words.
+  Tapping or keyboard-focusing the field interrupts capture immediately through
+  the existing session guard, so late results cannot replace edits. Continue
+  starts a new recognition session with the edited text as its prefix.
+- Delete immediately invokes the existing discard action, restores the typed
+  prefix and closes the toolbar. Close preserves all visible text. Neither action
+  asks for confirmation or sends a financial proposal.
+- The existing Send action explicitly finalizes and analyzes text once. Proposal
+  review and financial confirmation remain separate and unchanged. The elapsed
+  indicator is presentation only; it adds no recording deadline or native logic.
+- Keyboard and accessibility activation use the same tap/pause/resume controls;
+  Escape stops without sending. Backgrounding, switching capture methods,
+  navigation and disposal close recognition while preserving visible words.
 - Slow finalization switches to review after two seconds. Late results are
   rejected and cannot replace edits. No partial hypothesis triggers an API call.
 - The existing 1000-character text limit also applies to voice. Excess words are
@@ -93,7 +99,7 @@ shared bottom navigation reserves Android's gesture or three-button system inset
 
 Android endpointers may close an utterance during a pause. The bridge retains
 completed phrases and rearms only after a terminal result/error while the user
-continues holding. Rearming can introduce short gaps, and recognition providers
+keeps dictation active. Rearming can introduce short gaps, and recognition providers
 may omit partial callbacks. Physical-device testing remains necessary.
 
 Windows uses an in-process SAPI recognizer on a worker thread. It explicitly
@@ -125,7 +131,7 @@ Relevant platform contracts:
 - [Windows recognizer state](https://learn.microsoft.com/en-us/previous-versions/windows/desktop/ms718870(v=vs.85))
 
 Automated verification covers hypothesis revisions, one accepted submission,
-swipe entry/release, fast swept hit testing, editing, cancellation/restart,
+tap-to-start, anchored layout, pause/resume, immediate discard, editing, cancellation/restart,
 background/disposal, missing native bridges, language selection, setup actions,
 timeouts, the length limit, and safe diagnostics for every published failure.
 Windows smoke verification also prepares local recognition without recording.
@@ -197,3 +203,19 @@ The server AI configuration is outside this Android voice reliability work.
 The [Android voice/UI checkpoint](android-voice-ui-handoff.md) records the installed
 APK, test-environment recovery, scope decisions and UI contracts for subsequent
 design work.
+
+## Anchored Composer UI verification
+
+Verified on 2026-10-12 after integrating the agreed composer layout: all 475 shared
+Flutter tests pass with 83.76% line coverage; formatting and static analysis pass.
+Regression checks cover Android/Windows tap capture, the same persistent message
+field, pause/edit/resume with late-result protection, immediate discard, explicit
+single submission, Escape, one-tap recovery, setup/download controls and responsive
+phone, landscape and desktop layouts with enlarged text in light/dark themes.
+
+All five native Windows smoke tests pass, the normal Windows bundle was restored,
+and both final Windows and Android audio-test debug builds succeed. The Android
+build retains the existing audio-test package and loopback API configuration.
+The controller, native engines, event bridge, repositories, dependencies, shared
+theme and navigation are unchanged. Native live-microphone accuracy remains the
+previous checkpoint's device-testing concern; this UI work does not remeasure it.
