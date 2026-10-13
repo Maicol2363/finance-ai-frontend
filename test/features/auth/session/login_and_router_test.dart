@@ -200,29 +200,45 @@ void main() {
     await tester.tap(find.byKey(const Key('login-submit-button')));
     await tester.pumpAndSettle();
 
-    // The Gastos chat comes first; balance and accounts live in the dashboard.
-    expect(find.byKey(const Key('home-title')), findsOneWidget);
-    expect(find.byKey(const Key('chat-composer-field')), findsOneWidget);
-    expect(find.byKey(const Key('home-accounts-button')), findsNothing);
+    // Inicio opens first with the Hero header and global capture wheel.
+    expect(find.byKey(const Key('home-title')), findsNothing);
+    expect(find.text('Saldo en cuentas'), findsOneWidget);
+    expect(find.byKey(const Key('expenses-create-fab')), findsOneWidget);
     expect(store.value, renewable);
 
-    await tester.tap(find.byKey(const Key('bottom-nav-dashboard')));
+    // Movimientos tab opens from the bottom nav.
+    await tester.tap(find.byKey(const Key('bottom-nav-movimientos')));
     await tester.pumpAndSettle();
-    expect(find.byKey(const Key('home-accounts-button')), findsOneWidget);
+    expect(find.byKey(const Key('history-list')), findsOneWidget);
 
-    await tester.tap(find.byKey(const Key('home-accounts-button')));
+    // Android back button pops back to Inicio before exiting.
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('home-title')), findsNothing);
+
+    // Ajustes tab opens from the bottom nav.
+    await tester.tap(find.byKey(const Key('bottom-nav-ajustes')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('settings-accounts-row')));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('accounts-list')), findsOneWidget);
     expect(
       container.read(accountsControllerProvider).listStatus,
       AccountsLoadStatus.ready,
     );
-    await tester.tap(find.byTooltip('Back to home'));
+    await tester.tap(find.byTooltip('Volver al inicio'));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byKey(const Key('bottom-nav-gastos')));
+    // Navigate to Ajustes to log out.
+    await tester.tap(find.byKey(const Key('bottom-nav-ajustes')));
     await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('logout-button')),
+      200,
+    );
     await tester.tap(find.byKey(const Key('logout-button')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('confirm-logout-button')));
     await tester.pumpAndSettle();
     expect(find.text('Iniciar sesión'), findsOneWidget);
     expect(find.byKey(const Key('home-title')), findsNothing);

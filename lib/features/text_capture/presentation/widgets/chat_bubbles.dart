@@ -1,3 +1,5 @@
+import 'package:finance_ai/core/icons/finance_icon_catalog.dart';
+
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -65,7 +67,7 @@ class AssistantAvatar extends StatelessWidget {
           color: palette.primarySoft,
           shape: BoxShape.circle,
         ),
-        child: Icon(Icons.auto_awesome, size: 15, color: palette.primary),
+        child: Icon(FinanceIcons.autoAwesome, size: 15, color: palette.primary),
       ),
     );
   }

@@ -27,6 +27,7 @@ jobs:
             --output "$archive"
           echo "447878859d01ca9bfdb99a85f245af07ed8a15fedcd9d189c4749e8e92d1f185  $archive" | sha256sum --check
           tar --extract --xz --file "$archive" --directory "$RUNNER_TEMP"
+          rm --force "$archive"
           echo "$RUNNER_TEMP/flutter/bin" >> "$GITHUB_PATH"
       - name: Resolve locked dependencies
         run: |
@@ -50,7 +51,12 @@ jobs:
             }
           ' coverage/lcov.info
       - name: Build debug Android APK
-        run: flutter build apk --debug
+        run: |
+          # The hosted runner's Android emulator images are not needed for
+          # Flutter unit tests or an APK build, and leave the Gradle build
+          # without enough disk space.
+          rm -rf "$ANDROID_HOME/emulator" "$ANDROID_HOME/system-images"
+          flutter build apk --debug
 
   windows:
     name: Windows native tests and build

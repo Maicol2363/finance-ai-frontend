@@ -1,3 +1,4 @@
+import 'package:finance_ai/core/icons/finance_icon_catalog.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -49,7 +50,7 @@ class ErrorDiagnosticPanel extends StatelessWidget {
                 child: TextButton.icon(
                   key: const Key('copy-error-details-button'),
                   onPressed: () => _copy(context),
-                  icon: const Icon(Icons.copy),
+                  icon: const Icon(FinanceIcons.copy),
                   label: const Text('Copy error details'),
                 ),
               ),

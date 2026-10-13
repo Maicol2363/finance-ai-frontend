@@ -97,6 +97,24 @@ void main() {
     expect(weeks.first.minorUnits, 15200000);
   });
 
+  test(
+    'weekly buckets stop at today instead of showing future weeks as zero',
+    () {
+      final now = DateTime.now().toLocal();
+      final today = DateTime(now.year, now.month, now.day);
+      final weeks = weeklyExpenseSeries(
+        items: const [],
+        currencyCode: 'COP',
+        windowStart: DateTime(today.year, today.month, 1),
+        windowEnd: DateTime(today.year, 12, 31),
+      );
+
+      expect(weeks, isNotEmpty);
+      expect(weeks.last.end.isAfter(today), isFalse);
+      expect(weeks.every((week) => !week.start.isAfter(today)), isTrue);
+    },
+  );
+
   test('monthly buckets split the year view', () {
     final items = [
       _item(id: 1, at: '2026-08-10T12:00:00Z', amount: '-100.00'),
@@ -126,5 +144,42 @@ void main() {
     ));
     expect(compareWindows(current: 148, previous: 100)!.direction, 'up');
     expect(compareWindows(current: 100, previous: 100)!.direction, 'flat');
+  });
+
+  test('cumulativeExpenseSeries accumulates day by day up to today', () {
+    final items = [
+      _item(id: 1, at: '2026-10-01T10:00:00Z', amount: '-50000.00'),
+      _item(id: 2, at: '2026-10-03T15:00:00Z', amount: '-20000.00'),
+      _item(id: 3, at: '2026-10-03T18:00:00Z', amount: '-15000.00'),
+      _item(id: 4, at: '2026-10-05T12:00:00Z', amount: '-10000.00'),
+    ];
+    final series = cumulativeExpenseSeries(
+      items: items,
+      currencyCode: 'COP',
+      windowStart: DateTime(2026, 10, 1),
+      windowEnd: DateTime(2026, 10, 31),
+      asOf: DateTime(2026, 10, 5, 23),
+    );
+
+    // Only 5 days generated (up to asOf), never days 6..31
+    expect(series, hasLength(5));
+    expect(series[0].day.day, 1);
+    expect(series[0].dailyMinorUnits, 5000000);
+    expect(series[0].cumulativeMinorUnits, 5000000);
+
+    // Day 2 had no expenses
+    expect(series[1].day.day, 2);
+    expect(series[1].dailyMinorUnits, 0);
+    expect(series[1].cumulativeMinorUnits, 5000000);
+
+    // Day 3 had two expenses (20k + 15k = 35k) -> cumulative 85k
+    expect(series[2].day.day, 3);
+    expect(series[2].dailyMinorUnits, 3500000);
+    expect(series[2].cumulativeMinorUnits, 8500000);
+
+    // Day 5 had 10k -> cumulative 95k
+    expect(series[4].day.day, 5);
+    expect(series[4].dailyMinorUnits, 1000000);
+    expect(series[4].cumulativeMinorUnits, 9500000);
   });
 }

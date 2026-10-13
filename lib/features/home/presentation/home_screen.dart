@@ -1,3 +1,4 @@
+import 'package:finance_ai/core/icons/finance_icon_catalog.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -71,7 +72,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               key: const Key('home-search-button'),
               tooltip: 'Buscar en historial',
               onPressed: () => context.push('/history'),
-              icon: const Icon(Icons.search),
+              icon: const Icon(FinanceIcons.search),
             ),
             const ThemeToggleButton(),
             IconButton(
@@ -80,7 +81,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               onPressed: sessionState.status == AuthSessionStatus.loggingOut
                   ? null
                   : sessionController.logout,
-              icon: const Icon(Icons.logout),
+              icon: const Icon(FinanceIcons.logout),
             ),
           ],
         ),

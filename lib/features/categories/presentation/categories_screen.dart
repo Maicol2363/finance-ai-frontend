@@ -1,9 +1,11 @@
+import 'package:finance_ai/core/icons/finance_icon_catalog.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/diagnostics/error_diagnostic_panel.dart';
 import '../../../core/widgets/app_header.dart';
+import '../../../core/widgets/management_page_scaffold.dart';
 import '../../../core/widgets/manage_widgets.dart';
 import '../../../core/widgets/theme_toggle_button.dart';
 import '../application/categories_controller.dart';
@@ -34,115 +36,88 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
     final state = ref.watch(categoriesControllerProvider);
     final controller = ref.read(categoriesControllerProvider.notifier);
     final categories = state.result?.categories;
-    return Scaffold(
-      body: SafeArea(
-        child: Column(
-          children: [
-            AppHeader(
-              title: 'Categorías',
-              subtitle: 'Clasifica tus gastos',
-              leading: HeaderIconButton(
-                icon: Icons.arrow_back,
-                tooltip: 'Volver',
-                onPressed: () {
-                  if (context.canPop()) {
-                    context.pop();
-                  } else {
-                    context.go('/home');
-                  }
-                },
-              ),
-              actions: const [ThemeToggleButton()],
+    return ManagementPageScaffold(
+      title: 'Categorías',
+      subtitle: 'Clasifica tus gastos',
+      leading: HeaderIconButton(
+        icon: FinanceIcons.arrowBack,
+        tooltip: 'Volver',
+        onPressed: () {
+          if (context.canPop()) {
+            context.pop();
+          } else {
+            context.go('/home');
+          }
+        },
+      ),
+      actions: const [ThemeToggleButton()],
+      body: Column(
+        children: [
+          if (state.loadStatus == CategoriesLoadStatus.loading)
+            const LinearProgressIndicator(
+              semanticsLabel: 'Cargando categorías',
             ),
-            Expanded(
-              child: Center(
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 760),
-                  child: Column(
-                    children: [
-                      if (state.loadStatus == CategoriesLoadStatus.loading)
-                        const LinearProgressIndicator(
-                          semanticsLabel: 'Cargando categorías',
-                        ),
-                      if (state.diagnostic case final diagnostic?)
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-                          child: Column(
-                            children: [
-                              ErrorDiagnosticPanel(diagnostic: diagnostic),
-                              const SizedBox(height: 8),
-                              OutlinedButton.icon(
-                                onPressed: controller.load,
-                                icon: const Icon(Icons.refresh),
-                                label: const Text('Reintentar'),
-                              ),
-                            ],
-                          ),
-                        ),
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
-                        child: CatalogAddButton(
-                          key: const Key('categories-add-button'),
-                          label: 'Agregar categoría',
-                          hint: 'Color e ícono opcionales',
-                          onPressed: state.result == null || state.isSaving
-                              ? null
-                              : () => context.go('/categories/new'),
-                        ),
-                      ),
-                      if (state.mutationDiagnostic case final diagnostic?)
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-                          child: ErrorDiagnosticPanel(diagnostic: diagnostic),
-                        ),
-                      Expanded(
-                        child: categories == null
-                            ? state.loadStatus == CategoriesLoadStatus.loading
-                                  ? const Center(
-                                      child: CircularProgressIndicator(),
-                                    )
-                                  : const SizedBox.shrink()
-                            : categories.isEmpty
-                            ? const _EmptyCategories()
-                            : RefreshIndicator(
-                                onRefresh: controller.load,
-                                child: ReorderableListView.builder(
-                                  key: const Key('categories-list'),
-                                  padding: const EdgeInsets.fromLTRB(
-                                    16,
-                                    8,
-                                    16,
-                                    100,
-                                  ),
-                                  buildDefaultDragHandles: false,
-                                  itemCount: categories.length,
-                                  onReorderItem: state.isSaving
-                                      ? (_, _) {}
-                                      : (oldIndex, newIndex) => _reorder(
-                                          categories,
-                                          oldIndex,
-                                          newIndex,
-                                        ),
-                                  itemBuilder: (context, index) =>
-                                      _CategoryCard(
-                                        key: ValueKey(categories[index].id),
-                                        category: categories[index],
-                                        index: index,
-                                        count: categories.length,
-                                        disabled: state.isSaving,
-                                        onMove: (offset) =>
-                                            _move(categories, index, offset),
-                                      ),
-                                ),
-                              ),
-                      ),
-                    ],
+          if (state.diagnostic case final diagnostic?)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Column(
+                children: [
+                  ErrorDiagnosticPanel(diagnostic: diagnostic),
+                  const SizedBox(height: 8),
+                  OutlinedButton.icon(
+                    onPressed: controller.load,
+                    icon: const Icon(FinanceIcons.refresh),
+                    label: const Text('Reintentar'),
                   ),
-                ),
+                ],
               ),
             ),
-          ],
-        ),
+          Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: FilledButton.icon(
+              key: const Key('categories-add-button'),
+              onPressed: state.result == null || state.isSaving
+                  ? null
+                  : () => context.go('/categories/new'),
+              icon: const Icon(FinanceIcons.add),
+              label: const Text('Agregar categoría'),
+            ),
+          ),
+          if (state.mutationDiagnostic case final diagnostic?)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: ErrorDiagnosticPanel(diagnostic: diagnostic),
+            ),
+          Expanded(
+            child: categories == null
+                ? state.loadStatus == CategoriesLoadStatus.loading
+                      ? const Center(child: CircularProgressIndicator())
+                      : const SizedBox.shrink()
+                : categories.isEmpty
+                ? const _EmptyCategories()
+                : RefreshIndicator(
+                    onRefresh: controller.load,
+                    child: ReorderableListView.builder(
+                      key: const Key('categories-list'),
+                      padding: const EdgeInsets.only(bottom: 24),
+                      buildDefaultDragHandles: false,
+                      itemCount: categories.length,
+                      onReorderItem: state.isSaving
+                          ? (_, _) {}
+                          : (oldIndex, newIndex) =>
+                                _reorder(categories, oldIndex, newIndex),
+                      itemBuilder: (context, index) => _CategoryCard(
+                        key: ValueKey(categories[index].id),
+                        category: categories[index],
+                        index: index,
+                        count: categories.length,
+                        disabled: state.isSaving,
+                        onMove: (offset) => _move(categories, index, offset),
+                      ),
+                    ),
+                  ),
+          ),
+        ],
       ),
     );
   }
@@ -184,7 +159,7 @@ class _CategoryCard extends StatelessWidget {
     children: [
       ManageRow(
         rowKey: Key('category-card-${category.id}'),
-        icon: category.icon.value,
+        icon: category.icon.emphasisValue,
         swatchColor: category.color.value,
         title: category.name,
         subtitle: 'Posición ${index + 1}',
@@ -195,14 +170,14 @@ class _CategoryCard extends StatelessWidget {
           ManageActionButton(
             key: Key('category-up-${category.id}'),
             tooltip: 'Mover ${category.name} arriba',
-            icon: Icons.keyboard_arrow_up,
+            icon: FinanceIcons.keyboardArrowUp,
             onPressed: disabled || index == 0 ? null : () => onMove(-1),
           ),
           const SizedBox(width: 6),
           ManageActionButton(
             key: Key('category-down-${category.id}'),
             tooltip: 'Mover ${category.name} abajo',
-            icon: Icons.keyboard_arrow_down,
+            icon: FinanceIcons.keyboardArrowDown,
             onPressed: disabled || index == count - 1 ? null : () => onMove(1),
           ),
           const SizedBox(width: 6),
@@ -211,7 +186,7 @@ class _CategoryCard extends StatelessWidget {
             enabled: !disabled,
             child: const ManageActionButton(
               tooltip: 'Arrastrar para reordenar',
-              icon: Icons.drag_handle,
+              icon: FinanceIcons.dragHandle,
             ),
           ),
         ],
@@ -229,7 +204,7 @@ class _EmptyCategories extends StatelessWidget {
     children: [
       const SizedBox(height: 64),
       Icon(
-        Icons.category_outlined,
+        FinanceIcons.categoryOutlined,
         size: 60,
         color: Theme.of(context).colorScheme.primary,
       ),

@@ -1,9 +1,13 @@
+import 'package:finance_ai/core/icons/finance_icon_catalog.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/diagnostics/error_diagnostic.dart';
 import '../../../core/diagnostics/error_diagnostic_panel.dart';
+import '../../../core/widgets/app_header.dart';
+import '../../../core/widgets/manage_widgets.dart';
+import '../../../core/widgets/management_page_scaffold.dart';
 import '../data/incomes_repository.dart';
 import '../domain/income_models.dart';
 
@@ -35,31 +39,30 @@ class _IncomeListScreenState extends ConsumerState<IncomeListScreen> {
       _loadedRevision = revision;
       _reload();
     }
-    return Scaffold(
-      appBar: AppBar(
-        leading: IconButton(
-          tooltip: 'Volver al inicio',
-          onPressed: () {
-            if (context.canPop()) {
-              context.pop();
-            } else {
-              context.go('/home');
-            }
-          },
-          icon: const Icon(Icons.arrow_back),
-        ),
-        title: const Text('Ingresos'),
+    return ManagementPageScaffold(
+      title: 'Ingresos',
+      maxWidth: 720,
+      leading: HeaderIconButton(
+        icon: FinanceIcons.arrowBack,
+        tooltip: 'Volver al inicio',
+        onPressed: () {
+          if (context.canPop()) {
+            context.pop();
+          } else {
+            context.go('/home');
+          }
+        },
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        key: const Key('income-add-button'),
-        onPressed: () => context.go('/incomes/new'),
-        icon: const Icon(Icons.add),
-        label: const Text('Nuevo ingreso'),
-      ),
-      body: SafeArea(
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 720),
+      body: Column(
+        children: [
+          FilledButton.icon(
+            key: const Key('income-add-button'),
+            onPressed: () => context.go('/incomes/new'),
+            icon: const Icon(FinanceIcons.add),
+            label: const Text('Nuevo ingreso'),
+          ),
+          const SizedBox(height: 12),
+          Expanded(
             child: FutureBuilder<List<Income>>(
               future: _incomeFuture,
               builder: (context, snapshot) {
@@ -85,25 +88,36 @@ class _IncomeListScreenState extends ConsumerState<IncomeListScreen> {
                     await _incomeFuture;
                   },
                   child: ListView.separated(
-                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 88),
+                    padding: EdgeInsets.zero,
                     itemCount: items.length,
-                    separatorBuilder: (context, index) => const Divider(),
+                    separatorBuilder: (context, index) =>
+                        const SizedBox(height: 2),
                     itemBuilder: (context, index) {
                       final income = items[index];
-                      return ListTile(
-                        key: Key('income-row-${income.id}'),
-                        title: Text(
-                          income.description ??
-                              income.incomeSourceName ??
-                              'Ingreso',
-                        ),
-                        subtitle: Text(
-                          '${incomeDateWire(income.date)} · ${income.accountName}',
-                        ),
-                        trailing: Text(
-                          income.amount.formatWithCurrency(income.currencyCode),
-                        ),
-                        onTap: () => context.go('/incomes/${income.id}'),
+                      return ManageCard(
+                        children: [
+                          ManageRow(
+                            rowKey: Key('income-row-${income.id}'),
+                            icon: FinanceIconCatalog.dataFor(
+                              FinanceIconKey.income,
+                            ),
+                            title:
+                                income.description ??
+                                income.incomeSourceName ??
+                                'Ingreso',
+                            subtitle:
+                                '${incomeDateWire(income.date)} · ${income.accountName}',
+                            trailing: [
+                              Text(
+                                income.amount.formatWithCurrency(
+                                  income.currencyCode,
+                                ),
+                                style: Theme.of(context).textTheme.titleSmall,
+                              ),
+                            ],
+                            onTap: () => context.go('/incomes/${income.id}'),
+                          ),
+                        ],
                       );
                     },
                   ),
@@ -111,7 +125,7 @@ class _IncomeListScreenState extends ConsumerState<IncomeListScreen> {
               },
             ),
           ),
-        ),
+        ],
       ),
     );
   }

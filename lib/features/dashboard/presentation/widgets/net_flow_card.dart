@@ -1,3 +1,4 @@
+import 'package:finance_ai/core/icons/finance_icon_catalog.dart';
 import 'package:flutter/material.dart';
 
 import '../../../../core/formatters/money_formatter.dart';
@@ -152,7 +153,7 @@ class NetFlowCard extends StatelessWidget {
                   label: 'Ingresos',
                   value: incomesText,
                   color: palette.income,
-                  icon: Icons.arrow_downward,
+                  icon: FinanceIcons.arrowDownward,
                 ),
               ),
               const SizedBox(width: 10),
@@ -161,7 +162,7 @@ class NetFlowCard extends StatelessWidget {
                   label: 'Gastos',
                   value: expensesText,
                   color: palette.discard,
-                  icon: Icons.arrow_upward,
+                  icon: FinanceIcons.arrowUpward,
                 ),
               ),
             ],
@@ -178,7 +179,9 @@ class NetFlowCard extends StatelessWidget {
             child: Row(
               children: [
                 Icon(
-                  isSurplus ? Icons.check_circle_outline : Icons.error_outline,
+                  isSurplus
+                      ? FinanceIcons.checkCircleOutline
+                      : FinanceIcons.errorOutline,
                   size: 18,
                   color: isSurplus ? palette.income : palette.discard,
                 ),

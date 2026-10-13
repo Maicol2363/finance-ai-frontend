@@ -1,7 +1,9 @@
 import 'package:finance_ai/core/theme/app_theme.dart';
+import 'package:finance_ai/core/widgets/manage_widgets.dart';
 import 'package:finance_ai/features/budgets/application/budgets_state.dart';
 import 'package:finance_ai/features/budgets/presentation/budget_dashboard_section.dart';
 import 'package:finance_ai/features/budgets/presentation/budget_widgets.dart';
+import 'package:finance_ai/features/categories/presentation/category_visuals.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -18,6 +20,17 @@ Future<void> _pump(WidgetTester t, Widget w) async {
 }
 
 void main() {
+  testWidgets('budget header reuses the category management row template', (
+    t,
+  ) async {
+    await _pump(t, BudgetProgressCard(budget: budget()));
+
+    final row = t.widget<ManageRow>(find.byType(ManageRow));
+    expect(row.title, 'Mercado');
+    expect(row.swatchColor, groceries.color.value);
+    expect(find.byType(ManageIcon), findsOneWidget);
+  });
+
   testWidgets('shows near-limit warning at 80 percent', (t) async {
     await _pump(t, BudgetProgressCard(budget: budget(progress: 85)));
     expect(find.byKey(const Key('budget-near-limit-7')), findsOneWidget);
@@ -59,7 +72,7 @@ void main() {
     final cards = t
         .widgetList<BudgetProgressCard>(find.byType(BudgetProgressCard))
         .toList();
-    expect(cards.map((c) => c.budget.id).toList(), [8, 9, 7]);
+    expect(cards.map((c) => c.budget.id).toList(), [8]);
     expect(find.byKey(const Key('budget-near-limit-8')), findsOneWidget);
   });
 }

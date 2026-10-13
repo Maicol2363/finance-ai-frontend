@@ -23,6 +23,79 @@ class WeeklySpend {
   final int minorUnits;
 }
 
+/// Single day in a cumulative spend trajectory.
+class CumulativeSpendDay {
+  const CumulativeSpendDay({
+    required this.day,
+    required this.dailyMinorUnits,
+    required this.cumulativeMinorUnits,
+  });
+
+  /// Calendar day of the spend.
+  final DateTime day;
+
+  /// Expense incurred specifically on this day (positive integer minor units).
+  final int dailyMinorUnits;
+
+  /// Total cumulative expense from the start of the window up to and including this day.
+  final int cumulativeMinorUnits;
+}
+
+/// Cumulative expense series for spending pace / burn-up visualization.
+///
+/// Accumulates expenses day-by-day starting from [windowStart] up to the effective
+/// cut-off day (the earlier of [windowEnd] and [asOf]/today). Future days are NOT
+/// returned as empty points; instead, their trajectory is projected.
+List<CumulativeSpendDay> cumulativeExpenseSeries({
+  required List<HistoryItem> items,
+  required String currencyCode,
+  required DateTime windowStart,
+  required DateTime windowEnd,
+  DateTime? asOf,
+}) {
+  final startDay = DateTime(
+    windowStart.year,
+    windowStart.month,
+    windowStart.day,
+  );
+  final requestedEnd = DateTime(windowEnd.year, windowEnd.month, windowEnd.day);
+  final localNow = (asOf ?? DateTime.now()).toLocal();
+  final today = DateTime(localNow.year, localNow.month, localNow.day);
+  final effectiveEnd = requestedEnd.isAfter(today) ? today : requestedEnd;
+  if (effectiveEnd.isBefore(startDay)) return const [];
+
+  final days = <DateTime>[];
+  for (
+    var d = startDay;
+    !d.isAfter(effectiveEnd);
+    d = d.add(const Duration(days: 1))
+  ) {
+    days.add(d);
+  }
+
+  final totals = <DateTime, int>{for (final d in days) d: 0};
+  for (final item in items) {
+    final itemLocal = item.occurredAt.toLocal();
+    final bucket = DateTime(itemLocal.year, itemLocal.month, itemLocal.day);
+    if (!totals.containsKey(bucket)) continue;
+    for (final movement in item.movements) {
+      if (movement.currencyCode != currencyCode) continue;
+      final minorUnits = movement.amount.minorUnits;
+      if (minorUnits < 0) totals[bucket] = totals[bucket]! - minorUnits;
+    }
+  }
+
+  var runningTotal = 0;
+  return [
+    for (final d in days)
+      CumulativeSpendDay(
+        day: d,
+        dailyMinorUnits: totals[d]!,
+        cumulativeMinorUnits: (runningTotal += totals[d]!),
+      ),
+  ];
+}
+
 /// Weekly expense series for windows longer than ~2 weeks.
 ///
 /// Buckets [items] in [currencyCode] into Monday-start weeks covering
@@ -34,13 +107,17 @@ List<WeeklySpend> weeklyExpenseSeries({
   required String currencyCode,
   required DateTime windowStart,
   required DateTime windowEnd,
+  DateTime? asOf,
 }) {
   final startDay = DateTime(
     windowStart.year,
     windowStart.month,
     windowStart.day,
   );
-  final endDay = DateTime(windowEnd.year, windowEnd.month, windowEnd.day);
+  final requestedEnd = DateTime(windowEnd.year, windowEnd.month, windowEnd.day);
+  final localNow = (asOf ?? DateTime.now()).toLocal();
+  final today = DateTime(localNow.year, localNow.month, localNow.day);
+  final endDay = requestedEnd.isAfter(today) ? today : requestedEnd;
   if (endDay.isBefore(startDay)) return const [];
   // Monday-start weeks containing the window.
   var weekStart = startDay.subtract(Duration(days: (startDay.weekday - 1) % 7));

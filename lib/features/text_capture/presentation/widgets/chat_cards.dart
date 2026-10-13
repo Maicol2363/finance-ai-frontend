@@ -1,3 +1,4 @@
+import 'package:finance_ai/core/icons/finance_icon_catalog.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -256,7 +257,11 @@ class ConfirmedCard extends StatelessWidget {
             children: [
               Row(
                 children: [
-                  Icon(Icons.check_circle, size: 18, color: palette.income),
+                  Icon(
+                    FinanceIcons.checkCircle,
+                    size: 18,
+                    color: palette.income,
+                  ),
                   const SizedBox(width: 6),
                   Text(
                     noun,
@@ -327,7 +332,7 @@ class FailureCard extends ConsumerWidget {
                     minimumSize: const Size(48, 44),
                   ),
                   onPressed: busy ? null : controller.retry,
-                  icon: const Icon(Icons.refresh, size: 18),
+                  icon: const Icon(FinanceIcons.refresh, size: 18),
                   label: const Text('Reintentar'),
                 ),
               OutlinedButton.icon(
@@ -338,7 +343,7 @@ class FailureCard extends ConsumerWidget {
                   minimumSize: const Size(48, 44),
                 ),
                 onPressed: () => context.push('/expenses/new'),
-                icon: const Icon(Icons.edit_outlined, size: 18),
+                icon: const Icon(FinanceIcons.editOutlined, size: 18),
                 label: const Text('Usar formulario manual'),
               ),
               TextButton(
