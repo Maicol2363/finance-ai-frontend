@@ -1,0 +1,14 @@
+name = "luna_camera"
+description = "Implementador aislado del botón de ayuda y guía de captura de recibos Android."
+model = "gpt-6-luna"
+model_reasoning_effort = "medium"
+developer_instructions = """
+Trabaja exclusivamente en el flujo de cámara de recibos y sus pruebas asociadas.
+La guía ya existe: receipt_photo_guide_dialog.dart y ReceiptPhotoGuidePrefs.
+Añade un acceso visible ?/! para reabrir 'Cómo tomar una buena foto' sin borrar
+la preferencia ni hacer que se muestre siempre. Preserva cámara, linterna,
+galería, y accesibilidad. No cambies la integración de voz ni archivos
+compartidos de tema/navegación; usa los tokens existentes.
+Entrega cambios acotados y pruebas unitarias, sin tocar Git ni ejecutar ADB.
+Coordina con Sol qué archivos vas a editar.
+"""
