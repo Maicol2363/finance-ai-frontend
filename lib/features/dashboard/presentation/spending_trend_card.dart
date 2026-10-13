@@ -248,66 +248,80 @@ class _TrendBodyState extends State<_TrendBody> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Expanded(
-                child: Row(
-                  children: [
-                    const Flexible(
-                      child: Text(
-                        'Tendencia de gasto',
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w700,
-                        ),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final title = Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Flexible(
+                    child: Text(
+                      'Tendencia de gasto',
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
-                    const SizedBox(width: 6),
-                    Tooltip(
-                      message: 'La línea continua muestra el gasto acumulado real. En periodos abiertos, la punteada muestra la proyección al cierre. En periodos cerrados, continúa horizontalmente desde el último gasto hasta el total real del cierre.',
-                      triggerMode: TooltipTriggerMode.tap,
-                      child: Icon(
-                        FinanceIcons.infoOutlineRounded,
-                        size: 15,
-                        color: palette.muted,
+                  ),
+                  const SizedBox(width: 6),
+                  Tooltip(
+                    message: 'La línea continua muestra el gasto acumulado real. En periodos abiertos, la punteada muestra la proyección al cierre. En periodos cerrados, continúa horizontalmente desde el último gasto hasta el total real del cierre.',
+                    triggerMode: TooltipTriggerMode.tap,
+                    child: Icon(
+                      FinanceIcons.infoOutlineRounded,
+                      size: 15,
+                      color: palette.muted,
+                    ),
+                  ),
+                ],
+              );
+              final badge = Container(
+                key: const Key('dashboard-trend-badge'),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
+                decoration: BoxDecoration(
+                  color: palette.soft,
+                  borderRadius: BorderRadius.circular(99),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(widget.icon, size: 14, color: widget.color),
+                    const SizedBox(width: 4),
+                    Flexible(
+                      child: Text(
+                        widget.headline,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          color: widget.color,
+                        ),
                       ),
                     ),
                   ],
                 ),
-              ),
-              Flexible(
-                child: Container(
-                  key: const Key('dashboard-trend-badge'),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: palette.soft,
-                    borderRadius: BorderRadius.circular(99),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(widget.icon, size: 14, color: widget.color),
-                      const SizedBox(width: 4),
-                      Flexible(
-                        child: Text(
-                          widget.headline,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w700,
-                            color: widget.color,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
+              );
+
+              if (constraints.maxWidth < 300) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    title,
+                    const SizedBox(height: 6),
+                    Align(alignment: Alignment.centerRight, child: badge),
+                  ],
+                );
+              }
+              return Row(
+                children: [
+                  Expanded(child: title),
+                  Flexible(child: badge),
+                ],
+              );
+            },
           ),
           const SizedBox(height: 4),
           Text(
@@ -426,23 +440,31 @@ class _TrendBodyState extends State<_TrendBody> {
                 ),
               ),
               if (selLabel != null)
-                Text(
-                  selLabel,
-                  key: const Key('dashboard-trend-selected'),
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                    color: palette.text,
+                Flexible(
+                  child: Text(
+                    selLabel,
+                    key: const Key('dashboard-trend-selected'),
+                    textAlign: TextAlign.end,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color: palette.text,
+                    ),
                   ),
                 )
               else if (widget.projectedMinorUnits != null &&
                   widget.projectedMinorUnits! > 0)
-                Text(
-                  'Cierre est.: ${MoneyFormatter.display(widget.projectedMinorUnits!, widget.currency)}',
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    color: palette.muted,
+                Flexible(
+                  child: Text(
+                    'Cierre est.: ${MoneyFormatter.display(widget.projectedMinorUnits!, widget.currency)}',
+                    textAlign: TextAlign.end,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: palette.muted,
+                    ),
                   ),
                 ),
             ],

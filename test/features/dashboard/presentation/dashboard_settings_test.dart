@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:finance_ai/app.dart';
 import 'package:finance_ai/core/router/app_router.dart';
 import 'package:finance_ai/core/time/clock_provider.dart';
@@ -9,6 +11,7 @@ import 'package:finance_ai/features/categories/data/categories_repository.dart';
 import 'package:finance_ai/features/categories/domain/category_models.dart';
 import 'package:finance_ai/features/dashboard/application/dashboard_summary_provider.dart';
 import 'package:finance_ai/features/dashboard/domain/dashboard_summary.dart';
+import 'package:finance_ai/features/dashboard/presentation/dashboard_screen.dart';
 import 'package:finance_ai/features/expenses/data/expenses_repository.dart';
 import 'package:finance_ai/features/expenses/domain/expense_models.dart';
 import 'package:finance_ai/features/expenses/domain/history_models.dart';
@@ -16,9 +19,14 @@ import 'package:finance_ai/features/income_sources/data/income_sources_repositor
 import 'package:finance_ai/features/income_sources/domain/income_source_models.dart';
 import 'package:finance_ai/features/incomes/data/incomes_repository.dart';
 import 'package:finance_ai/features/incomes/domain/income_models.dart';
+
+import '../../budgets/budget_test_helpers.dart' as budget_helpers;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 
 const _cop = CurrencySummary(
   id: 1,
@@ -50,14 +58,14 @@ final _testCategory = Category(
   updatedAt: DateTime.utc(2026, 9, 1, 10, 0),
 );
 
-Expense _expense() => Expense(
+Expense _expense({String amount = '25.00'}) => Expense(
   id: 7,
   transactionId: 8,
   receiptId: 9,
   name: 'Groceries',
-  amount: MoneyAmount.parseApi('25.00'),
+  amount: MoneyAmount.parseApi(amount),
   quantity: '1.000',
-  unitPrice: MoneyAmount.parseApi('25.00'),
+  unitPrice: MoneyAmount.parseApi(amount),
   note: 'Weekly food',
   category: const ExpenseCategory(id: 3, name: 'Food'),
   receiptName: 'Market',
@@ -121,7 +129,9 @@ class _FakeExpensesRepository implements ExpensesRepository {
 
   @override
   Future<HistoryResult> history(HistoryFilters filters) async => HistoryResult(
-    items: expenses.isEmpty ? const [] : [_historyItem()],
+    items: expenses.isEmpty
+        ? const []
+        : [_historyItem(amount: expenses.first.amount.toApiString())],
     total: expenses.isEmpty ? 0 : 1,
     page: 1,
     pageSize: 50,
@@ -131,7 +141,7 @@ class _FakeExpensesRepository implements ExpensesRepository {
 
 /// The month's expense entry as the history endpoint reports it: the Dashboard
 /// breakdown is built from this, not from the first page of `/expenses`.
-HistoryItem _historyItem() => HistoryItem(
+HistoryItem _historyItem({String amount = '25.00'}) => HistoryItem(
   id: 8,
   type: TransactionType.expense,
   status: ExpenseStatus.confirmed,
@@ -143,7 +153,7 @@ HistoryItem _historyItem() => HistoryItem(
     HistoryMovement(
       accountId: 11,
       accountName: 'Cash',
-      amount: MoneyAmount.parseApi('-25.00'),
+      amount: MoneyAmount.parseApi('-$amount'),
       currency: _cop,
       currencyCode: 'COP',
     ),
@@ -153,7 +163,7 @@ HistoryItem _historyItem() => HistoryItem(
     name: 'Market',
     occurredAt: DateTime.utc(2026, 9, 17, 12, 30),
     purchasedAt: DateTime.utc(2026, 9, 17, 12, 30),
-    totalAmount: MoneyAmount.parseApi('25.00'),
+    totalAmount: MoneyAmount.parseApi(amount),
     note: null,
     store: 'Market',
     storeName: 'Market',
@@ -161,9 +171,9 @@ HistoryItem _historyItem() => HistoryItem(
       HistoryExpenseItem(
         id: 7,
         name: 'Groceries',
-        amount: MoneyAmount.parseApi('25.00'),
+        amount: MoneyAmount.parseApi(amount),
         quantity: '1.000',
-        unitPrice: MoneyAmount.parseApi('25.00'),
+        unitPrice: MoneyAmount.parseApi(amount),
         note: null,
         category: ExpenseCategory(id: 3, name: 'Food'),
         imagePath: null,
@@ -234,9 +244,13 @@ class _FakeCategoriesRepository implements CategoriesRepository {
 }
 
 class _FakeBudgetsRepository implements BudgetsRepository {
+  _FakeBudgetsRepository({this.budgets = const []});
+
+  final List<Budget> budgets;
+
   @override
-  Future<BudgetListResult> list() async => const BudgetListResult(
-    budgets: [],
+  Future<BudgetListResult> list() async => BudgetListResult(
+    budgets: budgets,
     categories: [],
     supportedCurrencies: [_cop],
     suggestedCurrencyCode: 'COP',
@@ -307,9 +321,43 @@ Future<void> _pumpAt(
   String location, {
   List<Expense>? expenses,
   List<Income>? incomes,
+  List<Budget>? budgets,
   DashboardSummary? dashboardSummary,
+  bool isolatedDashboard = false,
 }) async {
-  final router = createAppRouter(initialLocation: location);
+  final router = isolatedDashboard
+      ? GoRouter(
+          initialLocation: '/dashboard',
+          routes: [
+            GoRoute(
+              path: '/dashboard',
+              builder: (context, state) {
+                final theme = Theme.of(context);
+                return Theme(
+                  data: theme.copyWith(
+                    textTheme: theme.textTheme.apply(fontFamily: 'Roboto'),
+                    primaryTextTheme: theme.primaryTextTheme.apply(
+                      fontFamily: 'Roboto',
+                    ),
+                    textButtonTheme: TextButtonThemeData(
+                      style: theme.textButtonTheme.style?.copyWith(
+                        textStyle: const WidgetStatePropertyAll(
+                          TextStyle(
+                            fontFamily: 'Roboto',
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  child: const DashboardScreen(),
+                );
+              },
+            ),
+          ],
+        )
+      : createAppRouter(initialLocation: location);
   addTearDown(router.dispose);
   await tester.pumpWidget(
     ProviderScope(
@@ -321,7 +369,9 @@ Future<void> _pumpAt(
         categoriesRepositoryProvider.overrideWithValue(
           _FakeCategoriesRepository(),
         ),
-        budgetsRepositoryProvider.overrideWithValue(_FakeBudgetsRepository()),
+        budgetsRepositoryProvider.overrideWithValue(
+          _FakeBudgetsRepository(budgets: budgets ?? const []),
+        ),
         incomesRepositoryProvider.overrideWithValue(
           _FakeIncomesRepository(incomes: incomes),
         ),
@@ -342,6 +392,111 @@ Future<void> _pumpAt(
 }
 
 void main() {
+  setUpAll(() async {
+    final font = await File(
+      'test/features/dashboard/presentation/fonts/Roboto-Regular.ttf',
+    ).readAsBytes();
+    await (FontLoader(
+      'Roboto',
+    )..addFont(Future.value(ByteData.sublistView(font)))).load();
+    await (FontLoader('packages/lucide_icons_flutter/Lucide500')..addFont(
+          rootBundle.load(
+            'packages/lucide_icons_flutter/assets/build_font/LucideVariable-w500.ttf',
+          ),
+        ))
+        .load();
+  });
+
+  testWidgets('compact spending summary fits common mobile viewports', (
+    tester,
+  ) async {
+    const sizes = [
+      Size(320, 568),
+      Size(360, 800),
+      Size(390, 844),
+      Size(430, 932),
+    ];
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    for (final size in sizes) {
+      tester.view.physicalSize = size;
+      await _pumpAt(
+        tester,
+        '/dashboard',
+        isolatedDashboard: true,
+        budgets: [
+          budget_helpers.budget(
+            amount: '600000.00',
+            spent: '590000.00',
+            remaining: '10000.00',
+            progress: 98.3,
+          ),
+        ],
+      );
+
+      await tester.drag(find.byType(ListView).first, const Offset(0, -500));
+      await tester.pumpAndSettle();
+      expect(find.text('Gastos este mes'), findsOneWidget);
+      expect(
+        find.byKey(const Key('dashboard-spending-amount')),
+        findsOneWidget,
+      );
+      expect(find.text('Ver análisis'), findsOneWidget);
+      expect(find.byKey(const Key('dashboard-period-selector')), findsNothing);
+      expect(
+        tester.takeException(),
+        isNull,
+        reason: 'collapsed dashboard at ${size.width}x${size.height}',
+      );
+
+      if (size.width == 320) continue;
+      final toggle = find.byKey(const Key('dashboard-analysis-toggle'));
+      await tester.tap(toggle);
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const Key('dashboard-period-selector')),
+        findsOneWidget,
+      );
+      expect(find.text('Gastos por categoría'), findsOneWidget);
+      final expandedException = tester.takeException();
+      expect(
+        expandedException,
+        isNull,
+        reason:
+            'expanded dashboard at ${size.width}x${size.height}: $expandedException',
+      );
+      await tester.tap(toggle);
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('dashboard-period-selector')), findsNothing);
+    }
+
+    tester.view.physicalSize = const Size(390, 844);
+    await _pumpAt(
+      tester,
+      '/dashboard',
+      isolatedDashboard: true,
+      expenses: [_expense(amount: '590000.00')],
+      budgets: [
+        budget_helpers.budget(
+          amount: '600000.00',
+          spent: '590000.00',
+          remaining: '10000.00',
+          progress: 98.3,
+        ),
+      ],
+    );
+    final summaryRect = tester.getRect(
+      find.byKey(const Key('dashboard-analysis')),
+    );
+    expect(summaryRect.bottom, lessThanOrEqualTo(844));
+    await expectLater(
+      find.byType(MaterialApp),
+      matchesGoldenFile('goldens/dashboard_spending_summary_390x844.png'),
+    );
+  });
+
   testWidgets('dark dashboard hero uses a dark olive surface and light text', (
     tester,
   ) async {
@@ -370,14 +525,20 @@ void main() {
     expect(find.text(r'-$ 25 COP'), findsWidgets);
     expect(find.text('Presupuestos'), findsNothing);
     expect(find.text(r'+$ 475 COP'), findsOneWidget);
-    expect(find.text('Detalle de gastos'), findsOneWidget);
-    expect(find.byKey(const Key('dashboard-period-selector')), findsOneWidget);
-    expect(find.text('Gastos por categoría'), findsOneWidget);
+    expect(find.text('Gastos este mes'), findsOneWidget);
+    expect(find.byKey(const Key('dashboard-spending-amount')), findsOneWidget);
+    expect(find.text('Ver análisis'), findsOneWidget);
+    expect(find.byKey(const Key('dashboard-period-selector')), findsNothing);
+    expect(find.text('Gastos por categoría'), findsNothing);
     expect(find.text('Puedes gastar hasta'), findsNothing);
     expect(find.text('Ritmo de gasto diario'), findsNothing);
-    expect(find.text('Ocultar'), findsNothing);
+    expect(find.text('Ocultar análisis'), findsNothing);
     expect(find.text('Ver detalle'), findsNothing);
     expect(find.text('Ritmo de gasto diario'), findsNothing);
+    await tester.tap(find.byKey(const Key('dashboard-analysis-toggle')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('dashboard-period-selector')), findsOneWidget);
+    expect(find.text('Gastos por categoría'), findsOneWidget);
     // History cards show merchant names (Market). The category breakdown may
     // need one more scroll once the lazy history list settles.
     await tester.scrollUntilVisible(find.text('Market').first, 200);
@@ -441,8 +602,12 @@ void main() {
     expect(find.text('Resumen de gastos'), findsNothing);
     expect(find.text('Gastado este mes'), findsNothing);
     expect(find.text('Gasto estimado al cierre'), findsNothing);
+    expect(find.byKey(const Key('dashboard-period-selector')), findsNothing);
+    expect(find.text('Ver análisis'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('dashboard-analysis-toggle')));
+    await tester.pumpAndSettle();
     expect(find.textContaining('Cierre est.:'), findsOneWidget);
-    expect(find.text('Ocultar'), findsNothing);
+    expect(find.text('Ocultar análisis'), findsOneWidget);
     expect(tester.takeException(), isNull, reason: 'on initial dashboard');
 
     await tester.tap(find.byKey(const Key('dashboard-period-lastMonth')));
@@ -474,6 +639,8 @@ void main() {
     tester,
   ) async {
     await _pumpAt(tester, '/dashboard');
+    await tester.tap(find.byKey(const Key('dashboard-analysis-toggle')));
+    await tester.pumpAndSettle();
 
     final tile = find.byKey(const Key('dashboard-category-Food'));
     await tester.scrollUntilVisible(tile, 200);
@@ -489,6 +656,8 @@ void main() {
     await _pumpAt(tester, '/dashboard');
 
     expect(find.text('septiembre · Balance'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('dashboard-analysis-toggle')));
+    await tester.pumpAndSettle();
     final yearPeriod = find.text('Este año').last;
     await tester.ensureVisible(yearPeriod);
     await tester.tap(yearPeriod);
@@ -508,6 +677,8 @@ void main() {
 
     expect(find.text('Saldo en cuentas'), findsOneWidget);
     expect(find.text(r'$ 0 COP'), findsWidgets);
+    await tester.tap(find.byKey(const Key('dashboard-analysis-toggle')));
+    await tester.pumpAndSettle();
     expect(find.text('Gastos por categoría'), findsOneWidget);
     await tester.scrollUntilVisible(find.text('Sin datos suficientes'), 200);
     expect(find.text('Sin datos suficientes'), findsOneWidget);
