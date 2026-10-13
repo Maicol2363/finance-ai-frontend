@@ -9,8 +9,9 @@ The Gastos tab opens on a capture chat. The user writes what happened in their o
 ## Local voice input
 
 Local Spanish/English dictation uses the existing Gastos composer microphone and
-text-AI proposal flow. Android supports hold/release and drag-to-review; Windows
-supports click-to-start and explicit review/send. Android retains working phone
+text-AI proposal flow. Android and Windows use the Anchored Composer: tap the mic,
+see words in the existing message field, pause or edit, resume, and explicitly
+send. Delete discards dictation immediately. Android retains working phone
 recognizers and offers an integrated offline engine on the app's Android 7+
 baseline when a phone service is unavailable or fails. Its language models are
 explicit one-time downloads of about 40 MB each, with real progress and automatic
@@ -53,10 +54,13 @@ Native Windows integration tests temporarily place their headless test harness i
 
 Registration, login, session restoration, and financial operations require a
 reachable API. Offline voice recognition does not remove that requirement. The
-current phone test build uses the computer's API through USB; keep Docker Desktop
-and the computer running and restore `adb reverse tcp:8000 tcp:8000` after
-reconnecting the phone. Full offline application operation is outside this
-checkpoint's scope.
+phone test build can use USB forwarding or the computer's reachable Wi-Fi/hotspot
+address. Keep Docker Desktop and the computer running. For a loopback build,
+restore `adb reverse tcp:8000 tcp:8000` after reconnecting the phone. For cable-free
+testing, build with `-ApiBaseUrl http://<computer-wifi-ip>:8000` and check
+`/health/ready` from the phone first; rebuild if that address changes. See the
+[phone setup instructions](docs/android-voice-ui-handoff.md#cable-free-testing).
+Full offline application operation is outside this checkpoint's scope.
 
 Android emulators use `http://10.0.2.2:8000` by default; Windows uses `http://127.0.0.1:8000`. Override the endpoint at build or run time for a physical phone, another PC, or a future intermediary server:
 

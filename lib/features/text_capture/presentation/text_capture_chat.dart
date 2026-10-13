@@ -1,3 +1,4 @@
+import 'package:finance_ai/core/icons/finance_icon_catalog.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -27,7 +28,16 @@ const _suggestions = <String>[
 /// The Gastos chat: the user writes what happened, the assistant proposes the
 /// operation, and the user confirms, edits or discards it.
 class TextCaptureChat extends ConsumerStatefulWidget {
-  const TextCaptureChat({super.key});
+  const TextCaptureChat({
+    super.key,
+    this.showWheel = true,
+    this.autoFocus = false,
+    this.startVoice = false,
+  });
+
+  final bool showWheel;
+  final bool autoFocus;
+  final bool startVoice;
 
   @override
   ConsumerState<TextCaptureChat> createState() => _TextCaptureChatState();
@@ -60,7 +70,14 @@ class _TextCaptureChatState extends ConsumerState<TextCaptureChat>
     )..addListener(_voiceChanged);
     _focus.addListener(_composerFocusChanged);
     Future<void>.microtask(() {
-      if (mounted) _voice.prepare();
+      if (mounted) {
+        _voice.prepare();
+        if (widget.startVoice) {
+          _beginVoice();
+        } else if (widget.autoFocus) {
+          _focus.requestFocus();
+        }
+      }
     });
   }
 
@@ -234,20 +251,24 @@ class _TextCaptureChatState extends ConsumerState<TextCaptureChat>
                       ),
                     ),
                   ),
-                  CaptureWheel(
-                    onPhoto: () {
-                      _voice.interrupt();
-                      startReceiptCapture(context, source: ImageSource.camera);
-                    },
-                    onText: () {
-                      _voice.interrupt();
-                      _focus.requestFocus();
-                    },
-                    onManual: () {
-                      _voice.interrupt();
-                      context.push('/expenses/new');
-                    },
-                  ),
+                  if (widget.showWheel)
+                    CaptureWheel(
+                      onPhoto: () {
+                        _voice.interrupt();
+                        startReceiptCapture(
+                          context,
+                          source: ImageSource.camera,
+                        );
+                      },
+                      onAi: () {
+                        _voice.interrupt();
+                        _focus.requestFocus();
+                      },
+                      onManual: () {
+                        _voice.interrupt();
+                        context.push('/expenses/new');
+                      },
+                    ),
                 ],
               ),
             ),
@@ -580,7 +601,7 @@ class _ComposerState extends State<_Composer> {
                       minimumSize: const Size(48, 48),
                     ),
                     onPressed: canSend ? widget.onSend : null,
-                    icon: const Icon(Icons.arrow_upward_rounded),
+                    icon: const Icon(FinanceIcons.arrowUpwardRounded),
                   ),
                 ),
               ],

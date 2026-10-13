@@ -1,3 +1,5 @@
+import 'package:finance_ai/core/icons/finance_icon_catalog.dart';
+
 import 'dart:async';
 
 import 'package:camera/camera.dart';
@@ -293,7 +295,7 @@ class _ReceiptCameraScreenState extends ConsumerState<ReceiptCameraScreen>
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             const Icon(
-              Icons.photo_camera_outlined,
+              FinanceIcons.photoCameraOutlined,
               size: 56,
               color: Colors.white54,
             ),
@@ -338,7 +340,7 @@ class _ReceiptCameraScreenState extends ConsumerState<ReceiptCameraScreen>
           child: Row(
             children: [
               _glassButton(
-                icon: Icons.close,
+                icon: FinanceIcons.close,
                 tooltip: 'Cerrar',
                 onTap: () => Navigator.of(context).pop(),
               ),
@@ -354,7 +356,9 @@ class _ReceiptCameraScreenState extends ConsumerState<ReceiptCameraScreen>
                 ),
               ),
               _glassButton(
-                icon: _torchOn ? Icons.flashlight_on : Icons.flashlight_off,
+                icon: _torchOn
+                    ? FinanceIcons.flashlightOn
+                    : FinanceIcons.flashlightOff,
                 tooltip: 'Linterna',
                 onTap: _toggleTorch,
               ),
@@ -376,13 +380,13 @@ class _ReceiptCameraScreenState extends ConsumerState<ReceiptCameraScreen>
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
               _glassButton(
-                icon: Icons.photo_library_outlined,
+                icon: FinanceIcons.photoLibraryOutlined,
                 tooltip: 'Galería',
                 onTap: _pickFromGallery,
               ),
               _buildShutter(),
               _glassButton(
-                icon: Icons.cameraswitch_outlined,
+                icon: FinanceIcons.cameraswitchOutlined,
                 tooltip: 'Cambiar cámara',
                 onTap: _flipCamera,
               ),
@@ -394,33 +398,46 @@ class _ReceiptCameraScreenState extends ConsumerState<ReceiptCameraScreen>
   }
 
   Widget _buildShutter() {
-    return GestureDetector(
-      onTap: _capturePhoto,
-      child: Container(
-        width: 78,
-        height: 78,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          border: Border.all(color: Colors.white, width: 4),
-        ),
-        padding: const EdgeInsets.all(5),
+    final controller = _controller;
+    final canCapture =
+        !_initializing &&
+        !_capturing &&
+        controller != null &&
+        controller.value.isInitialized;
+    return Semantics(
+      button: true,
+      label: 'Tomar foto del recibo',
+      enabled: canCapture,
+      onTap: canCapture ? _capturePhoto : null,
+      excludeSemantics: true,
+      child: GestureDetector(
+        onTap: canCapture ? _capturePhoto : null,
         child: Container(
+          width: 78,
+          height: 78,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            color: _capturing ? Colors.white54 : Colors.white,
+            border: Border.all(color: Colors.white, width: 4),
           ),
-          child: _capturing
-              ? const Center(
-                  child: SizedBox(
-                    width: 26,
-                    height: 26,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2.5,
-                      color: Colors.black,
+          padding: const EdgeInsets.all(5),
+          child: Container(
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: _capturing ? Colors.white54 : Colors.white,
+            ),
+            child: _capturing
+                ? const Center(
+                    child: SizedBox(
+                      width: 26,
+                      height: 26,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2.5,
+                        color: Colors.black,
+                      ),
                     ),
-                  ),
-                )
-              : null,
+                  )
+                : null,
+          ),
         ),
       ),
     );

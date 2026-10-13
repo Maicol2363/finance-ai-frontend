@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:finance_ai/core/icons/finance_icon_catalog.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
@@ -29,6 +30,7 @@ class VoiceControls extends StatefulWidget {
 }
 
 class _VoiceControlsState extends State<VoiceControls> {
+  final _pauseFocusNode = FocusNode(debugLabel: 'voice-pause-resume');
   Timer? _clock;
   int _seconds = 0;
 
@@ -69,6 +71,7 @@ class _VoiceControlsState extends State<VoiceControls> {
   void dispose() {
     widget.controller.removeListener(_syncClock);
     _clock?.cancel();
+    _pauseFocusNode.dispose();
     super.dispose();
   }
 
@@ -117,7 +120,7 @@ class _VoiceControlsState extends State<VoiceControls> {
           )
         else
           Icon(
-            controller.capturing ? Icons.mic : Icons.mic_outlined,
+            controller.capturing ? FinanceIcons.mic : FinanceIcons.micOutlined,
             size: 18,
             color: palette.primary,
           ),
@@ -169,7 +172,7 @@ class _VoiceControlsState extends State<VoiceControls> {
       key: const Key('voice-close'),
       tooltip: 'Cerrar dictado y conservar texto',
       onPressed: widget.onClose,
-      icon: const Icon(Icons.close, size: 18),
+      icon: const Icon(FinanceIcons.close, size: 18),
     );
     return Padding(
       key: const Key('voice-controls'),
@@ -303,11 +306,12 @@ class _VoiceControlsState extends State<VoiceControls> {
                             borderRadius: BorderRadius.circular(12),
                           ),
                         ),
-                        icon: const Icon(Icons.delete_outline_rounded),
+                        icon: const Icon(FinanceIcons.deleteOutline),
                       ),
                       const SizedBox(width: 8),
                       Expanded(
                         child: OutlinedButton.icon(
+                          focusNode: _pauseFocusNode,
                           key: Key(
                             controller.active
                                 ? 'voice-review-stop'
@@ -325,8 +329,8 @@ class _VoiceControlsState extends State<VoiceControls> {
                           ),
                           icon: Icon(
                             controller.active
-                                ? Icons.pause
-                                : Icons.mic_outlined,
+                                ? FinanceIcons.pause
+                                : FinanceIcons.micOutlined,
                             size: 18,
                           ),
                           label: Text(
@@ -356,7 +360,7 @@ class _VoiceControlsState extends State<VoiceControls> {
   }
 }
 
-class VoiceMicButton extends StatelessWidget {
+class VoiceMicButton extends StatefulWidget {
   const VoiceMicButton({
     required this.controller,
     required this.isBusy,
@@ -369,19 +373,33 @@ class VoiceMicButton extends StatelessWidget {
   final VoidCallback onBegin;
 
   @override
+  State<VoiceMicButton> createState() => _VoiceMicButtonState();
+}
+
+class _VoiceMicButtonState extends State<VoiceMicButton> {
+  final _micFocusNode = FocusNode(debugLabel: 'voice-dictation-button');
+
+  @override
+  void dispose() {
+    _micFocusNode.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final palette = context.palette;
     final blocked =
-        isBusy ||
-        controller.downloading ||
-        controller.phase == VoicePhase.finalizing;
+        widget.isBusy ||
+        widget.controller.downloading ||
+        widget.controller.phase == VoicePhase.finalizing;
     return SizedBox(
       width: 48,
       height: 48,
       child: IconButton.filled(
         key: const Key('chat-voice-button'),
+        focusNode: _micFocusNode,
         tooltip: 'Dictar mensaje',
-        onPressed: blocked ? null : onBegin,
+        onPressed: blocked ? null : widget.onBegin,
         style: IconButton.styleFrom(
           backgroundColor: palette.primarySoft,
           foregroundColor: palette.primary,
@@ -389,7 +407,7 @@ class VoiceMicButton extends StatelessWidget {
           disabledForegroundColor: palette.placeholder,
           minimumSize: const Size(48, 48),
         ),
-        icon: const Icon(Icons.mic_outlined),
+        icon: const Icon(FinanceIcons.micOutlined),
       ),
     );
   }

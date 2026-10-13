@@ -1,3 +1,4 @@
+import 'package:finance_ai/core/icons/finance_icon_catalog.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -53,7 +54,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
             AppHeader(
               title: 'Crear cuenta',
               leading: HeaderIconButton(
-                icon: Icons.arrow_back,
+                icon: FinanceIcons.arrowBack,
                 tooltip: 'Volver',
                 onPressed: state.isSubmitting
                     ? null
@@ -70,7 +71,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        const AuthBrand(mark: '+', showTitle: false),
+                        const AuthBrand(showTitle: false),
                         const SizedBox(height: 12),
                         if (state.diagnostic case final diagnostic?) ...[
                           ErrorDiagnosticPanel(
@@ -97,11 +98,6 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                                   height: 1.45,
                                 ),
                               ),
-                              const FieldLabel(
-                                'Correo electrónico',
-                                uppercase: false,
-                                topSpacing: 12,
-                              ),
                               TextField(
                                 key: const Key('register-email-input'),
                                 controller: _emailController,
@@ -114,6 +110,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                                 decoration: pillInputDecoration(
                                   context,
                                   hint: 'tu@correo.com',
+                                  labelText: 'Correo electrónico',
                                   errorText: _firstError(state, 'email'),
                                 ),
                                 onChanged: (_) =>
@@ -121,7 +118,6 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                                 onSubmitted: (_) =>
                                     _passwordFocus.requestFocus(),
                               ),
-                              const FieldLabel('Contraseña', uppercase: false),
                               TextField(
                                 key: const Key('register-password-input'),
                                 controller: _passwordController,
@@ -137,6 +133,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                                 decoration: pillInputDecoration(
                                   context,
                                   hint: 'Mínimo 8 caracteres',
+                                  labelText: 'Contraseña',
                                   errorText: _firstError(state, 'password'),
                                   suffixIcon: IconButton(
                                     key: const Key(
@@ -153,8 +150,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                                           ),
                                     icon: Icon(
                                       _showPassword
-                                          ? Icons.visibility_off
-                                          : Icons.visibility,
+                                          ? FinanceIcons.visibilityOff
+                                          : FinanceIcons.visibility,
                                       size: 18,
                                     ),
                                   ),
@@ -163,10 +160,6 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                                     controller.clearFieldError('password'),
                                 onSubmitted: (_) =>
                                     _confirmationFocus.requestFocus(),
-                              ),
-                              const FieldLabel(
-                                'Confirmar contraseña',
-                                uppercase: false,
                               ),
                               TextField(
                                 key: const Key(
@@ -185,6 +178,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                                 decoration: pillInputDecoration(
                                   context,
                                   hint: 'Repite tu contraseña',
+                                  labelText: 'Confirmar contraseña',
                                   errorText: _firstError(
                                     state,
                                     'password_confirmation',
@@ -204,8 +198,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                                           ),
                                     icon: Icon(
                                       _showConfirmation
-                                          ? Icons.visibility_off
-                                          : Icons.visibility,
+                                          ? FinanceIcons.visibilityOff
+                                          : FinanceIcons.visibility,
                                       size: 18,
                                     ),
                                   ),

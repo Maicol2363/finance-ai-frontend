@@ -219,3 +219,18 @@ build retains the existing audio-test package and loopback API configuration.
 The controller, native engines, event bridge, repositories, dependencies, shared
 theme and navigation are unchanged. Native live-microphone accuracy remains the
 previous checkpoint's device-testing concern; this UI work does not remeasure it.
+
+## Integration with develop for team review
+
+On 2026-10-13, the branch was integrated with the current `develop` UI and
+accessibility changes. The Anchored Composer uses the shared icon catalog,
+preserves the global quick-capture sheet's voice/text entry modes, and keeps
+explicit keyboard focus for microphone and pause/resume controls. Added checks
+cover focused Enter/Space activation and both quick-capture modes.
+
+All 521 shared Flutter tests pass with 84.70% line coverage; formatting and static
+analysis pass. Integration also updates stale UI test labels/icon selectors,
+scopes the logout scroll target, disposes a semantics handle before test-end
+verification, and refreshes the visually reviewed dashboard golden to the
+existing `develop` design. Accounts, authentication, dashboard, settings and
+receipt production behavior remain exactly as supplied by `develop`.

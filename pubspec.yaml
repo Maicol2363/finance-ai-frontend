@@ -1,7 +1,7 @@
 name: finance_ai
 description: Manual-first personal budgeting application.
 publish_to: "none"
-version: 0.1.0+1
+version: 0.8.0+8
 
 environment:
   sdk: ">=3.13.2 <3.14.0"
@@ -15,6 +15,7 @@ dependencies:
   go_router: 18.0.0
   http: 1.6.0
   image_picker: ^1.2.3
+  lucide_icons_flutter: ^3.1.25
   path_provider: ^2.1.6
   shared_preferences: ^2.5.5
 
@@ -27,3 +28,5 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  assets:
+    - assets/branding/finance-ai-app-icon.png

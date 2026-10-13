@@ -1,3 +1,5 @@
+import 'package:finance_ai/core/icons/finance_icon_catalog.dart';
+
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -5,6 +7,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/diagnostics/error_diagnostic_panel.dart';
+import '../../../core/widgets/app_header.dart';
+import '../../../core/widgets/management_page_scaffold.dart';
 import '../../receipt_capture/data/receipt_photo_cache_repository.dart';
 import '../../receipt_capture/presentation/widgets/receipt_photo_viewer_dialog.dart';
 import '../application/expenses_controller.dart';
@@ -82,128 +86,118 @@ class _ExpenseDetailScreenState extends ConsumerState<ExpenseDetailScreen> {
         expense != null &&
         (expense.captureSource == CaptureSource.ai || expense.items.length > 1);
 
-    return Scaffold(
-      appBar: AppBar(
-        leading: IconButton(
-          tooltip: context.canPop() ? 'Volver' : 'Volver a gastos',
-          onPressed: () {
-            if (context.canPop()) {
-              context.pop();
-            } else {
-              context.go('/home');
-            }
-          },
-          icon: const Icon(Icons.arrow_back),
-        ),
-        title: Text(isReceipt ? 'Detalle del recibo' : 'Detalle del gasto'),
+    return ManagementPageScaffold(
+      title: isReceipt ? 'Detalle del recibo' : 'Detalle del gasto',
+      leading: HeaderIconButton(
+        icon: FinanceIcons.arrowBack,
+        tooltip: context.canPop() ? 'Volver' : 'Volver a gastos',
+        onPressed: () {
+          if (context.canPop()) {
+            context.pop();
+          } else {
+            context.go('/home');
+          }
+        },
       ),
-      body: SafeArea(
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 680),
-            child: ListView(
-              padding: const EdgeInsets.fromLTRB(24, 20, 24, 40),
-              children: [
-                if (state.detailStatus == ExpenseDetailStatus.loading) ...[
-                  Semantics(
-                    liveRegion: true,
-                    label: isReceipt
-                        ? 'Cargando el detalle del recibo'
-                        : 'Cargando el detalle del gasto',
-                    child: const LinearProgressIndicator(),
-                  ),
-                  const SizedBox(height: 20),
-                ],
-                if (state.detailDiagnostic case final diagnostic?) ...[
-                  ErrorDiagnosticPanel(diagnostic: diagnostic),
-                  const SizedBox(height: 12),
-                  OutlinedButton.icon(
-                    onPressed: () => controller.loadDetail(widget.expenseId),
-                    icon: const Icon(Icons.refresh),
-                    label: const Text('Reintentar'),
-                  ),
-                  const SizedBox(height: 20),
-                ],
-                if (expense != null) _ExpenseDetails(expense: expense),
-                if (expense != null && _cachedReceiptPhoto != null) ...[
-                  const SizedBox(height: 20),
-                  _AttachedReceiptCard(
-                    photoFile: _cachedReceiptPhoto!,
-                    onTap: () {
-                      ReceiptPhotoViewerDialog.show(
-                        context,
-                        imageFile: _cachedReceiptPhoto!,
-                      );
-                    },
-                  ),
-                ],
-                if (expense != null) ...[
-                  const SizedBox(height: 28),
-                  FilledButton.icon(
-                    key: const Key('expense-edit-button'),
-                    onPressed: state.isSaving || !expense.isEditable
-                        ? null
-                        : () async {
-                            await context.push(
-                              '/expenses/${widget.expenseId}/edit',
-                            );
-                            if (context.mounted) {
-                              controller.loadDetail(widget.expenseId);
-                            }
-                          },
-                    icon: const Icon(Icons.edit_outlined),
-                    label: Text(isReceipt ? 'Editar recibo' : 'Editar gasto'),
-                  ),
-                  if (!expense.isEditable)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 8),
-                      child: Text(
-                        isReceipt
-                            ? 'Solo los recibos confirmados se pueden editar o eliminar.'
-                            : 'Solo los gastos confirmados se pueden editar o eliminar.',
-                      ),
-                    ),
-                  const SizedBox(height: 12),
-                  OutlinedButton.icon(
-                    key: const Key('expense-delete-button'),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: Theme.of(context).colorScheme.error,
-                    ),
-                    onPressed: state.isSaving || !expense.isEditable
-                        ? null
-                        : () => _confirmDeletion(expense),
-                    icon: const Icon(Icons.delete_outline),
-                    label: Text(
-                      isReceipt
-                          ? 'Eliminar recibo definitivamente'
-                          : 'Eliminar gasto definitivamente',
-                    ),
-                  ),
-                ],
-                if (state.isSaving) ...[
-                  const SizedBox(height: 20),
-                  Semantics(
-                    liveRegion: true,
-                    label: 'Guardando los cambios del gasto',
-                    child: const LinearProgressIndicator(),
-                  ),
-                ],
-                if (state.mutationDiagnostic case final diagnostic?) ...[
-                  const SizedBox(height: 20),
-                  ErrorDiagnosticPanel(diagnostic: diagnostic),
-                ],
-                if (state.requiresMutationReview) ...[
-                  const SizedBox(height: 12),
-                  FilledButton.icon(
-                    onPressed: controller.resolveUncertainMutation,
-                    icon: const Icon(Icons.sync),
-                    label: const Text('Actualizar antes de reintentar'),
-                  ),
-                ],
-              ],
+      contentPadding: const EdgeInsets.fromLTRB(16, 8, 16, 40),
+      body: ListView(
+        padding: EdgeInsets.zero,
+        children: [
+          if (state.detailStatus == ExpenseDetailStatus.loading) ...[
+            Semantics(
+              liveRegion: true,
+              label: isReceipt
+                  ? 'Cargando el detalle del recibo'
+                  : 'Cargando el detalle del gasto',
+              child: const LinearProgressIndicator(),
             ),
-          ),
-        ),
+            const SizedBox(height: 20),
+          ],
+          if (state.detailDiagnostic case final diagnostic?) ...[
+            ErrorDiagnosticPanel(diagnostic: diagnostic),
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
+              onPressed: () => controller.loadDetail(widget.expenseId),
+              icon: const Icon(FinanceIcons.refresh),
+              label: const Text('Reintentar'),
+            ),
+            const SizedBox(height: 20),
+          ],
+          if (expense != null) _ExpenseDetails(expense: expense),
+          if (expense != null && _cachedReceiptPhoto != null) ...[
+            const SizedBox(height: 20),
+            _AttachedReceiptCard(
+              photoFile: _cachedReceiptPhoto!,
+              onTap: () {
+                ReceiptPhotoViewerDialog.show(
+                  context,
+                  imageFile: _cachedReceiptPhoto!,
+                );
+              },
+            ),
+          ],
+          if (expense != null) ...[
+            const SizedBox(height: 28),
+            FilledButton.icon(
+              key: const Key('expense-edit-button'),
+              onPressed: state.isSaving || !expense.isEditable
+                  ? null
+                  : () async {
+                      await context.push('/expenses/${widget.expenseId}/edit');
+                      if (context.mounted) {
+                        controller.loadDetail(widget.expenseId);
+                      }
+                    },
+              icon: const Icon(FinanceIcons.editOutlined),
+              label: Text(isReceipt ? 'Editar recibo' : 'Editar gasto'),
+            ),
+            if (!expense.isEditable)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Text(
+                  isReceipt
+                      ? 'Solo los recibos confirmados se pueden editar o eliminar.'
+                      : 'Solo los gastos confirmados se pueden editar o eliminar.',
+                ),
+              ),
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
+              key: const Key('expense-delete-button'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: Theme.of(context).colorScheme.error,
+              ),
+              onPressed: state.isSaving || !expense.isEditable
+                  ? null
+                  : () => _confirmDeletion(expense),
+              icon: const Icon(FinanceIcons.deleteOutline),
+              label: Text(
+                isReceipt
+                    ? 'Eliminar recibo definitivamente'
+                    : 'Eliminar gasto definitivamente',
+              ),
+            ),
+          ],
+          if (state.isSaving) ...[
+            const SizedBox(height: 20),
+            Semantics(
+              liveRegion: true,
+              label: 'Guardando los cambios del gasto',
+              child: const LinearProgressIndicator(),
+            ),
+          ],
+          if (state.mutationDiagnostic case final diagnostic?) ...[
+            const SizedBox(height: 20),
+            ErrorDiagnosticPanel(diagnostic: diagnostic),
+          ],
+          if (state.requiresMutationReview) ...[
+            const SizedBox(height: 12),
+            FilledButton.icon(
+              onPressed: controller.resolveUncertainMutation,
+              icon: const Icon(FinanceIcons.sync),
+              label: const Text('Actualizar antes de reintentar'),
+            ),
+          ],
+        ],
       ),
     );
   }
@@ -233,7 +227,7 @@ class _ExpenseDetailScreenState extends ConsumerState<ExpenseDetailScreen> {
           FilledButton(
             key: const Key('expense-confirm-delete-button'),
             style: FilledButton.styleFrom(
-              minimumSize: const Size(0, 40),
+              minimumSize: const Size(0, 48),
               backgroundColor: Theme.of(context).colorScheme.error,
               foregroundColor: Theme.of(context).colorScheme.onError,
             ),
@@ -303,7 +297,9 @@ class _ExpenseDetails extends StatelessWidget {
           alignment: Alignment.centerLeft,
           child: Chip(
             avatar: Icon(
-              expense.isEditable ? Icons.check_circle_outline : Icons.lock,
+              expense.isEditable
+                  ? FinanceIcons.checkCircleOutline
+                  : FinanceIcons.lock,
             ),
             label: Text(expense.isEditable ? 'Editable' : 'No editable'),
           ),
@@ -485,7 +481,10 @@ class _AttachedReceiptCard extends StatelessWidget {
           children: [
             Row(
               children: [
-                Icon(Icons.receipt_long_outlined, color: colorScheme.primary),
+                Icon(
+                  FinanceIcons.receiptLongOutlined,
+                  color: colorScheme.primary,
+                ),
                 const SizedBox(width: 8),
                 Text(
                   'Comprobante adjunto',
@@ -525,7 +524,11 @@ class _AttachedReceiptCard extends StatelessWidget {
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(Icons.zoom_in, color: Colors.white, size: 20),
+                            Icon(
+                              FinanceIcons.zoomIn,
+                              color: Colors.white,
+                              size: 20,
+                            ),
                             SizedBox(width: 6),
                             Text(
                               'Tocar para ampliar',
@@ -547,7 +550,7 @@ class _AttachedReceiptCard extends StatelessWidget {
               alignment: Alignment.centerRight,
               child: TextButton.icon(
                 onPressed: onTap,
-                icon: const Icon(Icons.fullscreen, size: 18),
+                icon: const Icon(FinanceIcons.fullscreen, size: 18),
                 label: const Text('Ver comprobante completo'),
               ),
             ),

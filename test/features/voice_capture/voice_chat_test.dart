@@ -1,4 +1,5 @@
 import 'package:finance_ai/core/theme/app_theme.dart';
+import 'package:finance_ai/features/text_capture/presentation/text_capture_chat.dart';
 import 'package:finance_ai/features/voice_capture/domain/speech_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -35,6 +36,86 @@ void main() {
   final platforms = TargetPlatformVariant({
     TargetPlatform.android,
     TargetPlatform.windows,
+  });
+
+  testWidgets(
+    'focused Enter starts dictation and Space pauses without sending',
+    (tester) async {
+      final (speech, repository) = await setup(tester);
+      final mic = tester.widget<IconButton>(key('chat-voice-button'));
+      expect(mic.focusNode!.canRequestFocus, isTrue);
+      expect(mic.focusNode!.skipTraversal, isFalse);
+      mic.focusNode!.requestFocus();
+      await tester.pump();
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pump();
+      final id = speech.starts.single.$1;
+      speech.event(id, SpeechEventType.partial, text: 'Dictado privado');
+      await tester.pump();
+
+      final pause = tester.widget<OutlinedButton>(key('voice-review-stop'));
+      pause.focusNode!.requestFocus();
+      await tester.pump();
+      await tester.sendKeyEvent(LogicalKeyboardKey.space);
+      await tester.pump();
+      expect(speech.stops, [id]);
+      speech.event(id, SpeechEventType.finalResult, text: 'Dictado privado');
+      await tester.pumpAndSettle();
+      expect(key('voice-resume'), findsOneWidget);
+      expect(repository.proposeCalls, isEmpty);
+    },
+    variant: platforms,
+  );
+
+  testWidgets(
+    'quick capture starts voice in the same composer without a wheel',
+    (tester) async {
+      final speech = FakeSpeechService()..autoReady = true;
+      addTearDown(speech.dispose);
+      final repository = FakeTextCaptureRepository(proposals: [proposal()]);
+      await pumpChat(
+        tester,
+        repository,
+        speech: speech,
+        chat: const TextCaptureChat(showWheel: false, startVoice: true),
+      );
+      expect(speech.starts, hasLength(1));
+      expect(key('expenses-create-fab'), findsNothing);
+      speech.event(
+        speech.starts.single.$1,
+        SpeechEventType.partial,
+        text: 'Pagué el almuerzo',
+      );
+      await tester.pump();
+      expect(
+        tester.widget<TextField>(key('chat-composer-field')).controller!.text,
+        'Pagué el almuerzo',
+      );
+      expect(key('voice-review-stop'), findsOneWidget);
+      expect(repository.proposeCalls, isEmpty);
+      await tester.tap(key('voice-discard'));
+      await tester.pumpAndSettle();
+    },
+    variant: platforms,
+  );
+
+  testWidgets('quick text capture focuses the editor without starting voice', (
+    tester,
+  ) async {
+    final speech = FakeSpeechService()..autoReady = true;
+    addTearDown(speech.dispose);
+    await pumpChat(
+      tester,
+      FakeTextCaptureRepository(),
+      speech: speech,
+      chat: const TextCaptureChat(showWheel: false, autoFocus: true),
+    );
+    expect(
+      tester.widget<TextField>(key('chat-composer-field')).focusNode!.hasFocus,
+      isTrue,
+    );
+    expect(key('expenses-create-fab'), findsNothing);
+    expect(speech.starts, isEmpty);
   });
 
   testWidgets('permission recovery still opens the app permission settings', (
@@ -425,7 +506,10 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(key('voice-error-details'));
       await tester.pumpAndSettle();
-      expect(find.text('Error code: speech_permission_denied'), findsOneWidget);
+      expect(
+        find.text('Código de error: speech_permission_denied'),
+        findsOneWidget,
+      );
       expect(key('copy-error-details-button'), findsOneWidget);
       expect(
         find.descendant(

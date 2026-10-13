@@ -1,3 +1,4 @@
+import 'package:finance_ai/core/icons/finance_icon_catalog.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -104,7 +105,7 @@ class ClarificationCard extends ConsumerWidget {
                     key: const Key('clarification-discard'),
                     style: TextButton.styleFrom(
                       foregroundColor: palette.discard,
-                      minimumSize: const Size(48, 44),
+                      minimumSize: const Size(48, 48),
                       padding: const EdgeInsets.symmetric(horizontal: 4),
                     ),
                     onPressed: busy ? null : () => controller.discard(entry),
@@ -256,7 +257,11 @@ class ConfirmedCard extends StatelessWidget {
             children: [
               Row(
                 children: [
-                  Icon(Icons.check_circle, size: 18, color: palette.income),
+                  Icon(
+                    FinanceIcons.checkCircle,
+                    size: 18,
+                    color: palette.income,
+                  ),
                   const SizedBox(width: 6),
                   Text(
                     noun,
@@ -277,7 +282,7 @@ class ConfirmedCard extends StatelessWidget {
                     key: const Key('confirmed-view'),
                     style: TextButton.styleFrom(
                       foregroundColor: palette.income,
-                      minimumSize: const Size(48, 44),
+                      minimumSize: const Size(48, 48),
                       padding: const EdgeInsets.symmetric(horizontal: 4),
                     ),
                     onPressed: () => context.push(route),
@@ -324,10 +329,10 @@ class FailureCard extends ConsumerWidget {
                   style: FilledButton.styleFrom(
                     backgroundColor: palette.primary,
                     foregroundColor: palette.onPrimary,
-                    minimumSize: const Size(48, 44),
+                    minimumSize: const Size(48, 48),
                   ),
                   onPressed: busy ? null : controller.retry,
-                  icon: const Icon(Icons.refresh, size: 18),
+                  icon: const Icon(FinanceIcons.refresh, size: 18),
                   label: const Text('Reintentar'),
                 ),
               OutlinedButton.icon(
@@ -335,17 +340,17 @@ class FailureCard extends ConsumerWidget {
                 style: OutlinedButton.styleFrom(
                   foregroundColor: palette.primary,
                   side: BorderSide(color: palette.primary),
-                  minimumSize: const Size(48, 44),
+                  minimumSize: const Size(48, 48),
                 ),
                 onPressed: () => context.push('/expenses/new'),
-                icon: const Icon(Icons.edit_outlined, size: 18),
+                icon: const Icon(FinanceIcons.editOutlined, size: 18),
                 label: const Text('Usar formulario manual'),
               ),
               TextButton(
                 key: const Key('chat-dismiss'),
                 style: TextButton.styleFrom(
                   foregroundColor: palette.muted,
-                  minimumSize: const Size(48, 44),
+                  minimumSize: const Size(48, 48),
                 ),
                 onPressed: controller.dismissFailure,
                 child: const Text('Descartar'),
