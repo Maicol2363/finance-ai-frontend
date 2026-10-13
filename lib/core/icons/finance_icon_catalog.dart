@@ -111,9 +111,26 @@ abstract final class FinanceIcons {
 
 /// App-owned meanings for finance icons. Stored category values stay unchanged.
 enum FinanceIconKey {
-  account, transfer, budget, category, income, expense, food, transport, home,
-  health, education, entertainment, shopping, bills, travel, gift, receipt,
-  aiCapture, manualCapture, import,
+  account,
+  transfer,
+  budget,
+  category,
+  income,
+  expense,
+  food,
+  transport,
+  home,
+  health,
+  education,
+  entertainment,
+  shopping,
+  bills,
+  travel,
+  gift,
+  receipt,
+  aiCapture,
+  manualCapture,
+  import,
 }
 
 abstract final class FinanceIconCatalog {
