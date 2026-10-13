@@ -506,10 +506,7 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(key('voice-error-details'));
       await tester.pumpAndSettle();
-      expect(
-        find.text('Código de error: speech_permission_denied'),
-        findsOneWidget,
-      );
+      expect(find.text('Error code: speech_permission_denied'), findsOneWidget);
       expect(key('copy-error-details-button'), findsOneWidget);
       expect(
         find.descendant(

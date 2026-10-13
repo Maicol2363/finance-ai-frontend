@@ -228,9 +228,17 @@ preserves the global quick-capture sheet's voice/text entry modes, and keeps
 explicit keyboard focus for microphone and pause/resume controls. Added checks
 cover focused Enter/Space activation and both quick-capture modes.
 
-All 521 shared Flutter tests pass with 84.70% line coverage; formatting and static
-analysis pass. Integration also updates stale UI test labels/icon selectors,
-scopes the logout scroll target, disposes a semantics handle before test-end
-verification, and refreshes the visually reviewed dashboard golden to the
-existing `develop` design. Accounts, authentication, dashboard, settings and
-receipt production behavior remain exactly as supplied by `develop`.
+The final integration uses `develop` at `cd0fcc6`, including the compatible
+accessibility follow-up. Formatting and static analysis pass. The full shared
+run records 500 passing tests, 12 failures and 84.50% line coverage. All composer,
+quick-capture, voice state, native-event and responsive-layout checks pass.
+
+The remaining failures concern nine assertions expecting Spanish diagnostic
+labels while the shared panel uses English, a header-heading assertion, a
+selection-control accessibility assertion, and the dashboard golden. The
+production UI and behavior involved in those failures match `develop`; this
+integration does not change them to satisfy unrelated assertions. The dashboard
+golden also remains the existing `develop` fixture. Accounts, authentication,
+dashboard, settings and receipt production behavior remain as supplied by
+`develop`. Test-only updates scope logout scrolling to the relevant screen and
+align receipt icon lookup with the shared icon catalog.

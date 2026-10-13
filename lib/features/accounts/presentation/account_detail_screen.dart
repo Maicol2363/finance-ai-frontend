@@ -171,7 +171,7 @@ class _AccountDetailScreenState extends ConsumerState<AccountDetailScreen> {
                 child: OutlinedButton(
                   onPressed: () => Navigator.pop(context, false),
                   style: OutlinedButton.styleFrom(
-                    minimumSize: const Size.fromHeight(48),
+                    minimumSize: const Size.fromHeight(44),
                   ),
                   child: const Text('Cancelar'),
                 ),
@@ -181,7 +181,7 @@ class _AccountDetailScreenState extends ConsumerState<AccountDetailScreen> {
                 child: FilledButton(
                   key: const Key('account-confirm-deactivate-button'),
                   style: FilledButton.styleFrom(
-                    minimumSize: const Size.fromHeight(48),
+                    minimumSize: const Size.fromHeight(44),
                   ),
                   onPressed: () => Navigator.pop(context, true),
                   child: const Text('Desactivar'),
@@ -213,7 +213,7 @@ class _AccountDetailScreenState extends ConsumerState<AccountDetailScreen> {
                 child: OutlinedButton(
                   onPressed: () => Navigator.pop(context, false),
                   style: OutlinedButton.styleFrom(
-                    minimumSize: const Size.fromHeight(48),
+                    minimumSize: const Size.fromHeight(44),
                   ),
                   child: const Text('Cancelar'),
                 ),
@@ -223,7 +223,7 @@ class _AccountDetailScreenState extends ConsumerState<AccountDetailScreen> {
                 child: FilledButton(
                   key: const Key('account-confirm-delete-button'),
                   style: FilledButton.styleFrom(
-                    minimumSize: const Size.fromHeight(48),
+                    minimumSize: const Size.fromHeight(44),
                     backgroundColor: Theme.of(context).colorScheme.error,
                     foregroundColor: Theme.of(context).colorScheme.onError,
                   ),

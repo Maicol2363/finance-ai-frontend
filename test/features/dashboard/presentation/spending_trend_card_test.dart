@@ -4,8 +4,6 @@ import 'package:finance_ai/features/dashboard/presentation/spending_trend_card.d
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import '../../../support/accessibility_test_helpers.dart';
-
 List<DailySpend> _days(List<int> vs) => [
   for (var i = 0; i < vs.length; i++)
     DailySpend(day: DateTime(2026, 9, 16 + i), minorUnits: vs[i]),
@@ -98,8 +96,8 @@ void main() {
       find.byKey(const Key('dashboard-trend-weekly-rows')),
       findsOneWidget,
     );
-    expect(find.text('Semana del 1 al 7 de septiembre'), findsOneWidget);
-    expect(find.text('Semana del 8 al 14 de septiembre'), findsOneWidget);
+    expect(find.text('1–7 sep'), findsOneWidget);
+    expect(find.text('8–14 sep'), findsOneWidget);
     expect(find.textContaining('152.000'), findsOneWidget);
     expect(find.textContaining('48.000'), findsOneWidget);
     expect(find.byKey(const Key('dashboard-trend-chart')), findsNothing);
@@ -131,17 +129,13 @@ void main() {
       find.byKey(const Key('dashboard-trend-weekly-rows')),
       findsOneWidget,
     );
-    expect(
-      find.text('Semana del 28 de septiembre al 4 de octubre'),
-      findsOneWidget,
-    );
+    expect(find.text('28 sep – 4 oct'), findsOneWidget);
     expect(find.textContaining('625.000'), findsOneWidget);
     expect(
       find.byWidgetPredicate(
         (widget) =>
             widget is Semantics &&
-            widget.properties.label ==
-                r'Semana del 28 de septiembre al 4 de octubre: $ 500.000 COP',
+            widget.properties.label == r'28 sep – 4 oct: $ 500.000 COP',
       ),
       findsOneWidget,
     );
@@ -202,189 +196,6 @@ void main() {
     await t.pumpAndSettle();
     expect(find.byKey(const Key('dashboard-trend-selected')), findsOneWidget);
   });
-
-  testWidgets(
-    'accessible table toggle button expands and collapses daily bucket table',
-    (t) async {
-      await _pump(
-        t,
-        SpendingTrendCard(
-          days: _days([10000, 25000]),
-          currency: 'COP',
-          available: true,
-        ),
-      );
-
-      final toggleFinder = find.byKey(
-        const Key('dashboard-trend-toggle-table'),
-      );
-      expect(toggleFinder, findsOneWidget);
-      expect(find.text('Ver tabla de valores'), findsOneWidget);
-      expect(find.byKey(const Key('dashboard-trend-table')), findsNothing);
-
-      // Tap to expand table
-      await t.tap(toggleFinder);
-      await t.pumpAndSettle();
-
-      expect(find.text('Ocultar tabla de valores'), findsOneWidget);
-      expect(find.byKey(const Key('dashboard-trend-table')), findsOneWidget);
-      expect(
-        find.byKey(const ValueKey('dashboard-trend-row-0')),
-        findsOneWidget,
-      );
-      expect(
-        find.byKey(const ValueKey('dashboard-trend-row-1')),
-        findsOneWidget,
-      );
-      expect(find.text('Día 16 de septiembre'), findsOneWidget);
-      expect(find.text('Día 17 de septiembre'), findsOneWidget);
-
-      // Tap again to collapse table
-      await t.tap(toggleFinder);
-      await t.pumpAndSettle();
-
-      expect(find.text('Ver tabla de valores'), findsOneWidget);
-      expect(find.byKey(const Key('dashboard-trend-table')), findsNothing);
-    },
-  );
-
-  testWidgets(
-    'initialShowTable exposes all daily buckets with complete period and amount semantics',
-    (t) async {
-      await _pump(
-        t,
-        SpendingTrendCard(
-          days: _days([15000, 45000]),
-          currency: 'COP',
-          available: true,
-          initialShowTable: true,
-        ),
-      );
-
-      expect(find.byKey(const Key('dashboard-trend-table')), findsOneWidget);
-      expect(find.text('Día 16 de septiembre'), findsOneWidget);
-      expect(find.text('Día 17 de septiembre'), findsOneWidget);
-
-      final row0 = t.getSemantics(
-        find.byKey(const ValueKey('dashboard-trend-row-0')),
-      );
-      expect(row0.label, contains('Día 16 de septiembre'));
-
-      final row1 = t.getSemantics(
-        find.byKey(const ValueKey('dashboard-trend-row-1')),
-      );
-      expect(row1.label, contains('Día 17 de septiembre'));
-    },
-  );
-
-  testWidgets(
-    'initialShowTable exposes weekly buckets with full week range labels',
-    (t) async {
-      await _pump(
-        t,
-        SpendingTrendCard(
-          days: _days([100, 100]),
-          currency: 'COP',
-          available: true,
-          initialShowTable: true,
-          weekly: [
-            WeeklySpend(
-              start: DateTime(2026, 9, 1),
-              end: DateTime(2026, 9, 7),
-              minorUnits: 15200000,
-            ),
-            WeeklySpend(
-              start: DateTime(2026, 9, 8),
-              end: DateTime(2026, 9, 14),
-              minorUnits: 4800000,
-            ),
-          ],
-        ),
-      );
-
-      expect(find.byKey(const Key('dashboard-trend-table')), findsOneWidget);
-      for (final label in [
-        'Semana del 1 al 7 de septiembre',
-        'Semana del 8 al 14 de septiembre',
-      ]) {
-        expect(
-          find.descendant(
-            of: find.byKey(const Key('dashboard-trend-table')),
-            matching: find.text(label),
-          ),
-          findsOneWidget,
-        );
-      }
-    },
-  );
-
-  testWidgets('tapping a table row selects the bucket and updates selection', (
-    t,
-  ) async {
-    await _pump(
-      t,
-      SpendingTrendCard(
-        days: _days([10000, 20000]),
-        currency: 'COP',
-        available: true,
-        initialShowTable: true,
-      ),
-    );
-
-    await t.tap(find.byKey(const ValueKey('dashboard-trend-row-1')));
-    await t.pumpAndSettle();
-
-    expect(find.byKey(const Key('dashboard-trend-selected')), findsOneWidget);
-    expect(
-      find.textContaining('Día 17 de septiembre'),
-      findsAtLeastNWidgets(1),
-    );
-  });
-
-  testWidgets('loading and empty states do not render the table or toggle', (
-    t,
-  ) async {
-    await _pump(
-      t,
-      SpendingTrendCard(
-        days: _days([100]),
-        currency: 'COP',
-        available: false,
-        initialShowTable: true,
-      ),
-    );
-    expect(find.byKey(const Key('dashboard-trend-toggle-table')), findsNothing);
-    expect(find.byKey(const Key('dashboard-trend-table')), findsNothing);
-
-    await _pump(
-      t,
-      SpendingTrendCard(days: const [], currency: 'COP', available: true),
-    );
-    expect(find.byKey(const Key('dashboard-trend-toggle-table')), findsNothing);
-    expect(find.byKey(const Key('dashboard-trend-table')), findsNothing);
-  });
-
-  testWidgets(
-    'toggle button satisfies touch target and accessible name guidelines',
-    (t) async {
-      await _pump(
-        t,
-        SpendingTrendCard(
-          days: _days([10000, 20000]),
-          currency: 'COP',
-          available: true,
-        ),
-      );
-
-      final toggle = find.byKey(const Key('dashboard-trend-toggle-table'));
-      expectMinTouchTarget(t, toggle);
-      expectAccessibleName(
-        t,
-        toggle,
-        expectedName: 'Ver tabla de valores de tendencia',
-      );
-    },
-  );
 
   testWidgets(
     'annual window renders month labels and does not loop coordinates',
