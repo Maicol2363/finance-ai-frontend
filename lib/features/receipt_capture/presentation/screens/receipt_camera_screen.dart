@@ -68,6 +68,11 @@ class _ReceiptCameraScreenState extends ConsumerState<ReceiptCameraScreen>
     if (!mounted) return;
     final shouldShow = await ReceiptPhotoGuidePrefs.shouldShowGuide();
     if (!mounted || !shouldShow) return;
+    await _showPhotoGuide(markGuideSeen: true);
+  }
+
+  Future<void> _showPhotoGuide({required bool markGuideSeen}) async {
+    if (!mounted) return;
     await showDialog<void>(
       context: context,
       barrierDismissible: true,
@@ -75,7 +80,9 @@ class _ReceiptCameraScreenState extends ConsumerState<ReceiptCameraScreen>
         onConfirm: () => Navigator.of(dialogContext).pop(),
       ),
     );
-    await ReceiptPhotoGuidePrefs.markGuideSeen();
+    if (markGuideSeen) {
+      await ReceiptPhotoGuidePrefs.markGuideSeen();
+    }
   }
 
   @override
@@ -356,6 +363,12 @@ class _ReceiptCameraScreenState extends ConsumerState<ReceiptCameraScreen>
                 ),
               ),
               _glassButton(
+                icon: FinanceIcons.infoOutline,
+                tooltip: 'Cómo tomar una buena foto',
+                semanticLabel: 'Ayuda: cómo tomar una buena foto',
+                onTap: () => _showPhotoGuide(markGuideSeen: false),
+              ),
+              _glassButton(
                 icon: _torchOn
                     ? FinanceIcons.flashlightOn
                     : FinanceIcons.flashlightOff,
@@ -472,21 +485,26 @@ class _ReceiptCameraScreenState extends ConsumerState<ReceiptCameraScreen>
   Widget _glassButton({
     required IconData icon,
     required String tooltip,
+    String? semanticLabel,
     required VoidCallback onTap,
   }) {
-    return Tooltip(
-      message: tooltip,
-      child: InkWell(
-        onTap: onTap,
-        customBorder: const CircleBorder(),
-        child: Container(
-          width: 48,
-          height: 48,
-          decoration: const BoxDecoration(
-            shape: BoxShape.circle,
-            color: Color(0x66000000),
+    return Semantics(
+      button: true,
+      label: semanticLabel ?? tooltip,
+      child: Tooltip(
+        message: tooltip,
+        child: InkWell(
+          onTap: onTap,
+          customBorder: const CircleBorder(),
+          child: Container(
+            width: 48,
+            height: 48,
+            decoration: const BoxDecoration(
+              shape: BoxShape.circle,
+              color: Color(0x66000000),
+            ),
+            child: Icon(icon, color: Colors.white, size: 24),
           ),
-          child: Icon(icon, color: Colors.white, size: 24),
         ),
       ),
     );
