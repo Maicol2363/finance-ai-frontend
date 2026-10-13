@@ -1,10 +1,11 @@
+import 'package:finance_ai/core/icons/finance_icon_catalog.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../../../core/theme/app_palette.dart';
 
 /// The floating `+` of the Gastos chat: it fans out the ways to add a movement
-/// (photo, voice, text and the manual form).
+/// (AI-assisted entry, photo and the manual form).
 ///
 /// It is a [Stack] child: it fills the chat area, dims it while open and keeps
 /// the button in the bottom right corner, above the message box.
@@ -12,14 +13,12 @@ class CaptureWheel extends StatefulWidget {
   const CaptureWheel({
     super.key,
     required this.onPhoto,
-    required this.onVoice,
-    required this.onText,
+    required this.onAi,
     required this.onManual,
   });
 
   final VoidCallback onPhoto;
-  final VoidCallback onVoice;
-  final VoidCallback onText;
+  final VoidCallback onAi;
   final VoidCallback onManual;
 
   @override
@@ -114,28 +113,16 @@ class _CaptureWheelState extends State<CaptureWheel>
                 onTap: () => _choose(widget.onPhoto),
               ),
               _WheelBubble(
-                key: const Key('expenses-wheel-voice'),
-                right: 76,
-                bottom: 136,
-                icon: Icons.mic_outlined,
-                label: 'Voz',
-                description: 'Dictar en el chat',
+                key: const Key('expenses-wheel-ai'),
+                right: 82,
+                bottom: 111,
+                icon: FinanceIcons.chatBubbleOutline,
+                label: 'Mensaje',
+                description: 'Escribir o dictar',
                 animation: _animation,
                 delayRatio: 0.1,
                 focusOrder: 2,
-                onTap: () => _choose(widget.onVoice),
-              ),
-              _WheelBubble(
-                key: const Key('expenses-wheel-text'),
-                right: 136,
-                bottom: 91,
-                icon: Icons.text_fields,
-                label: 'Texto',
-                description: 'Escribir en el chat',
-                animation: _animation,
-                delayRatio: 0.2,
-                focusOrder: 3,
-                onTap: () => _choose(widget.onText),
+                onTap: () => _choose(widget.onAi),
               ),
               _WheelBubble(
                 key: const Key('expenses-wheel-manual'),
@@ -146,7 +133,7 @@ class _CaptureWheelState extends State<CaptureWheel>
                 description: 'Formulario manual',
                 animation: _animation,
                 delayRatio: 0.3,
-                focusOrder: 4,
+                focusOrder: 3,
                 onTap: () => _choose(widget.onManual),
               ),
             ],
@@ -166,7 +153,7 @@ class _CaptureWheelState extends State<CaptureWheel>
                         : 'Añadir un movimiento',
                     elevation: 4,
                     backgroundColor: palette.primary,
-                    foregroundColor: Colors.white,
+                    foregroundColor: palette.onPrimary,
                     shape: const CircleBorder(),
                     onPressed: _toggle,
                     child: AnimatedRotation(

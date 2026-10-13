@@ -1,16 +1,23 @@
+import 'package:finance_ai/core/icons/finance_icon_catalog.dart';
+
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import '../../../core/formatters/money_formatter.dart';
 import '../../../core/theme/app_palette.dart';
 import 'spending_trend.dart';
 
-// Tendency card: weekly/daily bars with average line, tap-to-see values and a
-// badge comparing against the previous equivalent window.
+/// Spending pace & trend card: cumulative burn-up curve showing actual spend
+/// up to today, daily pace, and projected closing amount.
 class SpendingTrendCard extends StatelessWidget {
   const SpendingTrendCard({
     required this.days,
     required this.currency,
     required this.available,
+    this.cumulativeDays,
+    this.totalDaysInPeriod,
+    this.projectedMinorUnits,
     this.weekly,
     this.comparisonLabel,
     this.comparisonDirection,
@@ -18,42 +25,103 @@ class SpendingTrendCard extends StatelessWidget {
     this.initialShowTable = false,
     super.key,
   });
+
   final List<DailySpend> days;
   final String currency;
   final bool available;
   final bool initialShowTable;
 
-  /// Weekly buckets for long windows. When non-null, the card renders weeks
-  /// instead of days (same painter input shape: start + amount).
+  /// Explicit day-by-day cumulative spend series.
+  /// If null, computed automatically from [days].
+  final List<CumulativeSpendDay>? cumulativeDays;
+
+  /// Total days in the active period window (e.g. 30 or 31 in a month).
+  final int? totalDaysInPeriod;
+
+  /// Projected total spend at the end of the period.
+  final int? projectedMinorUnits;
+
+  /// Weekly buckets for multi-week / year views or fallback.
   final List<WeeklySpend>? weekly;
 
-  /// Honest badge text, e.g. `+48% vs ago`. Null falls back to the legacy
-  /// in-window label.
+  /// Badge text, e.g. `+48% vs ago`.
   final String? comparisonLabel;
 
   /// Direction ('up', 'down', 'flat', 'empty') for the badge arrow and color.
   final String? comparisonDirection;
 
-  /// Mean per bucket, drawn as a dashed line. Null hides the line.
+  /// Mean per bucket / average line.
   final int? averageMinorUnits;
 
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
     final tendency = spendingTendency(days);
-    final total = days.fold<int>(0, (s, d) => s + d.minorUnits);
+
+    // Resolve the full cumulative series before preparing the visual line.
+    final List<CumulativeSpendDay> fullCumulative;
+    if (cumulativeDays != null && cumulativeDays!.isNotEmpty) {
+      fullCumulative = cumulativeDays!;
+    } else if (days.isNotEmpty) {
+      var running = 0;
+      fullCumulative = [
+        for (final d in days)
+          CumulativeSpendDay(
+            day: d.day,
+            dailyMinorUnits: d.minorUnits,
+            cumulativeMinorUnits: (running += d.minorUnits),
+          ),
+      ];
+    } else {
+      fullCumulative = const <CumulativeSpendDay>[];
+    }
+
+    final totalSpent = fullCumulative.isNotEmpty
+        ? fullCumulative.last.cumulativeMinorUnits
+        : days.fold<int>(0, (s, d) => s + d.minorUnits);
+
     final weekDays = weekly;
-    final useWeeks = weekDays != null && weekDays.isNotEmpty;
-    final weekTotal = useWeeks
+    final useWeeklyRows =
+        weekDays != null && weekDays.isNotEmpty && cumulativeDays == null;
+
+    final weekTotal = useWeeklyRows
         ? weekDays.fold<int>(0, (s, w) => s + w.minorUnits)
         : 0;
-    final shownTotal = useWeeks ? weekTotal : total;
-    final bucketCount = useWeeks ? weekDays.length : days.length;
+    final shownTotal = useWeeklyRows ? weekTotal : totalSpent;
+
+    final effectiveTotalDays =
+        totalDaysInPeriod ??
+        (fullCumulative.isNotEmpty
+            ? fullCumulative.length
+            : (days.isNotEmpty ? days.length : 1));
+
+    final daysElapsed = fullCumulative.isNotEmpty
+        ? fullCumulative.length
+        : days.length;
+    final isClosedPeriod =
+        effectiveTotalDays > 0 && daysElapsed >= effectiveTotalDays;
+    var cumulative = fullCumulative;
+    int? closedPeriodTotalMinorUnits;
+    if (isClosedPeriod && fullCumulative.isNotEmpty) {
+      final lastSpendIndex = fullCumulative.lastIndexWhere(
+        (point) => point.dailyMinorUnits > 0,
+      );
+      if (lastSpendIndex >= 0 && lastSpendIndex < fullCumulative.length - 1) {
+        // Keep the solid line on days with confirmed activity. The dotted tail
+        // carries that known final total across the remaining closed days.
+        cumulative = fullCumulative.take(lastSpendIndex + 1).toList();
+        closedPeriodTotalMinorUnits = totalSpent;
+      }
+    }
+
+    final bucketCount = useWeeklyRows ? weekDays.length : daysElapsed;
+
     final unit = bucketCount == 1
         ? 'semana'
-        : useWeeks
+        : useWeeklyRows
         ? 'semanas'
         : 'días';
+
     final headline =
         comparisonLabel ??
         switch (tendency) {
@@ -62,6 +130,7 @@ class SpendingTrendCard extends StatelessWidget {
           'empty' => 'Sin gasto reciente',
           _ => 'Estable por ahora',
         };
+
     final String resolvedDirection;
     if (comparisonDirection != null && comparisonDirection != 'none') {
       resolvedDirection = comparisonDirection!;
@@ -80,30 +149,30 @@ class SpendingTrendCard extends StatelessWidget {
     } else {
       resolvedDirection = tendency;
     }
+
     final icon = switch (resolvedDirection) {
-      'up' => Icons.trending_up,
-      'down' => Icons.trending_down,
-      'empty' => Icons.remove,
-      _ => Icons.trending_flat,
+      'up' => FinanceIcons.trendingUp,
+      'down' => FinanceIcons.trendingDown,
+      'empty' => FinanceIcons.remove,
+      _ => FinanceIcons.trendingFlat,
     };
     final color = switch (resolvedDirection) {
       'up' => palette.discard,
       'down' => palette.income,
       _ => palette.muted,
     };
-    // Painter input: weeks collapse to (start, amount) so one painter serves
-    // both granularities without a new package.
-    final painted = useWeeks
-        ? [
-            for (final w in weekDays)
-              DailySpend(day: w.start, minorUnits: w.minorUnits),
-          ]
-        : days;
-    final axis = useWeeks
-        ? [for (final w in weekDays) w.start]
-        : axisDays(days);
+
+    final dailyPace = daysElapsed > 0 ? (totalSpent / daysElapsed).round() : 0;
+
     return _TrendBody(
-      painted: painted,
+      cumulative: cumulative,
+      totalDays: effectiveTotalDays,
+      daysElapsed: daysElapsed,
+      dailyPace: dailyPace,
+      projectedMinorUnits: projectedMinorUnits,
+      closedPeriodTotalMinorUnits: closedPeriodTotalMinorUnits,
+      useWeeklyRows: useWeeklyRows,
+      weeks: weekDays,
       bucketCount: bucketCount,
       unit: unit,
       shownTotal: shownTotal,
@@ -113,9 +182,6 @@ class SpendingTrendCard extends StatelessWidget {
       currency: currency,
       available: available,
       averageMinorUnits: averageMinorUnits,
-      useWeeks: useWeeks,
-      weeks: weekDays,
-      axis: axis,
       initialShowTable: initialShowTable,
     );
   }
@@ -123,7 +189,14 @@ class SpendingTrendCard extends StatelessWidget {
 
 class _TrendBody extends StatefulWidget {
   const _TrendBody({
-    required this.painted,
+    required this.cumulative,
+    required this.totalDays,
+    required this.daysElapsed,
+    required this.dailyPace,
+    required this.projectedMinorUnits,
+    required this.closedPeriodTotalMinorUnits,
+    required this.useWeeklyRows,
+    required this.weeks,
     required this.bucketCount,
     required this.unit,
     required this.shownTotal,
@@ -133,13 +206,17 @@ class _TrendBody extends StatefulWidget {
     required this.currency,
     required this.available,
     required this.averageMinorUnits,
-    required this.useWeeks,
-    required this.weeks,
-    required this.axis,
     this.initialShowTable = false,
   });
 
-  final List<DailySpend> painted;
+  final List<CumulativeSpendDay> cumulative;
+  final int totalDays;
+  final int daysElapsed;
+  final int dailyPace;
+  final int? projectedMinorUnits;
+  final int? closedPeriodTotalMinorUnits;
+  final bool useWeeklyRows;
+  final List<WeeklySpend>? weeks;
   final int bucketCount;
   final String unit;
   final int shownTotal;
@@ -149,9 +226,6 @@ class _TrendBody extends StatefulWidget {
   final String currency;
   final bool available;
   final int? averageMinorUnits;
-  final bool useWeeks;
-  final List<WeeklySpend>? weeks;
-  final List<DateTime> axis;
   final bool initialShowTable;
 
   @override
@@ -173,11 +247,11 @@ class _TrendBodyState extends State<_TrendBody> {
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
-    final painted = widget.available ? widget.painted : const <DailySpend>[];
     final sel = selected;
-    final selLabel = sel == null || sel < 0 || sel >= painted.length
+    final selLabel = sel == null || sel < 0 || sel >= widget.cumulative.length
         ? null
         : _bucketLabel(sel);
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -188,116 +262,156 @@ class _TrendBodyState extends State<_TrendBody> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              const Expanded(
-                child: Text(
-                  'Tendencia de gasto',
-                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final title = Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Flexible(
+                    child: Text(
+                      'Tendencia de gasto',
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Tooltip(
+                    message: 'La línea continua muestra el gasto acumulado real. En periodos abiertos, la punteada muestra la proyección al cierre. En periodos cerrados, continúa horizontalmente desde el último gasto hasta el total real del cierre.',
+                    triggerMode: TooltipTriggerMode.tap,
+                    child: Icon(
+                      FinanceIcons.infoOutlineRounded,
+                      size: 15,
+                      color: palette.muted,
+                    ),
+                  ),
+                ],
+              );
+              final badge = Container(
+                key: const Key('dashboard-trend-badge'),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
                 ),
-              ),
-              Flexible(
-                child: Container(
-                  key: const Key('dashboard-trend-badge'),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: palette.soft,
-                    borderRadius: BorderRadius.circular(99),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(widget.icon, size: 14, color: widget.color),
-                      const SizedBox(width: 4),
-                      Flexible(
-                        child: Text(
-                          widget.headline,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w700,
-                            color: widget.color,
-                          ),
+                decoration: BoxDecoration(
+                  color: palette.soft,
+                  borderRadius: BorderRadius.circular(99),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(widget.icon, size: 14, color: widget.color),
+                    const SizedBox(width: 4),
+                    Flexible(
+                      child: Text(
+                        widget.headline,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          color: widget.color,
                         ),
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
-              ),
-            ],
+              );
+
+              if (constraints.maxWidth < 300) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    title,
+                    const SizedBox(height: 6),
+                    Align(alignment: Alignment.centerRight, child: badge),
+                  ],
+                );
+              }
+              return Row(
+                children: [
+                  Expanded(child: title),
+                  Flexible(child: badge),
+                ],
+              );
+            },
           ),
           const SizedBox(height: 4),
           Text(
-            widget.available
-                ? '${widget.bucketCount} ${widget.unit} en ${widget.currency}'
-                : 'cargando...',
+            _buildSubtitle(),
             style: TextStyle(fontSize: 11, color: palette.muted),
           ),
           const SizedBox(height: 12),
-          Semantics(
-            label: 'Tendencia de gasto: ${widget.headline}',
-            child: GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTapDown: widget.available
-                  ? (details) {
-                      final box = context.findRenderObject() as RenderBox?;
-                      if (box == null || painted.isEmpty) return;
-                      // Chart area: full width minus the 16px card padding.
-                      final chartWidth = box.size.width - 32;
-                      if (chartWidth <= 0) return;
-                      final slot = chartWidth / painted.length;
-                      final dx =
-                          box.globalToLocal(details.globalPosition).dx - 16;
-                      final index = (dx / slot).floor().clamp(
-                        0,
-                        painted.length - 1,
-                      );
-                      setState(() => selected = index);
-                    }
-                  : null,
-              child: SizedBox(
-                key: const Key('dashboard-trend-chart'),
-                width: double.infinity,
-                height: 92,
-                child: CustomPaint(
-                  painter: TrendBarsPainter(
-                    days: painted,
-                    placeholderCount: painted.length,
-                    barColor: palette.primary,
-                    emptyColor: palette.soft,
-                    lineColor: palette.line,
-                    averageMinorUnits: widget.averageMinorUnits,
-                    selectedIndex: selected,
-                    selectedColor: palette.text,
+          if (widget.useWeeklyRows && widget.weeks != null)
+            _buildWeeklyRows(palette)
+          else ...[
+            _buildLegend(palette),
+            const SizedBox(height: 10),
+            Semantics(
+              label:
+                  'Tendencia de gasto: ${widget.headline}. Acumulado a la fecha: ${MoneyFormatter.display(widget.shownTotal, widget.currency)}.',
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTapDown: widget.available && widget.cumulative.isNotEmpty
+                    ? (details) {
+                        final box = context.findRenderObject() as RenderBox?;
+                        if (box == null) return;
+                        final chartWidth = box.size.width - 32;
+                        if (chartWidth <= 0) return;
+                        final dx =
+                            (box.globalToLocal(details.globalPosition).dx - 16)
+                                .clamp(0.0, chartWidth);
+                        final total = widget.totalDays > 1
+                            ? widget.totalDays
+                            : widget.cumulative.length;
+
+                        final firstDay = widget.cumulative.first.day;
+                        int closest = 0;
+                        double minDist = double.infinity;
+                        for (var i = 0; i < widget.cumulative.length; i++) {
+                          final pt = widget.cumulative[i];
+                          final offsetDays = pt.day.difference(firstDay).inDays;
+                          final px = total > 1
+                              ? (offsetDays / (total - 1)).clamp(0.0, 1.0) *
+                                    chartWidth
+                              : chartWidth / 2;
+                          final dist = (px - dx).abs();
+                          if (dist < minDist) {
+                            minDist = dist;
+                            closest = i;
+                          }
+                        }
+                        setState(() => selected = closest);
+                      }
+                    : null,
+                child: SizedBox(
+                  key: const Key('dashboard-trend-chart'),
+                  width: double.infinity,
+                  height: 104,
+                  child: CustomPaint(
+                    painter: CumulativeSpendCurvePainter(
+                      points: widget.available
+                          ? widget.cumulative
+                          : const <CumulativeSpendDay>[],
+                      totalDays: widget.totalDays,
+                      primaryColor: palette.primary,
+                      lineColor: palette.line,
+                      mutedColor: palette.muted,
+                      dottedEndMinorUnits:
+                          widget.closedPeriodTotalMinorUnits ??
+                          widget.projectedMinorUnits,
+                      selectedIndex: selected,
+                      selectedColor: palette.text,
+                    ),
                   ),
                 ),
               ),
             ),
-          ),
-          const SizedBox(height: 8),
-          ExcludeSemantics(
-            child:
-                widget.useWeeks &&
-                    widget.weeks != null &&
-                    widget.weeks!.isNotEmpty
-                ? _buildWeeksAxis(palette)
-                : Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      for (final d in widget.axis)
-                        Text(
-                          widget.axis.length <= 7
-                              ? '${d.day} ${shortMonthName(d.month)}'
-                              : '${d.day}',
-                          style: TextStyle(fontSize: 10, color: palette.muted),
-                        ),
-                    ],
-                  ),
-          ),
-          if (sel != null && sel >= 0 && sel < painted.length) ...[
+            const SizedBox(height: 8),
+            _buildAxisLabels(palette),
+          ],
+          if (sel != null && sel >= 0 && sel < widget.cumulative.length) ...[
             const SizedBox(height: 10),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
@@ -308,7 +422,11 @@ class _TrendBodyState extends State<_TrendBody> {
               ),
               child: Row(
                 children: [
-                  Icon(Icons.calendar_month, size: 14, color: palette.primary),
+                  Icon(
+                    FinanceIcons.calendarMonth,
+                    size: 14,
+                    color: palette.primary,
+                  ),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
@@ -324,28 +442,7 @@ class _TrendBodyState extends State<_TrendBody> {
               ),
             ),
           ],
-          if (widget.averageMinorUnits != null &&
-              widget.averageMinorUnits! > 0) ...[
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                Container(
-                  width: 16,
-                  height: 1.5,
-                  decoration: BoxDecoration(
-                    color: palette.muted,
-                    borderRadius: BorderRadius.circular(1),
-                  ),
-                ),
-                const SizedBox(width: 6),
-                Text(
-                  'Línea punteada: Promedio (${MoneyFormatter.display(widget.averageMinorUnits!, widget.currency)})',
-                  style: TextStyle(fontSize: 10, color: palette.muted),
-                ),
-              ],
-            ),
-          ],
-          const SizedBox(height: 4),
+          const SizedBox(height: 6),
           Row(
             children: [
               Expanded(
@@ -357,22 +454,41 @@ class _TrendBodyState extends State<_TrendBody> {
                 ),
               ),
               if (selLabel != null)
-                Text(
-                  selLabel,
-                  key: const Key('dashboard-trend-selected'),
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                    color: palette.text,
+                Flexible(
+                  child: Text(
+                    selLabel,
+                    key: const Key('dashboard-trend-selected'),
+                    textAlign: TextAlign.end,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color: palette.text,
+                    ),
+                  ),
+                )
+              else if (widget.projectedMinorUnits != null &&
+                  widget.projectedMinorUnits! > 0)
+                Flexible(
+                  child: Text(
+                    'Cierre est.: ${MoneyFormatter.display(widget.projectedMinorUnits!, widget.currency)}',
+                    textAlign: TextAlign.end,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: palette.muted,
+                    ),
                   ),
                 ),
             ],
           ),
-          if (widget.available && painted.isNotEmpty) ...[
+          if (widget.available && widget.cumulative.isNotEmpty) ...[
             const SizedBox(height: 10),
             Semantics(
               button: true,
               excludeSemantics: true,
+              onTap: () => setState(() => _showTable = !_showTable),
               label: _showTable
                   ? 'Ocultar tabla de valores de tendencia'
                   : 'Ver tabla de valores de tendencia',
@@ -421,6 +537,7 @@ class _TrendBodyState extends State<_TrendBody> {
               const SizedBox(height: 8),
               Semantics(
                 container: true,
+                explicitChildNodes: true,
                 label: 'Tabla de valores de tendencia',
                 child: Container(
                   key: const Key('dashboard-trend-table'),
@@ -433,60 +550,35 @@ class _TrendBodyState extends State<_TrendBody> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      for (var i = 0; i < painted.length; i++)
-                        Semantics(
-                          label:
-                              '${_periodName(i)}: ${MoneyFormatter.display(painted[i].minorUnits, widget.currency)}',
-                          child: InkWell(
-                            key: ValueKey('dashboard-trend-row-$i'),
-                            onTap: () => setState(() => selected = i),
-                            borderRadius: BorderRadius.circular(6),
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 6,
-                              ),
-                              margin: const EdgeInsets.only(bottom: 2),
-                              decoration: BoxDecoration(
-                                color: selected == i
-                                    ? palette.card
-                                    : Colors.transparent,
-                                borderRadius: BorderRadius.circular(6),
-                              ),
-                              child: Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Expanded(
-                                    child: Text(
-                                      _periodName(i),
-                                      style: TextStyle(
-                                        fontSize: 11,
-                                        fontWeight: selected == i
-                                            ? FontWeight.w700
-                                            : FontWeight.w500,
-                                        color: selected == i
-                                            ? palette.text
-                                            : palette.muted,
-                                      ),
-                                    ),
-                                  ),
-                                  Text(
-                                    MoneyFormatter.display(
-                                      painted[i].minorUnits,
-                                      widget.currency,
-                                    ),
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w700,
-                                      color: palette.text,
-                                    ),
-                                  ),
-                                ],
-                              ),
+                      if (widget.useWeeklyRows &&
+                          widget.weeks != null &&
+                          widget.weeks!.isNotEmpty)
+                        for (var i = 0; i < widget.weeks!.length; i++)
+                          _buildTableRow(
+                            index: i,
+                            period: _weekLabel(widget.weeks![i]),
+                            daily: MoneyFormatter.display(
+                              widget.weeks![i].minorUnits,
+                              widget.currency,
                             ),
+                            cumulative: null,
+                            palette: palette,
+                          )
+                      else
+                        for (var i = 0; i < widget.cumulative.length; i++)
+                          _buildTableRow(
+                            index: i,
+                            period: _fullDayLabel(widget.cumulative[i].day),
+                            daily: MoneyFormatter.display(
+                              widget.cumulative[i].dailyMinorUnits,
+                              widget.currency,
+                            ),
+                            cumulative: MoneyFormatter.display(
+                              widget.cumulative[i].cumulativeMinorUnits,
+                              widget.currency,
+                            ),
+                            palette: palette,
                           ),
-                        ),
                     ],
                   ),
                 ),
@@ -498,238 +590,584 @@ class _TrendBodyState extends State<_TrendBody> {
     );
   }
 
-  Widget _buildWeeksAxis(AppPalette palette) {
-    final weeks = widget.weeks!;
-    final spans = _monthSpans(weeks);
-    final isMultiMonth = spans.length > 1;
+  String _buildSubtitle() {
+    if (!widget.available) return 'cargando...';
+    if (widget.useWeeklyRows) {
+      return '${widget.bucketCount} ${widget.unit} en ${widget.currency}';
+    }
+    if (widget.totalDays > widget.daysElapsed && widget.daysElapsed > 0) {
+      final pace = MoneyFormatter.display(widget.dailyPace, widget.currency);
+      return 'Día ${widget.daysElapsed} de ${widget.totalDays} en ${widget.currency} · Promedio: $pace/día';
+    }
+    return '${widget.daysElapsed} ${widget.unit} en ${widget.currency}';
+  }
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
+  Widget _buildLegend(AppPalette palette) {
+    final showProjection =
+        widget.projectedMinorUnits != null &&
+        widget.projectedMinorUnits! > 0 &&
+        widget.daysElapsed < widget.totalDays;
+    return Wrap(
+      spacing: 12,
+      runSpacing: 4,
+      crossAxisAlignment: WrapCrossAlignment.center,
       children: [
-        if (isMultiMonth) ...[
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 14,
+              height: 3,
+              decoration: BoxDecoration(
+                color: palette.primary,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(width: 6),
+            Text(
+              'Gasto real acumulado',
+              style: TextStyle(
+                fontSize: 10.5,
+                color: palette.muted,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+        if (showProjection || widget.closedPeriodTotalMinorUnits != null)
           Row(
+            key: const Key('dashboard-trend-dotted-line-legend'),
+            mainAxisSize: MainAxisSize.min,
             children: [
-              for (final span in spans)
-                Expanded(
-                  flex: span.count,
-                  child: Container(
-                    margin: const EdgeInsets.symmetric(horizontal: 1.5),
-                    padding: const EdgeInsets.symmetric(vertical: 2),
-                    decoration: BoxDecoration(
-                      color: palette.soft,
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: Text(
-                      span.name.toUpperCase(),
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 9.5,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 0.5,
-                        color: palette.text,
+              CustomPaint(
+                size: const Size(14, 3),
+                painter: _DashSamplePainter(
+                  color: palette.primary.withValues(alpha: 0.65),
+                ),
+              ),
+              const SizedBox(width: 6),
+              Text(
+                showProjection
+                    ? 'Proyección al cierre'
+                    : 'Total real al cierre',
+                style: TextStyle(
+                  fontSize: 10.5,
+                  color: palette.muted,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+        if (!showProjection &&
+            widget.totalDays > 0 &&
+            widget.daysElapsed >= widget.totalDays)
+          Row(
+            key: const Key('dashboard-trend-closed-period'),
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                FinanceIcons.checkCircleOutline,
+                size: 13,
+                color: palette.muted,
+              ),
+              const SizedBox(width: 5),
+              Flexible(
+                child: Text(
+                  'Periodo cerrado · solo gasto real',
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 10.5,
+                    color: palette.muted,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+            ],
+          ),
+      ],
+    );
+  }
+
+  Widget _buildAxisLabels(AppPalette palette) {
+    if (widget.cumulative.isEmpty) return const SizedBox.shrink();
+    final total = widget.totalDays;
+    final firstDay = widget.cumulative.first.day;
+
+    if (total >= 300) {
+      return Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text('Ene', style: TextStyle(fontSize: 10, color: palette.muted)),
+          Text('Abr', style: TextStyle(fontSize: 10, color: palette.muted)),
+          Text('Jul', style: TextStyle(fontSize: 10, color: palette.muted)),
+          Text('Oct', style: TextStyle(fontSize: 10, color: palette.muted)),
+          Text('Dic', style: TextStyle(fontSize: 10, color: palette.muted)),
+        ],
+      );
+    } else if (total >= 60) {
+      final startMonth = shortMonthName(firstDay.month);
+      final endDay = firstDay.add(Duration(days: total - 1));
+      final endMonth = shortMonthName(endDay.month);
+      final midDay = firstDay.add(Duration(days: total ~/ 2));
+      final midMonth = shortMonthName(midDay.month);
+      return Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            startMonth,
+            style: TextStyle(fontSize: 10, color: palette.muted),
+          ),
+          Text(midMonth, style: TextStyle(fontSize: 10, color: palette.muted)),
+          Text(endMonth, style: TextStyle(fontSize: 10, color: palette.muted)),
+        ],
+      );
+    } else if (total >= 20) {
+      final mShort = shortMonthName(firstDay.month);
+      return Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            '1 $mShort',
+            style: TextStyle(fontSize: 10, color: palette.muted),
+          ),
+          Text('10', style: TextStyle(fontSize: 10, color: palette.muted)),
+          Text('20', style: TextStyle(fontSize: 10, color: palette.muted)),
+          Text(
+            '$total $mShort',
+            style: TextStyle(fontSize: 10, color: palette.muted),
+          ),
+        ],
+      );
+    } else if (total <= 7) {
+      return Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          for (final d in widget.cumulative)
+            Text(
+              '${d.day.day}',
+              style: TextStyle(fontSize: 10, color: palette.muted),
+            ),
+        ],
+      );
+    } else {
+      final mShort = shortMonthName(firstDay.month);
+      final mid = total ~/ 2;
+      return Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            '1 $mShort',
+            style: TextStyle(fontSize: 10, color: palette.muted),
+          ),
+          Text('$mid', style: TextStyle(fontSize: 10, color: palette.muted)),
+          Text(
+            '$total $mShort',
+            style: TextStyle(fontSize: 10, color: palette.muted),
+          ),
+        ],
+      );
+    }
+  }
+
+  Widget _buildWeeklyRows(AppPalette palette) {
+    final weeks = widget.weeks ?? const <WeeklySpend>[];
+    var peak = 0;
+    for (final week in weeks) {
+      if (week.minorUnits > peak) peak = week.minorUnits;
+    }
+    return Column(
+      key: const Key('dashboard-trend-weekly-rows'),
+      children: [
+        for (var i = 0; i < weeks.length; i++) ...[
+          if (i > 0) Divider(height: 16, color: palette.line),
+          Semantics(
+            label:
+                '${_weekLabel(weeks[i])}: ${MoneyFormatter.display(weeks[i].minorUnits, widget.currency)}',
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        _weekLabel(weeks[i]),
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: palette.text,
+                        ),
                       ),
                     ),
-                  ),
-                ),
-            ],
-          ),
-          const SizedBox(height: 4),
-          Row(
-            children: [
-              for (final w in weeks)
-                Expanded(
-                  child: Text(
-                    '${w.start.day}-${w.end.day}',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: 9, color: palette.muted),
-                  ),
-                ),
-            ],
-          ),
-        ] else ...[
-          Row(
-            children: [
-              for (final w in weeks)
-                Expanded(
-                  child: Text(
-                    weeks.length <= 5
-                        ? '${w.start.day}\u2013${w.end.day} ${shortMonthName(w.start.month)}'
-                        : '${w.start.day}-${w.end.day}',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: weeks.length <= 5 ? 10.5 : 9.5,
-                      fontWeight: FontWeight.w500,
-                      color: palette.muted,
+                    const SizedBox(width: 8),
+                    Text(
+                      MoneyFormatter.display(
+                        weeks[i].minorUnits,
+                        widget.currency,
+                      ),
+                      textAlign: TextAlign.end,
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: weeks[i].minorUnits > 0
+                            ? palette.text
+                            : palette.muted,
+                      ),
                     ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(99),
+                  child: LinearProgressIndicator(
+                    value: peak > 0 ? weeks[i].minorUnits / peak : 0,
+                    minHeight: 7,
+                    backgroundColor: palette.soft,
+                    color: palette.primary,
                   ),
                 ),
-            ],
+              ],
+            ),
           ),
         ],
       ],
     );
   }
 
-  List<({String name, int count, int month})> _monthSpans(
-    List<WeeklySpend> weeks,
-  ) {
-    if (weeks.isEmpty) return const [];
-    final spans = <({String name, int count, int month})>[];
-    String currentName = '';
-    int currentCount = 0;
-    int currentMonth = 0;
-    for (final w in weeks) {
-      final m = w.start.month;
-      final name = shortMonthName(m);
-      if (name == currentName) {
-        currentCount++;
-      } else {
-        if (currentCount > 0) {
-          spans.add((
-            name: currentName,
-            count: currentCount,
-            month: currentMonth,
-          ));
-        }
-        currentName = name;
-        currentCount = 1;
-        currentMonth = m;
-      }
+  String _weekLabel(WeeklySpend week) {
+    final startMonth = fullMonthName(week.start.month);
+    final endMonth = fullMonthName(week.end.month);
+    if (week.start.year != week.end.year) {
+      return 'Semana del ${week.start.day} de $startMonth de ${week.start.year} al ${week.end.day} de $endMonth de ${week.end.year}';
     }
-    if (currentCount > 0) {
-      spans.add((name: currentName, count: currentCount, month: currentMonth));
+    if (week.start.month == week.end.month) {
+      return 'Semana del ${week.start.day} al ${week.end.day} de $startMonth';
     }
-    return spans;
-  }
-
-  String _periodName(int index) {
-    if (index < 0 || index >= widget.painted.length) return '';
-    final bucket = widget.painted[index];
-    if (widget.useWeeks &&
-        widget.weeks != null &&
-        index < widget.weeks!.length) {
-      final week = widget.weeks![index];
-      final mStart = fullMonthName(week.start.month);
-      final mEnd = fullMonthName(week.end.month);
-      if (week.start.month == week.end.month) {
-        return 'Semana del ${week.start.day} al ${week.end.day} de $mStart';
-      } else {
-        return 'Semana del ${week.start.day} de $mStart al ${week.end.day} de $mEnd';
-      }
-    }
-    final m = fullMonthName(bucket.day.month);
-    return 'Día ${bucket.day.day} de $m';
+    return 'Semana del ${week.start.day} de $startMonth al ${week.end.day} de $endMonth';
   }
 
   String _detailedSelection(int index) {
-    if (index < 0 || index >= widget.painted.length) return '';
-    final bucket = widget.painted[index];
-    final amount = MoneyFormatter.display(bucket.minorUnits, widget.currency);
-    return '${_periodName(index)}: $amount';
+    if (index < 0 || index >= widget.cumulative.length) return '';
+    final pt = widget.cumulative[index];
+    final m = fullMonthName(pt.day.month);
+    final daily = MoneyFormatter.display(pt.dailyMinorUnits, widget.currency);
+    final cum = MoneyFormatter.display(
+      pt.cumulativeMinorUnits,
+      widget.currency,
+    );
+    return '${pt.day.day} de $m: +$daily (Acumulado: $cum)';
+  }
+
+  String _fullDayLabel(DateTime day) =>
+      'Día ${day.day} de ${fullMonthName(day.month)}';
+
+  Widget _buildTableRow({
+    required int index,
+    required String period,
+    required String daily,
+    required String? cumulative,
+    required AppPalette palette,
+  }) {
+    final interactive = cumulative != null;
+    final rowLabel = cumulative == null
+        ? '$period: gasto $daily.'
+        : '$period: gasto del día $daily; gasto acumulado $cumulative.';
+    final onTap = interactive ? () => setState(() => selected = index) : null;
+    return Semantics(
+      key: ValueKey('dashboard-trend-row-$index'),
+      button: interactive,
+      label: rowLabel,
+      onTap: onTap,
+      excludeSemantics: true,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(6),
+        child: Container(
+          constraints: const BoxConstraints(minHeight: 48),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+          margin: const EdgeInsets.only(bottom: 2),
+          decoration: BoxDecoration(
+            color: selected == index ? palette.card : Colors.transparent,
+            borderRadius: BorderRadius.circular(6),
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  period,
+                  style: TextStyle(fontSize: 11, color: palette.text),
+                ),
+              ),
+              Text(
+                daily,
+                textAlign: TextAlign.end,
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  color: palette.text,
+                ),
+              ),
+              if (cumulative != null) ...[
+                const SizedBox(width: 8),
+                Text(
+                  cumulative,
+                  textAlign: TextAlign.end,
+                  style: TextStyle(fontSize: 11, color: palette.muted),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   String _bucketLabel(int index) {
-    final bucket = widget.painted[index];
-    final amount = MoneyFormatter.display(bucket.minorUnits, widget.currency);
-    if (widget.useWeeks &&
-        widget.weeks != null &&
-        index < widget.weeks!.length) {
-      final week = widget.weeks![index];
-      final mStart = shortMonthName(week.start.month);
-      final mEnd = shortMonthName(week.end.month);
-      if (week.start.month == week.end.month) {
-        return 'Sem ${week.start.day}\u2013${week.end.day} $mStart: $amount';
-      } else {
-        return 'Sem ${week.start.day} $mStart\u2013${week.end.day} $mEnd: $amount';
-      }
-    }
-    final m = shortMonthName(bucket.day.month);
-    return '${bucket.day.day} $m: $amount';
+    if (index < 0 || index >= widget.cumulative.length) return '';
+    final pt = widget.cumulative[index];
+    final m = shortMonthName(pt.day.month);
+    return '${pt.day.day} $m: ${MoneyFormatter.display(pt.cumulativeMinorUnits, widget.currency)}';
   }
 }
 
-List<DateTime> axisDays(List<DailySpend> v) {
-  if (v.isEmpty) return const [];
-  if (v.length == 1) return [v.first.day];
-  return [v.first.day, v[v.length ~/ 2].day, v.last.day];
-}
-
-class TrendBarsPainter extends CustomPainter {
-  const TrendBarsPainter({
-    required this.days,
-    required this.placeholderCount,
-    required this.barColor,
-    required this.emptyColor,
+/// Custom painter for the continuous cumulative spending pace curve.
+class CumulativeSpendCurvePainter extends CustomPainter {
+  const CumulativeSpendCurvePainter({
+    required this.points,
+    required this.totalDays,
+    required this.primaryColor,
     required this.lineColor,
-    this.averageMinorUnits,
+    required this.mutedColor,
+    this.dottedEndMinorUnits,
     this.selectedIndex,
     this.selectedColor,
   });
-  final List<DailySpend> days;
-  final int placeholderCount;
-  final Color barColor;
-  final Color emptyColor;
+
+  final List<CumulativeSpendDay> points;
+  final int totalDays;
+  final Color primaryColor;
   final Color lineColor;
-  final int? averageMinorUnits;
+  final Color mutedColor;
+  final int? dottedEndMinorUnits;
   final int? selectedIndex;
   final Color? selectedColor;
+
   @override
   void paint(Canvas canvas, Size size) {
-    final count = placeholderCount <= 0 ? 1 : placeholderCount;
-    final slot = size.width / count;
-    final barWidth = (slot * 0.52).clamp(6.0, 22.0);
-    var peak = 1;
-    for (final d in days) {
-      if (d.minorUnits > peak) peak = d.minorUnits;
-    }
-    final avg = averageMinorUnits;
-    if (avg != null && avg > 0) peak = avg > peak ? avg : peak;
+    const topMargin = 16.0;
+    const bottomMargin = 10.0;
+    final chartHeight = size.height - topMargin - bottomMargin;
+    final baselineY = size.height - bottomMargin;
+
+    // Subtle baseline
+    final baselinePaint = Paint()
+      ..color = lineColor
+      ..strokeWidth = 1.0;
     canvas.drawLine(
-      Offset(0, size.height - 0.5),
-      Offset(size.width, size.height - 0.5),
-      Paint()..color = lineColor,
+      Offset(0, baselineY),
+      Offset(size.width, baselineY),
+      baselinePaint,
     );
-    // Average: dashed horizontal line.
-    if (avg != null && avg > 0) {
+
+    if (points.isEmpty) return;
+
+    final effectiveTotalDays = totalDays > 1 ? totalDays : points.length;
+
+    // Peak cumulative amount calculation
+    var maxSpend = 0;
+    for (final p in points) {
+      if (p.cumulativeMinorUnits > maxSpend) maxSpend = p.cumulativeMinorUnits;
+    }
+    final rawProjected = dottedEndMinorUnits;
+    final projected = (rawProjected != null && rawProjected >= maxSpend)
+        ? rawProjected
+        : null;
+    var peak = maxSpend;
+    if (projected != null && projected > peak) peak = projected;
+    if (peak <= 0) peak = 1;
+
+    final firstDay = points.first.day;
+
+    // Map points to canvas coordinates
+    final coords = <Offset>[];
+    for (var i = 0; i < points.length; i++) {
+      final p = points[i];
+      final offsetDays = p.day.difference(firstDay).inDays;
+      final x = effectiveTotalDays > 1
+          ? (offsetDays / (effectiveTotalDays - 1)).clamp(0.0, 1.0) * size.width
+          : size.width / 2;
       final y =
-          size.height -
-          (avg / peak * (size.height - 10)).clamp(4.0, size.height - 4);
-      final dash = Paint()
-        ..color = lineColor
-        ..strokeWidth = 1
-        ..style = PaintingStyle.stroke;
-      var x = 0.0;
-      while (x < size.width) {
-        canvas.drawLine(Offset(x, y), Offset(x + 5, y), dash);
-        x += 9;
+          baselineY -
+          (p.cumulativeMinorUnits / peak * chartHeight).clamp(0.0, chartHeight);
+      coords.add(Offset(x, y));
+    }
+
+    // Build smooth cubic Bezier curve
+    final curvePath = Path();
+    curvePath.moveTo(coords.first.dx, coords.first.dy);
+    if (coords.length == 1) {
+      curvePath.lineTo(coords.first.dx, coords.first.dy);
+    } else {
+      for (var i = 1; i < coords.length; i++) {
+        final prev = coords[i - 1];
+        final curr = coords[i];
+        final midX = (prev.dx + curr.dx) / 2;
+        curvePath.cubicTo(midX, prev.dy, midX, curr.dy, curr.dx, curr.dy);
       }
     }
-    for (var i = 0; i < count; i++) {
-      final v = i < days.length ? days[i].minorUnits : 0;
-      final h = v <= 0
-          ? 4.0
-          : (v / peak * (size.height - 10)).clamp(4.0, size.height - 4);
-      final left = i * slot + (slot - barWidth) / 2;
-      final isSel = selectedIndex == i;
-      canvas.drawRRect(
-        RRect.fromRectAndRadius(
-          Rect.fromLTWH(left, size.height - h, barWidth, h),
-          const Radius.circular(4),
-        ),
+
+    // Gradient fill under the curve
+    final fillPath = Path.from(curvePath);
+    fillPath.lineTo(coords.last.dx, baselineY);
+    fillPath.lineTo(coords.first.dx, baselineY);
+    fillPath.close();
+
+    final fillGradient = LinearGradient(
+      begin: Alignment.topCenter,
+      end: Alignment.bottomCenter,
+      colors: [
+        primaryColor.withValues(alpha: 0.22),
+        primaryColor.withValues(alpha: 0.01),
+      ],
+    );
+    canvas.drawPath(
+      fillPath,
+      Paint()
+        ..shader = fillGradient.createShader(
+          Rect.fromLTWH(0, topMargin, size.width, chartHeight),
+        )
+        ..style = PaintingStyle.fill,
+    );
+
+    // Stroke the solid curve
+    final linePaint = Paint()
+      ..color = primaryColor
+      ..strokeWidth = 2.5
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+    canvas.drawPath(curvePath, linePaint);
+
+    // Dashed segment points to a forecast for open periods, or the confirmed
+    // final total for a closed period with no-spend days at the end.
+    if (projected != null &&
+        projected > 0 &&
+        points.length < effectiveTotalDays) {
+      final lastPoint = coords.last;
+      final projectedY =
+          baselineY - (projected / peak * chartHeight).clamp(0.0, chartHeight);
+      final endPoint = Offset(size.width, projectedY);
+
+      final dashPaint = Paint()
+        ..color = primaryColor.withValues(alpha: 0.45)
+        ..strokeWidth = 1.8
+        ..style = PaintingStyle.stroke
+        ..strokeCap = StrokeCap.round;
+
+      _drawDashedLine(canvas, lastPoint, endPoint, dashPaint);
+
+      // Hollow dot at estimated end
+      canvas.drawCircle(
+        endPoint,
+        3.5,
         Paint()
-          ..color = isSel
-              ? (selectedColor ?? barColor)
-              : v <= 0
-              ? emptyColor
-              : barColor,
+          ..color = primaryColor.withValues(alpha: 0.5)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1.5,
       );
+    }
+
+    // "Hoy" active dot at the tip of real data
+    final lastCoord = coords.last;
+    canvas.drawCircle(
+      lastCoord,
+      7.0,
+      Paint()..color = primaryColor.withValues(alpha: 0.22),
+    );
+    canvas.drawCircle(lastCoord, 4.0, Paint()..color = primaryColor);
+    canvas.drawCircle(lastCoord, 1.8, Paint()..color = Colors.white);
+
+    // Selected day guide & highlight
+    if (selectedIndex != null &&
+        selectedIndex! >= 0 &&
+        selectedIndex! < coords.length) {
+      final selCoord = coords[selectedIndex!];
+      final guidePaint = Paint()
+        ..color = (selectedColor ?? primaryColor).withValues(alpha: 0.35)
+        ..strokeWidth = 1.2;
+      canvas.drawLine(
+        Offset(selCoord.dx, topMargin),
+        Offset(selCoord.dx, baselineY),
+        guidePaint,
+      );
+      canvas.drawCircle(
+        selCoord,
+        6.0,
+        Paint()..color = (selectedColor ?? primaryColor),
+      );
+      canvas.drawCircle(selCoord, 3.0, Paint()..color = Colors.white);
+    }
+  }
+
+  void _drawDashedLine(
+    Canvas canvas,
+    Offset start,
+    Offset end,
+    Paint paint, {
+    double dashWidth = 4.0,
+    double dashSpace = 4.0,
+  }) {
+    final dx = end.dx - start.dx;
+    final dy = end.dy - start.dy;
+    final distance = math.sqrt(dx * dx + dy * dy);
+    if (distance <= 0) return;
+    final ux = dx / distance;
+    final uy = dy / distance;
+
+    var currentDist = 0.0;
+    while (currentDist < distance) {
+      final segStart = Offset(
+        start.dx + ux * currentDist,
+        start.dy + uy * currentDist,
+      );
+      final nextDist = math.min(currentDist + dashWidth, distance);
+      final segEnd = Offset(start.dx + ux * nextDist, start.dy + uy * nextDist);
+      canvas.drawLine(segStart, segEnd, paint);
+      currentDist += dashWidth + dashSpace;
     }
   }
 
   @override
-  bool shouldRepaint(covariant TrendBarsPainter o) =>
-      o.days != days ||
-      o.placeholderCount != placeholderCount ||
-      o.averageMinorUnits != averageMinorUnits ||
-      o.selectedIndex != selectedIndex;
+  bool shouldRepaint(covariant CumulativeSpendCurvePainter old) =>
+      old.points != points ||
+      old.totalDays != totalDays ||
+      old.dottedEndMinorUnits != dottedEndMinorUnits ||
+      old.selectedIndex != selectedIndex ||
+      old.primaryColor != primaryColor;
+}
+
+class _DashSamplePainter extends CustomPainter {
+  const _DashSamplePainter({required this.color});
+
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..strokeWidth = size.height
+      ..strokeCap = StrokeCap.round;
+    canvas.drawLine(
+      Offset(0, size.height / 2),
+      Offset(4, size.height / 2),
+      paint,
+    );
+    canvas.drawLine(
+      Offset(8, size.height / 2),
+      Offset(12, size.height / 2),
+      paint,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _DashSamplePainter old) => old.color != color;
 }

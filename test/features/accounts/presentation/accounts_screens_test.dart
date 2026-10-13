@@ -206,7 +206,7 @@ void main() {
     expect(find.text('Detalle de cuenta'), findsOneWidget);
     expect(
       find.text(
-        'No puedes cambiar la moneda porque esta cuenta ya tiene movimientos confirmados.',
+        'La moneda está bloqueada porque esta cuenta ya tiene movimientos confirmados.',
       ),
       findsOneWidget,
     );
@@ -220,11 +220,16 @@ void main() {
     final repository = WidgetAccountsRepository();
     await pumpAccountsApp(tester, repository, initialLocation: '/accounts/11');
 
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('account-deactivate-button')),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
     await tester.tap(find.byKey(const Key('account-deactivate-button')));
     await tester.pumpAndSettle();
     expect(
       find.text(
-        'Esta cuenta seguirá apareciendo en tu historial, pero no estará disponible para nuevos movimientos financieros.',
+        'La cuenta seguirá en tu historial, pero no estará disponible para registrar nuevos movimientos.',
       ),
       findsOneWidget,
     );
@@ -273,9 +278,9 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('account-delete-button')));
     await tester.pumpAndSettle();
-    expect(find.text('¿Eliminar esta cuenta permanentemente?'), findsOneWidget);
+    expect(find.text('¿Eliminar esta cuenta definitivamente?'), findsOneWidget);
     expect(
-      find.textContaining('desactívala para conservar su historial'),
+      find.textContaining('Si tiene movimientos, debes desactivarla.'),
       findsOneWidget,
     );
     await tester.tap(find.byKey(const Key('account-confirm-delete-button')));
@@ -283,7 +288,7 @@ void main() {
 
     expect(find.text('Cuentas'), findsOneWidget);
     expect(repository.current.accountById(11), isNull);
-    expect(find.text('Cuenta eliminada permanentemente.'), findsOneWidget);
+    expect(find.text('Cuenta eliminada definitivamente.'), findsOneWidget);
   });
 
   testWidgets('blocked deletion stays on detail with copyable safe failure', (
@@ -349,7 +354,7 @@ void main() {
     expect(currency.onChanged, isNull);
     expect(
       find.text(
-        'No puedes cambiar la moneda porque esta cuenta ya tiene movimientos confirmados.',
+        'La moneda se bloquea cuando la cuenta ya tiene movimientos confirmados.',
       ),
       findsOneWidget,
     );

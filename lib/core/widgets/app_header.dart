@@ -20,40 +20,45 @@ class AppHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
-    return Container(
-      color: palette.background,
-      padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
-      child: Row(
-        children: [
-          if (leading != null) ...[leading!, const SizedBox(width: 10)],
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Semantics(
-                  header: true,
-                  child: Text(
-                    title,
-                    style: TextStyle(
-                      fontSize: 17,
-                      fontWeight: FontWeight.w700,
-                      color: palette.text,
-                    ),
-                  ),
-                ),
-                if (subtitle != null)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 2),
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: palette.header,
+        border: Border(bottom: BorderSide(color: palette.line)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
+        child: Row(
+          children: [
+            if (leading != null) ...[leading!, const SizedBox(width: 10)],
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Semantics(
+                    header: true,
                     child: Text(
-                      subtitle!,
-                      style: TextStyle(fontSize: 11, color: palette.muted),
+                      title,
+                      style: TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w700,
+                        color: palette.text,
+                      ),
                     ),
                   ),
-              ],
+                  if (subtitle != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 2),
+                      child: Text(
+                        subtitle!,
+                        style: TextStyle(fontSize: 11, color: palette.muted),
+                      ),
+                    ),
+                ],
+              ),
             ),
-          ),
-          ...actions,
-        ],
+            ...actions,
+          ],
+        ),
       ),
     );
   }

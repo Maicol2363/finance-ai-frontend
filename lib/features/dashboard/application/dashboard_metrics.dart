@@ -43,33 +43,6 @@ class DashboardMetrics {
     return list;
   }
 
-  /// Calculates the recommended daily allowance for remaining days in the period.
-  /// If [budgetSumMinorUnits] is provided (> 0), uses budget remaining.
-  /// Otherwise uses remaining average monthly spend.
-  static int? calculateDailyAllowance({
-    required DashboardSummary summary,
-    int? budgetSumMinorUnits,
-  }) {
-    if (!summary.period.isCurrent) return null;
-    final remainingDays = summary.period.daysTotal - summary.period.daysElapsed;
-    if (remainingDays <= 0) return null;
-
-    final spentMtd = summary.projection.spentMtd.minorUnits;
-
-    if (budgetSumMinorUnits != null && budgetSumMinorUnits > 0) {
-      final remaining = budgetSumMinorUnits - spentMtd;
-      return remaining > 0 ? (remaining / remainingDays).round() : 0;
-    }
-
-    final avgSpend = summary.balance.avgMonthlySpend.minorUnits;
-    if (avgSpend > 0) {
-      final remaining = avgSpend - spentMtd;
-      return remaining > 0 ? (remaining / remainingDays).round() : 0;
-    }
-
-    return null;
-  }
-
   /// Generates proactive insights tailored for an independent contractor.
   static List<DashboardInsight> buildInsights({
     required DashboardSummary summary,
@@ -77,31 +50,7 @@ class DashboardMetrics {
   }) {
     final insights = <DashboardInsight>[];
 
-    // 1. Runway insight
-    final runway = summary.balance.runwayMonths;
-    if (runway != null) {
-      if (runway < 2.0) {
-        insights.add(
-          DashboardInsight(
-            title: 'Colchón financiero ajustado',
-            message:
-                'Tus saldos actuales cubren ${runway.toStringAsFixed(1)} meses de gasto habitual. Considera reducir gastos discrecionales.',
-            type: InsightType.warning,
-          ),
-        );
-      } else if (runway >= 6.0) {
-        insights.add(
-          DashboardInsight(
-            title: 'Colchón financiero sólido',
-            message:
-                'Cuentas con ${runway.toStringAsFixed(1)} meses de reserva para imprevistos o meses de baja facturación.',
-            type: InsightType.positive,
-          ),
-        );
-      }
-    }
-
-    // 2. Weekday vs Weekend spending pattern
+    // Weekday vs Weekend spending pattern
     final weekendUnits = summary.weekdayPattern.weekendAvg.minorUnits;
     final weekdayUnits = summary.weekdayPattern.weekdayAvg.minorUnits;
     if (weekdayUnits > 0 && weekendUnits > (weekdayUnits * 1.3).round()) {
@@ -117,7 +66,7 @@ class DashboardMetrics {
       );
     }
 
-    // 3. Contractor income variability
+    // Contractor income variability
     final variability = summary.incomeAverage.variability;
     if (variability != null && variability >= 0.35) {
       final cv = (variability * 100).round();
@@ -125,22 +74,6 @@ class DashboardMetrics {
         DashboardInsight(
           title: 'Ingresos variables ($cv%)',
           message: 'Como contratista, tus ingresos fluctúan entre meses. Presupuesta tus gastos fijos con base en el promedio de 6 meses.',
-          type: InsightType.info,
-        ),
-      );
-    }
-
-    // 4. Upcoming probable recurring subscription/bill
-    if (summary.recurringCandidates.isNotEmpty) {
-      final next = summary.recurringCandidates.first;
-      final day = next.nextExpected.day;
-      final month = next.nextExpected.month;
-      final dateStr = '$day/${month.toString().padLeft(2, '0')}';
-      insights.add(
-        DashboardInsight(
-          title: 'Próximo recurrente estimado',
-          message:
-              'Posible cobro de ${next.merchant} (${next.typicalAmount.formatWithCurrency(currencyCode)}) esperado cerca del $dateStr.',
           type: InsightType.info,
         ),
       );

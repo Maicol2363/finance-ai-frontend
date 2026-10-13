@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:finance_ai/app.dart';
+import 'package:finance_ai/core/icons/finance_icon_catalog.dart';
 import 'package:finance_ai/core/router/app_router.dart';
 import 'package:finance_ai/core/time/clock_provider.dart';
 import 'package:finance_ai/features/accounts/data/accounts_repository.dart';
@@ -608,7 +609,7 @@ void main() {
     expect(repository.lastCreateCommand?.amount.toApiString(), '55.50');
     expect(repository.lastCreateCommand?.accountId, 11);
     expect(repository.lastCreateCommand?.note, 'Weekly grocery shopping');
-    expect(find.byKey(const Key('chat-messages')), findsOneWidget);
+    expect(find.byKey(const Key('home-title')), findsNothing);
   });
 
   testWidgets('delete asks for confirmation and returns to the list', (
@@ -626,7 +627,7 @@ void main() {
     await tester.tap(find.byKey(const Key('expense-confirm-delete-button')));
     await tester.pumpAndSettle();
 
-    expect(find.byKey(const Key('chat-messages')), findsOneWidget);
+    expect(find.byKey(const Key('home-title')), findsNothing);
     expect(repository.expenses, isEmpty);
   });
 
@@ -846,6 +847,8 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('history-type-chip-2')));
     await tester.pumpAndSettle();
+    await tester.tap(find.text('Ver resultados'));
+    await tester.pumpAndSettle();
 
     expect(repository.seenHistoryFilters.last.type, TransactionType.income);
     expect(find.text('Sin resultados para estos filtros'), findsOneWidget);
@@ -873,6 +876,8 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Cash').last);
     await tester.pumpAndSettle();
+    await tester.tap(find.text('Ver resultados'));
+    await tester.pumpAndSettle();
 
     expect(repository.seenHistoryFilters.last.accountId, 11);
     expect(find.byKey(const Key('history-active-account')), findsOneWidget);
@@ -893,8 +898,6 @@ void main() {
     final repository = WidgetExpensesRepository();
     await pumpExpensesApp(tester, repository, initialLocation: '/history');
 
-    await tester.tap(find.byKey(const Key('history-filter-toggle')));
-    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('history-period-chip-2')));
     await tester.pumpAndSettle();
 
@@ -942,6 +945,8 @@ void main() {
     await tester.tap(find.byKey(const Key('history-store-suggestion-0')));
     await tester.pumpAndSettle();
     expect(repository.seenHistoryFilters.last.store, 'Market');
+    await tester.tap(find.text('Ver resultados'));
+    await tester.pumpAndSettle();
 
     // Every filter is visible as a removable chip and clears independently.
     expect(find.byKey(const Key('history-active-source')), findsOneWidget);
@@ -970,7 +975,7 @@ void main() {
       await tester.tap(find.byTooltip('Volver'));
       await tester.pumpAndSettle();
 
-      expect(find.text('Historial'), findsOneWidget);
+      expect(find.byKey(const Key('history-list')), findsOneWidget);
       expect(find.byKey(const Key('history-card-8')), findsOneWidget);
     },
   );
@@ -991,7 +996,7 @@ void main() {
       await tester.tap(find.byTooltip('Volver'));
       await tester.pumpAndSettle();
 
-      expect(find.text('Historial'), findsOneWidget);
+      expect(find.byKey(const Key('history-list')), findsOneWidget);
       expect(find.byKey(const Key('history-card-15')), findsOneWidget);
     },
   );
@@ -1126,7 +1131,7 @@ void main() {
       await tester.tap(
         find.descendant(
           of: find.byType(AccountFormScreen),
-          matching: find.byIcon(Icons.arrow_back),
+          matching: find.byIcon(FinanceIcons.arrowBack),
         ),
       );
       await tester.pumpAndSettle();
@@ -1173,7 +1178,7 @@ void main() {
       await tester.tap(
         find.descendant(
           of: find.byType(CategoryFormScreen),
-          matching: find.byIcon(Icons.arrow_back),
+          matching: find.byIcon(FinanceIcons.arrowBack),
         ),
       );
       await tester.pumpAndSettle();
@@ -1239,13 +1244,14 @@ void main() {
     expect(find.text(r'$ 100 COP'), findsOneWidget);
     // Flow chips are the current month (2026-09 from the pinned clock): no
     // incomes in the fake, one 25.00 expense in the history fixture.
-    expect(find.text('Movimientos de septiembre'), findsWidgets);
+    expect(find.text('septiembre · Balance'), findsOneWidget);
     // Zero income and the month expense, in the new "$ 25 COP" money format.
     expect(find.text(r'$ 0 COP'), findsWidgets);
     expect(find.text(r'-$ 25 COP'), findsWidgets);
+    // Accounts live in Settings now, not as a shortcut on the dashboard.
     expect(
       find.text(r'1 cuenta activa · $ 100 COP · Ver saldos'),
-      findsOneWidget,
+      findsNothing,
     );
   });
 
@@ -1266,53 +1272,37 @@ void main() {
 
     expect(find.text(r'$ 2.310.200 COP'), findsOneWidget);
     expect(find.text(r'$ 1.250 USD'), findsOneWidget);
+    // Accounts live in Settings now, not as a shortcut on the dashboard.
     expect(
       find.text(
         r'2 cuentas activas · $ 2.310.200 COP · $ 1.250 USD · Ver saldos',
       ),
-      findsOneWidget,
+      findsNothing,
     );
     expect(find.text(r'$ 0 COP'), findsWidgets);
     expect(find.text(r'-$ 25 COP'), findsWidgets);
   });
 
-  testWidgets('the dashboard keeps the history that used to be in Gastos', (
-    tester,
-  ) async {
-    tester.view.physicalSize = const Size(800, 6000);
-    tester.view.devicePixelRatio = 1.0;
-    addTearDown(tester.view.resetPhysicalSize);
-    final testIncome = Income(
-      id: 42,
-      accountId: 11,
-      accountName: 'Cash',
-      currencyCode: 'COP',
-      amount: MoneyAmount.parseApi('500.00'),
-      date: DateTime.utc(2026, 9, 20),
-      description: 'Pago de nómina',
-      incomeSourceId: 1,
-      incomeSourceName: 'Trabajo',
-    );
+  testWidgets(
+    'Inicio shows Hero balance and does not duplicate history movements',
+    (tester) async {
+      tester.view.physicalSize = const Size(800, 6000);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
 
-    await pumpExpensesApp(
-      tester,
-      WidgetExpensesRepository(),
-      initialLocation: '/dashboard',
-      incomesRepository: FakeIncomesRepository([testIncome]),
-    );
+      await pumpExpensesApp(
+        tester,
+        WidgetExpensesRepository(),
+        initialLocation: '/dashboard',
+      );
 
-    expect(find.text('Historial reciente'), findsOneWidget);
-    expect(find.text('2 movimientos'), findsOneWidget);
-    expect(find.byKey(const Key('expense-card-7')), findsOneWidget);
-    expect(find.byKey(const Key('income-card-42')), findsOneWidget);
-    expect(find.text('Pago de nómina'), findsOneWidget);
-    expect(find.text(r'+$ 500 COP'), findsWidgets);
-    expect(find.byKey(const Key('home-accounts-button')), findsOneWidget);
-
-    await tester.tap(find.byKey(const Key('income-card-42')));
-    await tester.pumpAndSettle();
-    expect(find.text('Detalle del ingreso'), findsOneWidget);
-  });
+      expect(find.byKey(const Key('home-title')), findsNothing);
+      expect(find.text('Saldo en cuentas'), findsOneWidget);
+      expect(find.text('Historial reciente'), findsNothing);
+      expect(find.byKey(const Key('expense-card-7')), findsNothing);
+      expect(find.byKey(const Key('home-accounts-button')), findsNothing);
+    },
+  );
 
   testWidgets('a history movement opens the expense detail', (tester) async {
     tester.view.physicalSize = const Size(800, 6000);
@@ -1322,45 +1312,27 @@ void main() {
     await pumpExpensesApp(
       tester,
       WidgetExpensesRepository(),
-      initialLocation: '/dashboard',
+      initialLocation: '/history',
     );
-    await tester.tap(find.byKey(const Key('expense-card-7')));
+    await tester.tap(find.byKey(const Key('history-card-8')));
     await tester.pumpAndSettle();
 
     expect(find.text('Detalle del gasto'), findsOneWidget);
     expect(find.text('Groceries'), findsOneWidget);
   });
 
-  testWidgets('the dashboard history shows at most the 10 newest movements', (
+  testWidgets('the history screen shows loaded movements count', (
     tester,
   ) async {
     tester.view.physicalSize = const Size(800, 8000);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.resetPhysicalSize);
-    final incomes = List.generate(
-      15,
-      (i) => Income(
-        id: 100 + i,
-        accountId: 11,
-        accountName: 'Cash',
-        currencyCode: 'COP',
-        amount: MoneyAmount.parseApi('10.00'),
-        date: DateTime.utc(2026, 9, 1 + i),
-        description: 'Income $i',
-        incomeSourceId: 1,
-        incomeSourceName: 'Trabajo',
-      ),
-    );
+    final historyItems = List.generate(10, (i) => historyItem(id: 100 + i));
+    final repository = WidgetExpensesRepository()..historyItems = historyItems;
 
-    await pumpExpensesApp(
-      tester,
-      WidgetExpensesRepository(),
-      initialLocation: '/dashboard',
-      incomesRepository: FakeIncomesRepository(incomes),
-    );
+    await pumpExpensesApp(tester, repository, initialLocation: '/history');
 
     expect(find.text('10 movimientos'), findsOneWidget);
-    expect(find.byKey(const Key('expenses-load-more-button')), findsNothing);
   });
 
   testWidgets('with no movements the history offers to register the first', (
@@ -1370,11 +1342,11 @@ void main() {
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.resetPhysicalSize);
 
-    await pumpExpensesApp(
-      tester,
-      WidgetExpensesRepository()..expenses = [],
-      initialLocation: '/dashboard',
-    );
+    final repository = WidgetExpensesRepository()
+      ..expenses = []
+      ..historyItems = [];
+
+    await pumpExpensesApp(tester, repository, initialLocation: '/history');
 
     expect(find.byKey(const Key('movements-empty-state')), findsOneWidget);
     await tester.tap(find.byKey(const Key('movements-empty-register-button')));
@@ -1382,30 +1354,29 @@ void main() {
     expect(find.text('Registrar gasto'), findsWidgets);
   });
 
-  testWidgets('the Gastos chat opens first and balance and history moved to '
-      'the dashboard', (tester) async {
-    tester.view.physicalSize = const Size(800, 2400);
-    tester.view.devicePixelRatio = 1.0;
-    addTearDown(tester.view.resetPhysicalSize);
+  testWidgets(
+    'Inicio opens first with Hero header and Movimientos tab shows ledger',
+    (tester) async {
+      tester.view.physicalSize = const Size(800, 2400);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
 
-    final repository = WidgetExpensesRepository();
-    await pumpExpensesApp(tester, repository, initialLocation: '/home');
+      final repository = WidgetExpensesRepository();
+      await pumpExpensesApp(tester, repository, initialLocation: '/home');
 
-    expect(find.byKey(const Key('chat-messages')), findsOneWidget);
-    expect(find.byKey(const Key('chat-composer-field')), findsOneWidget);
-    expect(find.text('Saldo en cuentas'), findsNothing);
-    expect(find.text('Historial reciente'), findsNothing);
-    expect(find.byKey(const Key('home-accounts-button')), findsNothing);
+      expect(find.byKey(const Key('home-title')), findsNothing);
+      expect(find.text('Saldo en cuentas'), findsOneWidget);
+      expect(find.byKey(const Key('expenses-create-fab')), findsOneWidget);
+      expect(find.text('Historial reciente'), findsNothing);
+      expect(find.byKey(const Key('home-accounts-button')), findsNothing);
 
-    await tester.tap(find.byKey(const Key('bottom-nav-dashboard')));
-    await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('bottom-nav-movimientos')));
+      await tester.pumpAndSettle();
 
-    expect(find.text('Saldo en cuentas'), findsOneWidget);
-    expect(find.text(r'$ 100 COP'), findsOneWidget);
-    expect(find.byKey(const Key('home-accounts-button')), findsOneWidget);
-    expect(find.text(r'$ 0 COP'), findsWidgets);
-    expect(find.text(r'-$ 25 COP'), findsWidgets);
-  });
+      expect(find.byKey(const Key('history-list')), findsOneWidget);
+      expect(find.byKey(const Key('history-card-8')), findsOneWidget);
+    },
+  );
 }
 
 class EmptyAccountsRepository extends FakeAccountsRepository {

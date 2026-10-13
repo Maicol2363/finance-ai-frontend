@@ -3,7 +3,6 @@ import 'package:finance_ai/features/dashboard/application/dashboard_metrics.dart
 import 'package:finance_ai/features/dashboard/domain/dashboard_summary.dart';
 import 'package:finance_ai/features/dashboard/presentation/widgets/daily_allowance_card.dart';
 import 'package:finance_ai/features/dashboard/presentation/widgets/insights_card.dart';
-import 'package:finance_ai/features/dashboard/presentation/widgets/recent_movements_card.dart';
 import 'package:finance_ai/features/dashboard/presentation/widgets/top_categories_card.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -97,50 +96,13 @@ void main() {
 
       await tester.pumpWidget(_wrap(const InsightsCard(insights: insights)));
 
-      expect(find.text('Análisis inteligente'), findsOneWidget);
+      expect(find.text('Patrones y estimaciones'), findsOneWidget);
       expect(find.text('Colchón financiero sólido'), findsOneWidget);
       expect(
         find.text('Cuentas con 6.2 meses de reserva para imprevistos.'),
         findsOneWidget,
       );
       expect(find.text('Patrón de fin de semana'), findsOneWidget);
-    });
-
-    testWidgets('RecentMovementsCard renders mixed transactions with icons', (
-      tester,
-    ) async {
-      final items = [
-        RecentMovementItem(
-          id: 1,
-          type: 'expense',
-          occurredAt: DateTime.utc(2026, 9, 20, 14, 0),
-          title: 'Restaurante El Cielo',
-          amount: MoneyAmount.parseApi('180000.00'),
-        ),
-        RecentMovementItem(
-          id: 2,
-          type: 'income',
-          occurredAt: DateTime.utc(2026, 9, 19, 10, 0),
-          title: 'Pago Factura #1042',
-          amount: MoneyAmount.parseApi('3500000.00'),
-        ),
-      ];
-
-      await tester.pumpWidget(
-        _wrap(
-          RecentMovementsCard(
-            movements: items,
-            currency: 'COP',
-            onViewAll: () {},
-          ),
-        ),
-      );
-
-      expect(find.text('Últimos movimientos'), findsOneWidget);
-      expect(find.text('Restaurante El Cielo'), findsOneWidget);
-      expect(find.text('Pago Factura #1042'), findsOneWidget);
-      expect(find.text(r'-$ 180.000 COP'), findsOneWidget);
-      expect(find.text(r'+$ 3.500.000 COP'), findsOneWidget);
     });
   });
 }

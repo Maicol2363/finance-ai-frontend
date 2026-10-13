@@ -12,7 +12,7 @@ import 'expenses_controller.dart';
 ///
 /// The stock balance card is always all-time; only the flow figures
 /// (chips, tendency, category breakdown) follow this selection.
-enum DashboardPeriod { thisMonth, lastMonth, last3Months, thisYear }
+enum DashboardPeriod { thisMonth, lastMonth, last3Months, thisYear, custom }
 
 /// Currently selected Dashboard window. Changing it re-runs
 /// [periodTotalsProvider] with the new dates.
@@ -30,12 +30,33 @@ class DashboardPeriodController extends Notifier<DashboardPeriod> {
   }
 }
 
+/// Selected custom date range when [DashboardPeriod.custom] is chosen.
+final dashboardCustomRangeProvider =
+    NotifierProvider<
+      DashboardCustomRangeController,
+      ({DateTime start, DateTime end})?
+    >(DashboardCustomRangeController.new);
+
+class DashboardCustomRangeController
+    extends Notifier<({DateTime start, DateTime end})?> {
+  @override
+  ({DateTime start, DateTime end})? build() => null;
+
+  void setRange(DateTime start, DateTime end) {
+    state = (
+      start: DateTime.utc(start.year, start.month, start.day),
+      end: DateTime.utc(end.year, end.month, end.day),
+    );
+  }
+}
+
 /// Start/end of [period] as UTC-midnight calendar dates for the API
 /// (`yyyy-MM-dd`) and the month check for incomes.
 ({DateTime start, DateTime end}) periodWindow(
   DashboardPeriod period,
-  DateTime now,
-) {
+  DateTime now, {
+  ({DateTime start, DateTime end})? customRange,
+}) {
   final local = now.toLocal();
   final monthStart = DateTime.utc(local.year, local.month);
   switch (period) {
@@ -58,6 +79,9 @@ class DashboardPeriodController extends Notifier<DashboardPeriod> {
         start: DateTime.utc(local.year),
         end: DateTime.utc(local.year, 12, 31),
       );
+    case DashboardPeriod.custom:
+      if (customRange != null) return customRange;
+      return (start: monthStart, end: _monthEnd(local.year, local.month));
   }
 }
 
@@ -85,7 +109,11 @@ bool isInPeriodWindow(DateTime date, ({DateTime start, DateTime end}) window) {
 
 /// Human label for the selected window (`octubre`, `septiembre`,
 /// `jul – oct`, `2026`).
-String periodLabel(DashboardPeriod period, DateTime now) {
+String periodLabel(
+  DashboardPeriod period,
+  DateTime now, {
+  ({DateTime start, DateTime end})? customRange,
+}) {
   const short = [
     'ene',
     'feb',
@@ -126,6 +154,13 @@ String periodLabel(DashboardPeriod period, DateTime now) {
       return '${short[from.month - 1]} – ${short[local.month - 1]}';
     case DashboardPeriod.thisYear:
       return '${local.year}';
+    case DashboardPeriod.custom:
+      if (customRange != null) {
+        final s = customRange.start;
+        final e = customRange.end;
+        return '${s.day} ${short[s.month - 1]} – ${e.day} ${short[e.month - 1]}';
+      }
+      return 'personalizado';
   }
 }
 
@@ -185,9 +220,10 @@ Future<MonthlyTotals> loadPeriodTotals(
 }) async {
   ref.watch(expensesControllerProvider.select((state) => state.result));
   final now = ref.watch(clockProvider)();
+  final customRange = ref.watch(dashboardCustomRangeProvider);
   final window = period == DashboardPeriod.thisMonth
       ? currentMonthWindow(now)
-      : periodWindow(period, now);
+      : periodWindow(period, now, customRange: customRange);
   final builder = CurrencyTotalsBuilder();
 
   final incomes = await ref.watch(incomesListProvider.future);

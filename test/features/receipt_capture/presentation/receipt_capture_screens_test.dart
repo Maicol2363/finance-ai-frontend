@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:finance_ai/core/diagnostics/error_diagnostic.dart';
+import 'package:finance_ai/core/icons/finance_icon_catalog.dart';
 import 'package:finance_ai/core/diagnostics/error_diagnostic_panel.dart';
 import 'package:finance_ai/core/theme/app_theme.dart';
 import 'package:finance_ai/features/categories/data/categories_repository.dart';
@@ -604,7 +605,7 @@ void main() {
           find.text('La imagen no parece ser un recibo válido'),
           findsOneWidget,
         );
-        expect(find.byIcon(Icons.arrow_back), findsOneWidget);
+        expect(find.byIcon(FinanceIcons.arrowBack), findsOneWidget);
 
         // Verify Confirm button is disabled
         final confirmBtnFinder = find.widgetWithText(

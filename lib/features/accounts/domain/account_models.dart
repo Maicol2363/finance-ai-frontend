@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart';
+
 import '../../../core/formatters/money_formatter.dart';
 
 enum AccountType {
@@ -27,7 +29,10 @@ enum AccountType {
 class MoneyAmount {
   const MoneyAmount._(this.minorUnits);
 
-  static const int maximumMinorUnits = 999999999999999999;
+  /// Web uses the largest exactly representable JavaScript integer so that
+  /// parsing and formatting never silently round a financial amount.
+  static int get maximumMinorUnits =>
+      kIsWeb ? 9007199254740991 : int.parse('999999999999999999');
 
   // Cache compiled RegExp instances to eliminate repeated pattern compilation
   // on every API response parsing and form input validation.
@@ -37,7 +42,7 @@ class MoneyAmount {
   );
 
   factory MoneyAmount.fromMinorUnits(int minorUnits) {
-    if (minorUnits.abs() > maximumMinorUnits) {
+    if (BigInt.from(minorUnits).abs() > BigInt.from(maximumMinorUnits)) {
       throw const FormatException(
         'Money amount is outside the supported range',
       );
@@ -50,13 +55,15 @@ class MoneyAmount {
     if (match == null) {
       throw const FormatException('Invalid API money amount');
     }
-    final magnitude = int.tryParse('${match.group(2)}${match.group(3)}');
-    if (magnitude == null || magnitude > maximumMinorUnits) {
+    final magnitude = BigInt.tryParse('${match.group(2)}${match.group(3)}');
+    if (magnitude == null || magnitude > BigInt.from(maximumMinorUnits)) {
       throw const FormatException(
         'Money amount is outside the supported range',
       );
     }
-    return MoneyAmount._(match.group(1) == '-' ? -magnitude : magnitude);
+    return MoneyAmount._(
+      (match.group(1) == '-' ? -magnitude : magnitude).toInt(),
+    );
   }
 
   static MoneyAmount? tryParseUserInput(String source) {
@@ -66,11 +73,13 @@ class MoneyAmount {
       return null;
     }
     final fraction = (match.group(3) ?? '').padRight(2, '0');
-    final magnitude = int.tryParse('${match.group(2)}$fraction');
-    if (magnitude == null || magnitude > maximumMinorUnits) {
+    final magnitude = BigInt.tryParse('${match.group(2)}$fraction');
+    if (magnitude == null || magnitude > BigInt.from(maximumMinorUnits)) {
       return null;
     }
-    return MoneyAmount._(match.group(1) == '-' ? -magnitude : magnitude);
+    return MoneyAmount._(
+      (match.group(1) == '-' ? -magnitude : magnitude).toInt(),
+    );
   }
 
   final int minorUnits;

@@ -1,3 +1,4 @@
+import 'package:finance_ai/core/icons/finance_icon_catalog.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -7,7 +8,6 @@ import '../../../core/formatters/money_formatter.dart';
 import '../../../core/money/currency_totals.dart';
 import '../../../core/theme/app_palette.dart';
 import '../../../core/time/clock_provider.dart';
-import '../../../core/widgets/app_header.dart';
 import '../../../core/widgets/theme_toggle_button.dart';
 import '../../accounts/application/account_balances.dart';
 import '../../accounts/application/accounts_controller.dart';
@@ -21,17 +21,13 @@ import '../../expenses/application/expenses_controller.dart';
 import '../../expenses/application/expenses_state.dart';
 import '../../expenses/application/history_controller.dart';
 import '../../expenses/application/monthly_totals.dart';
-import '../../expenses/presentation/recent_movements_section.dart';
 import '../../expenses/presentation/transaction_visuals.dart';
 import '../../incomes/data/incomes_repository.dart';
 import '../application/dashboard_metrics.dart';
 import '../application/dashboard_summary_provider.dart';
 import 'spending_trend.dart';
 import 'spending_trend_card.dart';
-import 'widgets/accounts_shortcut.dart';
-import 'widgets/daily_allowance_card.dart';
 import 'widgets/insights_card.dart';
-import 'widgets/recent_movements_card.dart';
 
 /// Resumen y tendencias.
 ///
@@ -71,7 +67,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final palette = context.palette;
     final accounts =
         ref.watch(accountsControllerProvider).result?.accounts ??
         const <Account>[];
@@ -83,12 +78,13 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     final now = ref.watch(clockProvider)();
     final stock = activeAccountBalances(accounts);
     final period = ref.watch(dashboardPeriodProvider);
+    final customRange = ref.watch(dashboardCustomRangeProvider);
     final window = period == DashboardPeriod.thisMonth
         ? currentMonthWindow(now)
-        : periodWindow(period, now);
+        : periodWindow(period, now, customRange: customRange);
     final windowName = period == DashboardPeriod.thisMonth
         ? DateLabels.monthName(now)
-        : periodLabel(period, now);
+        : periodLabel(period, now, customRange: customRange);
     final monthTotalsAsync = ref.watch(periodTotalsProvider);
     final monthlyTotals = monthTotalsAsync.value;
 
@@ -103,19 +99,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     final breakdown = _breakdownFor(monthlyTotals, currency);
     // Tendency: daily bars for short windows, weekly for longer ones, monthly
     // buckets for the year. Longer windows show the last 30 days worth of
-    // buckets so bars keep volume instead of turning into zero-filled noise.
     final useYear = period == DashboardPeriod.thisYear;
-    final useWeeks =
-        !useYear && window.end.difference(window.start).inDays > 21;
     final trendWeeks = useYear
         ? monthlyExpenseSeries(
-            items: monthlyTotals?.expenseItems ?? const [],
-            currencyCode: currency,
-            windowStart: window.start,
-            windowEnd: window.end,
-          )
-        : useWeeks
-        ? weeklyExpenseSeries(
             items: monthlyTotals?.expenseItems ?? const [],
             currencyCode: currency,
             windowStart: window.start,
@@ -130,8 +116,17 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       windowStart: window.start,
       windowEnd: window.end,
     );
+    final cumulative = cumulativeExpenseSeries(
+      items: monthlyTotals?.expenseItems ?? const [],
+      currencyCode: currency,
+      windowStart: window.start,
+      windowEnd: window.end,
+      asOf: now,
+    );
+    final totalDaysInWindow = window.end.difference(window.start).inDays + 1;
     final summaryAsync = ref.watch(dashboardSummaryProvider);
     final summary = summaryAsync.value;
+    final isCurrent = period == DashboardPeriod.thisMonth;
 
     // Honest badge: check summary first if available, otherwise fallback to compareWindows.
     final totals = monthlyTotals?.byCurrency[currency];
@@ -144,35 +139,46 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 : 1.0,
             direction: summary.comparison.direction,
           )
-        : compareWindows(
-            current: totals?.expenses ?? 0,
-            previous: monthlyTotals?.previousExpensesByCurrency[currency] ?? 0,
-          );
-    final comparisonLabel = _comparisonLabel(comparison, window, now);
-    final bucketTotal = useYear || useWeeks
-        ? (trendWeeks ?? const <WeeklySpend>[]).fold<int>(
-            0,
-            (s, w) => s + w.minorUnits,
-          )
-        : trend.fold<int>(0, (s, d) => s + d.minorUnits);
-    final bucketCount = useYear || useWeeks
-        ? (trendWeeks?.length ?? 0)
-        : trend.length;
-    final average = bucketCount > 0
-        ? (bucketTotal / bucketCount).round()
-        : null;
-
-    final isCurrent = period == DashboardPeriod.thisMonth;
-    final int daysElapsed =
-        summary?.period.daysElapsed ??
-        (isCurrent ? now.day : window.end.difference(window.start).inDays + 1);
-    final int daysTotal =
-        summary?.period.daysTotal ??
-        (window.end.difference(window.start).inDays + 1);
-
-    final dailyAllowance = summary != null
-        ? DashboardMetrics.calculateDailyAllowance(summary: summary)
-        : null;
+        : ((period == DashboardPeriod.lastMonth ||
+                  (isCurrent && now.day == window.end.day))
+              ? compareWindows(
+                  current: totals?.expenses ?? 0,
+                  previous:
+                      monthlyTotals?.previousExpensesByCurrency[currency] ?? 0,
+                )
+              : null);
+    final comparisonLabel = _comparisonLabel(
+      comparison,
+      window,
+      now,
+      previousStart: summary?.comparison.previousStart,
+      previousEnd: summary?.comparison.previousEnd,
+    );
+    final summaryMatchesWindow =
+        summary != null &&
+        summary.period.start.year == window.start.year &&
+        summary.period.start.month == window.start.month &&
+        summary.period.start.day == window.start.day &&
+        summary.period.end.year == window.end.year &&
+        summary.period.end.month == window.end.month &&
+        summary.period.end.day == window.end.day;
+    final int daysTotal = totalDaysInWindow;
+    final int daysElapsed = summaryMatchesWindow
+        ? summary.period.daysElapsed
+        : now.isBefore(window.start)
+        ? 0
+        : now.isAfter(window.end)
+        ? daysTotal
+        : DateTime(now.year, now.month, now.day)
+                  .difference(
+                    DateTime(
+                      window.start.year,
+                      window.start.month,
+                      window.start.day,
+                    ),
+                  )
+                  .inDays +
+              1;
 
     final insights = summary != null
         ? DashboardMetrics.buildInsights(
@@ -181,143 +187,152 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           )
         : const <DashboardInsight>[];
 
+    final incomes = totals?.incomes ?? 0;
+    final expenses = totals?.expenses ?? 0;
+    final saved = incomes - expenses;
+    final monthAvailable = monthTotalsAsync.hasValue || summary != null;
+    final incomesLabel = monthAvailable
+        ? MoneyFormatter.display(incomes, currency, signed: true)
+        : '—';
+    final expensesLabel = monthAvailable
+        ? MoneyFormatter.display(-expenses, currency, signed: true)
+        : '—';
+    final user = ref.watch(authSessionControllerProvider).user;
+    final userName = user?.email.split('@').firstOrNull;
+
+    final int? trendProjectedMinorUnits;
+    if (daysElapsed > 0 && daysElapsed < totalDaysInWindow) {
+      final currentSpend = cumulative.isNotEmpty
+          ? cumulative.last.cumulativeMinorUnits
+          : 0;
+      if (currentSpend <= 0) {
+        trendProjectedMinorUnits = null;
+      } else {
+        // Keep cumulative spending monotonic: estimates never fall below what
+        // has already been spent. Other periods use a simple daily-pace model.
+        final paceEstimate = (currentSpend / daysElapsed * totalDaysInWindow)
+            .round();
+        final monthEstimate = period == DashboardPeriod.thisMonth
+            ? summary?.projection.projected.minorUnits
+            : null;
+        trendProjectedMinorUnits = monthEstimate != null && monthEstimate > 0
+            ? (monthEstimate > currentSpend ? monthEstimate : currentSpend)
+            : paceEstimate;
+      }
+    } else {
+      trendProjectedMinorUnits = null;
+    }
+
+    final showBudgets =
+        budgetsState.loadStatus != BudgetsLoadStatus.ready ||
+        (budgetsState.result?.budgets.isNotEmpty ?? false);
+
     return Scaffold(
-      body: SafeArea(
-        child: Column(
-          children: [
-            const AppHeader(
-              title: 'Dashboard',
-              subtitle: 'Resumen y tendencias',
-              actions: [ThemeToggleButton()],
-            ),
-            Expanded(
-              child: Center(
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 760),
-                  child: ListView(
-                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
-                    children: [
-                      _DashboardPeriodChips(
-                        selected: period,
-                        onSelect: (value) => ref
-                            .read(dashboardPeriodProvider.notifier)
-                            .select(value),
-                      ),
-                      const SizedBox(height: 12),
-                      _UnifiedNetFlowCard(
-                        currency: currency,
-                        otherCodes: otherCodes,
-                        stock: stock,
-                        monthTotals: monthlyTotals?.byCurrency ?? const {},
-                        monthName: windowName,
-                        monthAvailable:
-                            monthTotalsAsync.hasValue || summary != null,
-                        isCurrent: isCurrent,
-                        daysElapsed: daysElapsed,
-                        daysTotal: daysTotal,
-                      ),
-                      const SizedBox(height: 12),
-                      AccountsShortcut(
-                        accounts: accounts,
-                        stock: stock,
-                        orderedCodes: orderedCodes,
-                        onTap: () => context.push('/accounts'),
-                      ),
-                      if (monthTotalsAsync.hasError &&
-                          summaryAsync.hasError) ...[
-                        const SizedBox(height: 12),
-                        _MonthTotalsError(
-                          onRetry: () {
-                            ref.invalidate(periodTotalsProvider);
-                            ref.invalidate(dashboardSummaryProvider);
-                          },
-                        ),
-                      ],
-                      if (isCurrent &&
-                          dailyAllowance != null &&
-                          summary != null) ...[
-                        const SizedBox(height: 24),
-                        DailyAllowanceCard(
-                          dailyAllowanceMinorUnits: dailyAllowance,
-                          spentMtdMinorUnits:
-                              summary.projection.spentMtd.minorUnits,
-                          projectedMinorUnits:
-                              summary.projection.projected.minorUnits,
-                          remainingDays: daysTotal > daysElapsed
-                              ? (daysTotal - daysElapsed)
-                              : 0,
-                          currency: currency,
-                        ),
-                      ],
-                      const SizedBox(height: 24),
-
-                      SpendingTrendCard(
-                        days: trend,
-                        currency: currency,
-                        available: monthTotalsAsync.hasValue || summary != null,
-                        weekly: trendWeeks,
-                        comparisonLabel: comparisonLabel,
-                        comparisonDirection: comparison?.direction,
-                        averageMinorUnits: average,
-                      ),
-                      const SizedBox(height: 24),
-
-                      BudgetDashboardSection(
-                        state: budgetsState,
-                        onRetry: ref
-                            .read(budgetsControllerProvider.notifier)
-                            .load,
-                        onManage: () => context.go('/budgets'),
-                      ),
-                      if (insights.isNotEmpty) ...[
-                        const SizedBox(height: 24),
-                        InsightsCard(insights: insights),
-                      ],
-                      if (summary != null && summary.recent.isNotEmpty) ...[
-                        const SizedBox(height: 24),
-                        RecentMovementsCard(
-                          movements: summary.recent,
-                          currency: currency,
-                          onViewAll: () => context.go('/history'),
-                        ),
-                      ],
-                      const SizedBox(height: 24),
-
-                      // The history that used to live in the Gastos tab: every
-                      // movement opens its detail.
-                      const RecentMovementsSection(),
-                      const SizedBox(height: 24),
-
-                      Text(
-                        'Gastos por categoría',
-                        style: TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w700,
-                          color: palette.text,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'Movimientos de $windowName',
-                        style: TextStyle(fontSize: 11, color: palette.muted),
-                      ),
-                      const SizedBox(height: 12),
-
-                      if (breakdown.isEmpty)
-                        _EmptyBreakdown(monthName: windowName)
-                      else
-                        _CategoryBreakdown(
-                          rows: breakdown,
-                          currency: currency,
-                          window: window,
-                          windowName: windowName,
-                        ),
-                    ],
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 760),
+          child: ListView(
+            padding: EdgeInsets.zero,
+            children: [
+              _HeroHeader(
+                currency: currency,
+                otherCodes: otherCodes,
+                stock: stock,
+                monthName: windowName,
+                incomesLabel: incomesLabel,
+                expensesLabel: expensesLabel,
+                balanceLabel: monthAvailable
+                    ? MoneyFormatter.display(saved, currency, signed: true)
+                    : '—',
+                userName: userName,
+              ),
+              const SizedBox(height: 16),
+              if (showBudgets) ...[
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: BudgetDashboardSection(
+                    state: budgetsState,
+                    onRetry: ref.read(budgetsControllerProvider.notifier).load,
+                    onManage: () => context.push('/budgets'),
                   ),
                 ),
+              ],
+              if (monthTotalsAsync.hasError && summaryAsync.hasError) ...[
+                const SizedBox(height: 12),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: _MonthTotalsError(
+                    onRetry: () {
+                      ref.invalidate(periodTotalsProvider);
+                      ref.invalidate(dashboardSummaryProvider);
+                    },
+                  ),
+                ),
+              ],
+              SizedBox(height: showBudgets ? 16 : 0),
+              _DashboardAnalysis(
+                key: const ValueKey('dashboard-analysis-panel'),
+                currency: currency,
+                available: monthAvailable,
+                spentMinorUnits: expenses,
+                comparisonLabel: comparisonLabel,
+                comparisonDirection: comparison?.direction,
+                topCategory: breakdown.firstOrNull?.category,
+                insights: insights,
+                breakdown: breakdown,
+                window: window,
+                windowName: windowName,
+                trend: trend,
+                trendWeeks: trendWeeks,
+                cumulative: cumulative,
+                totalDaysInWindow: totalDaysInWindow,
+                projectedMinorUnits: trendProjectedMinorUnits,
+                period: period,
+                customRange: customRange,
+                onSelectPeriod: (value) async {
+                  if (value == DashboardPeriod.custom) {
+                    final picked = await showDateRangePicker(
+                      context: context,
+                      initialEntryMode: DatePickerEntryMode.input,
+                      firstDate: DateTime(2020),
+                      lastDate: DateTime(2035),
+                      initialDateRange: customRange != null
+                          ? DateTimeRange(
+                              start: DateTime(
+                                customRange.start.year,
+                                customRange.start.month,
+                                customRange.start.day,
+                              ),
+                              end: DateTime(
+                                customRange.end.year,
+                                customRange.end.month,
+                                customRange.end.day,
+                              ),
+                            )
+                          : DateTimeRange(
+                              start: now.subtract(const Duration(days: 30)),
+                              end: now,
+                            ),
+                      helpText: 'Seleccionar periodo de análisis',
+                      confirmText: 'Aplicar',
+                      cancelText: 'Cancelar',
+                    );
+                    if (picked != null) {
+                      ref
+                          .read(dashboardCustomRangeProvider.notifier)
+                          .setRange(picked.start, picked.end);
+                      ref
+                          .read(dashboardPeriodProvider.notifier)
+                          .select(DashboardPeriod.custom);
+                    }
+                  } else {
+                    ref.read(dashboardPeriodProvider.notifier).select(value);
+                  }
+                },
               ),
-            ),
-          ],
+              const SizedBox(height: 80),
+            ],
+          ),
         ),
       ),
     );
@@ -376,6 +391,269 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   }
 }
 
+class _DashboardAnalysis extends StatefulWidget {
+  const _DashboardAnalysis({
+    super.key,
+    required this.trend,
+    required this.trendWeeks,
+    required this.currency,
+    required this.available,
+    required this.spentMinorUnits,
+    required this.comparisonLabel,
+    required this.comparisonDirection,
+    required this.topCategory,
+    required this.insights,
+    required this.breakdown,
+    required this.window,
+    required this.windowName,
+    required this.cumulative,
+    required this.totalDaysInWindow,
+    required this.period,
+    required this.onSelectPeriod,
+    this.customRange,
+    this.projectedMinorUnits,
+  });
+
+  final List<DailySpend> trend;
+  final List<WeeklySpend>? trendWeeks;
+  final String currency;
+  final bool available;
+  final int spentMinorUnits;
+  final String? comparisonLabel;
+  final String? comparisonDirection;
+  final String? topCategory;
+  final List<DashboardInsight> insights;
+  final List<_BreakdownRow> breakdown;
+  final ({DateTime start, DateTime end}) window;
+  final String windowName;
+  final List<CumulativeSpendDay> cumulative;
+  final int totalDaysInWindow;
+  final int? projectedMinorUnits;
+  final DashboardPeriod period;
+  final ({DateTime start, DateTime end})? customRange;
+  final ValueChanged<DashboardPeriod> onSelectPeriod;
+
+  @override
+  State<_DashboardAnalysis> createState() => _DashboardAnalysisState();
+}
+
+class _DashboardAnalysisState extends State<_DashboardAnalysis> {
+  bool _expanded = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+    final periodName = widget.period == DashboardPeriod.thisMonth
+        ? 'este mes'
+        : widget.windowName;
+    final title = 'Gastos $periodName';
+    final amount = widget.available
+        ? MoneyFormatter.display(widget.spentMinorUnits, widget.currency)
+        : '—';
+    final comparisonColor = switch (widget.comparisonDirection) {
+      'up' => palette.discard,
+      'down' => palette.income,
+      _ => palette.muted,
+    };
+    final comparisonIcon = switch (widget.comparisonDirection) {
+      'up' => FinanceIcons.trendingUp,
+      'down' => FinanceIcons.trendingDown,
+      _ => FinanceIcons.trendingFlat,
+    };
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Card(
+        key: const Key('dashboard-analysis'),
+        margin: EdgeInsets.zero,
+        clipBehavior: Clip.antiAlias,
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Container(
+                        width: 44,
+                        height: 44,
+                        decoration: BoxDecoration(
+                          color: palette.primarySoft,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Icon(
+                          FinanceIcons.queryStatsRounded,
+                          color: palette.primary,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              title,
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                                color: palette.muted,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            FittedBox(
+                              alignment: Alignment.centerLeft,
+                              fit: BoxFit.scaleDown,
+                              child: Text(
+                                amount,
+                                key: const Key('dashboard-spending-amount'),
+                                style: TextStyle(
+                                  fontSize: 21,
+                                  fontWeight: FontWeight.w800,
+                                  color: palette.text,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      if (widget.comparisonLabel != null) ...[
+                        Icon(comparisonIcon, size: 16, color: comparisonColor),
+                        const SizedBox(width: 4),
+                        Flexible(
+                          child: Text(
+                            widget.comparisonLabel!,
+                            key: const Key('dashboard-spending-comparison'),
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: comparisonColor,
+                            ),
+                          ),
+                        ),
+                      ] else if (widget.topCategory != null) ...[
+                        Icon(
+                          FinanceIcons.categoryOutlined,
+                          size: 16,
+                          color: palette.muted,
+                        ),
+                        const SizedBox(width: 4),
+                        Flexible(
+                          child: Text(
+                            'Mayor categoría: ${widget.topCategory}',
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: palette.muted,
+                            ),
+                          ),
+                        ),
+                      ] else
+                        Expanded(
+                          child: Text(
+                            'Consulta la tendencia y los gastos por categoría.',
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: palette.muted,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4, left: 0),
+                    child: Semantics(
+                      expanded: _expanded,
+                      child: TextButton.icon(
+                        key: const Key('dashboard-analysis-toggle'),
+                        onPressed: () => setState(() {
+                          _expanded = !_expanded;
+                        }),
+                        icon: Icon(
+                          _expanded
+                              ? FinanceIcons.expandLess
+                              : FinanceIcons.expandMore,
+                        ),
+                        label: Text(
+                          _expanded ? 'Ocultar análisis' : 'Ver análisis',
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            AnimatedSize(
+              duration: const Duration(milliseconds: 220),
+              curve: Curves.easeInOut,
+              alignment: Alignment.topCenter,
+              child: _expanded
+                  ? Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          _DashboardPeriodSelector(
+                            selected: widget.period,
+                            customRange: widget.customRange,
+                            onSelect: widget.onSelectPeriod,
+                          ),
+                          const SizedBox(height: 16),
+                          SpendingTrendCard(
+                            days: widget.trend,
+                            currency: widget.currency,
+                            available: widget.available,
+                            cumulativeDays: widget.cumulative,
+                            totalDaysInPeriod: widget.totalDaysInWindow,
+                            projectedMinorUnits: widget.projectedMinorUnits,
+                            weekly: widget.trendWeeks,
+                            comparisonLabel: widget.comparisonLabel,
+                            comparisonDirection: widget.comparisonDirection,
+                          ),
+                          const SizedBox(height: 20),
+                          Text(
+                            'Gastos por categoría',
+                            style: Theme.of(context).textTheme.titleSmall,
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Movimientos de ${widget.windowName}',
+                            style: Theme.of(context).textTheme.bodySmall,
+                          ),
+                          const SizedBox(height: 8),
+                          widget.breakdown.isEmpty
+                              ? _EmptyBreakdown(monthName: widget.windowName)
+                              : _CategoryBreakdown(
+                                  rows: widget.breakdown,
+                                  currency: widget.currency,
+                                  window: widget.window,
+                                  windowName: widget.windowName,
+                                ),
+                          if (widget.insights.isNotEmpty) ...[
+                            const SizedBox(height: 20),
+                            InsightsCard(insights: widget.insights),
+                          ],
+                        ],
+                      ),
+                    )
+                  : const SizedBox.shrink(),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _CategoryAcc {
   int total = 0;
   int? categoryId;
@@ -387,14 +665,17 @@ class _CategoryAcc {
 String? _comparisonLabel(
   ({double ratio, String direction})? comparison,
   ({DateTime start, DateTime end}) window,
-  DateTime now,
-) {
+  DateTime now, {
+  DateTime? previousStart,
+  DateTime? previousEnd,
+}) {
   if (comparison == null) return null;
-  final prev = previousWindow(window);
-  final isMultiMonth = prev.start.month != prev.end.month;
-  final prevName = isMultiMonth
-      ? '${shortMonthName(prev.start.month)}\u2013${shortMonthName(prev.end.month)}'
-      : shortMonthName(prev.start.month);
+  final fallback = previousWindow(window);
+  final prev = (
+    start: previousStart ?? fallback.start,
+    end: previousEnd ?? fallback.end,
+  );
+  final prevName = _comparisonRangeLabel(prev);
   switch (comparison.direction) {
     case 'up':
       if (comparison.ratio.isInfinite) return 'Gastando de nuevo';
@@ -409,88 +690,276 @@ String? _comparisonLabel(
   return null;
 }
 
-/// Window presets above the balance card: Este mes / Mes anterior /
-/// Últimos 3 meses / Este año. Reuses the history screen chip look.
-class _DashboardPeriodChips extends StatelessWidget {
-  const _DashboardPeriodChips({required this.selected, required this.onSelect});
+String _comparisonRangeLabel(({DateTime start, DateTime end}) range) {
+  final startMonth = shortMonthName(range.start.month);
+  final endMonth = shortMonthName(range.end.month);
+  if (range.start.year != range.end.year) {
+    return '${range.start.day} $startMonth ${range.start.year}–${range.end.day} $endMonth ${range.end.year}';
+  }
+  if (range.start.month != range.end.month) {
+    return '${range.start.day} $startMonth–${range.end.day} $endMonth';
+  }
+  final lastDay = DateTime(range.end.year, range.end.month + 1, 0).day;
+  if (range.start.day == 1 && range.end.day == lastDay) return startMonth;
+  return '${range.start.day}–${range.end.day} $startMonth';
+}
+
+/// Quick period presets stay visible; the custom range opens the date picker
+/// directly instead of hiding the periods inside a dropdown.
+class _DashboardPeriodSelector extends StatelessWidget {
+  const _DashboardPeriodSelector({
+    required this.selected,
+    required this.onSelect,
+    this.customRange,
+  });
 
   final DashboardPeriod selected;
   final ValueChanged<DashboardPeriod> onSelect;
+  final ({DateTime start, DateTime end})? customRange;
 
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
-    const options = [
+    final options = [
       (DashboardPeriod.thisMonth, 'Este mes'),
       (DashboardPeriod.lastMonth, 'Mes anterior'),
       (DashboardPeriod.last3Months, 'Últimos 3 meses'),
       (DashboardPeriod.thisYear, 'Este año'),
     ];
+    final customLabel = customRange == null
+        ? 'Fechas'
+        : '${customRange!.start.day}/${customRange!.start.month}–${customRange!.end.day}/${customRange!.end.month}';
+
     return Semantics(
-      label: 'Periodo del dashboard',
+      container: true,
+      explicitChildNodes: true,
+      label: 'Periodo de análisis',
       child: Wrap(
+        key: const Key('dashboard-period-selector'),
         spacing: 8,
-        runSpacing: 8,
+        runSpacing: 2,
         children: [
           for (final option in options)
-            _PeriodChip(
-              label: option.$2,
-              selected: option.$1 == selected,
-              onTap: () => onSelect(option.$1),
-              palette: palette,
+            ChoiceChip(
+              key: Key('dashboard-period-${option.$1.name}'),
+              label: Text(option.$2),
+              selected: selected == option.$1,
+              showCheckmark: false,
+              materialTapTargetSize: MaterialTapTargetSize.padded,
+              visualDensity: VisualDensity.standard,
+              labelStyle: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: selected == option.$1 ? palette.primary : palette.text,
+              ),
+              selectedColor: palette.primarySoft,
+              backgroundColor: palette.card,
+              side: BorderSide(
+                color: selected == option.$1 ? palette.primary : palette.line,
+              ),
+              onSelected: (_) => onSelect(option.$1),
             ),
+          ChoiceChip(
+            key: const Key('dashboard-period-custom'),
+            avatar: const Icon(FinanceIcons.calendarMonthOutlined, size: 16),
+            label: Text(customLabel),
+            selected: selected == DashboardPeriod.custom,
+            showCheckmark: false,
+            materialTapTargetSize: MaterialTapTargetSize.padded,
+            visualDensity: VisualDensity.standard,
+            labelStyle: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: selected == DashboardPeriod.custom
+                  ? palette.primary
+                  : palette.text,
+            ),
+            selectedColor: palette.primarySoft,
+            backgroundColor: palette.card,
+            side: BorderSide(
+              color: selected == DashboardPeriod.custom
+                  ? palette.primary
+                  : palette.line,
+            ),
+            onSelected: (_) => onSelect(DashboardPeriod.custom),
+          ),
         ],
       ),
     );
   }
 }
 
-class _PeriodChip extends StatelessWidget {
-  const _PeriodChip({
-    required this.label,
-    required this.selected,
-    required this.onTap,
-    required this.palette,
+class _HeroHeader extends StatelessWidget {
+  const _HeroHeader({
+    required this.currency,
+    required this.otherCodes,
+    required this.stock,
+    required this.monthName,
+    required this.incomesLabel,
+    required this.expensesLabel,
+    required this.balanceLabel,
+    this.userName,
   });
 
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-  final AppPalette palette;
+  final String currency;
+  final List<String> otherCodes;
+  final Map<String, CurrencyTotals> stock;
+  final String monthName;
+  final String incomesLabel;
+  final String expensesLabel;
+  final String balanceLabel;
+  final String? userName;
 
   @override
   Widget build(BuildContext context) {
-    return Semantics(
-      button: true,
-      selected: selected,
-      label: label,
-      excludeSemantics: true,
-      onTap: onTap,
-      child: GestureDetector(
-        key: Key('dashboard-period-$label'),
-        onTap: onTap,
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
-          child: Center(
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 180),
-              padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 9),
-              decoration: BoxDecoration(
-                color: selected ? palette.primary : palette.card,
-                border: Border.all(
-                  color: selected ? palette.primary : palette.line,
-                ),
-                borderRadius: BorderRadius.circular(999),
+    final palette = context.palette;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final foreground = isDark ? palette.text : palette.onPrimary;
+    final totalBalance = stock[currency]?.balance ?? 0;
+
+    return Container(
+      key: const Key('dashboard-hero'),
+      width: double.infinity,
+      margin: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(28),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.16 : 0.10),
+            blurRadius: 18,
+            offset: const Offset(0, 8),
+          ),
+        ],
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: isDark
+              ? const [Color(0xFF252B1D), Color(0xFF1B2118)]
+              : [palette.primary, palette.primaryDark],
+        ),
+      ),
+      child: SafeArea(
+        bottom: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Text(
+                      userName != null && userName!.isNotEmpty
+                          ? 'Hola, $userName'
+                          : 'Finance AI',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                        color: foreground.withValues(alpha: 0.85),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: foreground.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                        child: Text(
+                          '$currency ▾',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            color: foreground,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      IconTheme(
+                        data: IconThemeData(color: foreground),
+                        child: const ThemeToggleButton(),
+                      ),
+                    ],
+                  ),
+                ],
               ),
-              child: Text(
-                label,
+              const SizedBox(height: 20),
+              Text(
+                'Saldo en cuentas',
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
-                  color: selected ? palette.onPrimary : palette.muted,
+                  color: foreground.withValues(alpha: 0.85),
                 ),
               ),
-            ),
+              const SizedBox(height: 4),
+              Text(
+                MoneyFormatter.display(totalBalance, currency),
+                style: TextStyle(
+                  fontSize: 32,
+                  fontWeight: FontWeight.w900,
+                  color: foreground,
+                  letterSpacing: -0.8,
+                ),
+              ),
+              for (final code in otherCodes) ...[
+                const SizedBox(height: 2),
+                Text(
+                  MoneyFormatter.display(stock[code]?.balance ?? 0, code),
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: foreground.withValues(alpha: 0.8),
+                  ),
+                ),
+              ],
+              const SizedBox(height: 3),
+              Text(
+                '$monthName · Balance',
+                style: TextStyle(
+                  fontSize: 10,
+                  color: foreground.withValues(alpha: 0.75),
+                ),
+              ),
+              Text(
+                balanceLabel,
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w800,
+                  color: foreground,
+                ),
+              ),
+              const SizedBox(height: 10),
+              Wrap(
+                spacing: 10,
+                runSpacing: 6,
+                children: [
+                  _HeroFlowChip(
+                    icon: FinanceIcons.arrowUpwardRounded,
+                    label: 'Ingresos',
+                    value: incomesLabel,
+                    color: foreground,
+                    backgroundColor: foreground.withValues(alpha: 0.12),
+                  ),
+                  _HeroFlowChip(
+                    icon: FinanceIcons.arrowDownwardRounded,
+                    label: 'Gastos',
+                    value: expensesLabel,
+                    color: foreground,
+                    backgroundColor: foreground.withValues(alpha: 0.12),
+                  ),
+                ],
+              ),
+            ],
           ),
         ),
       ),
@@ -498,284 +967,47 @@ class _PeriodChip extends StatelessWidget {
   }
 }
 
-/// Balance del periodo: ingresos − gastos = ahorro, con tasa de ahorro.
-///
-/// Answers "¿cómo voy?": the header chips show the two flows but never
-/// subtract them. Savings rate = saved / incomes, hidden when no income.
-/// The Unified Net Flow and Balance card: combines stock accounts balance,
-/// period progress, single income/expense chips, and honest net flow (superávit/déficit).
-class _UnifiedNetFlowCard extends StatelessWidget {
-  const _UnifiedNetFlowCard({
-    required this.currency,
-    required this.otherCodes,
-    required this.stock,
-    required this.monthTotals,
-    required this.monthName,
-    required this.monthAvailable,
-    required this.isCurrent,
-    required this.daysElapsed,
-    required this.daysTotal,
-  });
-
-  final String currency;
-  final List<String> otherCodes;
-  final Map<String, CurrencyTotals> stock;
-  final Map<String, CurrencyTotals> monthTotals;
-  final String monthName;
-  final bool monthAvailable;
-  final bool isCurrent;
-  final int daysElapsed;
-  final int daysTotal;
-
-  @override
-  Widget build(BuildContext context) {
-    final palette = context.palette;
-    final totals = monthTotals[currency] ?? const CurrencyTotals();
-    final incomes = totals.incomes;
-    final expenses = totals.expenses;
-    final saved = incomes - expenses;
-    final positive = saved >= 0;
-
-    final incomesLabel = monthAvailable
-        ? MoneyFormatter.display(incomes, currency, signed: true)
-        : '—';
-    final expensesLabel = monthAvailable
-        ? MoneyFormatter.display(-expenses, currency, signed: true)
-        : '—';
-
-    final progressPct = (daysTotal > 0 && daysElapsed > 0)
-        ? (daysElapsed / daysTotal).clamp(0.0, 1.0)
-        : null;
-
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: palette.card,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: palette.line),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x060F172A),
-            blurRadius: 10,
-            offset: Offset(0, 3),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Saldo en cuentas',
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              color: palette.muted,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            MoneyFormatter.display(stock[currency]?.balance ?? 0, currency),
-            style: TextStyle(
-              fontSize: 26,
-              fontWeight: FontWeight.w800,
-              color: palette.text,
-              letterSpacing: -0.5,
-            ),
-          ),
-          for (final code in otherCodes) ...[
-            const SizedBox(height: 2),
-            Text(
-              MoneyFormatter.display(stock[code]?.balance ?? 0, code),
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: palette.muted,
-              ),
-            ),
-          ],
-          const SizedBox(height: 16),
-          Divider(height: 1, color: palette.line),
-          const SizedBox(height: 14),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Movimientos de $monthName',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
-                  color: palette.text,
-                ),
-              ),
-              if (isCurrent && progressPct != null)
-                Text(
-                  'Día $daysElapsed de $daysTotal (${(progressPct * 100).round()}%)',
-                  style: TextStyle(fontSize: 11, color: palette.muted),
-                ),
-            ],
-          ),
-          if (isCurrent && progressPct != null) ...[
-            const SizedBox(height: 6),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(4),
-              child: LinearProgressIndicator(
-                value: progressPct,
-                backgroundColor: palette.soft,
-                valueColor: AlwaysStoppedAnimation<Color>(palette.primary),
-                minHeight: 4,
-              ),
-            ),
-          ],
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: _FlowChip(
-                  label: 'Ingresos',
-                  value: incomesLabel,
-                  color: palette.income,
-                  icon: Icons.arrow_downward,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _FlowChip(
-                  label: 'Gastos',
-                  value: expensesLabel,
-                  color: palette.discard,
-                  icon: Icons.arrow_upward,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-            decoration: BoxDecoration(
-              color: palette.soft,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Row(
-              children: [
-                Icon(
-                  positive ? Icons.check_circle_outline : Icons.error_outline,
-                  size: 18,
-                  color: positive ? palette.income : palette.discard,
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Text(
-                            'Balance de $monthName',
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600,
-                              color: palette.muted,
-                            ),
-                          ),
-                          const SizedBox(width: 6),
-                          Text(
-                            positive ? 'Ahorro' : 'Déficit',
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w700,
-                              color: positive
-                                  ? palette.income
-                                  : palette.discard,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        positive
-                            ? 'Superávit del periodo'
-                            : 'Gastos superan ingresos',
-                        style: TextStyle(fontSize: 10, color: palette.muted),
-                      ),
-                    ],
-                  ),
-                ),
-                Text(
-                  !monthAvailable
-                      ? '—'
-                      : MoneyFormatter.display(saved, currency, signed: true),
-                  key: const Key('dashboard-savings-amount'),
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w800,
-                    color: positive ? palette.income : palette.discard,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _FlowChip extends StatelessWidget {
-  const _FlowChip({
+class _HeroFlowChip extends StatelessWidget {
+  const _HeroFlowChip({
+    required this.icon,
     required this.label,
     required this.value,
     required this.color,
-    this.icon,
+    required this.backgroundColor,
   });
 
+  final IconData icon;
   final String label;
   final String value;
   final Color color;
-  final IconData? icon;
+  final Color backgroundColor;
 
   @override
   Widget build(BuildContext context) {
-    final palette = context.palette;
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
-        color: palette.soft,
-        borderRadius: BorderRadius.circular(12),
+        color: backgroundColor,
+        borderRadius: BorderRadius.circular(999),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Row(
-            children: [
-              if (icon != null) ...[
-                Icon(icon, size: 12, color: color),
-                const SizedBox(width: 4),
-              ] else ...[
-                Container(
-                  width: 8,
-                  height: 8,
-                  decoration: BoxDecoration(
-                    color: color,
-                    shape: BoxShape.circle,
-                  ),
-                ),
-                const SizedBox(width: 6),
-              ],
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                  color: palette.muted,
-                ),
-              ),
-            ],
+          Icon(icon, size: 13, color: color),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: color.withValues(alpha: 0.85),
+            ),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(width: 4),
           Text(
             value,
             style: TextStyle(
-              fontSize: 14,
+              fontSize: 11,
               fontWeight: FontWeight.w800,
               color: color,
             ),
@@ -786,8 +1018,6 @@ class _FlowChip extends StatelessWidget {
   }
 }
 
-/// One expense of the month, for the category breakdown.
-@immutable
 class _BreakdownRow {
   const _BreakdownRow({
     required this.category,
@@ -899,9 +1129,10 @@ class _BreakdownTile extends StatelessWidget {
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Center(
-                  child: Text(
-                    categoryEmoji(row.category),
-                    style: const TextStyle(fontSize: 14),
+                  child: Icon(
+                    categoryIcon(row.category),
+                    size: 16,
+                    color: palette.primary,
                   ),
                 ),
               ),
@@ -967,7 +1198,11 @@ class _BreakdownTile extends StatelessWidget {
                       color: palette.discard,
                     ),
                   ),
-                  Icon(Icons.chevron_right, size: 16, color: palette.muted),
+                  Icon(
+                    FinanceIcons.chevronRight,
+                    size: 16,
+                    color: palette.muted,
+                  ),
                 ],
               ),
             ],
@@ -996,7 +1231,11 @@ class _EmptyBreakdown extends StatelessWidget {
       child: Center(
         child: Column(
           children: [
-            const Text('📊', style: TextStyle(fontSize: 36)),
+            Icon(
+              FinanceIcons.analyticsOutlined,
+              size: 36,
+              color: palette.primary,
+            ),
             const SizedBox(height: 10),
             Text(
               'Sin datos suficientes',
@@ -1030,7 +1269,7 @@ class _MonthTotalsError extends StatelessWidget {
     final palette = context.palette;
     return Row(
       children: [
-        Icon(Icons.error_outline, size: 16, color: palette.discard),
+        Icon(FinanceIcons.errorOutline, size: 16, color: palette.discard),
         const SizedBox(width: 8),
         Expanded(
           child: Text(

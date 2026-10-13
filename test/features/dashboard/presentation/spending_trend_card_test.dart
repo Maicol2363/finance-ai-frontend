@@ -72,7 +72,7 @@ void main() {
     expect(find.textContaining('Subiendo'), findsNothing);
   });
 
-  testWidgets('weekly buckets render weeks and tap shows the value', (t) async {
+  testWidgets('weekly buckets show every amount and its date range', (t) async {
     await _pump(
       t,
       SpendingTrendCard(
@@ -94,11 +94,107 @@ void main() {
       ),
     );
     expect(find.text('2 semanas en COP'), findsOneWidget);
-    // Tap inside the chart area: the selected bucket value appears.
-    final chartCenter = t.getCenter(
-      find.byKey(const Key('dashboard-trend-chart')),
+    expect(
+      find.byKey(const Key('dashboard-trend-weekly-rows')),
+      findsOneWidget,
     );
-    await t.tapAt(chartCenter);
+    expect(find.text('1–7 sep'), findsOneWidget);
+    expect(find.text('8–14 sep'), findsOneWidget);
+    expect(find.textContaining('152.000'), findsOneWidget);
+    expect(find.textContaining('48.000'), findsOneWidget);
+    expect(find.byKey(const Key('dashboard-trend-chart')), findsNothing);
+  });
+
+  testWidgets('weekly values remain readable on a narrow phone', (t) async {
+    t.view.physicalSize = const Size(320, 780);
+    t.view.devicePixelRatio = 1;
+    addTearDown(t.view.resetPhysicalSize);
+    addTearDown(t.view.resetDevicePixelRatio);
+    await _pump(
+      t,
+      SpendingTrendCard(
+        days: const [],
+        currency: 'COP',
+        available: true,
+        weekly: [
+          for (var i = 0; i < 5; i++)
+            WeeklySpend(
+              start: DateTime(2026, 9, 7 + i * 7),
+              end: DateTime(2026, 9, 7 + i * 7 + 6),
+              minorUnits: (i + 1) * 12500000,
+            ),
+        ],
+      ),
+    );
+
+    expect(
+      find.byKey(const Key('dashboard-trend-weekly-rows')),
+      findsOneWidget,
+    );
+    expect(find.text('28 sep – 4 oct'), findsOneWidget);
+    expect(find.textContaining('625.000'), findsOneWidget);
+    expect(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is Semantics &&
+            widget.properties.label == r'28 sep – 4 oct: $ 500.000 COP',
+      ),
+      findsOneWidget,
+    );
+    expect(t.takeException(), isNull);
+  });
+
+  testWidgets('renders cumulative curve with daily pace and projected close', (
+    t,
+  ) async {
+    final cumulative = [
+      CumulativeSpendDay(
+        day: DateTime(2026, 10, 1),
+        dailyMinorUnits: 5000000,
+        cumulativeMinorUnits: 5000000,
+      ),
+      CumulativeSpendDay(
+        day: DateTime(2026, 10, 2),
+        dailyMinorUnits: 0,
+        cumulativeMinorUnits: 5000000,
+      ),
+      CumulativeSpendDay(
+        day: DateTime(2026, 10, 3),
+        dailyMinorUnits: 2500000,
+        cumulativeMinorUnits: 7500000,
+      ),
+    ];
+    await _pump(
+      t,
+      SpendingTrendCard(
+        days: const [],
+        currency: 'COP',
+        available: true,
+        cumulativeDays: cumulative,
+        totalDaysInPeriod: 31,
+        projectedMinorUnits: 77500000,
+      ),
+    );
+
+    expect(find.text('Tendencia de gasto'), findsOneWidget);
+    expect(find.byKey(const Key('dashboard-trend-chart')), findsOneWidget);
+    expect(find.textContaining('Día 3 de 31'), findsOneWidget);
+    expect(find.textContaining('Promedio:'), findsOneWidget);
+    expect(find.textContaining('Cierre est.:'), findsOneWidget);
+    expect(find.text('Gasto real acumulado'), findsOneWidget);
+    expect(find.text('Proyección al cierre'), findsOneWidget);
+    expect(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is Tooltip &&
+            widget.message?.contains('periodos abiertos') == true &&
+            widget.message?.contains('periodos cerrados') == true,
+      ),
+      findsOneWidget,
+    );
+
+    // Tap on chart to trigger selection
+    await t.tap(find.byKey(const Key('dashboard-trend-chart')));
     await t.pumpAndSettle();
     expect(find.byKey(const Key('dashboard-trend-selected')), findsOneWidget);
   });
@@ -234,7 +330,6 @@ void main() {
   testWidgets('loading and empty states do not render the table or toggle', (
     t,
   ) async {
-    // Loading state
     await _pump(
       t,
       SpendingTrendCard(
@@ -247,15 +342,9 @@ void main() {
     expect(find.byKey(const Key('dashboard-trend-toggle-table')), findsNothing);
     expect(find.byKey(const Key('dashboard-trend-table')), findsNothing);
 
-    // Empty list
     await _pump(
       t,
-      SpendingTrendCard(
-        days: const [],
-        currency: 'COP',
-        available: true,
-        initialShowTable: true,
-      ),
+      SpendingTrendCard(days: const [], currency: 'COP', available: true),
     );
     expect(find.byKey(const Key('dashboard-trend-toggle-table')), findsNothing);
     expect(find.byKey(const Key('dashboard-trend-table')), findsNothing);
@@ -282,4 +371,95 @@ void main() {
       );
     },
   );
+
+  testWidgets(
+    'annual window renders month labels and does not loop coordinates',
+    (t) async {
+      final yearDays = [
+        CumulativeSpendDay(
+          day: DateTime(2026, 1, 1),
+          dailyMinorUnits: 100000,
+          cumulativeMinorUnits: 100000,
+        ),
+        CumulativeSpendDay(
+          day: DateTime(2026, 2, 1),
+          dailyMinorUnits: 200000,
+          cumulativeMinorUnits: 300000,
+        ),
+        CumulativeSpendDay(
+          day: DateTime(2026, 10, 12),
+          dailyMinorUnits: 500000,
+          cumulativeMinorUnits: 800000,
+        ),
+      ];
+
+      await _pump(
+        t,
+        SpendingTrendCard(
+          days: const [],
+          currency: 'COP',
+          available: true,
+          cumulativeDays: yearDays,
+          totalDaysInPeriod: 365,
+          projectedMinorUnits: 1000000,
+        ),
+      );
+
+      expect(find.text('Ene'), findsOneWidget);
+      expect(find.text('Abr'), findsOneWidget);
+      expect(find.text('Jul'), findsOneWidget);
+      expect(find.text('Oct'), findsOneWidget);
+      expect(find.text('Dic'), findsOneWidget);
+      expect(find.text('Gasto real acumulado'), findsOneWidget);
+      expect(find.text('Proyección al cierre'), findsOneWidget);
+    },
+  );
+
+  testWidgets('completed period shows its confirmed total as a dotted tail', (
+    t,
+  ) async {
+    final history = List.generate(
+      30,
+      (index) => CumulativeSpendDay(
+        day: DateTime(2026, 9, index + 1),
+        dailyMinorUnits: index == 0 ? 100000 : 0,
+        cumulativeMinorUnits: 100000,
+      ),
+    );
+    await _pump(
+      t,
+      SpendingTrendCard(
+        days: const [],
+        currency: 'COP',
+        available: true,
+        cumulativeDays: history,
+        totalDaysInPeriod: 30,
+      ),
+    );
+
+    expect(
+      find.byKey(const Key('dashboard-trend-closed-period')),
+      findsOneWidget,
+    );
+    expect(find.text('Proyección al cierre'), findsNothing);
+    expect(find.text('Total real al cierre'), findsOneWidget);
+    expect(
+      find.byKey(const Key('dashboard-trend-dotted-line-legend')),
+      findsOneWidget,
+    );
+    final chart = t.widget<CustomPaint>(
+      find.descendant(
+        of: find.byKey(const Key('dashboard-trend-chart')),
+        matching: find.byWidgetPredicate(
+          (widget) =>
+              widget is CustomPaint &&
+              widget.painter is CumulativeSpendCurvePainter,
+        ),
+      ),
+    );
+    final painter = chart.painter! as CumulativeSpendCurvePainter;
+    expect(painter.points, hasLength(1));
+    expect(painter.totalDays, 30);
+    expect(painter.dottedEndMinorUnits, 100000);
+  });
 }

@@ -1,3 +1,5 @@
+import 'package:finance_ai/core/icons/finance_icon_catalog.dart';
+
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -115,7 +117,11 @@ class ReceiptPreCheckScreen extends ConsumerWidget {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(Icons.error_outline, size: 64, color: palette.discard),
+                Icon(
+                  FinanceIcons.errorOutline,
+                  size: 64,
+                  color: palette.discard,
+                ),
                 const SizedBox(height: 16),
                 Text(
                   'No se pudo completar el análisis',
@@ -133,7 +139,7 @@ class ReceiptPreCheckScreen extends ConsumerWidget {
                     onPressed: () {
                       notifier.retryFailedAnalysis();
                     },
-                    icon: const Icon(Icons.refresh),
+                    icon: const Icon(FinanceIcons.refresh),
                     label: const Text('Reintentar análisis'),
                     style: FilledButton.styleFrom(
                       backgroundColor: palette.primary,
@@ -180,7 +186,7 @@ class ReceiptPreCheckScreen extends ConsumerWidget {
         actions: [
           IconButton(
             tooltip: 'Rotar 90°',
-            icon: const Icon(Icons.rotate_right),
+            icon: const Icon(FinanceIcons.rotateRight),
             onPressed: () => notifier.rotatePreCheck(90),
           ),
         ],
@@ -232,7 +238,7 @@ class ReceiptPreCheckScreen extends ConsumerWidget {
                       Row(
                         children: [
                           Icon(
-                            Icons.info_outline,
+                            FinanceIcons.infoOutline,
                             size: 16,
                             color: palette.muted,
                           ),
@@ -248,7 +254,7 @@ class ReceiptPreCheckScreen extends ConsumerWidget {
                       ),
                       TextButton.icon(
                         onPressed: () => notifier.rotatePreCheck(90),
-                        icon: const Icon(Icons.rotate_right, size: 18),
+                        icon: const Icon(FinanceIcons.rotateRight, size: 18),
                         label: Text('Rotar (${state.rotationDegrees}°)'),
                         style: TextButton.styleFrom(
                           foregroundColor: palette.primary,
@@ -264,13 +270,13 @@ class ReceiptPreCheckScreen extends ConsumerWidget {
                           onPressed: () =>
                               notifier.pickImage(ImageSource.gallery),
                           icon: const Icon(
-                            Icons.photo_library_outlined,
+                            FinanceIcons.photoLibraryOutlined,
                             size: 18,
                           ),
                           label: const Text('Galería'),
                           style: OutlinedButton.styleFrom(
                             foregroundColor: palette.primary,
-                            minimumSize: const Size.fromHeight(44),
+                            minimumSize: const Size.fromHeight(48),
                           ),
                         ),
                       ),
@@ -279,13 +285,13 @@ class ReceiptPreCheckScreen extends ConsumerWidget {
                         child: OutlinedButton.icon(
                           onPressed: () => _retakeWithInAppCamera(context),
                           icon: const Icon(
-                            Icons.photo_camera_outlined,
+                            FinanceIcons.photoCameraOutlined,
                             size: 18,
                           ),
                           label: const Text('Otra foto'),
                           style: OutlinedButton.styleFrom(
                             foregroundColor: palette.primary,
-                            minimumSize: const Size.fromHeight(44),
+                            minimumSize: const Size.fromHeight(48),
                           ),
                         ),
                       ),
@@ -305,7 +311,7 @@ class ReceiptPreCheckScreen extends ConsumerWidget {
                     child: const Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.auto_awesome, size: 20),
+                        Icon(FinanceIcons.autoAwesome, size: 20),
                         SizedBox(width: 8),
                         Text(
                           'Analizar recibo',
@@ -325,7 +331,7 @@ class ReceiptPreCheckScreen extends ConsumerWidget {
                     },
                     style: TextButton.styleFrom(
                       foregroundColor: palette.muted,
-                      minimumSize: const Size.fromHeight(40),
+                      minimumSize: const Size.fromHeight(48),
                     ),
                     child: const Text('Cancelar'),
                   ),

@@ -229,7 +229,7 @@ void main() {
     expect(find.text('Crea tu primer presupuesto'), findsOneWidget);
   });
 
-  testWidgets('dashboard shows up to three budgets and manage action', (
+  testWidgets('dashboard shows prioritized budget summary and manage action', (
     tester,
   ) async {
     var managed = false;
@@ -252,8 +252,8 @@ void main() {
       ),
     );
 
-    expect(find.byType(LinearProgressIndicator), findsNWidgets(3));
-    expect(find.text('Administrar'), findsOneWidget);
+    expect(find.text('Mercado'), findsOneWidget);
+    expect(find.text('Ver presupuestos'), findsOneWidget);
     await tester.tap(find.byKey(const Key('dashboard-manage-budgets')));
     expect(managed, isTrue);
   });

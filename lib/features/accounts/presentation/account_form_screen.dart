@@ -1,8 +1,13 @@
+import 'package:finance_ai/core/icons/finance_icon_catalog.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/diagnostics/error_diagnostic_panel.dart';
+import '../../../core/widgets/app_header.dart';
+import '../../../core/widgets/management_page_scaffold.dart';
+import '../../../core/widgets/manage_widgets.dart';
+import '../../../core/widgets/theme_toggle_button.dart';
 import '../../../core/formatters/money_formatter.dart';
 import '../application/accounts_controller.dart';
 import '../application/accounts_state.dart';
@@ -86,66 +91,52 @@ class _AccountFormScreenState extends ConsumerState<AccountFormScreen> {
 
     return PopScope(
       canPop: !state.isSaving,
-      child: Scaffold(
-        appBar: AppBar(
-          leading: IconButton(
-            tooltip: widget.returnToPrevious
-                ? 'Volver al registro'
-                : 'Volver a cuentas',
-            onPressed: state.isSaving ? null : _goBack,
-            icon: const Icon(Icons.arrow_back),
-          ),
-          title: Text(widget.isEditing ? 'Editar cuenta' : 'Nueva cuenta'),
+      child: ManagementPageScaffold(
+        title: widget.isEditing ? 'Editar cuenta' : 'Nueva cuenta',
+        subtitle: 'Nombre, tipo, moneda y saldo',
+        leading: HeaderIconButton(
+          icon: FinanceIcons.arrowBack,
+          tooltip: widget.returnToPrevious
+              ? 'Volver al registro'
+              : 'Volver a cuentas',
+          onPressed: state.isSaving ? null : _goBack,
         ),
-        body: SafeArea(
-          child: Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 620),
-              child: ListView(
-                padding: const EdgeInsets.fromLTRB(24, 20, 24, 40),
-                children: [
-                  if (waitingForEdit || waitingForOptions) ...[
-                    Semantics(
-                      liveRegion: true,
-                      label: 'Cargando formulario de cuenta',
-                      child: const LinearProgressIndicator(),
-                    ),
-                    const SizedBox(height: 20),
-                  ],
-                  if (state.listDiagnostic case final diagnostic?) ...[
-                    ErrorDiagnosticPanel(diagnostic: diagnostic),
-                    const SizedBox(height: 12),
-                    OutlinedButton.icon(
-                      onPressed: controller.load,
-                      icon: const Icon(Icons.refresh),
-                      label: const Text('Reintentar opciones de cuenta'),
-                    ),
-                    const SizedBox(height: 20),
-                  ],
-                  if (widget.isEditing)
-                    if (state.detailDiagnostic case final diagnostic?) ...[
-                      ErrorDiagnosticPanel(diagnostic: diagnostic),
-                      const SizedBox(height: 12),
-                      OutlinedButton.icon(
-                        onPressed: () =>
-                            controller.loadDetail(widget.accountId!),
-                        icon: const Icon(Icons.refresh),
-                        label: const Text('Reintentar detalles de la cuenta'),
-                      ),
-                      const SizedBox(height: 20),
-                    ],
-                  if (canShowForm)
-                    _buildForm(
-                      context,
-                      state,
-                      options,
-                      editAccount,
-                      controller,
-                    ),
-                ],
+        actions: const [ThemeToggleButton()],
+        body: ListView(
+          padding: EdgeInsets.zero,
+          children: [
+            if (waitingForEdit || waitingForOptions) ...[
+              Semantics(
+                liveRegion: true,
+                label: 'Cargando formulario de cuenta',
+                child: const LinearProgressIndicator(),
               ),
-            ),
-          ),
+              const SizedBox(height: 16),
+            ],
+            if (state.listDiagnostic case final diagnostic?) ...[
+              ErrorDiagnosticPanel(diagnostic: diagnostic),
+              const SizedBox(height: 16),
+              OutlinedButton.icon(
+                onPressed: controller.load,
+                icon: const Icon(FinanceIcons.refresh),
+                label: const Text('Reintentar opciones de cuenta'),
+              ),
+              const SizedBox(height: 16),
+            ],
+            if (widget.isEditing)
+              if (state.detailDiagnostic case final diagnostic?) ...[
+                ErrorDiagnosticPanel(diagnostic: diagnostic),
+                const SizedBox(height: 16),
+                OutlinedButton.icon(
+                  onPressed: () => controller.loadDetail(widget.accountId!),
+                  icon: const Icon(FinanceIcons.refresh),
+                  label: const Text('Reintentar detalles de la cuenta'),
+                ),
+                const SizedBox(height: 16),
+              ],
+            if (canShowForm)
+              _buildForm(context, state, options, editAccount, controller),
+          ],
         ),
       ),
     );
@@ -161,129 +152,124 @@ class _AccountFormScreenState extends ConsumerState<AccountFormScreen> {
     final currencyLocked =
         widget.isEditing && editAccount != null && editAccount.currencyIsLocked;
     final formEnabled = !state.isSaving && !state.requiresMutationReview;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Text(
-          widget.isEditing
-              ? 'Mantén al día la cuenta donde registras tu dinero.'
-              : 'Agrega efectivo, un banco, billetera digital, producto de ahorro, tarjeta de crédito u otra cuenta.',
-          style: Theme.of(context).textTheme.bodyLarge,
-        ),
-        const SizedBox(height: 24),
-        if (state.mutationDiagnostic case final diagnostic?) ...[
-          ErrorDiagnosticPanel(diagnostic: diagnostic),
-          const SizedBox(height: 20),
-        ],
-        TextField(
-          key: const Key('account-name-field'),
-          controller: _nameController,
-          focusNode: _nameFocus,
-          enabled: formEnabled,
-          textInputAction: TextInputAction.next,
-          maxLength: 100,
-          decoration: InputDecoration(
-            labelText: 'Nombre de la cuenta',
-            hintText: 'Efectivo, Nequi, Bancolombia…',
-            errorText: _firstError(state, 'name'),
+    return ManagementFormCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (state.mutationDiagnostic case final diagnostic?) ...[
+            ErrorDiagnosticPanel(diagnostic: diagnostic),
+            const SizedBox(height: 16),
+          ],
+          TextField(
+            key: const Key('account-name-field'),
+            controller: _nameController,
+            focusNode: _nameFocus,
+            enabled: formEnabled,
+            textInputAction: TextInputAction.next,
+            maxLength: 100,
+            decoration: InputDecoration(
+              labelText: 'Nombre de la cuenta',
+              hintText: 'Efectivo, Nequi, Bancolombia…',
+              errorText: _firstError(state, 'name'),
+            ),
+            onChanged: (_) => controller.clearFieldError('name'),
           ),
-          onChanged: (_) => controller.clearFieldError('name'),
-        ),
-        const SizedBox(height: 12),
-        DropdownButtonFormField<AccountType>(
-          key: const Key('account-type-field'),
-          initialValue: _selectedType,
-          decoration: InputDecoration(
-            labelText: 'Tipo de cuenta',
-            errorText: _firstError(state, 'type'),
+          const SizedBox(height: 16),
+          DropdownButtonFormField<AccountType>(
+            key: const Key('account-type-field'),
+            initialValue: _selectedType,
+            decoration: InputDecoration(
+              labelText: 'Tipo de cuenta',
+              errorText: _firstError(state, 'type'),
+            ),
+            items: options.accountTypes
+                .map(
+                  (type) =>
+                      DropdownMenuItem(value: type, child: Text(type.label)),
+                )
+                .toList(growable: false),
+            onChanged: formEnabled
+                ? (value) {
+                    setState(() => _selectedType = value);
+                    controller.clearFieldError('type');
+                  }
+                : null,
           ),
-          items: options.accountTypes
-              .map(
-                (type) =>
-                    DropdownMenuItem(value: type, child: Text(type.label)),
-              )
-              .toList(growable: false),
-          onChanged: formEnabled
-              ? (value) {
-                  setState(() => _selectedType = value);
-                  controller.clearFieldError('type');
-                }
-              : null,
-        ),
-        const SizedBox(height: 20),
-        DropdownButtonFormField<String>(
-          key: const Key('account-currency-field'),
-          initialValue: _selectedCurrency,
-          decoration: InputDecoration(
-            labelText: 'Moneda',
-            helperText: currencyLocked
-                ? 'No puedes cambiar la moneda porque esta cuenta ya tiene movimientos confirmados.'
-                : 'La sugerencia es editable y no modifica cuentas guardadas.',
-            errorText: _firstError(state, 'currency_code'),
-          ),
-          items: options.supportedCurrencies
-              .map(
-                (currency) => DropdownMenuItem(
-                  value: currency.code,
-                  child: Text('${currency.code} · ${currency.name}'),
-                ),
-              )
-              .toList(growable: false),
-          onChanged: formEnabled && !currencyLocked
-              ? (value) {
-                  setState(() => _selectedCurrency = value);
-                  controller.clearFieldError('currency_code');
-                }
-              : null,
-        ),
-        const SizedBox(height: 20),
-        TextField(
-          key: const Key('account-opening-balance-field'),
-          controller: _openingBalanceController,
-          focusNode: _openingBalanceFocus,
-          enabled: formEnabled,
-          keyboardType: const TextInputType.numberWithOptions(
-            signed: true,
-            decimal: true,
-          ),
-          inputFormatters: const [MoneyInputFormatter(allowNegative: true)],
-          textInputAction: TextInputAction.done,
-          decoration: InputDecoration(
-            labelText: 'Saldo inicial',
-            helperText: 'Usa signo menos para deuda. Separa miles con punto.',
-            errorText: _firstError(state, 'opening_balance'),
-          ),
-          onChanged: (_) => controller.clearFieldError('opening_balance'),
-          onSubmitted: (_) {
-            if (formEnabled) {
-              _submit();
-            }
-          },
-        ),
-        const SizedBox(height: 28),
-        FilledButton(
-          key: const Key('account-save-button'),
-          onPressed: formEnabled ? _submit : null,
-          child: state.isSaving
-              ? Semantics(
-                  liveRegion: true,
-                  label: 'Guardando cuenta',
-                  child: const SizedBox.square(
-                    dimension: 24,
-                    child: CircularProgressIndicator(strokeWidth: 2.5),
+          const SizedBox(height: 16),
+          DropdownButtonFormField<String>(
+            key: const Key('account-currency-field'),
+            initialValue: _selectedCurrency,
+            decoration: InputDecoration(
+              labelText: 'Moneda',
+              helperText: currencyLocked
+                  ? 'La moneda se bloquea cuando la cuenta ya tiene movimientos confirmados.'
+                  : 'La sugerencia es editable y no modifica cuentas guardadas.',
+              errorText: _firstError(state, 'currency_code'),
+            ),
+            items: options.supportedCurrencies
+                .map(
+                  (currency) => DropdownMenuItem(
+                    value: currency.code,
+                    child: Text('${currency.code} · ${currency.name}'),
                   ),
                 )
-              : Text(widget.isEditing ? 'Guardar cambios' : 'Guardar cuenta'),
-        ),
-        if (state.requiresMutationReview) ...[
-          const SizedBox(height: 12),
-          OutlinedButton.icon(
-            onPressed: controller.resolveUncertainMutation,
-            icon: const Icon(Icons.sync),
-            label: const Text('Actualizar cuentas antes de reintentar'),
+                .toList(growable: false),
+            onChanged: formEnabled && !currencyLocked
+                ? (value) {
+                    setState(() => _selectedCurrency = value);
+                    controller.clearFieldError('currency_code');
+                  }
+                : null,
           ),
+          const SizedBox(height: 16),
+          TextField(
+            key: const Key('account-opening-balance-field'),
+            controller: _openingBalanceController,
+            focusNode: _openingBalanceFocus,
+            enabled: formEnabled,
+            keyboardType: const TextInputType.numberWithOptions(
+              signed: true,
+              decimal: true,
+            ),
+            inputFormatters: const [MoneyInputFormatter(allowNegative: true)],
+            textInputAction: TextInputAction.done,
+            decoration: InputDecoration(
+              labelText: 'Saldo inicial',
+              helperText: 'Usa signo menos para deuda. Separa miles con punto.',
+              errorText: _firstError(state, 'opening_balance'),
+            ),
+            onChanged: (_) => controller.clearFieldError('opening_balance'),
+            onSubmitted: (_) {
+              if (formEnabled) {
+                _submit();
+              }
+            },
+          ),
+          const SizedBox(height: 28),
+          FilledButton(
+            key: const Key('account-save-button'),
+            onPressed: formEnabled ? _submit : null,
+            child: state.isSaving
+                ? Semantics(
+                    liveRegion: true,
+                    label: 'Guardando cuenta',
+                    child: const SizedBox.square(
+                      dimension: 24,
+                      child: CircularProgressIndicator(strokeWidth: 2.5),
+                    ),
+                  )
+                : Text(widget.isEditing ? 'Guardar cambios' : 'Guardar cuenta'),
+          ),
+          if (state.requiresMutationReview) ...[
+            const SizedBox(height: 16),
+            OutlinedButton.icon(
+              onPressed: controller.resolveUncertainMutation,
+              icon: const Icon(FinanceIcons.sync),
+              label: const Text('Actualizar cuentas antes de reintentar'),
+            ),
+          ],
         ],
-      ],
+      ),
     );
   }
 

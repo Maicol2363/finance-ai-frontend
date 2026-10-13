@@ -174,6 +174,11 @@ void main() {
       find.byKey(const Key('income-date-field')),
       '2026-09-18',
     );
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('income-description-field')),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
     await tester.enterText(
       find.byKey(const Key('income-description-field')),
       '  Pago  ',

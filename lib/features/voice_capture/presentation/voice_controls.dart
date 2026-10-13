@@ -1,3 +1,4 @@
+import 'package:finance_ai/core/icons/finance_icon_catalog.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -63,7 +64,9 @@ class VoiceControls extends StatelessWidget {
                     )
                   else
                     Icon(
-                      controller.capturing ? Icons.mic : Icons.mic_outlined,
+                      controller.capturing
+                          ? FinanceIcons.mic
+                          : FinanceIcons.micOutlined,
                       size: 18,
                       color: palette.primary,
                     ),
@@ -99,7 +102,7 @@ class VoiceControls extends StatelessWidget {
                     key: const Key('voice-close'),
                     tooltip: 'Cerrar dictado y conservar texto',
                     onPressed: onClose,
-                    icon: const Icon(Icons.close, size: 18),
+                    icon: const Icon(FinanceIcons.close, size: 18),
                   ),
                 ],
               ),
@@ -156,7 +159,7 @@ class VoiceControls extends StatelessWidget {
                   child: TextButton.icon(
                     key: const Key('voice-discard'),
                     onPressed: controller.discard,
-                    icon: const Icon(Icons.close, size: 16),
+                    icon: const Icon(FinanceIcons.close, size: 16),
                     label: const Text('Descartar dictado'),
                   ),
                 )
@@ -166,7 +169,7 @@ class VoiceControls extends StatelessWidget {
                   child: OutlinedButton.icon(
                     key: const Key('voice-review-stop'),
                     onPressed: controller.finishForReview,
-                    icon: const Icon(Icons.stop_circle_outlined, size: 18),
+                    icon: const Icon(FinanceIcons.stopCircleOutlined, size: 18),
                     label: const Text('Detener y revisar'),
                   ),
                 )
@@ -208,7 +211,7 @@ class VoiceControls extends StatelessWidget {
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Icon(
-                            Icons.edit_outlined,
+                            FinanceIcons.editOutlined,
                             size: 18,
                             color: nearTarget ? palette.primary : palette.muted,
                           ),
@@ -466,10 +469,10 @@ class _VoiceMicButtonState extends State<VoiceMicButton>
                   ),
                   icon: Icon(
                     _latched
-                        ? Icons.edit_outlined
+                        ? FinanceIcons.editOutlined
                         : widget.controller.capturing
-                        ? Icons.mic
-                        : Icons.mic_outlined,
+                        ? FinanceIcons.mic
+                        : FinanceIcons.micOutlined,
                   ),
                 ),
               ),

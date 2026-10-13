@@ -106,16 +106,16 @@ GoRouter createAppRouter({
               GoRoute(
                 path: '/home',
                 name: 'home',
-                builder: (context, state) => const HomeScreen(),
+                builder: (context, state) => const DashboardScreen(),
               ),
             ],
           ),
           StatefulShellBranch(
             routes: [
               GoRoute(
-                path: '/dashboard',
-                name: 'dashboard',
-                builder: (context, state) => const DashboardScreen(),
+                path: '/history',
+                name: 'history',
+                builder: (context, state) => const HistoryScreen(),
               ),
             ],
           ),
@@ -129,6 +129,12 @@ GoRouter createAppRouter({
             ],
           ),
         ],
+      ),
+      GoRoute(path: '/dashboard', redirect: (context, state) => '/home'),
+      GoRoute(
+        path: '/chat',
+        name: 'chat',
+        builder: (context, state) => const HomeScreen(),
       ),
       GoRoute(
         path: '/budgets',
@@ -257,11 +263,6 @@ GoRouter createAppRouter({
             ],
           ),
         ],
-      ),
-      GoRoute(
-        path: '/history',
-        name: 'history',
-        builder: (context, state) => const HistoryScreen(),
       ),
       GoRoute(
         path: '/accounts',

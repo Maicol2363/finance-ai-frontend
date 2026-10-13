@@ -1,3 +1,5 @@
+import 'package:finance_ai/core/icons/finance_icon_catalog.dart';
+
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -226,7 +228,7 @@ class _ReceiptReviewScreenState extends ConsumerState<ReceiptReviewScreen> {
           backgroundColor: palette.card,
           elevation: 0,
           leading: IconButton(
-            icon: const Icon(Icons.arrow_back),
+            icon: const Icon(FinanceIcons.arrowBack),
             tooltip: 'Volver',
             onPressed: () => _handleDiscardAndExit(context, notifier),
           ),
@@ -256,7 +258,7 @@ class _ReceiptReviewScreenState extends ConsumerState<ReceiptReviewScreen> {
                         if (state.status == 'not_a_receipt') ...[
                           _buildWarningBanner(
                             palette: palette,
-                            icon: Icons.block,
+                            icon: FinanceIcons.block,
                             color: palette.discard,
                             bgColor: palette.errorSoft,
                             title: 'La imagen no parece ser un recibo válido',
@@ -266,7 +268,7 @@ class _ReceiptReviewScreenState extends ConsumerState<ReceiptReviewScreen> {
                         ] else if (state.status == 'failed_extraction') ...[
                           _buildWarningBanner(
                             palette: palette,
-                            icon: Icons.info_outline,
+                            icon: FinanceIcons.infoOutline,
                             color: Colors.orange.shade800,
                             bgColor: Colors.orange.shade50,
                             title: 'Extracción automática no disponible',
@@ -279,7 +281,7 @@ class _ReceiptReviewScreenState extends ConsumerState<ReceiptReviewScreen> {
                         if (state.possibleDuplicate) ...[
                           _buildWarningBanner(
                             palette: palette,
-                            icon: Icons.warning_amber_rounded,
+                            icon: FinanceIcons.warningAmberRounded,
                             color: Colors.amber.shade900,
                             bgColor: Colors.amber.shade50,
                             title: 'Posible recibo duplicado',
@@ -292,7 +294,7 @@ class _ReceiptReviewScreenState extends ConsumerState<ReceiptReviewScreen> {
                         if (formData.hasArithmeticDiscrepancy) ...[
                           _buildWarningBanner(
                             palette: palette,
-                            icon: Icons.info_outline,
+                            icon: FinanceIcons.infoOutline,
                             color: Colors.amber.shade900,
                             bgColor: Colors.amber.shade50,
                             title: 'Diferencia en la suma de productos',
@@ -313,7 +315,7 @@ class _ReceiptReviewScreenState extends ConsumerState<ReceiptReviewScreen> {
                         if (state.submissionError != null) ...[
                           _buildWarningBanner(
                             palette: palette,
-                            icon: Icons.error_outline,
+                            icon: FinanceIcons.errorOutline,
                             color: palette.discard,
                             bgColor: palette.errorSoft,
                             title: 'Error al confirmar',
@@ -331,7 +333,9 @@ class _ReceiptReviewScreenState extends ConsumerState<ReceiptReviewScreen> {
                               controller: _merchantController,
                               decoration: const InputDecoration(
                                 labelText: 'Comercio / Tienda *',
-                                prefixIcon: Icon(Icons.storefront_outlined),
+                                prefixIcon: Icon(
+                                  FinanceIcons.storefrontOutlined,
+                                ),
                               ),
                               validator: (val) {
                                 if (val == null || val.trim().isEmpty) {
@@ -385,7 +389,7 @@ class _ReceiptReviewScreenState extends ConsumerState<ReceiptReviewScreen> {
                             ListTile(
                               contentPadding: EdgeInsets.zero,
                               leading: Icon(
-                                Icons.calendar_today_outlined,
+                                FinanceIcons.calendarTodayOutlined,
                                 color: palette.primary,
                               ),
                               title: const Text('Fecha del comprobante'),
@@ -419,7 +423,7 @@ class _ReceiptReviewScreenState extends ConsumerState<ReceiptReviewScreen> {
                               decoration: const InputDecoration(
                                 labelText: 'Cuenta de pago *',
                                 prefixIcon: Icon(
-                                  Icons.account_balance_wallet_outlined,
+                                  FinanceIcons.accountBalanceWalletOutlined,
                                 ),
                               ),
                               items: activeAccounts
@@ -459,7 +463,7 @@ class _ReceiptReviewScreenState extends ConsumerState<ReceiptReviewScreen> {
                                         : null),
                               decoration: const InputDecoration(
                                 labelText: 'Categoría general (opcional)',
-                                prefixIcon: Icon(Icons.category_outlined),
+                                prefixIcon: Icon(FinanceIcons.categoryOutlined),
                               ),
                               items: [
                                 const DropdownMenuItem<int>(
@@ -473,7 +477,7 @@ class _ReceiptReviewScreenState extends ConsumerState<ReceiptReviewScreen> {
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
                                         Icon(
-                                          Icons.auto_awesome,
+                                          FinanceIcons.autoAwesome,
                                           size: 16,
                                           color: palette.primary,
                                         ),
@@ -519,7 +523,7 @@ class _ReceiptReviewScreenState extends ConsumerState<ReceiptReviewScreen> {
                               controller: _noteController,
                               decoration: const InputDecoration(
                                 labelText: 'Notas adicionales (opcional)',
-                                prefixIcon: Icon(Icons.notes_outlined),
+                                prefixIcon: Icon(FinanceIcons.notesOutlined),
                               ),
                               onChanged: (val) {
                                 notifier.updateFormData(
@@ -608,11 +612,11 @@ class _ReceiptReviewScreenState extends ConsumerState<ReceiptReviewScreen> {
             onPressed: () {
               ReceiptPhotoViewerDialog.show(context, imageFile: file);
             },
-            icon: const Icon(Icons.zoom_in, size: 16),
+            icon: const Icon(FinanceIcons.zoomIn, size: 16),
             label: const Text('Ver foto'),
             style: OutlinedButton.styleFrom(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-              minimumSize: const Size(0, 36),
+              minimumSize: const Size(0, 48),
             ),
           ),
         ],
@@ -724,7 +728,7 @@ class _ReceiptReviewScreenState extends ConsumerState<ReceiptReviewScreen> {
               ),
               TextButton.icon(
                 onPressed: () => _showItemEditDialog(context, notifier),
-                icon: const Icon(Icons.add, size: 18),
+                icon: const Icon(FinanceIcons.add, size: 18),
                 label: const Text('Agregar'),
                 style: TextButton.styleFrom(
                   foregroundColor: palette.primary,
@@ -781,7 +785,7 @@ class _ReceiptReviewScreenState extends ConsumerState<ReceiptReviewScreen> {
                         ),
                       ),
                       IconButton(
-                        icon: const Icon(Icons.edit_outlined, size: 18),
+                        icon: const Icon(FinanceIcons.editOutlined, size: 18),
                         onPressed: () => _showItemEditDialog(
                           context,
                           notifier,
@@ -791,7 +795,7 @@ class _ReceiptReviewScreenState extends ConsumerState<ReceiptReviewScreen> {
                       ),
                       IconButton(
                         icon: Icon(
-                          Icons.delete_outline,
+                          FinanceIcons.deleteOutline,
                           size: 18,
                           color: palette.discard,
                         ),
@@ -892,7 +896,7 @@ class _ReceiptReviewScreenState extends ConsumerState<ReceiptReviewScreen> {
                   : const Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.check, size: 20),
+                        Icon(FinanceIcons.check, size: 20),
                         SizedBox(width: 6),
                         Text(
                           'Confirmar gasto',

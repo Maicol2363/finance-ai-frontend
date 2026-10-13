@@ -254,10 +254,22 @@ void main() {
       start: DateTime.utc(2026),
       end: DateTime.utc(2026, 12, 31),
     ));
+    final custom = (
+      start: DateTime.utc(2026, 9, 15),
+      end: DateTime.utc(2026, 10, 5),
+    );
+    expect(
+      periodWindow(DashboardPeriod.custom, now, customRange: custom),
+      custom,
+    );
     expect(periodLabel(DashboardPeriod.thisMonth, now), 'octubre');
     expect(periodLabel(DashboardPeriod.lastMonth, now), 'septiembre');
     expect(periodLabel(DashboardPeriod.last3Months, now), 'ago – oct');
     expect(periodLabel(DashboardPeriod.thisYear, now), '2026');
+    expect(
+      periodLabel(DashboardPeriod.custom, now, customRange: custom),
+      '15 sep – 5 oct',
+    );
   });
 
   test('last month preset asks for august only', () async {

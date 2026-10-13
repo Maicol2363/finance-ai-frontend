@@ -1,3 +1,4 @@
+import 'package:finance_ai/core/icons/finance_icon_catalog.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -84,7 +85,7 @@ class RecentMovementsSection extends ConsumerWidget {
             TextButton(
               key: const Key('recent-movements-see-all'),
               style: TextButton.styleFrom(
-                minimumSize: const Size(48, 44),
+                minimumSize: const Size(48, 48),
                 foregroundColor: palette.primary,
               ),
               onPressed: () => context.push('/history'),
@@ -107,7 +108,7 @@ class RecentMovementsSection extends ConsumerWidget {
             alignment: Alignment.centerLeft,
             child: OutlinedButton.icon(
               onPressed: ref.read(expensesControllerProvider.notifier).load,
-              icon: const Icon(Icons.refresh),
+              icon: const Icon(FinanceIcons.refresh),
               label: const Text('Reintentar'),
             ),
           ),
@@ -231,9 +232,10 @@ class _HubExpenseCard extends StatelessWidget {
                   borderRadius: BorderRadius.circular(11),
                 ),
                 child: Center(
-                  child: Text(
-                    categoryEmoji(expense.category?.name),
-                    style: const TextStyle(fontSize: 20),
+                  child: Icon(
+                    categoryIcon(expense.category?.name),
+                    size: 20,
+                    color: palette.primary,
                   ),
                 ),
               ),
@@ -306,7 +308,7 @@ class _HubExpenseCard extends StatelessWidget {
                 textAlign: TextAlign.end,
               ),
               const SizedBox(width: 4),
-              Icon(Icons.chevron_right, size: 16, color: palette.muted),
+              Icon(FinanceIcons.chevronRight, size: 16, color: palette.muted),
             ],
           ),
         ),
@@ -361,8 +363,12 @@ class _HubIncomeCard extends ConsumerWidget {
                   color: palette.incomeSoft,
                   borderRadius: BorderRadius.circular(11),
                 ),
-                child: const Center(
-                  child: Text('💰', style: TextStyle(fontSize: 20)),
+                child: Center(
+                  child: Icon(
+                    FinanceIconCatalog.dataFor(FinanceIconKey.income),
+                    size: 20,
+                    color: palette.income,
+                  ),
                 ),
               ),
               const SizedBox(width: 12),
@@ -430,7 +436,7 @@ class _HubIncomeCard extends ConsumerWidget {
                 textAlign: TextAlign.end,
               ),
               const SizedBox(width: 4),
-              Icon(Icons.chevron_right, size: 16, color: palette.muted),
+              Icon(FinanceIcons.chevronRight, size: 16, color: palette.muted),
             ],
           ),
         ),

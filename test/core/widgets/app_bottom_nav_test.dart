@@ -1,3 +1,4 @@
+import 'package:finance_ai/core/icons/finance_icon_catalog.dart';
 import 'package:finance_ai/core/router/app_shell.dart';
 import 'package:finance_ai/core/theme/app_palette.dart';
 import 'package:finance_ai/core/theme/app_theme.dart';
@@ -12,6 +13,7 @@ void main() {
     tester,
   ) async {
     final semantics = tester.ensureSemantics();
+    addTearDown(semantics.dispose);
     final taps = <int>[];
     await tester.pumpWidget(
       MaterialApp(
@@ -26,22 +28,22 @@ void main() {
       ),
     );
 
-    expect(find.text('Gastos'), findsOneWidget);
-    expect(find.text('Dashboard'), findsOneWidget);
+    expect(find.text('Inicio'), findsOneWidget);
+    expect(find.text('Movimientos'), findsOneWidget);
     expect(find.text('Ajustes'), findsOneWidget);
-    expect(find.bySemanticsLabel('Gastos'), findsOneWidget);
-    expect(find.bySemanticsLabel('Dashboard'), findsOneWidget);
+    expect(find.bySemanticsLabel('Inicio'), findsOneWidget);
+    expect(find.bySemanticsLabel('Movimientos'), findsOneWidget);
     expect(find.bySemanticsLabel('Ajustes'), findsOneWidget);
     expect(
       tester
-          .getSemantics(find.bySemanticsLabel('Gastos'))
+          .getSemantics(find.bySemanticsLabel('Inicio'))
           .flagsCollection
           .isSelected,
       Tristate.isTrue,
     );
     expect(
       tester
-          .getSemantics(find.bySemanticsLabel('Gastos'))
+          .getSemantics(find.bySemanticsLabel('Inicio'))
           .hasAction(SemanticsAction.tap),
       isTrue,
     );
@@ -49,7 +51,7 @@ void main() {
     final activeIcon = tester.widget<AnimatedContainer>(
       find
           .ancestor(
-            of: find.byIcon(Icons.receipt_long_outlined),
+            of: find.byIcon(FinanceIcons.homeOutlined),
             matching: find.byType(AnimatedContainer),
           )
           .first,
@@ -59,8 +61,10 @@ void main() {
       AppPalette.light.primarySoft,
     );
 
+    await tester.tap(find.byKey(const Key('bottom-nav-movimientos')));
+    expect(taps, [1]);
+
     await tester.tap(find.byKey(const Key('bottom-nav-ajustes')));
-    expect(taps, [2]);
-    semantics.dispose();
+    expect(taps, [1, 2]);
   });
 }

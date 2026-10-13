@@ -1,3 +1,4 @@
+import 'package:finance_ai/core/icons/finance_icon_catalog.dart';
 import 'package:flutter/material.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -323,14 +324,26 @@ class _ProposalCardState extends ConsumerState<ProposalCard> {
       spacing: 8,
       runSpacing: 4,
       children: [
-        Text(
-          '✨ IA · Entendí $noun',
-          style: TextStyle(
-            fontSize: 11.5,
-            fontWeight: FontWeight.w700,
-            letterSpacing: 0.4,
-            color: accent,
-          ),
+        Wrap(
+          crossAxisAlignment: WrapCrossAlignment.center,
+          spacing: 4,
+          children: [
+            Icon(
+              FinanceIconCatalog.dataFor(FinanceIconKey.aiCapture),
+              size: 14,
+              color: accent,
+            ),
+            Text(
+              'IA · Entendí $noun',
+              softWrap: true,
+              style: TextStyle(
+                fontSize: 11.5,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.4,
+                color: accent,
+              ),
+            ),
+          ],
         ),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
@@ -357,7 +370,7 @@ class _ProposalCardState extends ConsumerState<ProposalCard> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(Icons.info_outline, size: 15, color: palette.warnFg),
+          Icon(FinanceIcons.infoOutline, size: 15, color: palette.warnFg),
           const SizedBox(width: 6),
           Expanded(
             child: Text(
@@ -673,7 +686,7 @@ class _ProposalCardState extends ConsumerState<ProposalCard> {
         child: InputDecorator(
           decoration: const InputDecoration(
             labelText: 'Fecha',
-            suffixIcon: Icon(Icons.calendar_today_outlined, size: 18),
+            suffixIcon: Icon(FinanceIcons.calendarTodayOutlined, size: 18),
           ),
           child: Text(
             DateLabels.relativeDay(_draft.date, now: ref.read(clockProvider)()),
@@ -689,8 +702,8 @@ class _ProposalCardState extends ConsumerState<ProposalCard> {
     final confirm = FilledButton(
       key: const Key('proposal-confirm'),
       style: FilledButton.styleFrom(
-        backgroundColor: palette.confirm,
-        foregroundColor: Colors.white,
+        backgroundColor: palette.primary,
+        foregroundColor: palette.onPrimary,
         minimumSize: const Size(0, 48),
       ),
       onPressed: _confirm,

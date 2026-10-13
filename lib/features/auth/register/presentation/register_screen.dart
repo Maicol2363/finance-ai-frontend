@@ -1,3 +1,4 @@
+import 'package:finance_ai/core/icons/finance_icon_catalog.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -53,7 +54,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
             AppHeader(
               title: 'Crear cuenta',
               leading: HeaderIconButton(
-                icon: Icons.arrow_back,
+                icon: FinanceIcons.arrowBack,
                 tooltip: 'Volver',
                 onPressed: state.isSubmitting
                     ? null
@@ -70,7 +71,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        const AuthBrand(mark: '+', showTitle: false),
+                        const AuthBrand(showTitle: false),
                         const SizedBox(height: 12),
                         if (state.diagnostic case final diagnostic?) ...[
                           ErrorDiagnosticPanel(
@@ -149,8 +150,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                                           ),
                                     icon: Icon(
                                       _showPassword
-                                          ? Icons.visibility_off
-                                          : Icons.visibility,
+                                          ? FinanceIcons.visibilityOff
+                                          : FinanceIcons.visibility,
                                       size: 18,
                                     ),
                                   ),
@@ -197,8 +198,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                                           ),
                                     icon: Icon(
                                       _showConfirmation
-                                          ? Icons.visibility_off
-                                          : Icons.visibility,
+                                          ? FinanceIcons.visibilityOff
+                                          : FinanceIcons.visibility,
                                       size: 18,
                                     ),
                                   ),

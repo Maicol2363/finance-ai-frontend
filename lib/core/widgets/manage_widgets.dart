@@ -1,3 +1,4 @@
+import 'package:finance_ai/core/icons/finance_icon_catalog.dart';
 import 'package:flutter/material.dart';
 
 import '../theme/app_palette.dart';
@@ -172,7 +173,7 @@ class CatalogAddButton extends StatelessWidget {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(Icons.add, size: 16, color: color),
+                    Icon(FinanceIcons.add, size: 16, color: color),
                     const SizedBox(width: 6),
                     Text(
                       label,
@@ -281,6 +282,35 @@ class ManageCard extends StatelessWidget {
   }
 }
 
+/// Shared surface for forms in account, budget, and catalog management.
+class ManagementFormCard extends StatelessWidget {
+  const ManagementFormCard({
+    super.key,
+    required this.child,
+    this.padding = const EdgeInsets.all(18),
+  });
+
+  final Widget child;
+  final EdgeInsetsGeometry padding;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 14),
+      child: Material(
+        color: palette.card,
+        shape: RoundedRectangleBorder(
+          side: BorderSide(color: palette.line),
+          borderRadius: BorderRadius.circular(14),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: Padding(padding: padding, child: child),
+      ),
+    );
+  }
+}
+
 /// Mockup `.manage-icon`: 34x34 rounded primary-soft icon box.
 class ManageIcon extends StatelessWidget {
   const ManageIcon(this.icon, {super.key, this.background, this.foreground});
@@ -293,13 +323,13 @@ class ManageIcon extends StatelessWidget {
   Widget build(BuildContext context) {
     final palette = context.palette;
     return Container(
-      width: 34,
-      height: 34,
+      width: 40,
+      height: 40,
       decoration: BoxDecoration(
         color: background ?? palette.primarySoft,
         borderRadius: BorderRadius.circular(10),
       ),
-      child: Icon(icon, size: 18, color: foreground ?? palette.primary),
+      child: Icon(icon, size: 21, color: foreground ?? palette.primaryDark),
     );
   }
 }

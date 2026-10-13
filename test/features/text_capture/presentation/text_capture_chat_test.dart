@@ -1,6 +1,8 @@
 import 'dart:async';
 
+import 'package:finance_ai/core/icons/finance_icon_catalog.dart';
 import 'package:finance_ai/core/theme/app_theme.dart';
+import 'package:finance_ai/core/theme/app_palette.dart';
 import 'package:finance_ai/features/accounts/application/accounts_controller.dart';
 import 'package:finance_ai/features/categories/application/categories_controller.dart';
 import 'package:finance_ai/features/text_capture/application/text_capture_controller.dart';
@@ -134,7 +136,7 @@ void main() {
 
     expect(find.text(messageText), findsOneWidget);
     expect(byKey('proposal-card'), findsOneWidget);
-    expect(find.text('✨ IA · Entendí un gasto'), findsOneWidget);
+    expect(find.text('IA · Entendí un gasto'), findsOneWidget);
     expect(find.text('listo para confirmar'), findsOneWidget);
     expect(find.text(r'$ 15.900 COP'), findsOneWidget);
     expect(find.text('Almuerzo en Subway'), findsOneWidget);
@@ -284,7 +286,7 @@ void main() {
     expect(byKey('proposal-category-field'), findsNothing);
     await tester.tap(byKey('proposal-save-edit'));
     await tester.pumpAndSettle();
-    expect(find.text('✨ IA · Entendí un ingreso'), findsOneWidget);
+    expect(find.text('IA · Entendí un ingreso'), findsOneWidget);
     expect(find.text('Entra a'), findsOneWidget);
 
     await tester.tap(byKey('proposal-confirm'));
@@ -318,7 +320,7 @@ void main() {
 
       await send(tester, 'pasé 400 mil de efectivo a dólares');
 
-      expect(find.text('✨ IA · Entendí una transferencia'), findsOneWidget);
+      expect(find.text('IA · Entendí una transferencia'), findsOneWidget);
       expect(find.text('Monto que sale'), findsOneWidget);
       expect(find.text('De'), findsOneWidget);
       expect(find.text('A'), findsOneWidget);
@@ -644,7 +646,7 @@ void main() {
     },
   );
 
-  testWidgets('the floating + stays and offers every way to add a movement', (
+  testWidgets('the floating + keeps its radial capture options', (
     tester,
   ) async {
     await pumpChat(tester, FakeTextCaptureRepository());
@@ -655,10 +657,10 @@ void main() {
     await tester.tap(byKey('expenses-create-fab'));
     await tester.pumpAndSettle();
     expect(byKey('expenses-wheel-photo'), findsOneWidget);
-    expect(byKey('expenses-wheel-voice'), findsOneWidget);
-    expect(byKey('expenses-wheel-text'), findsOneWidget);
+    expect(byKey('expenses-wheel-ai'), findsOneWidget);
     expect(byKey('expenses-wheel-manual'), findsOneWidget);
     expect(find.text('Foto'), findsOneWidget);
+    expect(find.text('Mensaje'), findsOneWidget);
     expect(find.text('Manual'), findsOneWidget);
 
     await tester.tap(byKey('expenses-wheel-manual'));
@@ -667,8 +669,57 @@ void main() {
     expect(find.text('manual-form'), findsOneWidget);
   });
 
+  testWidgets('radial options fit a narrow phone and keep separate targets', (
+    tester,
+  ) async {
+    await pumpChat(
+      tester,
+      FakeTextCaptureRepository(),
+      size: const Size(320, 600),
+    );
+    await tester.tap(byKey('expenses-create-fab'));
+    await tester.pumpAndSettle();
+
+    final targets = [
+      tester.getRect(byKey('expenses-wheel-photo')),
+      tester.getRect(byKey('expenses-wheel-ai')),
+      tester.getRect(byKey('expenses-wheel-manual')),
+    ];
+    for (final rect in targets) {
+      expect(rect.left, greaterThanOrEqualTo(0));
+      expect(rect.right, lessThanOrEqualTo(320));
+      expect(rect.top, greaterThanOrEqualTo(0));
+      expect(rect.bottom, lessThanOrEqualTo(600));
+    }
+    expect(targets[0].overlaps(targets[1]), isFalse);
+    expect(targets[1].overlaps(targets[2]), isFalse);
+    expect(targets[0].overlaps(targets[2]), isFalse);
+    expect(find.bySemanticsLabel('Foto de un recibo'), findsOneWidget);
+    expect(find.bySemanticsLabel('Escribir o dictar'), findsOneWidget);
+    expect(find.bySemanticsLabel('Formulario manual'), findsOneWidget);
+  });
+
+  testWidgets('dark wheel keeps theme paired colors and dark option surfaces', (
+    tester,
+  ) async {
+    await pumpChat(tester, FakeTextCaptureRepository(), theme: AppTheme.dark());
+    final palette = AppTheme.dark().extension<AppPalette>()!;
+
+    await tester.tap(byKey('expenses-create-fab'));
+    await tester.pumpAndSettle();
+    final fab = tester.widget<FloatingActionButton>(
+      byKey('expenses-create-fab'),
+    );
+    expect(fab.backgroundColor, palette.primary);
+    expect(fab.foregroundColor, palette.onPrimary);
+    final surface = tester.widget<Container>(
+      find.byKey(const ValueKey('Mensaje-surface')),
+    );
+    expect((surface.decoration! as BoxDecoration).color, palette.card);
+  });
+
   testWidgets(
-    'the wheel closes by tapping outside and its text option writes',
+    'the wheel closes outside and its message option focuses the editor',
     (tester) async {
       await pumpChat(tester, FakeTextCaptureRepository());
 
@@ -680,7 +731,7 @@ void main() {
 
       await tester.tap(byKey('expenses-create-fab'));
       await tester.pumpAndSettle();
-      await tester.tap(byKey('expenses-wheel-text'));
+      await tester.tap(byKey('expenses-wheel-ai'));
       await tester.pumpAndSettle();
 
       expect(byKey('expenses-wheel-photo'), findsNothing);
@@ -783,6 +834,23 @@ void main() {
     final fab = tester.getRect(byKey('expenses-create-fab'));
     final confirm = tester.getRect(byKey('proposal-confirm'));
     expect(confirm.bottom, lessThanOrEqualTo(fab.top + 1));
+  });
+
+  testWidgets('the IA editor keeps voice dictation available from its mic', (
+    tester,
+  ) async {
+    await pumpChat(tester, FakeTextCaptureRepository());
+
+    await tester.tap(byKey('expenses-create-fab'));
+    await tester.pumpAndSettle();
+    await tester.tap(byKey('expenses-wheel-ai'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byIcon(FinanceIcons.micOutlined));
+    await tester.pumpAndSettle();
+
+    expect(byKey('voice-controls'), findsOneWidget);
+    expect(byKey('voice-error-details'), findsOneWidget);
+    expect(find.text('Captura por nota de voz próximamente'), findsNothing);
   });
 
   testWidgets('the recorded movement opens its detail', (tester) async {
