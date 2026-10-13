@@ -655,6 +655,7 @@ class FieldLabel extends StatelessWidget {
 InputDecoration pillInputDecoration(
   BuildContext context, {
   required String hint,
+  String? labelText,
   Widget? prefixIcon,
   Widget? suffixIcon,
   String? errorText,
@@ -669,6 +670,7 @@ InputDecoration pillInputDecoration(
 
   return InputDecoration(
     hintText: hint,
+    labelText: labelText,
     errorText: errorText,
     prefixIcon: prefixIcon,
     suffixIcon: suffixIcon,

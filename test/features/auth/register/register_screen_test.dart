@@ -71,6 +71,7 @@ void main() {
   testWidgets('renders the stable automation controls and accessible toggles', (
     tester,
   ) async {
+    final semantics = tester.ensureSemantics();
     final router = await pumpRegistration(tester, WidgetTestRepository());
     addTearDown(router.dispose);
 
@@ -81,6 +82,12 @@ void main() {
       findsOneWidget,
     );
     expect(find.byKey(const Key('register-submit-button')), findsOneWidget);
+    expect(find.text('Correo electrónico'), findsOneWidget);
+    expect(find.text('Contraseña'), findsOneWidget);
+    expect(find.text('Confirmar contraseña'), findsOneWidget);
+    expect(find.bySemanticsLabel('Correo electrónico'), findsOneWidget);
+    expect(find.bySemanticsLabel('Contraseña'), findsOneWidget);
+    expect(find.bySemanticsLabel('Confirmar contraseña'), findsOneWidget);
     expect(find.byTooltip('Mostrar contraseña'), findsOneWidget);
     expect(find.byTooltip('Mostrar confirmación'), findsOneWidget);
 
@@ -97,6 +104,7 @@ void main() {
     );
     expect(passwordField.obscureText, isFalse);
     expect(find.byTooltip('Ocultar contraseña'), findsOneWidget);
+    semantics.dispose();
   });
 
   testWidgets('shows all local guidance without sending a request', (
@@ -238,7 +246,7 @@ void main() {
 
     expect(find.byKey(const Key('register-error-banner')), findsOneWidget);
     expect(find.textContaining('temporarily unavailable'), findsOneWidget);
-    expect(find.text('Error code: service_unavailable'), findsOneWidget);
+    expect(find.text('Código de error: service_unavailable'), findsOneWidget);
     expect(find.byKey(const Key('copy-error-details-button')), findsOneWidget);
     final emailField = tester.widget<TextField>(
       find.byKey(const Key('register-email-input')),
@@ -258,7 +266,10 @@ void main() {
     expect(copied, contains('Technical reason: http_503'));
     expect(copied, isNot(contains('person@example.com')));
     expect(copied, isNot(contains('valid password')));
-    expect(find.text('Safe error details copied.'), findsOneWidget);
+    expect(
+      find.text('Se copiaron los detalles seguros del error.'),
+      findsOneWidget,
+    );
   });
 
   testWidgets('success clears the form route and navigates once to Login', (

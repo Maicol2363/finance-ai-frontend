@@ -1,5 +1,7 @@
 import 'package:finance_ai/core/diagnostics/error_diagnostic.dart';
-import 'package:flutter/foundation.dart';
+import 'package:finance_ai/core/diagnostics/error_diagnostic_panel.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -52,6 +54,68 @@ void main() {
     expect(
       diagnostic.clipboardText,
       contains('Request/correlation ID: request forged'),
+    );
+  });
+
+  testWidgets('diagnostic panel is Spanish and copies the stable safe report', (
+    tester,
+  ) async {
+    String? copiedText;
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      SystemChannels.platform,
+      (call) async {
+        if (call.method == 'Clipboard.setData') {
+          copiedText =
+              (call.arguments as Map<Object?, Object?>)['text'] as String?;
+        }
+        return null;
+      },
+    );
+    addTearDown(
+      () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        null,
+      ),
+    );
+    final diagnostic = ErrorDiagnostic.capture(
+      code: 'network_unavailable',
+      operation: 'load_accounts',
+      userMessage: 'No pudimos conectar con el servicio.',
+      technicalReason: 'connection_failure',
+      correlationId: 'safe-request-id',
+      occurredAtUtc: DateTime.parse('2026-08-29T17:00:00Z'),
+      platform: TargetPlatform.android,
+      apiBaseUrl: 'https://example.test/api',
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(body: ErrorDiagnosticPanel(diagnostic: diagnostic)),
+      ),
+    );
+
+    expect(find.text('No pudimos conectar con el servicio.'), findsOneWidget);
+    expect(find.text('Código de error: network_unavailable'), findsOneWidget);
+    expect(
+      find.text(
+        'Copia el reporte seguro al pedir ayuda. No incluye los datos del formulario.',
+      ),
+      findsOneWidget,
+    );
+    expect(find.text('Copiar detalles del error'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('copy-error-details-button')));
+    await tester.pumpAndSettle();
+
+    expect(copiedText, diagnostic.clipboardText);
+    expect(copiedText, contains('Error code: network_unavailable'));
+    expect(
+      copiedText,
+      contains('Privacy: form values and secrets are intentionally excluded.'),
+    );
+    expect(
+      find.text('Se copiaron los detalles seguros del error.'),
+      findsOneWidget,
     );
   });
 }

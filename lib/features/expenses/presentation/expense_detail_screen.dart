@@ -227,7 +227,7 @@ class _ExpenseDetailScreenState extends ConsumerState<ExpenseDetailScreen> {
           FilledButton(
             key: const Key('expense-confirm-delete-button'),
             style: FilledButton.styleFrom(
-              minimumSize: const Size(0, 40),
+              minimumSize: const Size(0, 48),
               backgroundColor: Theme.of(context).colorScheme.error,
               foregroundColor: Theme.of(context).colorScheme.onError,
             ),
