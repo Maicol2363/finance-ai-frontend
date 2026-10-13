@@ -13,7 +13,7 @@ User authorized implementation, delegation, build, safe installation and draft P
 - [x] Format, analyze, full suite with coverage, native tests and APK build.
 - [x] Verify signatures, preserve data, install and exercise physical device with before/after captures.
 - [x] Audit, correct regressions and record requirement matrix with honest blocked cases.
-- [ ] Commit coherent changes, push and create draft PR targeting develop.
+- [x] Commit coherent changes, push and create draft PR targeting develop: #34, no merge.
 
 Workflow: workspace detection -> requirements/stories/design -> code generation -> build/test -> safe ADB verification -> draft PR. Infrastructure design and Operations skipped: no deployment/backend change. Stories: as a user I dictate then review explicitly; navigate back to Inicio; inspect honest finances; reopen photo guidance.
 
@@ -25,4 +25,13 @@ Operational exception: main credential preservation failed during initial API mi
 - [x] Make supported currency choices available before movements exist and share selection with Análisis.
 - [x] Guard synthetic seed writes to the local SOL fixture identity and checkpoint completed actions.
 - [x] Append six months through 2026-10-13: 115 expenses, 18 incomes, 11 transfers, four budgets, two additional COP/USD accounts, six categories and two income sources.
-- [x] Verify populated COP/USD Home, Análisis, budgets and history on device; final full 535/0, coverage 84.78%, both artifacts installed with their intended servers.
+- [x] Verify populated COP/USD Home, Análisis, budgets and history on device; final full 539/0, coverage 84.83%, both artifacts installed with their intended servers.
+
+## Final visual and audit regressions
+- [x] Expose currency selector as an independent accessible button and verify COP/USD navigation on phone.
+- [x] Guard seed rerun with identical checkpoint; no duplicate financial entries.
+- [x] Match Análisis month projection to Home deterministic formula and local date cutoff.
+- [x] Exclude voided expenses from both windows, all chart granularities and category breakdown; targeted tests passed.
+- [x] Prevent previous-window totals from appearing under a newly selected period while loading; deferred-Future widget regression passed.
+- [x] Run final suite (539/0, 84.83%), analyze/format, rebuild/install both intended-server APKs, and verify USD projection physically.
+- [x] Inspect draft CI jobs; Windows checks/build passed on the first draft head. Final source-run results are linked in the PR description when completed.

@@ -1023,3 +1023,102 @@ Los cambios ya están en tres commits de voz, cámara e Inicio/navegación. Esto
 **Context**: Complete raw public interaction.
 
 ---
+
+## Session interaction trace
+<!-- session-trace-1218 -->
+**Timestamp**: 2026-10-13T22:55:35.812Z
+**AI Response**:
+La rama ya está subida. Estoy cerrando una comprobación de accesibilidad del selector: el lector de pantalla debe poder identificarlo como un botón independiente y abrir COP/USD. Después publicaré el PR en borrador con las pruebas y la matriz de resultados.
+
+
+**Context**: Complete raw public interaction.
+
+---
+
+## Session interaction trace
+<!-- session-trace-1250 -->
+**Timestamp**: 2026-10-13T22:58:34.366Z
+**AI Response**:
+Sí: COP debe permitir elegir también USD. Ya habilité ambas monedas y añadí seis meses de datos sintéticos a la cuenta de prueba. Estoy terminando la comprobación en Android y preparando el PR en borrador.
+
+
+**Context**: Complete raw public interaction.
+
+---
+
+## Session interaction trace
+<!-- session-trace-1294 -->
+**Timestamp**: 2026-10-13T22:59:22.476Z
+**AI Response**:
+La última comprobación pasó: 535 pruebas, análisis estático limpio y APK actualizado en el teléfono. Verifiqué que USD se mantiene al abrir Análisis y que repetir la carga sintética no duplica los registros. Estoy publicando el borrador y comprobando su CI.
+
+
+**Context**: Complete raw public interaction.
+
+---
+
+## Session interaction trace
+<!-- session-trace-1365 -->
+**Timestamp**: 2026-10-13T23:00:37.897Z
+**AI Response**:
+El [PR #34](https://github.com/Maicol2363/finance-ai-frontend/pull/34) ya está en borrador. La revisión visual detectó una diferencia entre la proyección de Inicio y la de Análisis; estoy corrigiéndola para que ambas coincidan con la fórmula mostrada.
+
+
+**Context**: Complete raw public interaction.
+
+---
+
+## Session interaction trace
+<!-- session-trace-1447 -->
+**Timestamp**: 2026-10-13T23:02:37.021Z
+**AI Response**:
+La proyección ya usa el mismo cálculo en ambas pantallas. Estoy revisando además que los gastos anulados queden fuera de las cifras y gráficos, antes de cerrar la validación.
+
+
+**Context**: Complete raw public interaction.
+
+---
+
+## Session interaction trace
+<!-- session-trace-1560 -->
+**Timestamp**: 2026-10-13T23:05:01.174Z
+**AI Response**:
+Las pruebas nuevas confirman que los gastos anulados no alteran las cifras. También detecté un estado transitorio al cambiar de periodo: mientras carga la red, podía mostrarse el mes anterior bajo el nuevo rango. Estoy corrigiendo ese caso.
+
+
+**Context**: Complete raw public interaction.
+
+---
+
+## Session interaction trace
+<!-- session-trace-1605 -->
+**Timestamp**: 2026-10-13T23:06:32.229Z
+**AI Response**:
+El CI de Windows ya pasó, incluidas las pruebas nativas y la compilación. Falta completar la compilación Android del CI y verificar en el teléfono las últimas correcciones de cálculos y cambio de periodo.
+
+
+**Context**: Complete raw public interaction.
+
+---
+
+## Session interaction trace
+<!-- session-trace-1665 -->
+**Timestamp**: 2026-10-13T23:08:10.540Z
+**AI Response**:
+Las correcciones ya pasaron sus pruebas específicas. Estoy ejecutando la suite completa y reconstruyendo ambos APK para comprobar la proyección en el teléfono con el código final.
+
+
+**Context**: Complete raw public interaction.
+
+---
+
+## Session interaction trace
+<!-- session-trace-1737 -->
+**Timestamp**: 2026-10-13T23:10:33.415Z
+**AI Response**:
+La verificación final en el teléfono pasó: Inicio y Análisis muestran la misma proyección USD, 151,42. Pasaron las 539 pruebas y la cobertura quedó en 84,83 %. Los APK instalados coinciden por SHA-256 con los compilados; estoy subiendo esta revisión al borrador.
+
+
+**Context**: Complete raw public interaction.
+
+---

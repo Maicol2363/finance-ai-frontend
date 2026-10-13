@@ -30,8 +30,8 @@ Base: origin/develop ed51988. Branch: fix/android-voice-nav-home-polish. All wor
 | Recognition accuracy across merchant names/devices and timing | pending | User passed actual speech; no quantitative cross-device benchmark |
 | Preserve existing financial data / audio_test | verified by bounded operations | Only the new local synthetic profile was changed. Later explicit user authorization added demo movements to this profile only; no existing user data, clear, uninstall or backend change |
 | Preserve main login credential | not preserved; manual action required | Initial main build incorrectly changed server to localhost; restore rejected and cleared credential. Final main build restores original Cloud Run URL. User must sign in again. |
-| Full verification | verified automatically | 535/0, 84.78% coverage, analyze/format/diff clean; 5 JVM and 5 device native checks |
-| Draft PR, no merge | in progress | Updated with URL after creation |
+| Full verification | verified automatically | 539/0, 84.83% coverage, analyze/format/diff clean; 5 JVM and 5 device native checks |
+| Draft PR, no merge | verified remotely | [#34](https://github.com/Maicol2363/finance-ai-frontend/pull/34), draft against develop |
 
 ## Local evidence and limitations
 
@@ -52,3 +52,20 @@ The user asked for several months of synthetic data and USD selection. Seed scop
 Populated profile verified physically: COP Home balance 20,017,400 and monthly income/expense 4,130,000/679,300; USD stock 1,480.25 and flow 475/63.50. These are synthetic ledger results, never exchange-converted. USD analysis preserves scope. Camera guide reopened twice; permission revocation/recovery was checked in verification package and permission restored. Final Android settings match initial values.
 
 Official configuration source: [Codex subagents](https://learn.chatgpt.com/docs/agent-configuration/subagents). Native API source: [Android SpeechRecognizer](https://developer.android.com/reference/android/speech/SpeechRecognizer).
+
+## Final device-driven regressions
+
+The populated USD screen exposed a disagreement: Home showed 151.42 while Análisis displayed 147.84 despite explaining the 63.50 / 13 × 31 formula. Current-month Análisis now reuses HomeFinancialMetrics and its completeness/coverage/minimum-days gates instead of a differently defined backend estimate. Elapsed days and cutoff labels use the selected local calendar window. A widget regression supplies conflicting backend days/projection and verifies the local result.
+
+Audit found voided entries counted in existing totals/series/category breakdown even though Home metrics excluded them. Both paginated comparison windows now exclude them before aggregation, and each chart granularity and category breakdown has matching guards. Provider, pure-series and widget tests cover confirmed plus voided movements. Category aggregation also excludes non-negative movements.
+
+Riverpod retains previous values while loading a new period. Totals are now accepted only when their calendar window matches the selected range; same-range refresh can retain valid data. A deferred-Future regression confirms that September values disappear during a pending annual reload. Home checks its current month similarly, and unavailable local totals cannot be displayed as zero merely because the summary endpoint completed.
+
+Synthetic seed rerun produced an identical checkpoint (no duplicate entries). Final selector is independently discoverable by Android accessibility as Seleccionar moneda; USD persists into Análisis. Screenshots and APK checksum proofs remain in ignored build/sol-evidence. CI results are available on PR #34; per-run links/results are updated in its description after the final source push.
+
+Final source correction: dcab32043a499d81e0f7e18c56b5fd7c22157139. Both installed APKs were pulled back and their SHA-256 matched the delivery artifacts:
+
+- 6309d24e2df84a448054f5cc8d75400fde3f44327c26711a4da20890772ea63e — main-delivery.apk
+- 41e5787e6c26d8283c99893dc94b829dc3e2571cc5cba9241c144a9ff996407a — verification-delivery.apk
+
+Physical USD Análisis now displays 151.42, agreeing with Inicio and its visible 63.50 / 13 × 31 formula. Earlier probe assertions were taken before the navigation frame settled; a fresh UI dump and inspected screenshot verified the final screen.
