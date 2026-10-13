@@ -170,6 +170,14 @@ class TransferController extends Notifier<TransferState> {
         ];
       }
     }
+    final sourceBalance = _balanceOf(sourceAccountId);
+    if (sourceAmount != null &&
+        sourceBalance != null &&
+        sourceAmount.minorUnits > sourceBalance.minorUnits) {
+      errors['source_amount'] = [
+        'Fondos insuficientes en la cuenta de origen.',
+      ];
+    }
     final crossCurrency = _isCrossCurrency(
       sourceAccountId,
       destinationAccountId,
@@ -200,6 +208,20 @@ class TransferController extends Notifier<TransferState> {
       date: date!,
       description: normalizedDescription,
     );
+  }
+
+  MoneyAmount? _balanceOf(int? accountId) {
+    if (accountId == null) {
+      return null;
+    }
+    final accounts =
+        ref.read(accountsControllerProvider).result?.accounts ?? const [];
+    for (final account in accounts) {
+      if (account.id == accountId) {
+        return account.balance;
+      }
+    }
+    return null;
   }
 
   bool _isCrossCurrency(int? sourceAccountId, int? destinationAccountId) {

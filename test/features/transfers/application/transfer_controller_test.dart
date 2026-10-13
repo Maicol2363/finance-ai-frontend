@@ -148,6 +148,28 @@ void main() {
     );
   });
 
+  test(
+    'amounts beyond the source balance are invalid without API calls',
+    () async {
+      final repository = FakeTransfersRepository();
+      final container = containerWith(repository);
+      addTearDown(container.dispose);
+      seedAccounts(container, [account(), account(id: 12, name: 'Savings')]);
+
+      final outcome = await submit(container, sourceAmount: '1000.01');
+
+      expect(outcome, TransferMutationOutcome.invalid);
+      expect(repository.lastCommand, isNull);
+      expect(
+        container.read(transferControllerProvider).fieldErrors,
+        contains('source_amount'),
+      );
+
+      final exact = await submit(container, sourceAmount: '1000.00');
+      expect(exact, TransferMutationOutcome.success);
+    },
+  );
+
   test('same account and bad amounts are invalid without API calls', () async {
     final repository = FakeTransfersRepository();
     final container = containerWith(repository);

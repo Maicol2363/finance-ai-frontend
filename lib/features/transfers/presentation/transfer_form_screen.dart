@@ -54,7 +54,10 @@ class _TransferFormScreenState extends ConsumerState<TransferFormScreen> {
     final state = ref.watch(transferControllerProvider);
     final controller = ref.read(transferControllerProvider.notifier);
     final accountsState = ref.watch(accountsControllerProvider);
-    final accounts = accountsState.result?.accounts ?? const [];
+    final List<Account> accounts = [
+      for (final account in accountsState.result?.accounts ?? const <Account>[])
+        if (account.isActive) account,
+    ];
     final formEnabled = !state.isSaving && !state.requiresMutationReview;
     final optionsFailed = accountsState.listDiagnostic != null;
     final sourceCurrency = _currencyOf(accounts, _sourceAccountId);
@@ -125,11 +128,15 @@ class _TransferFormScreenState extends ConsumerState<TransferFormScreen> {
                     ],
                     onChanged: formEnabled && !optionsFailed
                         ? (value) {
-                            setState(() => _sourceAccountId = value);
+                            setState(() {
+                              _sourceAccountId = value;
+                              _dropStaleDestinationAmount(accounts);
+                            });
                             controller.clearFieldError('source_account_id');
                             controller.clearFieldError(
                               'destination_account_id',
                             );
+                            controller.clearFieldError('source_amount');
                           }
                         : null,
                   ),
@@ -155,7 +162,10 @@ class _TransferFormScreenState extends ConsumerState<TransferFormScreen> {
                     ],
                     onChanged: formEnabled && !optionsFailed
                         ? (value) {
-                            setState(() => _destinationAccountId = value);
+                            setState(() {
+                              _destinationAccountId = value;
+                              _dropStaleDestinationAmount(accounts);
+                            });
                             controller.clearFieldError(
                               'destination_account_id',
                             );
@@ -175,7 +185,7 @@ class _TransferFormScreenState extends ConsumerState<TransferFormScreen> {
                     decoration: InputDecoration(
                       labelText:
                           'Monto que sale${sourceCurrency == null ? '' : ' ($sourceCurrency)'}',
-                      helperText: 'Monto positivo con hasta dos decimales.',
+                      helperText: _availableBalanceHint(accounts),
                       errorText: _firstError(state, 'source_amount'),
                     ),
                     onChanged: (_) =>
@@ -304,6 +314,30 @@ class _TransferFormScreenState extends ConsumerState<TransferFormScreen> {
 
   int? _containedOrNull(List<int> ids, int? selected) =>
       selected != null && ids.contains(selected) ? selected : null;
+
+  /// Discards a typed destination amount when the picked pair stops being
+  /// cross-currency, so a hidden stale value can never be submitted.
+  void _dropStaleDestinationAmount(List<Account> accounts) {
+    final sourceCurrency = _currencyOf(accounts, _sourceAccountId);
+    final destinationCurrency = _currencyOf(accounts, _destinationAccountId);
+    if (sourceCurrency == null ||
+        destinationCurrency == null ||
+        sourceCurrency == destinationCurrency) {
+      _destinationAmountController.clear();
+    }
+  }
+
+  String _availableBalanceHint(List<Account> accounts) {
+    for (final account in accounts) {
+      if (account.id == _sourceAccountId) {
+        final available = account.balance.formatWithCurrency(
+          account.currency.code,
+        );
+        return 'Disponible: $available. Monto positivo con hasta dos decimales.';
+      }
+    }
+    return 'Monto positivo con hasta dos decimales.';
+  }
 
   String? _firstError(TransferState state, String field) {
     final errors = state.fieldErrors[field];
