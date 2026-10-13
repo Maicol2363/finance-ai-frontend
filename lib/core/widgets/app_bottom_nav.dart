@@ -102,7 +102,7 @@ class _NavTab extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.w600,
-                    color: color,
+                    color: selected ? palette.primaryDark : color,
                   ),
                 ),
                 const SizedBox(height: 2),

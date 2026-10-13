@@ -149,6 +149,35 @@ class _FixedPeriod extends DashboardPeriodController {
 }
 
 void main() {
+  test(
+    'reports incomplete history when capped, for both comparison windows',
+    () async {
+      final expenses = _FakeExpensesRepository(
+        pages: {
+          for (var page = 1; page <= 6; page++)
+            page: [expenseItem(id: page, amount: '-1.00')],
+        },
+      );
+      final container = _container(expenses: expenses, incomes: []);
+      final totals = await container.read(monthlyTotalsProvider.future);
+      expect(totals.historyComplete, isFalse);
+      expect(totals.previousHistoryComplete, isFalse);
+      expect(totals.expenseItems, hasLength(5));
+      expect(expenses.seenFilters.map((f) => f.page), [
+        1,
+        2,
+        3,
+        4,
+        5,
+        1,
+        2,
+        3,
+        4,
+        5,
+      ]);
+    },
+  );
+
   test('sums the month expenses per currency and asks for the month', () async {
     final expenses = _FakeExpensesRepository(
       pages: {
@@ -194,7 +223,14 @@ void main() {
 
       expect(totals.byCurrency['COP']!.expenses, 6000);
       expect(totals.expenseItems, hasLength(3));
-      expect(expenses.seenFilters.map((filters) => filters.page), [1, 2, 3, 1]);
+      expect(expenses.seenFilters.map((filters) => filters.page), [
+        1,
+        2,
+        3,
+        1,
+        2,
+        3,
+      ]);
     },
   );
 

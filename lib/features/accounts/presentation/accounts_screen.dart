@@ -65,7 +65,7 @@ class _AccountsScreenState extends ConsumerState<AccountsScreen> {
               key: const Key('accounts-add-button'),
               onPressed: result == null
                   ? null
-                  : () => context.go('/accounts/new'),
+                  : () => context.push('/accounts/new'),
               icon: const Icon(FinanceIcons.add),
               label: const Text('Nueva cuenta'),
             ),
@@ -111,7 +111,7 @@ class _AccountsScreenState extends ConsumerState<AccountsScreen> {
               key: const Key('accounts-transfer-button'),
               onPressed: result == null
                   ? null
-                  : () => context.go('/accounts/transfer'),
+                  : () => context.push('/accounts/transfer'),
               icon: Icon(FinanceIconCatalog.dataFor(FinanceIconKey.transfer)),
               label: const Text('Transferir entre cuentas'),
             ),
@@ -203,7 +203,7 @@ class _AccountCard extends StatelessWidget {
               title: account.name,
               subtitle:
                   '${account.type.label} · ${account.currency.code}${account.isActive ? '' : ' · Inactiva'}',
-              onTap: () => context.go('/accounts/${account.id}'),
+              onTap: () => context.push('/accounts/${account.id}'),
               trailing: [
                 Text(
                   balance,

@@ -546,6 +546,51 @@ Future<void> pumpExpensesApp(
 }
 
 void main() {
+  for (final route in ['/accounts/new', '/categories/new', '/budgets/new']) {
+    testWidgets(
+      'Android Back from deep linked $route preserves section then Inicio',
+      (tester) async {
+        await pumpExpensesApp(
+          tester,
+          WidgetExpensesRepository(),
+          initialLocation: route,
+        );
+        await tester.binding.handlePopRoute();
+        await tester.pumpAndSettle();
+        await tester.binding.handlePopRoute();
+        await tester.pumpAndSettle();
+        expect(
+          find.byKey(const Key('dashboard-account-balance')),
+          findsOneWidget,
+        );
+      },
+    );
+  }
+
+  for (final section in [
+    '/accounts',
+    '/budgets',
+    '/categories',
+    '/income-sources',
+  ]) {
+    testWidgets('Android Back returns from deep linked $section to Inicio', (
+      tester,
+    ) async {
+      await pumpExpensesApp(
+        tester,
+        WidgetExpensesRepository(),
+        initialLocation: section,
+      );
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const Key('dashboard-account-balance')),
+        findsOneWidget,
+      );
+      expect(find.byKey(const Key('bottom-nav-inicio')), findsOneWidget);
+    });
+  }
+
   testWidgets('the expense detail screen shows the saved expense', (
     tester,
   ) async {
@@ -1244,7 +1289,8 @@ void main() {
     expect(find.text(r'$ 100 COP'), findsOneWidget);
     // Flow chips are the current month (2026-09 from the pinned clock): no
     // incomes in the fake, one 25.00 expense in the history fixture.
-    expect(find.text('septiembre · Balance'), findsOneWidget);
+    expect(find.text('Este mes'), findsOneWidget);
+    expect(find.text('Balance'), findsOneWidget);
     // Zero income and the month expense, in the new "$ 25 COP" money format.
     expect(find.text(r'$ 0 COP'), findsWidgets);
     expect(find.text(r'-$ 25 COP'), findsWidgets);
@@ -1271,7 +1317,17 @@ void main() {
     );
 
     expect(find.text(r'$ 2.310.200 COP'), findsOneWidget);
+    expect(find.text(r'$ 1.250 USD'), findsNothing);
+    await tester.tap(find.byKey(const Key('dashboard-currency-selector')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('USD').last);
+    await tester.pumpAndSettle();
     expect(find.text(r'$ 1.250 USD'), findsOneWidget);
+    expect(find.text(r'$ 2.310.200 COP'), findsNothing);
+    await tester.tap(find.byKey(const Key('dashboard-currency-selector')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('COP').last);
+    await tester.pumpAndSettle();
     // Accounts live in Settings now, not as a shortcut on the dashboard.
     expect(
       find.text(
