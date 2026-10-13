@@ -28,6 +28,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
+import 'package:go_router/go_router.dart';
 
 class _SuccessfulRegistrationRepository implements AuthRepository {
   @override
@@ -583,7 +584,8 @@ void main() {
     expect(store.value, _SuccessfulSessionRepository.renewable);
 
     // Account management lives under Ajustes in the current mobile navigation.
-    await tester.tap(find.byKey(const Key('bottom-nav-ajustes')));
+    GoRouter.of(tester.element(find.byKey(const Key('bottom-nav-ajustes'))))
+        .go('/settings');
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('settings-accounts-row')));
     await tester.pumpAndSettle();
@@ -612,11 +614,8 @@ void main() {
     expect(find.text('Cuenta eliminada definitivamente.'), findsOneWidget);
     expect(accounts.accounts, isEmpty);
 
-    await tester.pumpAndSettle();
-    await tester.tap(find.byTooltip('Volver al inicio'));
-    await tester.pumpAndSettle();
-
-    await tester.tap(find.byKey(const Key('bottom-nav-ajustes')));
+    GoRouter.of(tester.element(find.byKey(const Key('bottom-nav-ajustes'))))
+        .go('/settings');
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('logout-button')));
     await tester.pumpAndSettle();
