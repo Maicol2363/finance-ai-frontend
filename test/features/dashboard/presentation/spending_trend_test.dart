@@ -12,10 +12,11 @@ HistoryItem _item({
   required String at,
   required String amount,
   String code = 'COP',
+  ExpenseStatus status = ExpenseStatus.confirmed,
 }) => HistoryItem(
   id: id,
   type: TransactionType.expense,
-  status: ExpenseStatus.confirmed,
+  status: status,
   occurredAt: DateTime.parse(at),
   description: 'Gasto $id',
   captureSource: CaptureSource.manual,
@@ -33,6 +34,52 @@ HistoryItem _item({
 );
 
 void main() {
+  test('all chart granularities exclude voided expenses', () {
+    final items = [
+      _item(id: 1, at: '2026-09-12T12:00:00Z', amount: '-25.00'),
+      _item(
+        id: 2,
+        at: '2026-09-12T12:00:00Z',
+        amount: '-100.00',
+        status: ExpenseStatus.voided,
+      ),
+    ];
+    final start = DateTime.utc(2026, 9, 1);
+    final end = DateTime.utc(2026, 9, 30);
+    final now = DateTime(2026, 9, 29);
+    final days = dailyExpenseSeries(
+      items: items,
+      currencyCode: 'COP',
+      now: now,
+      windowStart: start,
+      windowEnd: end,
+      maxDays: 30,
+    );
+    expect(days.fold<int>(0, (sum, day) => sum + day.minorUnits), 2500);
+    final cumulative = cumulativeExpenseSeries(
+      items: items,
+      currencyCode: 'COP',
+      windowStart: start,
+      windowEnd: end,
+      asOf: now,
+    );
+    expect(cumulative.last.cumulativeMinorUnits, 2500);
+    final weeks = weeklyExpenseSeries(
+      items: items,
+      currencyCode: 'COP',
+      windowStart: start,
+      windowEnd: end,
+      asOf: now,
+    );
+    expect(weeks.fold<int>(0, (sum, week) => sum + week.minorUnits), 2500);
+    final months = monthlyExpenseSeries(
+      items: items,
+      currencyCode: 'COP',
+      windowStart: start,
+      windowEnd: end,
+    );
+    expect(months.single.minorUnits, 2500);
+  });
   test('buckets negative movements in currency, ignores rest', () {
     final items = [
       _item(id: 1, at: '2026-09-28T12:00:00Z', amount: '-25.00'),

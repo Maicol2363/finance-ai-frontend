@@ -18,9 +18,11 @@ import '../../expenses/application/expenses_controller.dart';
 import '../../expenses/application/expenses_state.dart';
 import '../../expenses/application/history_controller.dart';
 import '../../expenses/application/monthly_totals.dart';
+import '../../expenses/domain/expense_models.dart';
 import '../../expenses/presentation/transaction_visuals.dart';
 import '../../incomes/data/incomes_repository.dart';
 import '../application/dashboard_metrics.dart';
+import '../application/home_financial_metrics.dart';
 import '../application/dashboard_summary_provider.dart';
 import 'spending_trend.dart';
 import 'spending_trend_card.dart';
@@ -85,7 +87,13 @@ class _DashboardAnalysisScreenState
         ? DateLabels.monthName(now)
         : periodLabel(period, now, customRange: customRange);
     final monthTotalsAsync = ref.watch(periodTotalsProvider);
-    final monthlyTotals = monthTotalsAsync.value;
+    final loadedTotals = monthTotalsAsync.value;
+    final monthlyTotals =
+        loadedTotals != null &&
+            _sameCalendarDay(loadedTotals.monthStart, window.start) &&
+            _sameCalendarDay(loadedTotals.windowEnd, window.end)
+        ? loadedTotals
+        : null;
 
     final availableCodes = <String>{
       preferredCurrency,
@@ -181,22 +189,27 @@ class _DashboardAnalysisScreenState
       previousEnd: summaryMatchesWindow ? summary.comparison.previousEnd : null,
     );
     final int daysTotal = totalDaysInWindow;
-    final int daysElapsed = summaryMatchesWindow
-        ? summary.period.daysElapsed
-        : now.isBefore(window.start)
+    final windowStartLocal = DateTime(
+      window.start.year,
+      window.start.month,
+      window.start.day,
+    );
+    final windowEndLocal = DateTime(
+      window.end.year,
+      window.end.month,
+      window.end.day,
+    );
+    final todayLocal = DateTime(now.year, now.month, now.day);
+    final cutoffDate = todayLocal.isBefore(windowStartLocal)
+        ? windowStartLocal
+        : todayLocal.isAfter(windowEndLocal)
+        ? windowEndLocal
+        : todayLocal;
+    final int daysElapsed = todayLocal.isBefore(windowStartLocal)
         ? 0
-        : now.isAfter(window.end)
+        : todayLocal.isAfter(windowEndLocal)
         ? daysTotal
-        : DateTime(now.year, now.month, now.day)
-                  .difference(
-                    DateTime(
-                      window.start.year,
-                      window.start.month,
-                      window.start.day,
-                    ),
-                  )
-                  .inDays +
-              1;
+        : todayLocal.difference(windowStartLocal).inDays + 1;
 
     final insights = summaryMatchesWindow
         ? DashboardMetrics.buildInsights(
@@ -206,10 +219,26 @@ class _DashboardAnalysisScreenState
         : const <DashboardInsight>[];
 
     final expenses = totals?.expenses ?? 0;
-    final monthAvailable = monthTotalsAsync.hasValue || summaryMatchesWindow;
+    final monthAvailable = monthlyTotals != null;
 
     final int? trendProjectedMinorUnits;
-    if (monthlyTotals?.historyComplete == true &&
+    if (period == DashboardPeriod.thisMonth) {
+      // Keep the current-month chart in lockstep with Inicio: use complete,
+      // locally scoped history and the same minimum-day and coverage rules.
+      // The summary endpoint's projection can use a different cutoff/model.
+      final projection = HomeFinancialMetrics.buildMonthlyProjection(
+        expenseItems: monthlyTotals?.expenseItems ?? const [],
+        currencyCode: currency,
+        now: now,
+        coverageStart:
+            monthlyTotals?.monthStart ?? DateTime(now.year, now.month),
+        coverageEnd: monthlyTotals?.windowEnd ?? now,
+        historyIsComplete: monthlyTotals?.historyComplete == true,
+      );
+      trendProjectedMinorUnits = projection.isAvailable
+          ? projection.projected
+          : null;
+    } else if (monthlyTotals?.historyComplete == true &&
         daysElapsed > 0 &&
         daysElapsed < totalDaysInWindow) {
       final currentSpend = cumulative.isNotEmpty
@@ -218,17 +247,13 @@ class _DashboardAnalysisScreenState
       if (currentSpend <= 0) {
         trendProjectedMinorUnits = null;
       } else {
-        // Keep cumulative spending monotonic: estimates never fall below what
-        // has already been spent. Other periods use a simple daily-pace model.
+        // Other periods use a simple daily-pace model; keep estimates
+        // monotonic so they never fall below the amount already spent.
         final paceEstimate = (currentSpend / daysElapsed * totalDaysInWindow)
             .round();
-        final monthEstimate =
-            period == DashboardPeriod.thisMonth && summaryMatchesWindow
-            ? summary.projection.projected.minorUnits
-            : null;
-        trendProjectedMinorUnits = monthEstimate != null && monthEstimate > 0
-            ? (monthEstimate > currentSpend ? monthEstimate : currentSpend)
-            : paceEstimate;
+        trendProjectedMinorUnits = paceEstimate > currentSpend
+            ? paceEstimate
+            : currentSpend;
       }
     } else {
       trendProjectedMinorUnits = null;
@@ -271,7 +296,7 @@ class _DashboardAnalysisScreenState
                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
                 child: Text(
                   daysElapsed > 0
-                      ? 'Proyección: gasto acumulado ÷ $daysElapsed días observados × $daysTotal días del periodo. Corte: ${now.day} de ${DateLabels.monthName(now)}. Los porcentajes comparan el rango indicado; los importes se mantienen en $currency.'
+                      ? 'Proyección: gasto acumulado ÷ $daysElapsed días observados × $daysTotal días del periodo. Corte: ${cutoffDate.day} de ${DateLabels.monthName(cutoffDate)}. Los porcentajes comparan el rango indicado; los importes se mantienen en $currency.'
                       : 'Aún no hay días observados para proyectar este periodo. Los importes se mantienen en $currency.',
                   style: TextStyle(
                     fontSize: 12,
@@ -379,11 +404,12 @@ class _DashboardAnalysisScreenState
     }
     final byCategory = <String, _CategoryAcc>{};
     for (final item in totals.expenseItems) {
-      if (item.movements.isEmpty) {
+      if (item.status == ExpenseStatus.voided || item.movements.isEmpty) {
         continue;
       }
       final movement = item.movements.first;
-      if (movement.currencyCode != currency) {
+      if (movement.currencyCode != currency ||
+          movement.amount.minorUnits >= 0) {
         continue;
       }
       final minorUnits = movement.amount.minorUnits.abs();
@@ -423,6 +449,11 @@ class _DashboardAnalysisScreenState
     return rows;
   }
 }
+
+bool _sameCalendarDay(DateTime left, DateTime right) =>
+    left.year == right.year &&
+    left.month == right.month &&
+    left.day == right.day;
 
 class _DashboardAnalysis extends StatefulWidget {
   const _DashboardAnalysis({

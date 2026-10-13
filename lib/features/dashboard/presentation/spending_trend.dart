@@ -1,3 +1,4 @@
+import 'package:finance_ai/features/expenses/domain/expense_models.dart';
 import 'package:finance_ai/features/expenses/domain/history_models.dart';
 
 /// One bucket of expense flow, in integer minor units (positive magnitude).
@@ -75,6 +76,10 @@ List<CumulativeSpendDay> cumulativeExpenseSeries({
 
   final totals = <DateTime, int>{for (final d in days) d: 0};
   for (final item in items) {
+    if (item.type != TransactionType.expense ||
+        item.status == ExpenseStatus.voided) {
+      continue;
+    }
     final itemLocal = item.occurredAt.toLocal();
     final bucket = DateTime(itemLocal.year, itemLocal.month, itemLocal.day);
     if (!totals.containsKey(bucket)) continue;
@@ -128,6 +133,10 @@ List<WeeklySpend> weeklyExpenseSeries({
   }
   final totals = <DateTime, int>{for (final w in weeks) w: 0};
   for (final item in items) {
+    if (item.type != TransactionType.expense ||
+        item.status == ExpenseStatus.voided) {
+      continue;
+    }
     final itemLocal = item.occurredAt.toLocal();
     final bucket = DateTime(itemLocal.year, itemLocal.month, itemLocal.day);
     if (bucket.isBefore(startDay) || bucket.isAfter(endDay)) continue;
@@ -189,6 +198,10 @@ List<DailySpend> dailyExpenseSeries({
   }
   final totals = <DateTime, int>{for (final day in days) day: 0};
   for (final item in items) {
+    if (item.type != TransactionType.expense ||
+        item.status == ExpenseStatus.voided) {
+      continue;
+    }
     final itemLocal = item.occurredAt.toLocal();
     final bucket = DateTime(itemLocal.year, itemLocal.month, itemLocal.day);
     if (!totals.containsKey(bucket)) continue;
@@ -225,6 +238,10 @@ List<WeeklySpend> monthlyExpenseSeries({
   }
   final totals = <DateTime, int>{for (final m in months) m: 0};
   for (final item in items) {
+    if (item.type != TransactionType.expense ||
+        item.status == ExpenseStatus.voided) {
+      continue;
+    }
     final itemLocal = item.occurredAt.toLocal();
     final key = DateTime(itemLocal.year, itemLocal.month);
     if (!totals.containsKey(key)) continue;

@@ -1,9 +1,11 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:finance_ai/app.dart';
 import 'package:finance_ai/core/router/app_router.dart';
 import 'package:finance_ai/core/theme/app_palette.dart';
 import 'package:finance_ai/core/formatters/money_formatter.dart';
+import 'package:finance_ai/core/money/currency_totals.dart';
 import 'package:finance_ai/core/time/clock_provider.dart';
 import 'package:finance_ai/features/accounts/data/accounts_repository.dart';
 import 'package:finance_ai/features/accounts/domain/account_models.dart';
@@ -14,6 +16,7 @@ import 'package:finance_ai/features/categories/domain/category_models.dart';
 import 'package:finance_ai/features/dashboard/application/dashboard_summary_provider.dart';
 import 'package:finance_ai/features/dashboard/domain/dashboard_summary.dart';
 import 'package:finance_ai/features/dashboard/presentation/dashboard_screen.dart';
+import 'package:finance_ai/features/dashboard/presentation/spending_trend_card.dart';
 import 'package:finance_ai/features/expenses/data/expenses_repository.dart';
 import 'package:finance_ai/features/expenses/domain/expense_models.dart';
 import 'package:finance_ai/features/expenses/domain/history_models.dart';
@@ -151,10 +154,14 @@ class _FakeExpensesRepository implements ExpensesRepository {
 
 /// The month's expense entry as the history endpoint reports it: the Dashboard
 /// breakdown is built from this, not from the first page of `/expenses`.
-HistoryItem _historyItem({String amount = '25.00'}) => HistoryItem(
+HistoryItem _historyItem({
+  String amount = '25.00',
+  ExpenseStatus status = ExpenseStatus.confirmed,
+  String categoryName = 'Food',
+}) => HistoryItem(
   id: 8,
   type: TransactionType.expense,
-  status: ExpenseStatus.confirmed,
+  status: status,
   occurredAt: DateTime.utc(2026, 9, 17, 12, 30),
   description: 'Purchase at Market',
   captureSource: CaptureSource.manual,
@@ -185,7 +192,10 @@ HistoryItem _historyItem({String amount = '25.00'}) => HistoryItem(
         quantity: '1.000',
         unitPrice: MoneyAmount.parseApi(amount),
         note: null,
-        category: ExpenseCategory(id: 3, name: 'Food'),
+        category: ExpenseCategory(
+          id: categoryName == 'Food' ? 3 : 4,
+          name: categoryName,
+        ),
         imagePath: null,
       ),
     ],
@@ -340,6 +350,8 @@ Future<void> _pumpAt(
   bool isolatedDashboard = false,
   bool totalsFailure = false,
   bool includeUsd = false,
+  MonthlyTotals? analysisTotals,
+  Completer<MonthlyTotals>? pendingAnalysisTotals,
 }) async {
   final router = isolatedDashboard
       ? GoRouter(
@@ -382,6 +394,15 @@ Future<void> _pumpAt(
           monthlyTotalsProvider.overrideWith(
             (ref) async => throw StateError('private-financial-form-value'),
           ),
+        if (analysisTotals != null)
+          periodTotalsProvider.overrideWith((ref) async {
+            final period = ref.watch(dashboardPeriodProvider);
+            if (period == DashboardPeriod.thisMonth ||
+                pendingAnalysisTotals == null) {
+              return analysisTotals;
+            }
+            return pendingAnalysisTotals.future;
+          }),
         expensesRepositoryProvider.overrideWithValue(
           _FakeExpensesRepository(expenses: expenses),
         ),
@@ -594,7 +615,7 @@ void main() {
         'end': '2026-09-30T23:59:59Z',
         'today': '2026-09-29T12:00:00Z',
         'is_current': true,
-        'days_elapsed': 29,
+        'days_elapsed': 12,
         'days_total': 30,
       },
       'flow': {'incomes': '0.00', 'expenses': '25.00', 'net': '-25.00'},
@@ -636,6 +657,133 @@ void main() {
     expect(find.text('Gastos por categoría'), findsOneWidget);
     expect(find.text('Insight semanal'), findsNothing);
     expect(find.textContaining('Generado por IA'), findsNothing);
+    expect(
+      find.textContaining(
+        '÷ 29 días observados × 30 días del periodo. Corte: 29 de septiembre.',
+      ),
+      findsOneWidget,
+      reason: 'cutoff and elapsed days come from the local selected window',
+    );
+    final expectedCurrentMonthProjection = MoneyFormatter.display(
+      (2500 * 30 / 29).round(),
+      'COP',
+    );
+    final projectionLabel = find.textContaining('Cierre est.:');
+    await tester.scrollUntilVisible(projectionLabel, 240);
+    expect(
+      find.text('Cierre est.: $expectedCurrentMonthProjection'),
+      findsOneWidget,
+      reason:
+          'the chart must use the same deterministic pace as Inicio, not the '
+          'different backend projection of COP 28.00',
+    );
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('analysis excludes voided movements from all summaries', (
+    tester,
+  ) async {
+    final totals = MonthlyTotals(
+      monthStart: DateTime.utc(2026, 9, 1),
+      windowEnd: DateTime.utc(2026, 9, 30),
+      byCurrency: const {'COP': CurrencyTotals(expenses: 2500)},
+      expenseItems: [
+        _historyItem(),
+        _historyItem(
+          amount: '100.00',
+          status: ExpenseStatus.voided,
+          categoryName: 'Voided category',
+        ),
+      ],
+      historyComplete: true,
+      previousHistoryComplete: true,
+    );
+    await _pumpAt(tester, '/analysis', analysisTotals: totals);
+
+    final amount = tester.widget<Text>(
+      find.byKey(const Key('dashboard-spending-amount')),
+    );
+    expect(amount.data, MoneyFormatter.display(2500, 'COP'));
+
+    final trend = tester.widget<SpendingTrendCard>(
+      find.byType(SpendingTrendCard),
+    );
+    expect(trend.cumulativeDays, isNotEmpty);
+    expect(trend.cumulativeDays!.last.cumulativeMinorUnits, 2500);
+    expect(
+      find.byKey(const Key('dashboard-category-Voided category')),
+      findsNothing,
+    );
+    expect(find.byKey(const Key('dashboard-category-Food')), findsOneWidget);
+
+    final projection = MoneyFormatter.display((2500 * 30 / 29).round(), 'COP');
+    final projectionLabel = find.textContaining('Cierre est.:');
+    await tester.scrollUntilVisible(projectionLabel, 240);
+    expect(find.text('Cierre est.: $projection'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('analysis hides prior period totals during range reload', (
+    tester,
+  ) async {
+    final previousMonth = MonthlyTotals(
+      monthStart: DateTime.utc(2026, 9, 1),
+      windowEnd: DateTime.utc(2026, 9, 30),
+      byCurrency: const {'COP': CurrencyTotals(expenses: 2500)},
+      expenseItems: [_historyItem(categoryName: 'September category')],
+      historyComplete: true,
+      previousHistoryComplete: true,
+    );
+    final currentYear = MonthlyTotals(
+      monthStart: DateTime.utc(2026, 1, 1),
+      windowEnd: DateTime.utc(2026, 12, 31),
+      byCurrency: const {'COP': CurrencyTotals(expenses: 5000)},
+      expenseItems: [
+        _historyItem(amount: '50.00', categoryName: 'Year category'),
+      ],
+      historyComplete: true,
+      previousHistoryComplete: true,
+      period: DashboardPeriod.thisYear,
+    );
+    final pending = Completer<MonthlyTotals>();
+    await _pumpAt(
+      tester,
+      '/analysis',
+      analysisTotals: previousMonth,
+      pendingAnalysisTotals: pending,
+    );
+    expect(
+      find.byKey(const Key('dashboard-category-September category')),
+      findsOneWidget,
+    );
+
+    final yearPeriod = find.byKey(const Key('dashboard-period-thisYear'));
+    await tester.ensureVisible(yearPeriod);
+    await tester.tap(yearPeriod);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    final amountDuringReload = tester.widget<Text>(
+      find.byKey(const Key('dashboard-spending-amount')),
+    );
+    expect(amountDuringReload.data, '—');
+    expect(
+      find.byKey(const Key('dashboard-category-September category')),
+      findsNothing,
+    );
+    expect(tester.widget<ChoiceChip>(yearPeriod).selected, isTrue);
+
+    pending.complete(currentYear);
+    await tester.pumpAndSettle();
+    final loadedAmount = tester.widget<Text>(
+      find.byKey(const Key('dashboard-spending-amount')),
+    );
+    expect(loadedAmount.data, MoneyFormatter.display(5000, 'COP'));
+    final yearCategory = find.byKey(
+      const Key('dashboard-category-Year category'),
+    );
+    await tester.scrollUntilVisible(yearCategory, 240);
+    expect(yearCategory, findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 

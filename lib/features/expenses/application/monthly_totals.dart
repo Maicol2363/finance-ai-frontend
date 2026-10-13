@@ -5,6 +5,7 @@ import '../../../core/money/currency_totals.dart';
 import '../../../core/time/clock_provider.dart';
 import '../../incomes/data/incomes_repository.dart';
 import '../data/expenses_repository.dart';
+import '../domain/expense_models.dart';
 import '../domain/history_models.dart';
 import 'expenses_controller.dart';
 
@@ -257,8 +258,13 @@ Future<MonthlyTotals> loadPeriodTotals(
         pageSize: _pageSize,
       ),
     );
-    expenseItems.addAll(result.items);
-    for (final item in result.items) {
+    final activeExpenses = result.items.where(
+      (item) =>
+          item.type == TransactionType.expense &&
+          item.status != ExpenseStatus.voided,
+    );
+    expenseItems.addAll(activeExpenses);
+    for (final item in activeExpenses) {
       for (final movement in item.movements) {
         final minorUnits = movement.amount.minorUnits;
         if (minorUnits < 0) {
@@ -288,8 +294,13 @@ Future<MonthlyTotals> loadPeriodTotals(
         pageSize: _pageSize,
       ),
     );
-    previousExpenseItems.addAll(result.items);
-    for (final item in result.items) {
+    final activeExpenses = result.items.where(
+      (item) =>
+          item.type == TransactionType.expense &&
+          item.status != ExpenseStatus.voided,
+    );
+    previousExpenseItems.addAll(activeExpenses);
+    for (final item in activeExpenses) {
       for (final movement in item.movements) {
         final units = movement.amount.minorUnits;
         if (units < 0) {

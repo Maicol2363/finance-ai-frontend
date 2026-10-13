@@ -22,10 +22,11 @@ HistoryItem expenseItem({
   required String amount,
   String occurredAt = '2026-09-17T12:30:00Z',
   String currencyCode = 'COP',
+  ExpenseStatus status = ExpenseStatus.confirmed,
 }) => HistoryItem(
   id: id,
   type: TransactionType.expense,
-  status: ExpenseStatus.confirmed,
+  status: status,
   occurredAt: DateTime.parse(occurredAt),
   description: 'Purchase at Market',
   captureSource: CaptureSource.manual,
@@ -149,6 +150,27 @@ class _FixedPeriod extends DashboardPeriodController {
 }
 
 void main() {
+  test(
+    'voided expenses stay out of both totals and comparison histories',
+    () async {
+      final expenses = _FakeExpensesRepository(
+        pages: {
+          1: [
+            expenseItem(id: 1, amount: '-25.00'),
+            expenseItem(id: 2, amount: '-100.00', status: ExpenseStatus.voided),
+          ],
+        },
+      );
+      final totals = await _container(expenses: expenses)
+          .read(monthlyTotalsProvider.future);
+      expect(totals.forCurrency('COP').expenses, 2500);
+      expect(totals.previousExpensesByCurrency['COP'], 2500);
+      expect(totals.expenseItems.map((item) => item.id), [1]);
+      expect(totals.previousExpenseItems.map((item) => item.id), [1]);
+      expect(totals.historyComplete, isTrue);
+      expect(totals.previousHistoryComplete, isTrue);
+    },
+  );
   test(
     'reports incomplete history when capped, for both comparison windows',
     () async {
