@@ -1,6 +1,5 @@
 import 'package:finance_ai/core/icons/finance_icon_catalog.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 import '../../../../core/theme/app_palette.dart';
 
@@ -31,13 +30,11 @@ class _CaptureWheelState extends State<CaptureWheel>
     vsync: this,
     duration: const Duration(milliseconds: 250),
   );
-  final FocusNode _fabFocusNode = FocusNode(debugLabel: 'capture-wheel-toggle');
   bool _isOpen = false;
 
   @override
   void dispose() {
     _animation.dispose();
-    _fabFocusNode.dispose();
     super.dispose();
   }
 
@@ -53,10 +50,7 @@ class _CaptureWheelState extends State<CaptureWheel>
   }
 
   void _close() {
-    if (_isOpen) {
-      _toggle();
-      _fabFocusNode.requestFocus();
-    }
+    if (_isOpen) _toggle();
   }
 
   void _choose(VoidCallback action) {
@@ -67,107 +61,79 @@ class _CaptureWheelState extends State<CaptureWheel>
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
-    return FocusTraversalGroup(
-      policy: OrderedTraversalPolicy(),
-      child: Focus(
-        canRequestFocus: false,
-        onKeyEvent: (_, event) {
-          if (_isOpen &&
-              event is KeyDownEvent &&
-              event.logicalKey == LogicalKeyboardKey.escape) {
-            _close();
-            return KeyEventResult.handled;
-          }
-          return KeyEventResult.ignored;
-        },
-        child: Stack(
-          children: [
-            if (_isOpen)
-              Positioned.fill(
-                child: Semantics(
-                  button: true,
-                  label: 'Cerrar opciones',
-                  onTap: _close,
-                  excludeSemantics: true,
-                  child: GestureDetector(
-                    key: const Key('expenses-wheel-scrim'),
-                    behavior: HitTestBehavior.opaque,
-                    onTap: _close,
-                    child: Container(
-                      color: Colors.black.withValues(alpha: 0.35),
-                    ),
-                  ),
-                ),
-              ),
-            if (_isOpen) ...[
-              _WheelBubble(
-                key: const Key('expenses-wheel-photo'),
-                right: 16,
-                bottom: 156,
-                icon: Icons.camera_alt_outlined,
-                label: 'Foto',
-                description: 'Foto de un recibo',
-                animation: _animation,
-                delayRatio: 0.0,
-                focusOrder: 1,
-                onTap: () => _choose(widget.onPhoto),
-              ),
-              _WheelBubble(
-                key: const Key('expenses-wheel-ai'),
-                right: 82,
-                bottom: 111,
-                icon: FinanceIcons.chatBubbleOutline,
-                label: 'Mensaje',
-                description: 'Escribir o dictar',
-                animation: _animation,
-                delayRatio: 0.1,
-                focusOrder: 2,
-                onTap: () => _choose(widget.onAi),
-              ),
-              _WheelBubble(
-                key: const Key('expenses-wheel-manual'),
-                right: 156,
-                bottom: 21,
-                icon: Icons.edit_outlined,
-                label: 'Manual',
-                description: 'Formulario manual',
-                animation: _animation,
-                delayRatio: 0.3,
-                focusOrder: 3,
-                onTap: () => _choose(widget.onManual),
-              ),
-            ],
-            Positioned(
-              right: 16,
-              bottom: 16,
-              child: FocusTraversalOrder(
-                order: const NumericFocusOrder(0),
-                child: SizedBox(
-                  width: 58,
-                  height: 58,
-                  child: FloatingActionButton(
-                    key: const Key('expenses-create-fab'),
-                    focusNode: _fabFocusNode,
-                    tooltip: _isOpen
-                        ? 'Cerrar opciones'
-                        : 'Añadir un movimiento',
-                    elevation: 4,
-                    backgroundColor: palette.primary,
-                    foregroundColor: palette.onPrimary,
-                    shape: const CircleBorder(),
-                    onPressed: _toggle,
-                    child: AnimatedRotation(
-                      turns: _isOpen ? 0.125 : 0.0,
-                      duration: const Duration(milliseconds: 200),
-                      child: const Icon(Icons.add, size: 30),
-                    ),
-                  ),
-                ),
+    return Stack(
+      children: [
+        if (_isOpen)
+          Positioned.fill(
+            child: Semantics(
+              button: true,
+              label: 'Cerrar opciones',
+              child: GestureDetector(
+                key: const Key('expenses-wheel-scrim'),
+                behavior: HitTestBehavior.opaque,
+                onTap: _close,
+                child: Container(color: Colors.black.withValues(alpha: 0.35)),
               ),
             ),
-          ],
+          ),
+        if (_isOpen) ...[
+          _WheelBubble(
+            key: const Key('expenses-wheel-photo'),
+            right: 19,
+            bottom: 125,
+            icon: FinanceIcons.cameraAltOutlined,
+            label: 'Foto',
+            description: 'Foto de un recibo',
+            animation: _animation,
+            delayRatio: 0.0,
+            onTap: () => _choose(widget.onPhoto),
+          ),
+          _WheelBubble(
+            key: const Key('expenses-wheel-ai'),
+            right: 94,
+            bottom: 94,
+            icon: FinanceIcons.chatBubbleOutline,
+            label: 'Mensaje',
+            description: 'Escribir o dictar',
+            animation: _animation,
+            delayRatio: 0.1,
+            onTap: () => _choose(widget.onAi),
+          ),
+          _WheelBubble(
+            key: const Key('expenses-wheel-manual'),
+            right: 125,
+            bottom: 19,
+            icon: FinanceIcons.editOutlined,
+            label: 'Manual',
+            description: 'Formulario manual',
+            animation: _animation,
+            delayRatio: 0.3,
+            onTap: () => _choose(widget.onManual),
+          ),
+        ],
+        Positioned(
+          right: 16,
+          bottom: 16,
+          child: SizedBox(
+            width: 58,
+            height: 58,
+            child: FloatingActionButton(
+              key: const Key('expenses-create-fab'),
+              tooltip: _isOpen ? 'Cerrar opciones' : 'Añadir un movimiento',
+              elevation: 4,
+              backgroundColor: palette.primary,
+              foregroundColor: palette.onPrimary,
+              shape: const CircleBorder(),
+              onPressed: _toggle,
+              child: AnimatedRotation(
+                turns: _isOpen ? 0.125 : 0.0,
+                duration: const Duration(milliseconds: 200),
+                child: const Icon(FinanceIcons.add, size: 30),
+              ),
+            ),
+          ),
         ),
-      ),
+      ],
     );
   }
 }
@@ -182,7 +148,6 @@ class _WheelBubble extends StatelessWidget {
     required this.description,
     required this.animation,
     required this.delayRatio,
-    required this.focusOrder,
     required this.onTap,
   });
 
@@ -193,7 +158,6 @@ class _WheelBubble extends StatelessWidget {
   final String description;
   final Animation<double> animation;
   final double delayRatio;
-  final double focusOrder;
   final VoidCallback onTap;
 
   @override
@@ -213,62 +177,47 @@ class _WheelBubble extends StatelessWidget {
             scale: curved.value,
             child: Opacity(
               opacity: curved.value.clamp(0.0, 1.0),
-              child: FocusTraversalOrder(
-                order: NumericFocusOrder(focusOrder),
-                child: Focus(
-                  debugLabel: 'capture-wheel-${label.toLowerCase()}',
-                  onKeyEvent: (_, event) {
-                    if (event is KeyDownEvent &&
-                        (event.logicalKey == LogicalKeyboardKey.enter ||
-                            event.logicalKey == LogicalKeyboardKey.space)) {
-                      onTap();
-                      return KeyEventResult.handled;
-                    }
-                    return KeyEventResult.ignored;
-                  },
-                  child: Semantics(
-                    button: true,
-                    label: description,
-                    onTap: onTap,
-                    excludeSemantics: true,
-                    child: GestureDetector(
-                      onTap: onTap,
-                      child: Container(
-                        width: 52,
-                        height: 52,
-                        decoration: BoxDecoration(
-                          color: palette.card,
-                          shape: BoxShape.circle,
-                          border: Border.all(color: palette.line),
-                          boxShadow: const [
-                            BoxShadow(
-                              color: Color(0x1A0F172A),
-                              blurRadius: 10,
-                              offset: Offset(0, 4),
+              child: Semantics(
+                button: true,
+                label: description,
+                excludeSemantics: true,
+                child: GestureDetector(
+                  onTap: onTap,
+                  child: Container(
+                    width: 52,
+                    height: 52,
+                    key: ValueKey('$label-surface'),
+                    decoration: BoxDecoration(
+                      color: palette.card,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: palette.line),
+                      boxShadow: const [
+                        BoxShadow(
+                          color: Color(0x1A0F172A),
+                          blurRadius: 10,
+                          offset: Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    // Keep the Material icon and label inside the 52 px circle.
+                    child: Padding(
+                      padding: const EdgeInsets.all(5),
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(icon, size: 18, color: palette.text),
+                            Text(
+                              label,
+                              style: TextStyle(
+                                fontSize: 9.5,
+                                height: 1.1,
+                                fontWeight: FontWeight.w700,
+                                color: palette.muted,
+                              ),
                             ),
                           ],
-                        ),
-                        // Keep the Material icon and label inside the 52 px circle.
-                        child: Padding(
-                          padding: const EdgeInsets.all(5),
-                          child: FittedBox(
-                            fit: BoxFit.scaleDown,
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(icon, size: 18, color: palette.text),
-                                Text(
-                                  label,
-                                  style: TextStyle(
-                                    fontSize: 9.5,
-                                    height: 1.1,
-                                    fontWeight: FontWeight.w700,
-                                    color: palette.muted,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
                         ),
                       ),
                     ),
