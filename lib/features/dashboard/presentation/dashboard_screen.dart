@@ -236,7 +236,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   }
 }
 
-class _HomeHeader extends StatelessWidget {
+class _HomeHeader extends StatefulWidget {
   const _HomeHeader({
     required this.name,
     required this.currency,
@@ -249,6 +249,13 @@ class _HomeHeader extends StatelessWidget {
   final ValueChanged<String> onCurrencySelected;
 
   @override
+  State<_HomeHeader> createState() => _HomeHeaderState();
+}
+
+class _HomeHeaderState extends State<_HomeHeader> {
+  final _currencyMenuKey = GlobalKey<PopupMenuButtonState<String>>();
+
+  @override
   Widget build(BuildContext context) {
     final palette = context.palette;
     return Row(
@@ -258,7 +265,9 @@ class _HomeHeader extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                name == null || name!.isEmpty ? 'Hola' : 'Hola, $name',
+                widget.name == null || widget.name!.isEmpty
+                    ? 'Hola'
+                    : 'Hola, ${widget.name}',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
@@ -274,39 +283,50 @@ class _HomeHeader extends StatelessWidget {
             ],
           ),
         ),
-        PopupMenuButton<String>(
+        Semantics(
           key: const Key('dashboard-currency-selector'),
-          tooltip: 'Seleccionar moneda',
-          initialValue: currency,
-          onSelected: onCurrencySelected,
-          itemBuilder: (context) => [
-            for (final code in currencyOptions)
-              PopupMenuItem(value: code, child: Text(code)),
-          ],
-          child: Semantics(
-            label: 'Seleccionar moneda: $currency',
-            button: true,
-            excludeSemantics: true,
-            child: Container(
-              constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-              decoration: BoxDecoration(
-                color: palette.primarySoft,
-                borderRadius: BorderRadius.circular(24),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    currency,
-                    style: TextStyle(
-                      color: palette.text,
-                      fontWeight: FontWeight.w700,
+          container: true,
+          label: 'Seleccionar moneda',
+          button: true,
+          onTap: () => _currencyMenuKey.currentState?.showButtonMenu(),
+          child: ExcludeSemantics(
+            child: PopupMenuButton<String>(
+              key: _currencyMenuKey,
+              tooltip: 'Seleccionar moneda',
+              initialValue: widget.currency,
+              onSelected: widget.onCurrencySelected,
+              itemBuilder: (context) => [
+                for (final code in widget.currencyOptions)
+                  PopupMenuItem(value: code, child: Text(code)),
+              ],
+              child: Container(
+                constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 9,
+                ),
+                decoration: BoxDecoration(
+                  color: palette.primarySoft,
+                  borderRadius: BorderRadius.circular(24),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      widget.currency,
+                      style: TextStyle(
+                        color: palette.text,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 4),
-                  Icon(FinanceIcons.expandMore, size: 16, color: palette.text),
-                ],
+                    const SizedBox(width: 4),
+                    Icon(
+                      FinanceIcons.expandMore,
+                      size: 16,
+                      color: palette.text,
+                    ),
+                  ],
+                ),
               ),
             ),
           ),

@@ -524,6 +524,7 @@ void main() {
   testWidgets('dashboard renders compact summary and destinations', (
     tester,
   ) async {
+    final semantics = tester.ensureSemantics();
     await _pumpAt(tester, '/dashboard', includeUsd: true);
     expect(find.text('Saldo en cuentas'), findsOneWidget);
     expect(find.text(r'$ 100 COP'), findsOneWidget);
@@ -533,7 +534,17 @@ void main() {
     expect(find.text('Balance'), findsOneWidget);
     expect(find.text('Insight semanal'), findsOneWidget);
     expect(find.text('Proyección del mes'), findsOneWidget);
-    await tester.tap(find.byKey(const Key('dashboard-currency-selector')));
+    final currencyButton = find.byKey(const Key('dashboard-currency-selector'));
+    final currencySemantics = tester.getSemantics(currencyButton);
+    expect(currencySemantics.label, 'Seleccionar moneda');
+    expect(currencySemantics.flagsCollection.isButton, isTrue);
+    expect(
+      currencySemantics.getSemanticsData().hasAction(SemanticsAction.tap),
+      isTrue,
+    );
+    expect(tester.getSize(currencyButton).width, greaterThanOrEqualTo(48));
+    expect(tester.getSize(currencyButton).height, greaterThanOrEqualTo(48));
+    await tester.tap(find.bySemanticsLabel('Seleccionar moneda'));
     await tester.pumpAndSettle();
     expect(find.byType(PopupMenuItem<String>), findsNWidgets(2));
     await tester.tap(find.text('USD').last);
@@ -567,6 +578,7 @@ void main() {
     );
     expect(analysisAmount.data, MoneyFormatter.display(0, 'USD'));
     expect(tester.takeException(), isNull);
+    semantics.dispose();
   });
 
   testWidgets('trend owns the period summary without a duplicate card', (
