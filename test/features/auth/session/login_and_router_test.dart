@@ -241,6 +241,12 @@ void main() {
     await tester.scrollUntilVisible(
       find.byKey(const Key('logout-button')),
       200,
+      scrollable: find
+          .ancestor(
+            of: find.byKey(const Key('logout-button')),
+            matching: find.byType(Scrollable),
+          )
+          .first,
     );
     await tester.tap(find.byKey(const Key('logout-button')));
     await tester.pumpAndSettle();

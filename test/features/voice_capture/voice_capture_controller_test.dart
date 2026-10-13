@@ -35,6 +35,158 @@ class Harness {
 }
 
 void main() {
+  testWidgets(
+    'valid words establish listening when the provider omits its ready callback',
+    (tester) async {
+      final h = Harness(listening: false);
+      h.begin();
+      h.partial('Palabras válidas');
+      expect(h.controller.phase, VoicePhase.listening);
+      await tester.pump(const Duration(seconds: 12));
+      expect(h.controller.diagnostic, isNull);
+      expect(h.controller.capturing, isTrue);
+      h.controller.interrupt();
+    },
+  );
+  test('offline download preserves typing and becomes ready without opening the mic', () {
+    final h = Harness(ready: false);
+    h.service.event(
+      h.controller.session,
+      SpeechEventType.error,
+      code: 'speech_fallback_model_missing',
+      canDownload: true,
+      engine: SpeechEngine.integrated,
+      reason: 'native_service_missing',
+      apiLevel: 29,
+    );
+    h.controller.download();
+    final setupId = h.controller.session;
+    h.service.event(
+      setupId,
+      SpeechEventType.download,
+      engine: SpeechEngine.integrated,
+      downloadStage: SpeechDownloadStage.downloading,
+      progress: 37,
+    );
+    expect(h.controller.downloadProgress, 37);
+    h.controller.begin('Typed draft');
+    expect(h.service.starts, isEmpty);
+    h.controller.clearAfterSend();
+    expect(h.controller.session, setupId);
+    expect(h.controller.downloading, isTrue);
+    h.service.event(
+      setupId,
+      SpeechEventType.ready,
+      engine: SpeechEngine.integrated,
+    );
+    expect(h.controller.phase, VoicePhase.ready);
+    expect(h.controller.diagnostic, isNull);
+    expect(h.controller.canDownload, isFalse);
+    expect(h.service.starts, isEmpty);
+    expect(h.accepted, isEmpty);
+    h.begin();
+    expect(h.service.starts, hasLength(1));
+    h.controller.interrupt();
+  });
+
+  test('cancelled downloads reject late completion and remain retryable', () {
+    final h = Harness(ready: false);
+    h.service.event(
+      h.controller.session,
+      SpeechEventType.error,
+      code: 'speech_fallback_model_missing',
+      canDownload: true,
+    );
+    h.controller.download();
+    final old = h.controller.session;
+    h.controller.closeSetup();
+    h.service.event(old, SpeechEventType.ready);
+    expect(h.controller.phase, VoicePhase.failed);
+    expect(h.controller.canDownload, isTrue);
+    expect(h.service.cancellations, contains(old));
+    expect(h.service.starts, isEmpty);
+  });
+
+  test('failed download retains a draft and allows an explicit retry', () {
+    final h = Harness();
+    h.begin('PRIVATE-DRAFT');
+    h.service.event(
+      h.controller.session,
+      SpeechEventType.error,
+      code: 'speech_fallback_model_missing',
+      canDownload: true,
+    );
+    h.controller.download();
+    h.service.event(
+      h.controller.session,
+      SpeechEventType.error,
+      code: 'speech_model_download_failed',
+      canDownload: true,
+      engine: SpeechEngine.integrated,
+    );
+    expect(h.controller.transcript, 'PRIVATE-DRAFT');
+    expect(h.controller.canDownload, isTrue);
+    expect(
+      h.controller.diagnostic!.clipboardText,
+      isNot(contains('PRIVATE-DRAFT')),
+    );
+    h.controller.download();
+    expect(h.service.downloads, hasLength(2));
+  });
+
+  test('one unrecognized utterance does not mark the device unavailable', () {
+    final h = Harness();
+    h.begin();
+    h.service.event(
+      h.controller.session,
+      SpeechEventType.error,
+      code: 'speech_no_match',
+    );
+    expect(h.controller.phase, VoicePhase.ready);
+    expect(h.controller.diagnostic!.code, 'speech_no_match');
+    h.begin();
+    expect(h.service.starts, hasLength(2));
+    h.controller.interrupt();
+  });
+
+  test('resuming setup never starts recording and includes safe compatibility context', () {
+    final h = Harness();
+    h.begin('private@example.com');
+    h.service.event(
+      h.controller.session,
+      SpeechEventType.error,
+      code: 'speech_fallback_model_missing',
+      canDownload: true,
+      engine: SpeechEngine.integrated,
+      reason: 'native_service_timeout',
+      apiLevel: 33,
+    );
+    final report = h.controller.diagnostic!.clipboardText;
+    expect(report, contains('engine=integrated'));
+    expect(report, contains('cause=native_service_timeout'));
+    expect(report, contains('android_api=33'));
+    expect(report, isNot(contains('private@example.com')));
+    h.controller.refreshAfterResume();
+    expect(h.service.starts, hasLength(1));
+    expect(h.accepted, isEmpty);
+  });
+
+  test('untrusted native reasons cannot reach diagnostics', () {
+    final h = Harness();
+    h.begin();
+    h.service.event(
+      h.controller.session,
+      SpeechEventType.error,
+      code: 'speech_provider_error',
+      reason: 'PRIVATE RAW EXCEPTION',
+    );
+    expect(h.controller.diagnostic!.clipboardText, contains('cause=none'));
+    expect(
+      h.controller.diagnostic!.clipboardText,
+      isNot(contains('PRIVATE RAW EXCEPTION')),
+    );
+  });
+
   test('partial revisions replace hypotheses and make no AI request', () {
     final h = Harness();
     h.begin('Hoy:');
@@ -217,12 +369,12 @@ void main() {
     tester,
   ) async {
     final h = Harness(ready: false);
-    await tester.pump(const Duration(seconds: 8));
+    await tester.pump(const Duration(seconds: 20));
     expect(h.controller.diagnostic!.code, 'speech_preparation_timeout');
     h.service.autoReady = true;
     h.service.autoListening = false;
     h.begin();
-    await tester.pump(const Duration(seconds: 8));
+    await tester.pump(const Duration(seconds: 12));
     expect(h.controller.diagnostic!.code, 'speech_preparation_timeout');
     expect(h.accepted, isEmpty);
   });

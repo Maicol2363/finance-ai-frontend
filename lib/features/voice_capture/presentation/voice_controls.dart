@@ -1,52 +1,182 @@
+import 'dart:async';
+
 import 'package:finance_ai/core/icons/finance_icon_catalog.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 import '../../../core/diagnostics/error_diagnostic_panel.dart';
 import '../../../core/theme/app_palette.dart';
 import '../application/voice_capture_controller.dart';
 import '../domain/speech_service.dart';
 
-class VoiceControls extends StatelessWidget {
+/// Recording controls sit above the existing message field. Speech state and
+/// submission remain owned by the shared capture controller.
+class VoiceControls extends StatefulWidget {
   const VoiceControls({
     required this.controller,
-    required this.targetKey,
-    required this.nearTarget,
-    required this.occupied,
-    required this.keepTarget,
+    required this.onResume,
+    required this.onDiscard,
     required this.onClose,
+    this.isBusy = false,
     super.key,
   });
 
   final VoiceCaptureController controller;
-  final GlobalKey targetKey;
-  final bool nearTarget, occupied, keepTarget;
-  final VoidCallback onClose;
+  final VoidCallback onResume, onDiscard, onClose;
+  final bool isBusy;
+
+  @override
+  State<VoiceControls> createState() => _VoiceControlsState();
+}
+
+class _VoiceControlsState extends State<VoiceControls> {
+  final _pauseFocusNode = FocusNode(debugLabel: 'voice-pause-resume');
+  Timer? _clock;
+  int _seconds = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    widget.controller.addListener(_syncClock);
+    _syncClock();
+  }
+
+  @override
+  void didUpdateWidget(VoiceControls oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.controller != widget.controller) {
+      oldWidget.controller.removeListener(_syncClock);
+      widget.controller.addListener(_syncClock);
+      _seconds = 0;
+      _syncClock();
+    }
+  }
+
+  void _syncClock() {
+    if (widget.controller.phase == VoicePhase.listening) {
+      _clock ??= Timer.periodic(const Duration(seconds: 1), (_) {
+        if (mounted) setState(() => _seconds++);
+      });
+    } else {
+      _clock?.cancel();
+      _clock = null;
+      if (widget.controller.phase == VoicePhase.ready &&
+          widget.controller.transcript.isEmpty) {
+        _seconds = 0;
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    widget.controller.removeListener(_syncClock);
+    _clock?.cancel();
+    _pauseFocusNode.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
+    final controller = widget.controller;
     final palette = context.palette;
     final phase = controller.phase;
     final pending =
         phase == VoicePhase.preparing ||
         phase == VoicePhase.starting ||
-        phase == VoicePhase.finalizing;
+        phase == VoicePhase.finalizing ||
+        controller.downloading;
     final diagnostic = controller.diagnostic;
     final desktop = defaultTargetPlatform != TargetPlatform.android;
-    final showTarget = !desktop && (controller.capturing || keepTarget);
     final status = switch (phase) {
       VoicePhase.preparing => 'Preparando dictado local…',
       VoicePhase.ready => 'Dictado sin conexión',
       VoicePhase.starting => 'Abriendo micrófono…',
       VoicePhase.listening => 'Escuchando…',
       VoicePhase.finalizing => 'Micrófono detenido · terminando…',
-      VoicePhase.review => 'Revisa el dictado antes de enviar',
-      VoicePhase.failed => 'Dictado no disponible',
+      VoicePhase.review => 'Pausado · puedes editar',
+      VoicePhase.failed =>
+        controller.canDownload
+            ? 'Prepara el dictado sin conexión'
+            : diagnostic?.code.startsWith('speech_permission') == true
+            ? 'Permiso del micrófono'
+            : 'No se pudo iniciar el dictado',
+      VoicePhase.downloading => switch (controller.downloadStage) {
+        SpeechDownloadStage.requested => 'Preparando descarga…',
+        SpeechDownloadStage.downloading =>
+          controller.downloadProgress == null
+              ? 'Descargando modelo…'
+              : 'Descargando modelo · ${controller.downloadProgress}%',
+        SpeechDownloadStage.installing => 'Verificando e instalando modelo…',
+        SpeechDownloadStage.loading => 'Preparando dictado local…',
+      },
     };
+    final statusLabel = Row(
+      children: [
+        if (pending)
+          const SizedBox(
+            width: 14,
+            height: 14,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          )
+        else
+          Icon(
+            controller.capturing ? FinanceIcons.mic : FinanceIcons.micOutlined,
+            size: 18,
+            color: palette.primary,
+          ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Semantics(
+            liveRegion: true,
+            child: Text(
+              status,
+              style: TextStyle(fontSize: 12, color: palette.muted),
+            ),
+          ),
+        ),
+      ],
+    );
+    final language = Tooltip(
+      message: 'Idioma del dictado',
+      child: DropdownButton<SpeechLanguage>(
+        key: const Key('voice-language'),
+        value: controller.language,
+        underline: const SizedBox.shrink(),
+        style: TextStyle(fontSize: 12, color: palette.text),
+        items: [
+          for (final language in SpeechLanguage.values)
+            DropdownMenuItem(
+              value: language,
+              child: Semantics(
+                label: language.label,
+                child: Text(language == SpeechLanguage.spanish ? 'ES' : 'EN'),
+              ),
+            ),
+        ],
+        onChanged: controller.active || controller.downloading
+            ? null
+            : (language) {
+                if (language != null) controller.prepare(language);
+              },
+      ),
+    );
+    final elapsed = Semantics(
+      label: 'Duración del dictado',
+      child: Text(
+        '${_seconds ~/ 60}:${(_seconds % 60).toString().padLeft(2, '0')}',
+        key: const Key('voice-elapsed'),
+        style: TextStyle(fontSize: 12, color: palette.muted),
+      ),
+    );
+    final close = IconButton(
+      key: const Key('voice-close'),
+      tooltip: 'Cerrar dictado y conservar texto',
+      onPressed: widget.onClose,
+      icon: const Icon(FinanceIcons.close, size: 18),
+    );
     return Padding(
       key: const Key('voice-controls'),
-      padding: const EdgeInsets.symmetric(horizontal: 16),
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
       child: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 744),
@@ -54,57 +184,38 @@ class VoiceControls extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Row(
-                children: [
-                  if (pending)
-                    const SizedBox(
-                      width: 14,
-                      height: 14,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  else
-                    Icon(
-                      controller.capturing
-                          ? FinanceIcons.mic
-                          : FinanceIcons.micOutlined,
-                      size: 18,
-                      color: palette.primary,
-                    ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Semantics(
-                      liveRegion: true,
-                      child: Text(
-                        status,
-                        style: TextStyle(fontSize: 12, color: palette.muted),
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final wrapHeader =
+                      constraints.maxWidth < 360 &&
+                      MediaQuery.textScalerOf(context).scale(12) > 16;
+                  return Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(child: statusLabel),
+                          if (!wrapHeader) ...[
+                            if (diagnostic == null && !controller.downloading)
+                              elapsed,
+                            const SizedBox(width: 8),
+                            language,
+                          ],
+                          close,
+                        ],
                       ),
-                    ),
-                  ),
-                  DropdownButton<SpeechLanguage>(
-                    key: const Key('voice-language'),
-                    value: controller.language,
-                    underline: const SizedBox.shrink(),
-                    style: TextStyle(fontSize: 12, color: palette.text),
-                    items: [
-                      for (final language in SpeechLanguage.values)
-                        DropdownMenuItem(
-                          value: language,
-                          child: Text(language.label),
+                      if (wrapHeader)
+                        Row(
+                          children: [
+                            if (diagnostic == null && !controller.downloading)
+                              elapsed,
+                            const Spacer(),
+                            language,
+                          ],
                         ),
                     ],
-                    onChanged: controller.active
-                        ? null
-                        : (language) {
-                            if (language != null) controller.prepare(language);
-                          },
-                  ),
-                  IconButton(
-                    key: const Key('voice-close'),
-                    tooltip: 'Cerrar dictado y conservar texto',
-                    onPressed: onClose,
-                    icon: const Icon(FinanceIcons.close, size: 18),
-                  ),
-                ],
+                  );
+                },
               ),
               if (diagnostic != null) ...[
                 Text(
@@ -136,106 +247,111 @@ class VoiceControls extends StatelessWidget {
                     ),
                     TextButton(
                       key: const Key('voice-retry'),
-                      onPressed: controller.active ? null : controller.prepare,
+                      onPressed: controller.active || controller.downloading
+                          ? null
+                          : controller.prepare,
                       child: const Text('Comprobar dictado'),
                     ),
                     if (controller.canDownload)
                       TextButton(
                         key: const Key('voice-download'),
                         onPressed: controller.download,
-                        child: const Text('Descargar modelo'),
+                        child: Text(
+                          'Descargar ${controller.language.label} · 40 MB',
+                        ),
                       )
-                    else
+                    else if (SpeechFailure.settingsFailures.contains(
+                          diagnostic.code,
+                        ) &&
+                        (desktop ||
+                            diagnostic.code.startsWith('speech_permission')))
                       TextButton(
                         key: const Key('voice-settings'),
                         onPressed: controller.openSettings,
-                        child: const Text('Abrir ajustes'),
+                        child: Text(
+                          diagnostic.code.startsWith('speech_permission')
+                              ? 'Permiso del micrófono'
+                              : 'Ajustes de reconocimiento',
+                        ),
                       ),
                   ],
                 ),
-              ] else if (phase == VoicePhase.review)
+              ] else if (controller.downloading) ...[
+                const Text(
+                  'Una descarga por idioma. Después puedes dictar sin conexión. Puedes seguir escribiendo mientras se prepara.',
+                  style: TextStyle(fontSize: 12),
+                ),
                 Align(
                   alignment: Alignment.centerLeft,
-                  child: TextButton.icon(
-                    key: const Key('voice-discard'),
-                    onPressed: controller.discard,
-                    icon: const Icon(FinanceIcons.close, size: 16),
-                    label: const Text('Descartar dictado'),
+                  child: TextButton(
+                    key: const Key('voice-download-cancel'),
+                    onPressed: controller.closeSetup,
+                    child: const Text('Cancelar descarga'),
+                  ),
+                ),
+              ] else if (controller.active || phase == VoicePhase.review)
+                Padding(
+                  padding: const EdgeInsets.only(top: 4),
+                  child: Row(
+                    children: [
+                      IconButton.filledTonal(
+                        key: const Key('voice-discard'),
+                        tooltip: 'Descartar dictado',
+                        onPressed: widget.isBusy ? null : widget.onDiscard,
+                        style: IconButton.styleFrom(
+                          backgroundColor: palette.errorSoft,
+                          foregroundColor: palette.discard,
+                          minimumSize: const Size(48, 48),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        icon: const Icon(FinanceIcons.deleteOutline),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          focusNode: _pauseFocusNode,
+                          key: Key(
+                            controller.active
+                                ? 'voice-review-stop'
+                                : 'voice-resume',
+                          ),
+                          onPressed:
+                              widget.isBusy || phase == VoicePhase.finalizing
+                              ? null
+                              : controller.active
+                              ? controller.finishForReview
+                              : widget.onResume,
+                          style: OutlinedButton.styleFrom(
+                            backgroundColor: palette.soft,
+                            foregroundColor: palette.text,
+                          ),
+                          icon: Icon(
+                            controller.active
+                                ? FinanceIcons.pause
+                                : FinanceIcons.micOutlined,
+                            size: 18,
+                          ),
+                          label: Text(
+                            controller.active ? 'Pausar' : 'Continuar',
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 )
-              else if (desktop && controller.capturing)
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: OutlinedButton.icon(
-                    key: const Key('voice-review-stop'),
-                    onPressed: controller.finishForReview,
-                    icon: const Icon(FinanceIcons.stopCircleOutlined, size: 18),
-                    label: const Text('Detener y revisar'),
-                  ),
-                )
-              else if (!showTarget)
+              else
                 Padding(
                   padding: const EdgeInsets.only(bottom: 8),
                   child: Text(
-                    desktop
-                        ? 'Pulsa el micrófono para hablar.'
-                        : 'Mantén para hablar · suelta para analizar.',
+                    phase == VoicePhase.preparing ||
+                            phase == VoicePhase.starting
+                        ? 'Espera a que aparezca «Escuchando» para hablar.'
+                        : 'Pulsa el micrófono para hablar.',
                     style: TextStyle(fontSize: 12, color: palette.muted),
                   ),
                 ),
-              if (showTarget) ...[
-                const SizedBox(height: 4),
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: AnimatedContainer(
-                    key: targetKey,
-                    duration: MediaQuery.disableAnimationsOf(context)
-                        ? Duration.zero
-                        : const Duration(milliseconds: 120),
-                    width: 140,
-                    height: 48,
-                    decoration: BoxDecoration(
-                      color: nearTarget || occupied
-                          ? palette.primarySoft
-                          : palette.soft,
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(
-                        color: nearTarget || occupied
-                            ? palette.primary
-                            : palette.line,
-                      ),
-                    ),
-                    child: Opacity(
-                      opacity: occupied ? 0 : 1,
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            FinanceIcons.editOutlined,
-                            size: 18,
-                            color: nearTarget ? palette.primary : palette.muted,
-                          ),
-                          const SizedBox(width: 6),
-                          Flexible(
-                            child: Text(
-                              nearTarget
-                                  ? 'Entra para revisar'
-                                  : 'Sube para editar',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: nearTarget
-                                    ? palette.primary
-                                    : palette.muted,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 40),
-              ],
             ],
           ),
         ),
@@ -244,147 +360,29 @@ class VoiceControls extends StatelessWidget {
   }
 }
 
-/// Swept hit testing also catches a fast move that skips the visible zone.
-bool voiceDragCrosses(Offset start, Offset end, Rect zone) {
-  var low = 0.0, high = 1.0;
-  for (final axis in [
-    (start.dx, end.dx, zone.left, zone.right),
-    (start.dy, end.dy, zone.top, zone.bottom),
-  ]) {
-    final delta = axis.$2 - axis.$1;
-    if (delta == 0) {
-      if (axis.$1 < axis.$3 || axis.$1 > axis.$4) return false;
-      continue;
-    }
-    final a = (axis.$3 - axis.$1) / delta, b = (axis.$4 - axis.$1) / delta;
-    low = low > (a < b ? a : b) ? low : (a < b ? a : b);
-    high = high < (a > b ? a : b) ? high : (a > b ? a : b);
-    if (low > high) return false;
-  }
-  return true;
-}
-
 class VoiceMicButton extends StatefulWidget {
   const VoiceMicButton({
     required this.controller,
-    required this.targetKey,
     required this.isBusy,
     required this.onBegin,
-    required this.onGesture,
     super.key,
   });
 
   final VoiceCaptureController controller;
-  final GlobalKey targetKey;
   final bool isBusy;
   final VoidCallback onBegin;
-  final void Function(bool active, bool near, bool occupied) onGesture;
 
   @override
   State<VoiceMicButton> createState() => _VoiceMicButtonState();
 }
 
-class _VoiceMicButtonState extends State<VoiceMicButton>
-    with WidgetsBindingObserver {
-  final _micKey = GlobalKey();
+class _VoiceMicButtonState extends State<VoiceMicButton> {
   final _micFocusNode = FocusNode(debugLabel: 'voice-dictation-button');
-  int? _pointer;
-  bool _latched = false;
-  Offset _origin = Offset.zero, _center = Offset.zero, _offset = Offset.zero;
-  bool get _hold => defaultTargetPlatform == TargetPlatform.android;
-
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addObserver(this);
-  }
 
   @override
   void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
     _micFocusNode.dispose();
     super.dispose();
-  }
-
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state != AppLifecycleState.resumed && _pointer != null) {
-      widget.controller.interrupt();
-      _pointer = null;
-      setState(() {
-        _offset = Offset.zero;
-        _latched = false;
-      });
-      widget.onGesture(false, false, false);
-    }
-  }
-
-  void _toggle() {
-    if (widget.controller.active) {
-      widget.controller.finishForReview();
-    } else {
-      widget.onBegin();
-    }
-  }
-
-  void _down(PointerDownEvent event) {
-    if (!_hold ||
-        widget.isBusy ||
-        widget.controller.active ||
-        _pointer != null) {
-      return;
-    }
-    final box = _micKey.currentContext!.findRenderObject()! as RenderBox;
-    _center = box.localToGlobal(box.size.center(Offset.zero));
-    _origin = event.position;
-    _pointer = event.pointer;
-    _latched = false;
-    _offset = Offset.zero;
-    widget.onGesture(true, false, false);
-    widget.onBegin();
-  }
-
-  void _move(PointerMoveEvent event) {
-    if (event.pointer != _pointer || _latched) return;
-    if (!widget.controller.active) return;
-    final box =
-        widget.targetKey.currentContext?.findRenderObject() as RenderBox?;
-    if (box == null || !box.hasSize) return;
-    final zone = box.localToGlobal(Offset.zero) & box.size;
-    final delta = event.position - _origin;
-    final next = Offset(
-      delta.dx.clamp(
-        24 - _center.dx,
-        MediaQuery.sizeOf(context).width - 24 - _center.dx,
-      ),
-      delta.dy.clamp(zone.top - _center.dy - 24, 20),
-    );
-    final hit = voiceDragCrosses(_center + _offset, _center + next, zone);
-    final near = zone.inflate(32).contains(_center + next);
-    setState(() {
-      _offset = hit ? zone.center - _center : next;
-      if (hit) _latched = true;
-    });
-    widget.onGesture(true, near || hit, hit);
-    if (hit) {
-      HapticFeedback.selectionClick();
-      widget.controller.finishForReview();
-    }
-  }
-
-  void _end(PointerEvent event, {bool cancelled = false}) {
-    if (event.pointer != _pointer) return;
-    if (cancelled) {
-      widget.controller.interrupt();
-    } else if (!_latched) {
-      widget.controller.release();
-    }
-    _pointer = null;
-    setState(() {
-      _offset = Offset.zero;
-      _latched = false;
-    });
-    widget.onGesture(false, false, false);
   }
 
   @override
@@ -392,93 +390,24 @@ class _VoiceMicButtonState extends State<VoiceMicButton>
     final palette = context.palette;
     final blocked =
         widget.isBusy ||
-        (widget.controller.phase == VoicePhase.finalizing && _pointer == null);
-    return Semantics(
-      button: true,
-      enabled: !blocked,
-      label: 'Dictar mensaje',
-      hint: _hold
-          ? 'Mantén para hablar. Sube para revisar.'
-          : 'Pulsa para empezar o detener el dictado.',
-      onTap: blocked ? null : _toggle,
-      child: ExcludeSemantics(
-        child: Focus(
-          canRequestFocus: false,
-          onKeyEvent: (_, event) {
-            if (event is! KeyDownEvent) return KeyEventResult.ignored;
-            if (event.logicalKey == LogicalKeyboardKey.escape) {
-              widget.controller.interrupt();
-              return KeyEventResult.handled;
-            }
-            if (!blocked &&
-                (event.logicalKey == LogicalKeyboardKey.enter ||
-                    event.logicalKey == LogicalKeyboardKey.space)) {
-              _toggle();
-              return KeyEventResult.handled;
-            }
-            return KeyEventResult.ignored;
-          },
-          child: Listener(
-            key: const Key('chat-voice-button'),
-            onPointerDown: _down,
-            onPointerMove: _move,
-            onPointerUp: _end,
-            onPointerCancel: (event) => _end(event, cancelled: true),
-            child: TweenAnimationBuilder<Offset>(
-              tween: Tween<Offset>(begin: Offset.zero, end: _offset),
-              duration:
-                  _pointer != null && !_latched ||
-                      MediaQuery.disableAnimationsOf(context)
-                  ? Duration.zero
-                  : const Duration(milliseconds: 160),
-              builder: (context, offset, child) => Transform.translate(
-                offset: offset,
-                transformHitTests: false,
-                child: child,
-              ),
-              child: SizedBox(
-                key: _micKey,
-                width: 48,
-                height: 48,
-                child: IconButton.filled(
-                  focusNode: _micFocusNode,
-                  tooltip: widget.controller.active
-                      ? (_hold
-                            ? 'Suelta para analizar o sube para editar'
-                            : 'Detener y revisar')
-                      : (_hold
-                            ? 'Mantén para dictar; sube para revisar'
-                            : 'Dictar mensaje'),
-                  // Pointer hold/release owns Android actions. Its synthesized tap
-                  // must never start a second session, including after cancellation.
-                  onPressed: blocked
-                      ? null
-                      : _hold
-                      ? () {}
-                      : _toggle,
-                  style: IconButton.styleFrom(
-                    backgroundColor: widget.controller.capturing || _latched
-                        ? palette.primary
-                        : palette.primarySoft,
-                    foregroundColor: widget.controller.capturing || _latched
-                        ? palette.onPrimary
-                        : palette.primary,
-                    disabledBackgroundColor: palette.soft,
-                    disabledForegroundColor: palette.placeholder,
-                    minimumSize: const Size(48, 48),
-                  ),
-                  icon: Icon(
-                    _latched
-                        ? FinanceIcons.editOutlined
-                        : widget.controller.capturing
-                        ? FinanceIcons.mic
-                        : FinanceIcons.micOutlined,
-                  ),
-                ),
-              ),
-            ),
-          ),
+        widget.controller.downloading ||
+        widget.controller.phase == VoicePhase.finalizing;
+    return SizedBox(
+      width: 48,
+      height: 48,
+      child: IconButton.filled(
+        key: const Key('chat-voice-button'),
+        focusNode: _micFocusNode,
+        tooltip: 'Dictar mensaje',
+        onPressed: blocked ? null : widget.onBegin,
+        style: IconButton.styleFrom(
+          backgroundColor: palette.primarySoft,
+          foregroundColor: palette.primary,
+          disabledBackgroundColor: palette.soft,
+          disabledForegroundColor: palette.placeholder,
+          minimumSize: const Size(48, 48),
         ),
+        icon: const Icon(FinanceIcons.micOutlined),
       ),
     );
   }

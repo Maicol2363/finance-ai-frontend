@@ -48,11 +48,8 @@ class _TextCaptureChatState extends ConsumerState<TextCaptureChat>
   final _scroll = ScrollController();
   final _input = TextEditingController();
   final _focus = FocusNode();
-  final _voiceTarget = GlobalKey();
   late final VoiceCaptureController _voice;
-  bool _voiceExpanded = false, _gestureActive = false;
-  bool _nearVoiceTarget = false, _occupiedVoiceTarget = false;
-  double _gestureKeyboardInset = 0;
+  bool _voiceExpanded = false;
 
   @override
   void initState() {
@@ -71,6 +68,7 @@ class _TextCaptureChatState extends ConsumerState<TextCaptureChat>
           mounted && !ref.read(textCaptureControllerProvider).isBusy,
       onAccepted: (_) => _send(requestFocus: false),
     )..addListener(_voiceChanged);
+    _focus.addListener(_composerFocusChanged);
     Future<void>.microtask(() {
       if (mounted) {
         _voice.prepare();
@@ -99,12 +97,21 @@ class _TextCaptureChatState extends ConsumerState<TextCaptureChat>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state != AppLifecycleState.resumed) _voice.interrupt();
+    if (state != AppLifecycleState.resumed) {
+      _voice.interrupt();
+    } else if (_voiceExpanded) {
+      _voice.refreshAfterResume();
+    }
   }
 
-  @override
-  void didChangeMetrics() {
-    if (mounted && _gestureActive) setState(() {});
+  void _composerFocusChanged() {
+    if (_focus.hasFocus) _editVoice();
+  }
+
+  void _editVoice() {
+    // Editing must reject buffered recognizer results before the first keystroke.
+    // The existing interruption path preserves visible words and session guards.
+    if (_voice.active) _voice.interrupt();
   }
 
   void _beginVoice() {
@@ -114,7 +121,12 @@ class _TextCaptureChatState extends ConsumerState<TextCaptureChat>
   }
 
   void _closeVoice() {
-    _voice.interrupt();
+    _voice.closeSetup();
+    setState(() => _voiceExpanded = false);
+  }
+
+  void _discardVoice() {
+    _voice.discard();
     setState(() => _voiceExpanded = false);
   }
 
@@ -125,6 +137,7 @@ class _TextCaptureChatState extends ConsumerState<TextCaptureChat>
     _voice.dispose();
     _scroll.dispose();
     _input.dispose();
+    _focus.removeListener(_composerFocusChanged);
     _focus.dispose();
     super.dispose();
   }
@@ -139,6 +152,7 @@ class _TextCaptureChatState extends ConsumerState<TextCaptureChat>
     final text = _input.text.trim();
     if (text.isEmpty || text.length > maxMessageLength) return;
     _voice.clearAfterSend();
+    if (!_voice.downloading) setState(() => _voiceExpanded = false);
     _input.clear();
     ref.read(textCaptureControllerProvider.notifier).send(text);
     if (requestFocus) _focus.requestFocus();
@@ -180,115 +194,129 @@ class _TextCaptureChatState extends ConsumerState<TextCaptureChat>
         .lastOrNull
         ?.id;
     final onlyWelcome = state.entries.length == 1;
-    final view = View.of(context);
-    final keyboardInset = view.viewInsets.bottom / view.devicePixelRatio;
-    // Scaffolds consume MediaQuery.viewInsets. Actual view metrics keep the
-    // composer under the finger while the keyboard closes during a hold.
-    final compensation = _gestureActive
-        ? (_gestureKeyboardInset - keyboardInset).clamp(
-            0.0,
-            _gestureKeyboardInset,
-          )
-        : 0.0;
-    return AnimatedPadding(
-      padding: EdgeInsets.only(bottom: compensation),
-      duration: _gestureActive || MediaQuery.disableAnimationsOf(context)
-          ? Duration.zero
-          : const Duration(milliseconds: 160),
-      child: Column(
-        children: [
-          Expanded(
-            child: Stack(
-              children: [
-                Positioned.fill(
-                  child: Center(
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 760),
-                      child: ListView.separated(
-                        key: const Key('chat-messages'),
-                        controller: _scroll,
-                        // Room at the bottom so the newest message is never hidden
-                        // behind the floating button.
-                        padding: const EdgeInsets.fromLTRB(16, 12, 16, 88),
-                        itemCount: state.entries.length + (onlyWelcome ? 1 : 0),
-                        separatorBuilder: (_, _) => const SizedBox(height: 12),
-                        itemBuilder: (context, index) {
-                          if (index == state.entries.length) {
-                            return _Suggestions(
-                              onPick: (text) {
-                                _voice.clearAfterSend();
-                                _input
-                                  ..text = text
-                                  ..selection = TextSelection.collapsed(
-                                    offset: text.length,
-                                  );
-                                _focus.requestFocus();
-                              },
+    return Focus(
+      autofocus: true,
+      skipTraversal: true,
+      onKeyEvent: (_, event) {
+        if (event is KeyDownEvent &&
+            event.logicalKey == LogicalKeyboardKey.escape &&
+            _voice.active) {
+          _voice.interrupt();
+          return KeyEventResult.handled;
+        }
+        return KeyEventResult.ignored;
+      },
+      child: LayoutBuilder(
+        builder: (context, constraints) => Column(
+          children: [
+            Expanded(
+              child: Stack(
+                children: [
+                  Positioned.fill(
+                    child: Center(
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 760),
+                        child: ListView.separated(
+                          key: const Key('chat-messages'),
+                          controller: _scroll,
+                          // Room at the bottom so the newest message is never hidden
+                          // behind the floating button.
+                          padding: const EdgeInsets.fromLTRB(16, 12, 16, 88),
+                          itemCount:
+                              state.entries.length + (onlyWelcome ? 1 : 0),
+                          separatorBuilder: (_, _) =>
+                              const SizedBox(height: 12),
+                          itemBuilder: (context, index) {
+                            if (index == state.entries.length) {
+                              return _Suggestions(
+                                onPick: (text) {
+                                  _voice.clearAfterSend();
+                                  _input
+                                    ..text = text
+                                    ..selection = TextSelection.collapsed(
+                                      offset: text.length,
+                                    );
+                                  _focus.requestFocus();
+                                },
+                              );
+                            }
+                            return _EntryView(
+                              key: ValueKey(state.entries[index].id),
+                              entry: state.entries[index],
+                              isLatestProposal:
+                                  state.entries[index].id == latestProposalId,
                             );
-                          }
-                          return _EntryView(
-                            key: ValueKey(state.entries[index].id),
-                            entry: state.entries[index],
-                            isLatestProposal:
-                                state.entries[index].id == latestProposalId,
-                          );
-                        },
+                          },
+                        ),
                       ),
                     ),
                   ),
+                  if (widget.showWheel)
+                    CaptureWheel(
+                      onPhoto: () {
+                        _voice.interrupt();
+                        startReceiptCapture(
+                          context,
+                          source: ImageSource.camera,
+                        );
+                      },
+                      onAi: () {
+                        _voice.interrupt();
+                        _focus.requestFocus();
+                      },
+                      onManual: () {
+                        _voice.interrupt();
+                        context.push('/expenses/new');
+                      },
+                    ),
+                ],
+              ),
+            ),
+            if (_voiceExpanded)
+              ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxHeight:
+                      (constraints.maxHeight -
+                              MediaQuery.textScalerOf(context).scale(22) -
+                              42)
+                          .clamp(0.0, constraints.maxHeight * 0.45),
                 ),
-                if (widget.showWheel)
-                  CaptureWheel(
-                    onPhoto: () {
-                      _voice.interrupt();
-                      startReceiptCapture(context, source: ImageSource.camera);
-                    },
-                    onAi: () {
-                      _voice.interrupt();
-                      _focus.requestFocus();
-                    },
-                    onManual: () {
-                      _voice.interrupt();
-                      context.push('/expenses/new');
-                    },
+                child: SingleChildScrollView(
+                  child: VoiceControls(
+                    controller: _voice,
+                    isBusy: state.isBusy,
+                    onResume: _beginVoice,
+                    onDiscard: _discardVoice,
+                    onClose: _closeVoice,
                   ),
-              ],
+                ),
+              ),
+            _Composer(
+              controller: _input,
+              focusNode: _focus,
+              isBusy: state.isBusy || _voice.phase == VoicePhase.finalizing,
+              hint: _hintFor(state),
+              onSend: _send,
+              onEdit: _editVoice,
+              isDictating: _voice.active,
+              voiceInProgress:
+                  _voiceExpanded &&
+                  (_voice.active ||
+                      (_voice.phase == VoicePhase.review &&
+                          _voice.diagnostic == null)),
+              maxLines:
+                  ((constraints.maxHeight * 0.45 - 26) /
+                          MediaQuery.textScalerOf(context).scale(22))
+                      .floor()
+                      .clamp(1, 5),
+              voiceButton: VoiceMicButton(
+                controller: _voice,
+                isBusy: state.isBusy,
+                onBegin: _beginVoice,
+              ),
             ),
-          ),
-          if (_voiceExpanded)
-            VoiceControls(
-              controller: _voice,
-              targetKey: _voiceTarget,
-              nearTarget: _nearVoiceTarget,
-              occupied: _occupiedVoiceTarget,
-              keepTarget: _gestureActive,
-              onClose: _closeVoice,
-            ),
-          _Composer(
-            controller: _input,
-            focusNode: _focus,
-            isBusy: state.isBusy || _voice.phase == VoicePhase.finalizing,
-            hint: _hintFor(state),
-            onSend: _send,
-            isDictating: _voice.active,
-            voiceButton: VoiceMicButton(
-              controller: _voice,
-              targetKey: _voiceTarget,
-              isBusy: state.isBusy,
-              onBegin: _beginVoice,
-              onGesture: (active, near, occupied) => setState(() {
-                if (active && !_gestureActive) {
-                  final view = View.of(context);
-                  _gestureKeyboardInset =
-                      view.viewInsets.bottom / view.devicePixelRatio;
-                }
-                _gestureActive = active;
-                _nearVoiceTarget = near;
-                _occupiedVoiceTarget = occupied;
-              }),
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -411,7 +439,10 @@ class _Composer extends StatefulWidget {
     required this.isBusy,
     required this.hint,
     required this.onSend,
+    required this.onEdit,
     required this.isDictating,
+    required this.voiceInProgress,
+    required this.maxLines,
     required this.voiceButton,
   });
 
@@ -419,8 +450,9 @@ class _Composer extends StatefulWidget {
   final FocusNode focusNode;
   final bool isBusy;
   final String hint;
-  final VoidCallback onSend;
-  final bool isDictating;
+  final VoidCallback onSend, onEdit;
+  final bool isDictating, voiceInProgress;
+  final int maxLines;
   final Widget voiceButton;
 
   @override
@@ -485,6 +517,8 @@ class _ComposerState extends State<_Composer> {
   Widget build(BuildContext context) {
     final palette = context.palette;
     final canSend = _canSend;
+    final showSend =
+        widget.controller.text.trim().isNotEmpty || widget.voiceInProgress;
     return Container(
       decoration: BoxDecoration(
         color: palette.background,
@@ -505,9 +539,10 @@ class _ComposerState extends State<_Composer> {
                     controller: widget.controller,
                     scrollController: _dictationScroll,
                     focusNode: widget.focusNode,
-                    readOnly: widget.isDictating,
+                    onTap: widget.onEdit,
+                    onTapAlwaysCalled: true,
                     minLines: 1,
-                    maxLines: 5,
+                    maxLines: widget.maxLines,
                     maxLength: maxMessageLength,
                     keyboardType: TextInputType.multiline,
                     textInputAction: TextInputAction.send,
@@ -544,28 +579,32 @@ class _ComposerState extends State<_Composer> {
                   ),
                 ),
               ),
-              const SizedBox(width: 6),
-              Padding(
-                padding: const EdgeInsets.only(bottom: 2),
-                child: widget.voiceButton,
-              ),
-              const SizedBox(width: 6),
-              Padding(
-                padding: const EdgeInsets.only(bottom: 2),
-                child: IconButton.filled(
-                  key: const Key('chat-send-button'),
-                  tooltip: 'Enviar mensaje',
-                  style: IconButton.styleFrom(
-                    backgroundColor: palette.primary,
-                    foregroundColor: palette.onPrimary,
-                    disabledBackgroundColor: palette.soft,
-                    disabledForegroundColor: palette.placeholder,
-                    minimumSize: const Size(48, 48),
-                  ),
-                  onPressed: canSend ? widget.onSend : null,
-                  icon: const Icon(FinanceIcons.arrowUpwardRounded),
+              if (!widget.voiceInProgress) ...[
+                const SizedBox(width: 6),
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 2),
+                  child: widget.voiceButton,
                 ),
-              ),
+              ],
+              if (showSend) ...[
+                const SizedBox(width: 6),
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 2),
+                  child: IconButton.filled(
+                    key: const Key('chat-send-button'),
+                    tooltip: 'Enviar mensaje',
+                    style: IconButton.styleFrom(
+                      backgroundColor: palette.primary,
+                      foregroundColor: palette.onPrimary,
+                      disabledBackgroundColor: palette.soft,
+                      disabledForegroundColor: palette.placeholder,
+                      minimumSize: const Size(48, 48),
+                    ),
+                    onPressed: canSend ? widget.onSend : null,
+                    icon: const Icon(FinanceIcons.arrowUpwardRounded),
+                  ),
+                ),
+              ],
             ],
           ),
         ),

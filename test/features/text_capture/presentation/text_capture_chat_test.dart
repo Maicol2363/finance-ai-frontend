@@ -27,6 +27,7 @@ Future<ProviderContainer> pumpChat(
   ThemeData? theme,
   FakeExpensesRepository? expenses,
   SpeechService? speech,
+  TextCaptureChat chat = const TextCaptureChat(),
 }) async {
   tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1.0;
@@ -35,8 +36,7 @@ Future<ProviderContainer> pumpChat(
     routes: [
       GoRoute(
         path: '/',
-        builder: (_, _) =>
-            const Scaffold(body: SafeArea(child: TextCaptureChat())),
+        builder: (_, _) => Scaffold(body: SafeArea(child: chat)),
       ),
       GoRoute(
         path: '/expenses/new',
@@ -108,15 +108,15 @@ void main() {
     expect(field.controller!.text, 'Pasé 50 mil de Nequi a efectivo');
   });
 
-  testWidgets('send is disabled until there is text', (tester) async {
+  testWidgets('send appears when the composer has text', (tester) async {
     await pumpChat(tester, FakeTextCaptureRepository());
 
     IconButton button() => tester.widget<IconButton>(byKey('chat-send-button'));
-    expect(button().onPressed, isNull);
+    expect(byKey('chat-send-button'), findsNothing);
 
     await tester.enterText(byKey('chat-composer-field'), '   ');
     await tester.pump();
-    expect(button().onPressed, isNull);
+    expect(byKey('chat-send-button'), findsNothing);
 
     await tester.enterText(byKey('chat-composer-field'), 'gasté 5 mil');
     await tester.pump();
@@ -623,10 +623,7 @@ void main() {
 
       expect(byKey('chat-thinking'), findsOneWidget);
       expect(find.text('Leyendo tu mensaje…'), findsOneWidget);
-      expect(
-        tester.widget<IconButton>(byKey('chat-send-button')).onPressed,
-        isNull,
-      );
+      expect(byKey('chat-send-button'), findsNothing);
 
       await tester.pump(const Duration(seconds: 8));
       expect(
@@ -708,7 +705,10 @@ void main() {
     expect(fab.backgroundColor, palette.primary);
     expect(fab.foregroundColor, palette.onPrimary);
     final surface = tester.widget<Container>(
-      find.byKey(const ValueKey('Mensaje-surface')),
+      find.descendant(
+        of: byKey('expenses-wheel-ai'),
+        matching: find.byType(Container),
+      ),
     );
     expect((surface.decoration! as BoxDecoration).color, palette.card);
   });
@@ -827,6 +827,8 @@ void main() {
       find.bySemanticsLabel(RegExp('^Propuesta de gasto')),
       findsOneWidget,
     );
+    await tester.enterText(byKey('chat-composer-field'), 'otro mensaje');
+    await tester.pump();
     expect(find.byTooltip('Enviar mensaje'), findsOneWidget);
     handle.dispose();
   });

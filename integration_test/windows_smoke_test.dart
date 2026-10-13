@@ -1,4 +1,5 @@
 import 'package:finance_ai/app.dart';
+import 'package:finance_ai/features/settings/presentation/settings_screen.dart';
 import 'package:finance_ai/features/voice_capture/data/native_speech_service.dart';
 import 'package:finance_ai/features/voice_capture/domain/speech_service.dart';
 import 'package:finance_ai/features/accounts/data/accounts_repository.dart';
@@ -619,6 +620,16 @@ void main() {
     GoRouter.of(tester.element(find.byKey(const Key('dashboard-hero'))))
         .go('/settings');
     await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('logout-button')),
+      200,
+      scrollable: find
+          .descendant(
+            of: find.byType(SettingsScreen),
+            matching: find.byType(Scrollable),
+          )
+          .first,
+    );
     await tester.tap(find.byKey(const Key('logout-button')));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('confirm-logout-button')));

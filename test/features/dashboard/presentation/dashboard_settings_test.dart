@@ -679,22 +679,24 @@ void main() {
   ) async {
     final semantics = tester.ensureSemantics();
     await _pumpAt(tester, '/dashboard');
+    await tester.tap(find.byKey(const Key('dashboard-analysis-toggle')));
+    await tester.pumpAndSettle();
 
-    for (final label in [
-      'Este mes',
-      'Mes anterior',
-      'Últimos 3 meses',
-      'Este año',
-    ]) {
-      final target = find.byKey(Key('dashboard-period-$label'));
+    for (final entry in {
+      'thisMonth': 'Este mes',
+      'lastMonth': 'Mes anterior',
+      'last3Months': 'Últimos 3 meses',
+      'thisYear': 'Este año',
+    }.entries) {
+      final target = find.byKey(Key('dashboard-period-${entry.key}'));
       expect(tester.getSize(target).width, greaterThanOrEqualTo(48));
       expect(tester.getSize(target).height, greaterThanOrEqualTo(48));
-      expect(find.bySemanticsLabel(label), findsOneWidget);
+      expect(find.bySemanticsLabel(entry.value), findsOneWidget);
     }
 
     expect(
       tester
-          .getSemantics(find.byKey(const Key('dashboard-period-Este mes')))
+          .getSemantics(find.byKey(const Key('dashboard-period-thisMonth')))
           .flagsCollection
           .isSelected,
       Tristate.isTrue,

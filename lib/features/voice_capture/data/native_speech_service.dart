@@ -68,10 +68,31 @@ class NativeSpeechService implements SpeechService {
       'partial' => SpeechEventType.partial,
       'final' => SpeechEventType.finalResult,
       'error' => SpeechEventType.error,
+      'download' => SpeechEventType.download,
       _ => throw const SpeechFailure('speech_provider_error'),
     };
     final text = value['text'];
     if (text != null && (text is! String || text.length > 8192)) {
+      throw const SpeechFailure('speech_provider_error');
+    }
+    final engine = switch (value['engine']) {
+      null || 'device' => SpeechEngine.device,
+      'integrated' => SpeechEngine.integrated,
+      _ => throw const SpeechFailure('speech_provider_error'),
+    };
+    final stage = switch (value['stage']) {
+      null || 'requested' => SpeechDownloadStage.requested,
+      'downloading' => SpeechDownloadStage.downloading,
+      'installing' => SpeechDownloadStage.installing,
+      'loading' => SpeechDownloadStage.loading,
+      _ => throw const SpeechFailure('speech_provider_error'),
+    };
+    final progress = value['progress'];
+    final apiLevel = value['apiLevel'];
+    if ((progress != null &&
+            (progress is! int || progress < 0 || progress > 100)) ||
+        (apiLevel != null &&
+            (apiLevel is! int || apiLevel < 1 || apiLevel > 99))) {
       throw const SpeechFailure('speech_provider_error');
     }
     return SpeechEvent(
@@ -80,6 +101,13 @@ class NativeSpeechService implements SpeechService {
       text: text as String? ?? '',
       code: SpeechFailure.safeCode(value['code'] as String?),
       canDownload: value['canDownload'] == true,
+      engine: engine,
+      downloadStage: stage,
+      progress: progress as int?,
+      reason: SpeechFailure.safeReason(
+        value['reason'] is String ? value['reason'] as String : 'none',
+      ),
+      apiLevel: apiLevel as int?,
     );
   }
 

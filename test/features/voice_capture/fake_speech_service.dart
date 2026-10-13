@@ -20,6 +20,11 @@ class FakeSpeechService implements SpeechService {
     String text = '',
     String code = '',
     bool canDownload = false,
+    SpeechEngine engine = SpeechEngine.device,
+    SpeechDownloadStage downloadStage = SpeechDownloadStage.requested,
+    int? progress,
+    String reason = 'none',
+    int? apiLevel,
   }) => stream.add(
     SpeechEvent(
       session: session,
@@ -27,6 +32,11 @@ class FakeSpeechService implements SpeechService {
       text: text,
       code: code,
       canDownload: canDownload,
+      engine: engine,
+      downloadStage: downloadStage,
+      progress: progress,
+      reason: reason,
+      apiLevel: apiLevel,
     ),
   );
   @override

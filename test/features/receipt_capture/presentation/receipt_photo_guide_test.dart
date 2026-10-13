@@ -1,3 +1,4 @@
+import 'package:finance_ai/core/icons/finance_icon_catalog.dart';
 import 'package:finance_ai/core/theme/app_palette.dart';
 import 'package:finance_ai/core/theme/app_theme.dart';
 import 'package:finance_ai/features/receipt_capture/data/receipt_photo_guide_prefs.dart';
@@ -84,7 +85,9 @@ void main() {
           palette.muted,
         );
         expect(
-          tester.widget<Icon>(find.byIcon(Icons.light_mode_outlined)).color,
+          tester
+              .widget<Icon>(find.byIcon(FinanceIcons.lightModeOutlined))
+              .color,
           palette.primaryDark,
         );
         expect(

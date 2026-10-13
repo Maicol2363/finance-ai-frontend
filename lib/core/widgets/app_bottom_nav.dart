@@ -37,17 +37,20 @@ class AppBottomNav extends StatelessWidget {
         border: Border(top: BorderSide(color: palette.line)),
       ),
       padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
-      child: Row(
-        children: [
-          for (var index = 0; index < destinations.length; index++)
-            Expanded(
-              child: _NavTab(
-                destination: destinations[index],
-                selected: index == currentIndex,
-                onTap: () => onSelected(index),
+      child: SafeArea(
+        top: false,
+        child: Row(
+          children: [
+            for (var index = 0; index < destinations.length; index++)
+              Expanded(
+                child: _NavTab(
+                  destination: destinations[index],
+                  selected: index == currentIndex,
+                  onTap: () => onSelected(index),
+                ),
               ),
-            ),
-        ],
+          ],
+        ),
       ),
     );
   }

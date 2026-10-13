@@ -1,0 +1,12 @@
+Finance AI Android offline speech components
+
+Vosk API and the small Spanish 0.42 and English US 0.15 language models:
+Alpha Cephei contributors, Apache License 2.0.
+https://github.com/alphacep/vosk-api
+https://alphacephei.com/vosk/models
+
+Java Native Access (JNA): Java Native Access contributors, used under the
+Apache License 2.0 option of its dual license.
+https://github.com/java-native-access/jna
+
+The Apache License 2.0 is included in vosk-apache-2.0.txt.
