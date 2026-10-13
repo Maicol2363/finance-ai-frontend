@@ -371,13 +371,12 @@ void main() {
     expect(find.text('Presupuestos'), findsNothing);
     expect(find.text(r'+$ 475 COP'), findsOneWidget);
     expect(find.text('Detalle de gastos'), findsOneWidget);
-    expect(find.text('Puedes gastar hasta'), findsNothing);
-    expect(find.text('Ritmo de gasto diario'), findsNothing);
-    expect(find.text('Gastos por categoría'), findsNothing);
-    await tester.tap(find.text('Ver detalle'));
-    await tester.pumpAndSettle();
     expect(find.byKey(const Key('dashboard-period-selector')), findsOneWidget);
     expect(find.text('Gastos por categoría'), findsOneWidget);
+    expect(find.text('Puedes gastar hasta'), findsNothing);
+    expect(find.text('Ritmo de gasto diario'), findsNothing);
+    expect(find.text('Ocultar'), findsNothing);
+    expect(find.text('Ver detalle'), findsNothing);
     expect(find.text('Ritmo de gasto diario'), findsNothing);
     // History cards show merchant names (Market). The category breakdown may
     // need one more scroll once the lazy history list settles.
@@ -388,7 +387,7 @@ void main() {
     expect(find.text('100%'), findsOneWidget);
   });
 
-  testWidgets('current month shows actual spend and estimate before analysis', (
+  testWidgets('trend owns the period summary without a duplicate card', (
     tester,
   ) async {
     tester.view.physicalSize = const Size(390, 844);
@@ -439,10 +438,12 @@ void main() {
     await _pumpAt(tester, '/dashboard', dashboardSummary: summary);
 
     expect(find.byKey(const Key('dashboard-spending-summary')), findsNothing);
-    await tester.tap(find.text('Ver detalle'));
-    await tester.pumpAndSettle();
-    expect(tester.takeException(), isNull, reason: 'after opening details');
-    expect(find.byKey(const Key('dashboard-spending-summary')), findsOneWidget);
+    expect(find.text('Resumen de gastos'), findsNothing);
+    expect(find.text('Gastado este mes'), findsNothing);
+    expect(find.text('Gasto estimado al cierre'), findsNothing);
+    expect(find.textContaining('Cierre est.:'), findsOneWidget);
+    expect(find.text('Ocultar'), findsNothing);
+    expect(tester.takeException(), isNull, reason: 'on initial dashboard');
 
     await tester.tap(find.byKey(const Key('dashboard-period-lastMonth')));
     await tester.pumpAndSettle();
@@ -452,26 +453,16 @@ void main() {
       reason: 'after selecting last month',
     );
     expect(find.byKey(const Key('dashboard-spending-summary')), findsNothing);
+    expect(find.textContaining('Cierre est.:'), findsNothing);
 
-    await tester.tap(find.byKey(const Key('dashboard-period-thisMonth')));
-    await tester.pumpAndSettle();
-    expect(
-      tester.takeException(),
-      isNull,
-      reason: 'after selecting this month',
-    );
-    expect(find.byKey(const Key('dashboard-spending-summary')), findsOneWidget);
-    await tester.tap(find.text('Ocultar'));
-    await tester.pumpAndSettle();
-    expect(tester.takeException(), isNull, reason: 'after hiding details');
-    expect(find.byKey(const Key('dashboard-spending-summary')), findsNothing);
-
-    await tester.tap(find.text('Ver detalle'));
-    await tester.pumpAndSettle();
-    expect(tester.takeException(), isNull, reason: 'after reopening details');
-    expect(find.byKey(const Key('dashboard-spending-summary')), findsOneWidget);
-    expect(find.text('Gastado este mes'), findsOneWidget);
-    expect(find.text('Gasto estimado al cierre'), findsOneWidget);
+    for (final period in ['last3Months', 'thisYear', 'thisMonth']) {
+      await tester.tap(find.byKey(Key('dashboard-period-$period')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('dashboard-spending-summary')), findsNothing);
+      expect(find.text('Resumen de gastos'), findsNothing);
+      expect(tester.takeException(), isNull);
+    }
+    expect(find.textContaining('Cierre est.:'), findsOneWidget);
     expect(find.text('Puedes gastar hasta'), findsNothing);
     expect(find.text('Colchón financiero sólido'), findsNothing);
     expect(find.text('Próximo recurrente estimado'), findsNothing);
@@ -483,8 +474,6 @@ void main() {
     tester,
   ) async {
     await _pumpAt(tester, '/dashboard');
-    await tester.tap(find.text('Ver detalle'));
-    await tester.pumpAndSettle();
 
     final tile = find.byKey(const Key('dashboard-category-Food'));
     await tester.scrollUntilVisible(tile, 200);
@@ -500,8 +489,6 @@ void main() {
     await _pumpAt(tester, '/dashboard');
 
     expect(find.text('septiembre · Balance'), findsOneWidget);
-    await tester.tap(find.text('Ver detalle'));
-    await tester.pumpAndSettle();
     final yearPeriod = find.text('Este año').last;
     await tester.ensureVisible(yearPeriod);
     await tester.tap(yearPeriod);
@@ -521,8 +508,7 @@ void main() {
 
     expect(find.text('Saldo en cuentas'), findsOneWidget);
     expect(find.text(r'$ 0 COP'), findsWidgets);
-    await tester.tap(find.text('Ver detalle'));
-    await tester.pumpAndSettle();
+    expect(find.text('Gastos por categoría'), findsOneWidget);
     await tester.scrollUntilVisible(find.text('Sin datos suficientes'), 200);
     expect(find.text('Sin datos suficientes'), findsOneWidget);
   });

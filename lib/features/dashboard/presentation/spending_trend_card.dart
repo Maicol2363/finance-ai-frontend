@@ -56,13 +56,13 @@ class SpendingTrendCard extends StatelessWidget {
     final palette = context.palette;
     final tendency = spendingTendency(days);
 
-    // Resolve cumulative points
-    final List<CumulativeSpendDay> cumulative;
+    // Resolve the full cumulative series before preparing the visual line.
+    final List<CumulativeSpendDay> fullCumulative;
     if (cumulativeDays != null && cumulativeDays!.isNotEmpty) {
-      cumulative = cumulativeDays!;
+      fullCumulative = cumulativeDays!;
     } else if (days.isNotEmpty) {
       var running = 0;
-      cumulative = [
+      fullCumulative = [
         for (final d in days)
           CumulativeSpendDay(
             day: d.day,
@@ -71,11 +71,11 @@ class SpendingTrendCard extends StatelessWidget {
           ),
       ];
     } else {
-      cumulative = const <CumulativeSpendDay>[];
+      fullCumulative = const <CumulativeSpendDay>[];
     }
 
-    final totalSpent = cumulative.isNotEmpty
-        ? cumulative.last.cumulativeMinorUnits
+    final totalSpent = fullCumulative.isNotEmpty
+        ? fullCumulative.last.cumulativeMinorUnits
         : days.fold<int>(0, (s, d) => s + d.minorUnits);
 
     final weekDays = weekly;
@@ -89,11 +89,28 @@ class SpendingTrendCard extends StatelessWidget {
 
     final effectiveTotalDays =
         totalDaysInPeriod ??
-        (cumulative.isNotEmpty
-            ? cumulative.length
+        (fullCumulative.isNotEmpty
+            ? fullCumulative.length
             : (days.isNotEmpty ? days.length : 1));
 
-    final daysElapsed = cumulative.isNotEmpty ? cumulative.length : days.length;
+    final daysElapsed = fullCumulative.isNotEmpty
+        ? fullCumulative.length
+        : days.length;
+    final isClosedPeriod =
+        effectiveTotalDays > 0 && daysElapsed >= effectiveTotalDays;
+    var cumulative = fullCumulative;
+    int? closedPeriodTotalMinorUnits;
+    if (isClosedPeriod && fullCumulative.isNotEmpty) {
+      final lastSpendIndex = fullCumulative.lastIndexWhere(
+        (point) => point.dailyMinorUnits > 0,
+      );
+      if (lastSpendIndex >= 0 && lastSpendIndex < fullCumulative.length - 1) {
+        // Keep the solid line on days with confirmed activity. The dotted tail
+        // carries that known final total across the remaining closed days.
+        cumulative = fullCumulative.take(lastSpendIndex + 1).toList();
+        closedPeriodTotalMinorUnits = totalSpent;
+      }
+    }
 
     final bucketCount = useWeeklyRows ? weekDays.length : daysElapsed;
 
@@ -151,6 +168,7 @@ class SpendingTrendCard extends StatelessWidget {
       daysElapsed: daysElapsed,
       dailyPace: dailyPace,
       projectedMinorUnits: projectedMinorUnits,
+      closedPeriodTotalMinorUnits: closedPeriodTotalMinorUnits,
       useWeeklyRows: useWeeklyRows,
       weeks: weekDays,
       bucketCount: bucketCount,
@@ -173,6 +191,7 @@ class _TrendBody extends StatefulWidget {
     required this.daysElapsed,
     required this.dailyPace,
     required this.projectedMinorUnits,
+    required this.closedPeriodTotalMinorUnits,
     required this.useWeeklyRows,
     required this.weeks,
     required this.bucketCount,
@@ -191,6 +210,7 @@ class _TrendBody extends StatefulWidget {
   final int daysElapsed;
   final int dailyPace;
   final int? projectedMinorUnits;
+  final int? closedPeriodTotalMinorUnits;
   final bool useWeeklyRows;
   final List<WeeklySpend>? weeks;
   final int bucketCount;
@@ -245,7 +265,7 @@ class _TrendBodyState extends State<_TrendBody> {
                     ),
                     const SizedBox(width: 6),
                     Tooltip(
-                      message: 'La línea continua muestra el gasto acumulado hasta hoy. La punteada une ese total con el estimado al cierre: en el mes actual usa la proyección del resumen; en otros periodos calcula (gasto acumulado ÷ días transcurridos) × días del periodo. Puede subir o quedar horizontal; representa un ritmo promedio, no gastos diarios exactos.',
+                      message: 'La línea continua muestra el gasto acumulado real. En periodos abiertos, la punteada muestra la proyección al cierre. En periodos cerrados, continúa horizontalmente desde el último gasto hasta el total real del cierre.',
                       triggerMode: TooltipTriggerMode.tap,
                       child: Icon(
                         FinanceIcons.infoOutlineRounded,
@@ -350,7 +370,9 @@ class _TrendBodyState extends State<_TrendBody> {
                       primaryColor: palette.primary,
                       lineColor: palette.line,
                       mutedColor: palette.muted,
-                      projectedMinorUnits: widget.projectedMinorUnits,
+                      dottedEndMinorUnits:
+                          widget.closedPeriodTotalMinorUnits ??
+                          widget.projectedMinorUnits,
                       selectedIndex: selected,
                       selectedColor: palette.text,
                     ),
@@ -474,8 +496,9 @@ class _TrendBodyState extends State<_TrendBody> {
             ),
           ],
         ),
-        if (showProjection)
+        if (showProjection || widget.closedPeriodTotalMinorUnits != null)
           Row(
+            key: const Key('dashboard-trend-dotted-line-legend'),
             mainAxisSize: MainAxisSize.min,
             children: [
               CustomPaint(
@@ -486,7 +509,9 @@ class _TrendBodyState extends State<_TrendBody> {
               ),
               const SizedBox(width: 6),
               Text(
-                'Proyección al cierre',
+                showProjection
+                    ? 'Proyección al cierre'
+                    : 'Total real al cierre',
                 style: TextStyle(
                   fontSize: 10.5,
                   color: palette.muted,
@@ -710,7 +735,7 @@ class CumulativeSpendCurvePainter extends CustomPainter {
     required this.primaryColor,
     required this.lineColor,
     required this.mutedColor,
-    this.projectedMinorUnits,
+    this.dottedEndMinorUnits,
     this.selectedIndex,
     this.selectedColor,
   });
@@ -720,7 +745,7 @@ class CumulativeSpendCurvePainter extends CustomPainter {
   final Color primaryColor;
   final Color lineColor;
   final Color mutedColor;
-  final int? projectedMinorUnits;
+  final int? dottedEndMinorUnits;
   final int? selectedIndex;
   final Color? selectedColor;
 
@@ -750,7 +775,7 @@ class CumulativeSpendCurvePainter extends CustomPainter {
     for (final p in points) {
       if (p.cumulativeMinorUnits > maxSpend) maxSpend = p.cumulativeMinorUnits;
     }
-    final rawProjected = projectedMinorUnits;
+    final rawProjected = dottedEndMinorUnits;
     final projected = (rawProjected != null && rawProjected >= maxSpend)
         ? rawProjected
         : null;
@@ -820,7 +845,8 @@ class CumulativeSpendCurvePainter extends CustomPainter {
       ..strokeJoin = StrokeJoin.round;
     canvas.drawPath(curvePath, linePaint);
 
-    // Projected dotted line towards month close if period has remaining days
+    // Dashed segment points to a forecast for open periods, or the confirmed
+    // final total for a closed period with no-spend days at the end.
     if (projected != null &&
         projected > 0 &&
         points.length < effectiveTotalDays) {
@@ -912,7 +938,7 @@ class CumulativeSpendCurvePainter extends CustomPainter {
   bool shouldRepaint(covariant CumulativeSpendCurvePainter old) =>
       old.points != points ||
       old.totalDays != totalDays ||
-      old.projectedMinorUnits != projectedMinorUnits ||
+      old.dottedEndMinorUnits != dottedEndMinorUnits ||
       old.selectedIndex != selectedIndex ||
       old.primaryColor != primaryColor;
 }

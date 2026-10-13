@@ -180,16 +180,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   .inDays +
               1;
 
-    final showSpendingSummary =
-        isCurrent &&
-        currency == preferredCurrency &&
-        summary != null &&
-        summary.period.isCurrent &&
-        summary.period.start.year == window.start.year &&
-        summary.period.start.month == window.start.month &&
-        summary.period.end.year == window.end.year &&
-        summary.period.end.month == window.end.month;
-
     final insights = summary != null
         ? DashboardMetrics.buildInsights(
             summary: summary,
@@ -297,18 +287,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 projectedMinorUnits: trendProjectedMinorUnits,
                 period: period,
                 customRange: customRange,
-                spendingSummary: showSpendingSummary
-                    ? _SpendingSummaryCard(
-                        spentMtdMinorUnits:
-                            summary.projection.spentMtd.minorUnits,
-                        projectedMinorUnits:
-                            summary.projection.projected.minorUnits,
-                        remainingDays: daysTotal > daysElapsed
-                            ? daysTotal - daysElapsed
-                            : 0,
-                        currency: currency,
-                      )
-                    : null,
                 onSelectPeriod: (value) async {
                   if (value == DashboardPeriod.custom) {
                     final picked = await showDateRangePicker(
@@ -403,120 +381,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   }
 }
 
-class _SpendingSummaryCard extends StatelessWidget {
-  const _SpendingSummaryCard({
-    required this.spentMtdMinorUnits,
-    required this.projectedMinorUnits,
-    required this.remainingDays,
-    required this.currency,
-  });
-
-  final int spentMtdMinorUnits;
-  final int projectedMinorUnits;
-  final int remainingDays;
-  final String currency;
-
-  @override
-  Widget build(BuildContext context) {
-    final palette = context.palette;
-    final spent = MoneyFormatter.formatMinorUnits(
-      spentMtdMinorUnits,
-      currencyCode: currency,
-    );
-    final projected = MoneyFormatter.formatMinorUnits(
-      projectedMinorUnits,
-      currencyCode: currency,
-    );
-    return Card(
-      key: const Key('dashboard-spending-summary'),
-      margin: EdgeInsets.zero,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Resumen de gastos',
-              style: Theme.of(context).textTheme.titleSmall,
-            ),
-            const SizedBox(height: 12),
-            LayoutBuilder(
-              builder: (context, constraints) {
-                final spentMetric = _SpendingMetric(
-                  label: 'Gastado este mes',
-                  value: spent,
-                );
-                final projectedMetric = _SpendingMetric(
-                  label: 'Gasto estimado al cierre',
-                  value: projected,
-                  valueColor: palette.primary,
-                  alignment: constraints.maxWidth < 440
-                      ? CrossAxisAlignment.start
-                      : CrossAxisAlignment.end,
-                );
-                if (constraints.maxWidth < 440) {
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      spentMetric,
-                      const SizedBox(height: 12),
-                      projectedMetric,
-                    ],
-                  );
-                }
-                return Row(
-                  children: [
-                    Expanded(child: spentMetric),
-                    const SizedBox(width: 12),
-                    Expanded(child: projectedMetric),
-                  ],
-                );
-              },
-            ),
-            if (remainingDays > 0) ...[
-              const SizedBox(height: 10),
-              Text(
-                'Quedan $remainingDays días del mes',
-                style: Theme.of(context).textTheme.bodySmall
-                    ?.copyWith(color: palette.muted),
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _SpendingMetric extends StatelessWidget {
-  const _SpendingMetric({
-    required this.label,
-    required this.value,
-    this.valueColor,
-    this.alignment = CrossAxisAlignment.start,
-  });
-
-  final String label;
-  final String value;
-  final Color? valueColor;
-  final CrossAxisAlignment alignment;
-
-  @override
-  Widget build(BuildContext context) => Column(
-    crossAxisAlignment: alignment,
-    children: [
-      Text(label, style: Theme.of(context).textTheme.bodySmall),
-      const SizedBox(height: 3),
-      Text(
-        value,
-        style: Theme.of(context).textTheme.titleMedium
-            ?.copyWith(fontWeight: FontWeight.w800, color: valueColor),
-      ),
-    ],
-  );
-}
-
-class _DashboardAnalysis extends StatefulWidget {
+class _DashboardAnalysis extends StatelessWidget {
   const _DashboardAnalysis({
     super.key,
     required this.trend,
@@ -535,7 +400,6 @@ class _DashboardAnalysis extends StatefulWidget {
     required this.onSelectPeriod,
     this.customRange,
     this.projectedMinorUnits,
-    this.spendingSummary,
   });
 
   final List<DailySpend> trend;
@@ -554,14 +418,6 @@ class _DashboardAnalysis extends StatefulWidget {
   final DashboardPeriod period;
   final ({DateTime start, DateTime end})? customRange;
   final ValueChanged<DashboardPeriod> onSelectPeriod;
-  final Widget? spendingSummary;
-
-  @override
-  State<_DashboardAnalysis> createState() => _DashboardAnalysisState();
-}
-
-class _DashboardAnalysisState extends State<_DashboardAnalysis> {
-  bool expanded = false;
 
   @override
   Widget build(BuildContext context) {
@@ -575,149 +431,108 @@ class _DashboardAnalysisState extends State<_DashboardAnalysis> {
         child: Column(
           children: [
             Semantics(
-              button: true,
-              expanded: expanded,
+              expanded: true,
               label:
-                  'Detalle de gastos. Revisa el gasto por periodo y categoría. ${expanded ? 'Ocultar detalle' : 'Ver detalle'}',
-              child: InkWell(
-                onTap: () => setState(() => expanded = !expanded),
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(minHeight: 72),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 12,
-                    ),
-                    child: Row(
-                      children: [
-                        Container(
-                          width: 44,
-                          height: 44,
-                          decoration: BoxDecoration(
-                            color: palette.primarySoft,
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Icon(
-                            FinanceIcons.queryStatsRounded,
-                            color: palette.primary,
-                          ),
+                  'Detalle de gastos. Revisa el gasto por periodo y categoría.',
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(minHeight: 72),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 44,
+                        height: 44,
+                        decoration: BoxDecoration(
+                          color: palette.primarySoft,
+                          borderRadius: BorderRadius.circular(12),
                         ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Text(
-                                'Detalle de gastos',
-                                style: TextStyle(
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.w800,
-                                  color: palette.text,
-                                ),
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                'Revisa el gasto por periodo y categoría',
-                                style: TextStyle(
-                                  fontSize: 11.5,
-                                  color: palette.muted,
-                                ),
-                              ),
-                            ],
-                          ),
+                        child: Icon(
+                          FinanceIcons.queryStatsRounded,
+                          color: palette.primary,
                         ),
-                        const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 11,
-                            vertical: 7,
-                          ),
-                          decoration: BoxDecoration(
-                            color: palette.primary,
-                            borderRadius: BorderRadius.circular(99),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                expanded ? 'Ocultar' : 'Ver detalle',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w700,
-                                  color: palette.onPrimary,
-                                ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              'Detalle de gastos',
+                              style: TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w800,
+                                color: palette.text,
                               ),
-                              const SizedBox(width: 4),
-                              Icon(
-                                expanded
-                                    ? FinanceIcons.expandLess
-                                    : FinanceIcons.expandMore,
-                                size: 16,
-                                color: palette.onPrimary,
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              'Revisa el gasto por periodo y categoría',
+                              style: TextStyle(
+                                fontSize: 11.5,
+                                color: palette.muted,
                               ),
-                            ],
-                          ),
+                            ),
+                          ],
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
                 ),
               ),
             ),
-            if (expanded)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    _DashboardPeriodSelector(
-                      selected: widget.period,
-                      customRange: widget.customRange,
-                      onSelect: widget.onSelectPeriod,
-                    ),
-                    if (widget.spendingSummary case final summary?) ...[
-                      const SizedBox(height: 16),
-                      summary,
-                    ],
-                    const SizedBox(height: 16),
-                    SpendingTrendCard(
-                      days: widget.trend,
-                      currency: widget.currency,
-                      available: widget.available,
-                      cumulativeDays: widget.cumulative,
-                      totalDaysInPeriod: widget.totalDaysInWindow,
-                      projectedMinorUnits: widget.projectedMinorUnits,
-                      weekly: widget.trendWeeks,
-                      comparisonLabel: widget.comparisonLabel,
-                      comparisonDirection: widget.comparisonDirection,
-                    ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _DashboardPeriodSelector(
+                    selected: period,
+                    customRange: customRange,
+                    onSelect: onSelectPeriod,
+                  ),
+                  const SizedBox(height: 16),
+                  SpendingTrendCard(
+                    days: trend,
+                    currency: currency,
+                    available: available,
+                    cumulativeDays: cumulative,
+                    totalDaysInPeriod: totalDaysInWindow,
+                    projectedMinorUnits: projectedMinorUnits,
+                    weekly: trendWeeks,
+                    comparisonLabel: comparisonLabel,
+                    comparisonDirection: comparisonDirection,
+                  ),
+                  const SizedBox(height: 20),
+                  Text(
+                    'Gastos por categoría',
+                    style: Theme.of(context).textTheme.titleSmall,
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Movimientos de $windowName',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                  const SizedBox(height: 8),
+                  breakdown.isEmpty
+                      ? _EmptyBreakdown(monthName: windowName)
+                      : _CategoryBreakdown(
+                          rows: breakdown,
+                          currency: currency,
+                          window: window,
+                          windowName: windowName,
+                        ),
+                  if (insights.isNotEmpty) ...[
                     const SizedBox(height: 20),
-                    Text(
-                      'Gastos por categoría',
-                      style: Theme.of(context).textTheme.titleSmall,
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Movimientos de ${widget.windowName}',
-                      style: Theme.of(context).textTheme.bodySmall,
-                    ),
-                    const SizedBox(height: 8),
-                    widget.breakdown.isEmpty
-                        ? _EmptyBreakdown(monthName: widget.windowName)
-                        : _CategoryBreakdown(
-                            rows: widget.breakdown,
-                            currency: widget.currency,
-                            window: widget.window,
-                            windowName: widget.windowName,
-                          ),
-                    if (widget.insights.isNotEmpty) ...[
-                      const SizedBox(height: 20),
-                      InsightsCard(insights: widget.insights),
-                    ],
+                    InsightsCard(insights: insights),
                   ],
-                ),
+                ],
               ),
+            ),
           ],
         ),
       ),

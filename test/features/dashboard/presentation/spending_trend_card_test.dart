@@ -185,9 +185,8 @@ void main() {
       find.byWidgetPredicate(
         (widget) =>
             widget is Tooltip &&
-            widget.message?.contains('días del periodo') == true &&
-            widget.message?.contains('gasto acumulado ÷ días transcurridos') ==
-                true,
+            widget.message?.contains('periodos abiertos') == true &&
+            widget.message?.contains('periodos cerrados') == true,
       ),
       findsOneWidget,
     );
@@ -241,7 +240,7 @@ void main() {
     },
   );
 
-  testWidgets('completed period explains why there is no projection', (
+  testWidgets('completed period shows its confirmed total as a dotted tail', (
     t,
   ) async {
     final history = List.generate(
@@ -260,7 +259,6 @@ void main() {
         available: true,
         cumulativeDays: history,
         totalDaysInPeriod: 30,
-        projectedMinorUnits: 100000,
       ),
     );
 
@@ -269,5 +267,24 @@ void main() {
       findsOneWidget,
     );
     expect(find.text('Proyección al cierre'), findsNothing);
+    expect(find.text('Total real al cierre'), findsOneWidget);
+    expect(
+      find.byKey(const Key('dashboard-trend-dotted-line-legend')),
+      findsOneWidget,
+    );
+    final chart = t.widget<CustomPaint>(
+      find.descendant(
+        of: find.byKey(const Key('dashboard-trend-chart')),
+        matching: find.byWidgetPredicate(
+          (widget) =>
+              widget is CustomPaint &&
+              widget.painter is CumulativeSpendCurvePainter,
+        ),
+      ),
+    );
+    final painter = chart.painter! as CumulativeSpendCurvePainter;
+    expect(painter.points, hasLength(1));
+    expect(painter.totalDays, 30);
+    expect(painter.dottedEndMinorUnits, 100000);
   });
 }
