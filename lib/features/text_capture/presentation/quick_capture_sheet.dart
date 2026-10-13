@@ -1,3 +1,4 @@
+import 'package:finance_ai/core/icons/finance_icon_catalog.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_palette.dart';
@@ -54,7 +55,7 @@ Future<void> showQuickCaptureSheet(
                     ),
                     const Spacer(),
                     IconButton(
-                      icon: const Icon(Icons.close),
+                      icon: const Icon(FinanceIcons.close),
                       tooltip: 'Cerrar',
                       onPressed: () => Navigator.of(context).pop(),
                     ),

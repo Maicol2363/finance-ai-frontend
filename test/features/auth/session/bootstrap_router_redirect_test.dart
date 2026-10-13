@@ -63,7 +63,7 @@ void main() {
     );
 
     expect(currentPath(router), '/home');
-    expect(find.byKey(const Key('home-title')), findsOneWidget);
+    expect(find.byKey(const Key('home-title')), findsNothing);
     expect(find.text('Checking your session…'), findsNothing);
   });
 

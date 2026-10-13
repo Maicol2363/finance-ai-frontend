@@ -1,3 +1,4 @@
+import 'package:finance_ai/core/icons/finance_icon_catalog.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -134,7 +135,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                 context,
                                 hint: 'tu@correo.com',
                                 prefixIcon: Icon(
-                                  Icons.mail_outline,
+                                  FinanceIcons.mailOutline,
                                   size: 18,
                                   color: palette.muted,
                                 ),
@@ -159,7 +160,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                 context,
                                 hint: 'Tu contraseña',
                                 prefixIcon: Icon(
-                                  Icons.lock_outline,
+                                  FinanceIcons.lockOutline,
                                   size: 18,
                                   color: palette.muted,
                                 ),
@@ -178,8 +179,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                         ),
                                   icon: Icon(
                                     _showPassword
-                                        ? Icons.visibility_off
-                                        : Icons.visibility,
+                                        ? FinanceIcons.visibilityOff
+                                        : FinanceIcons.visibility,
                                     size: 18,
                                   ),
                                 ),

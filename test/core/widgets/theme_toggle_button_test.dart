@@ -1,3 +1,4 @@
+import 'package:finance_ai/core/icons/finance_icon_catalog.dart';
 import 'package:finance_ai/core/theme/app_theme.dart';
 import 'package:finance_ai/core/theme/theme_controller.dart';
 import 'package:finance_ai/core/widgets/theme_toggle_button.dart';
@@ -13,13 +14,13 @@ void main() {
     SharedPreferences.setMockInitialValues({});
     await tester.pumpWidget(const ProviderScope(child: _ToggleHarness()));
 
-    expect(find.byIcon(Icons.wb_sunny_outlined), findsOneWidget);
+    expect(find.byIcon(FinanceIcons.wbSunnyOutlined), findsOneWidget);
     expect(find.text('light'), findsOneWidget);
 
     await tester.tap(find.byKey(const Key('theme-toggle-button')));
     await tester.pumpAndSettle();
 
-    expect(find.byIcon(Icons.nightlight_round), findsOneWidget);
+    expect(find.byIcon(FinanceIcons.nightlightRound), findsOneWidget);
     expect(find.text('dark'), findsOneWidget);
   });
 }

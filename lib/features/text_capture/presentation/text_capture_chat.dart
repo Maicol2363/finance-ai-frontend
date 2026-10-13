@@ -1,3 +1,4 @@
+import 'package:finance_ai/core/icons/finance_icon_catalog.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -104,12 +105,6 @@ class _TextCaptureChatState extends ConsumerState<TextCaptureChat>
   @override
   void didChangeMetrics() {
     if (mounted && _gestureActive) setState(() {});
-  }
-
-  void _openVoice() {
-    _focus.unfocus();
-    setState(() => _voiceExpanded = true);
-    if (_voice.phase == VoicePhase.failed) _voice.prepare();
   }
 
   void _beginVoice() {
@@ -248,8 +243,7 @@ class _TextCaptureChatState extends ConsumerState<TextCaptureChat>
                       _voice.interrupt();
                       startReceiptCapture(context, source: ImageSource.camera);
                     },
-                    onVoice: _openVoice,
-                    onText: () {
+                    onAi: () {
                       _voice.interrupt();
                       _focus.requestFocus();
                     },
@@ -569,7 +563,7 @@ class _ComposerState extends State<_Composer> {
                     minimumSize: const Size(48, 48),
                   ),
                   onPressed: canSend ? widget.onSend : null,
-                  icon: const Icon(Icons.arrow_upward_rounded),
+                  icon: const Icon(FinanceIcons.arrowUpwardRounded),
                 ),
               ),
             ],

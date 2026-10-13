@@ -1,3 +1,5 @@
+import 'package:finance_ai/core/icons/finance_icon_catalog.dart';
+
 import 'dart:async';
 
 import 'package:camera/camera.dart';
@@ -293,7 +295,7 @@ class _ReceiptCameraScreenState extends ConsumerState<ReceiptCameraScreen>
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             const Icon(
-              Icons.photo_camera_outlined,
+              FinanceIcons.photoCameraOutlined,
               size: 56,
               color: Colors.white54,
             ),
@@ -338,7 +340,7 @@ class _ReceiptCameraScreenState extends ConsumerState<ReceiptCameraScreen>
           child: Row(
             children: [
               _glassButton(
-                icon: Icons.close,
+                icon: FinanceIcons.close,
                 tooltip: 'Cerrar',
                 onTap: () => Navigator.of(context).pop(),
               ),
@@ -354,7 +356,9 @@ class _ReceiptCameraScreenState extends ConsumerState<ReceiptCameraScreen>
                 ),
               ),
               _glassButton(
-                icon: _torchOn ? Icons.flashlight_on : Icons.flashlight_off,
+                icon: _torchOn
+                    ? FinanceIcons.flashlightOn
+                    : FinanceIcons.flashlightOff,
                 tooltip: 'Linterna',
                 onTap: _toggleTorch,
               ),
@@ -376,13 +380,13 @@ class _ReceiptCameraScreenState extends ConsumerState<ReceiptCameraScreen>
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
               _glassButton(
-                icon: Icons.photo_library_outlined,
+                icon: FinanceIcons.photoLibraryOutlined,
                 tooltip: 'Galería',
                 onTap: _pickFromGallery,
               ),
               _buildShutter(),
               _glassButton(
-                icon: Icons.cameraswitch_outlined,
+                icon: FinanceIcons.cameraswitchOutlined,
                 tooltip: 'Cambiar cámara',
                 onTap: _flipCamera,
               ),

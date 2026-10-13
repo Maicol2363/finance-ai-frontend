@@ -1,3 +1,4 @@
+import 'package:finance_ai/core/icons/finance_icon_catalog.dart';
 import 'package:finance_ai/core/router/app_shell.dart';
 import 'package:finance_ai/core/theme/app_palette.dart';
 import 'package:finance_ai/core/theme/app_theme.dart';
@@ -30,7 +31,7 @@ void main() {
     final activeIcon = tester.widget<AnimatedContainer>(
       find
           .ancestor(
-            of: find.byIcon(Icons.home_outlined),
+            of: find.byIcon(FinanceIcons.homeOutlined),
             matching: find.byType(AnimatedContainer),
           )
           .first,

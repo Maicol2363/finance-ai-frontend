@@ -201,7 +201,7 @@ void main() {
     await tester.pumpAndSettle();
 
     // Inicio opens first with the Hero header and global capture wheel.
-    expect(find.byKey(const Key('home-title')), findsOneWidget);
+    expect(find.byKey(const Key('home-title')), findsNothing);
     expect(find.text('Saldo en cuentas'), findsOneWidget);
     expect(find.byKey(const Key('expenses-create-fab')), findsOneWidget);
     expect(store.value, renewable);
@@ -209,12 +209,12 @@ void main() {
     // Movimientos tab opens from the bottom nav.
     await tester.tap(find.byKey(const Key('bottom-nav-movimientos')));
     await tester.pumpAndSettle();
-    expect(find.widgetWithText(AppBar, 'Movimientos'), findsOneWidget);
+    expect(find.byKey(const Key('history-list')), findsOneWidget);
 
     // Android back button pops back to Inicio before exiting.
     await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();
-    expect(find.byKey(const Key('home-title')), findsOneWidget);
+    expect(find.byKey(const Key('home-title')), findsNothing);
 
     // Ajustes tab opens from the bottom nav.
     await tester.tap(find.byKey(const Key('bottom-nav-ajustes')));
@@ -226,7 +226,7 @@ void main() {
       container.read(accountsControllerProvider).listStatus,
       AccountsLoadStatus.ready,
     );
-    await tester.tap(find.byTooltip('Back to home'));
+    await tester.tap(find.byTooltip('Volver al inicio'));
     await tester.pumpAndSettle();
 
     // Navigate to Ajustes to log out.

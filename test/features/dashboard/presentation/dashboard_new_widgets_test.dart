@@ -96,7 +96,7 @@ void main() {
 
       await tester.pumpWidget(_wrap(const InsightsCard(insights: insights)));
 
-      expect(find.text('Análisis inteligente'), findsOneWidget);
+      expect(find.text('Patrones y estimaciones'), findsOneWidget);
       expect(find.text('Colchón financiero sólido'), findsOneWidget);
       expect(
         find.text('Cuentas con 6.2 meses de reserva para imprevistos.'),

@@ -11,7 +11,8 @@ final dashboardSummaryProvider = FutureProvider.autoDispose<DashboardSummary>((
 ) async {
   final period = ref.watch(dashboardPeriodProvider);
   final now = ref.watch(clockProvider)();
-  final window = periodWindow(period, now);
+  final customRange = ref.watch(dashboardCustomRangeProvider);
+  final window = periodWindow(period, now, customRange: customRange);
   final currency =
       ref.watch(authSessionControllerProvider).user?.preferredCurrency ?? 'COP';
   final repository = ref.watch(dashboardRepositoryProvider);

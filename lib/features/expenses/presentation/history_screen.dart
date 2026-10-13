@@ -1,3 +1,5 @@
+import 'package:finance_ai/core/icons/finance_icon_catalog.dart';
+
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -9,6 +11,7 @@ import '../../../core/formatters/date_labels.dart';
 import '../../../core/formatters/money_formatter.dart';
 import '../../../core/theme/app_palette.dart';
 import '../../../core/widgets/app_header.dart';
+import '../../../core/widgets/management_page_scaffold.dart';
 import '../../../core/widgets/manage_widgets.dart';
 import '../../../core/widgets/movements_empty_state.dart';
 import '../../accounts/application/accounts_controller.dart';
@@ -46,17 +49,17 @@ const _periodOptions = <FilterChipOption<HistoryPeriod?>>[
 /// captures. `null` means "every source".
 const _sourceOptions = <FilterChipOption<CaptureSource?>>[
   FilterChipOption(value: null, label: 'Todos'),
-  FilterChipOption(value: CaptureSource.ai, label: '✨ IA'),
-  FilterChipOption(value: CaptureSource.manual, label: '✎ Manual'),
-  FilterChipOption(value: CaptureSource.import, label: '📥 Importado'),
+  FilterChipOption(value: CaptureSource.ai, label: 'IA'),
+  FilterChipOption(value: CaptureSource.manual, label: 'Manual'),
+  FilterChipOption(value: CaptureSource.import, label: 'Importado'),
 ];
 
 /// Receipt shape offered as chips: a receipt with several lines vs a single
 /// expense entry. `null` means "both".
 const _receiptOptions = <FilterChipOption<ReceiptKind?>>[
   FilterChipOption(value: null, label: 'Todos'),
-  FilterChipOption(value: ReceiptKind.multi, label: '🧾 Recibos'),
-  FilterChipOption(value: ReceiptKind.single, label: '✎ Individuales'),
+  FilterChipOption(value: ReceiptKind.multi, label: 'Recibos'),
+  FilterChipOption(value: ReceiptKind.single, label: 'Individuales'),
 ];
 
 /// Unified transaction feed (`GET /api/v1/history`, HU-011).
@@ -160,133 +163,124 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
         state.status != HistoryLoadStatus.failure;
     final groups = _groupByDay(items);
 
-    return Scaffold(
-      appBar: AppBar(
-        automaticallyImplyLeading: false,
-        leading: context.canPop()
-            ? IconButton(
-                tooltip: 'Volver',
-                onPressed: () => context.pop(),
-                icon: const Icon(Icons.arrow_back),
-              )
-            : null,
-        title: const Text('Movimientos'),
-      ),
-      body: SafeArea(
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 760),
-            child: RefreshIndicator(
-              onRefresh: controller.load,
-              child: CustomScrollView(
-                key: const Key('history-list'),
-                physics: const AlwaysScrollableScrollPhysics(),
-                slivers: [
-                  SliverPadding(
-                    padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
-                    sliver: SliverToBoxAdapter(
-                      child: _buildFilterPanel(
-                        filters: filters,
-                        accounts: accounts,
-                        categories: categories,
-                        storeSuggestions: _storeSuggestions(items),
-                      ),
-                    ),
-                  ),
-                  if (state.diagnostic case final diagnostic?)
-                    SliverPadding(
-                      padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
-                      sliver: SliverToBoxAdapter(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            ErrorDiagnosticPanel(diagnostic: diagnostic),
-                            const SizedBox(height: 12),
-                            OutlinedButton.icon(
-                              onPressed: controller.load,
-                              icon: const Icon(Icons.refresh),
-                              label: const Text('Reintentar'),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  if (isBusy && result != null)
-                    SliverPadding(
-                      padding: const EdgeInsets.fromLTRB(20, 14, 20, 0),
-                      sliver: SliverToBoxAdapter(
-                        child: Semantics(
-                          liveRegion: true,
-                          label: 'Actualizando el historial',
-                          child: const LinearProgressIndicator(),
-                        ),
-                      ),
-                    ),
-                  if (isInitialLoad)
-                    const SliverPadding(
-                      padding: EdgeInsets.fromLTRB(20, 14, 20, 0),
-                      sliver: SliverToBoxAdapter(child: _HistorySkeletonList()),
-                    ),
-                  if (result != null && items.isEmpty)
-                    SliverPadding(
-                      padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
-                      sliver: SliverToBoxAdapter(
-                        child: filters.hasActiveFilters
-                            ? _HistoryNoResults(onClear: _clearFilters)
-                            : MovementsEmptyState(
-                                onRegister: () => context.go('/expenses/new'),
-                              ),
-                      ),
-                    ),
-                  if (result != null && items.isNotEmpty) ...[
-                    SliverPadding(
-                      padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
-                      sliver: SliverToBoxAdapter(
-                        child: _HistoryResultHeader(
-                          total: result.total,
-                          loaded: items.length,
-                          balance: result.total == items.length
-                              ? _balanceLabel(items)
-                              : null,
-                        ),
-                      ),
-                    ),
-                    for (final group in groups) ...[
-                      SliverPadding(
-                        padding: const EdgeInsets.fromLTRB(22, 18, 20, 8),
-                        sliver: SliverToBoxAdapter(
-                          child: _HistoryDayHeader(label: group.label),
-                        ),
-                      ),
-                      SliverPadding(
-                        padding: const EdgeInsets.symmetric(horizontal: 20),
-                        sliver: SliverList.separated(
-                          itemCount: group.items.length,
-                          separatorBuilder: (context, index) =>
-                              const SizedBox(height: 10),
-                          itemBuilder: (context, index) =>
-                              _HistoryCard(item: group.items[index]),
-                        ),
-                      ),
-                    ],
-                    if (result.hasNext)
-                      SliverPadding(
-                        padding: const EdgeInsets.fromLTRB(20, 18, 20, 0),
-                        sliver: SliverToBoxAdapter(
-                          child: OutlinedButton.icon(
-                            key: const Key('history-load-more-button'),
-                            onPressed: isBusy ? null : controller.loadMore,
-                            icon: const Icon(Icons.expand_more),
-                            label: const Text('Cargar más historial'),
-                          ),
-                        ),
-                      ),
-                    const SliverToBoxAdapter(child: SizedBox(height: 96)),
-                  ],
-                ],
+    return ManagementPageScaffold(
+      title: 'Movimientos',
+      leading: context.canPop()
+          ? HeaderIconButton(
+              icon: FinanceIcons.arrowBack,
+              tooltip: 'Volver',
+              onPressed: () => context.pop(),
+            )
+          : null,
+      contentPadding: EdgeInsets.zero,
+      body: RefreshIndicator(
+        onRefresh: controller.load,
+        child: CustomScrollView(
+          key: const Key('history-list'),
+          physics: const AlwaysScrollableScrollPhysics(),
+          slivers: [
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+              sliver: SliverToBoxAdapter(
+                child: _buildFilterPanel(
+                  filters: filters,
+                  accounts: accounts,
+                  categories: categories,
+                  storeSuggestions: _storeSuggestions(items),
+                ),
               ),
             ),
-          ),
+            if (state.diagnostic case final diagnostic?)
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+                sliver: SliverToBoxAdapter(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      ErrorDiagnosticPanel(diagnostic: diagnostic),
+                      const SizedBox(height: 12),
+                      OutlinedButton.icon(
+                        onPressed: controller.load,
+                        icon: const Icon(FinanceIcons.refresh),
+                        label: const Text('Reintentar'),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            if (isBusy && result != null)
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(20, 14, 20, 0),
+                sliver: SliverToBoxAdapter(
+                  child: Semantics(
+                    liveRegion: true,
+                    label: 'Actualizando el historial',
+                    child: const LinearProgressIndicator(),
+                  ),
+                ),
+              ),
+            if (isInitialLoad)
+              const SliverPadding(
+                padding: EdgeInsets.fromLTRB(20, 14, 20, 0),
+                sliver: SliverToBoxAdapter(child: _HistorySkeletonList()),
+              ),
+            if (result != null && items.isEmpty)
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+                sliver: SliverToBoxAdapter(
+                  child: filters.hasActiveFilters
+                      ? _HistoryNoResults(onClear: _clearFilters)
+                      : MovementsEmptyState(
+                          onRegister: () => context.go('/expenses/new'),
+                        ),
+                ),
+              ),
+            if (result != null && items.isNotEmpty) ...[
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+                sliver: SliverToBoxAdapter(
+                  child: _HistoryResultHeader(
+                    total: result.total,
+                    loaded: items.length,
+                    balance: result.total == items.length
+                        ? _balanceLabel(items)
+                        : null,
+                  ),
+                ),
+              ),
+              for (final group in groups) ...[
+                SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(22, 18, 20, 8),
+                  sliver: SliverToBoxAdapter(
+                    child: _HistoryDayHeader(label: group.label),
+                  ),
+                ),
+                SliverPadding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  sliver: SliverList.separated(
+                    itemCount: group.items.length,
+                    separatorBuilder: (context, index) =>
+                        const SizedBox(height: 10),
+                    itemBuilder: (context, index) =>
+                        _HistoryCard(item: group.items[index]),
+                  ),
+                ),
+              ],
+              if (result.hasNext)
+                SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(20, 18, 20, 0),
+                  sliver: SliverToBoxAdapter(
+                    child: OutlinedButton.icon(
+                      key: const Key('history-load-more-button'),
+                      onPressed: isBusy ? null : controller.loadMore,
+                      icon: const Icon(FinanceIcons.expandMore),
+                      label: const Text('Cargar más historial'),
+                    ),
+                  ),
+                ),
+              const SliverToBoxAdapter(child: SizedBox(height: 96)),
+            ],
+          ],
         ),
       ),
     );
@@ -354,7 +348,10 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                     key: const Key('history-start-date-button'),
                     onPressed: () =>
                         _pickCustomDate(isStart: true, filters: filters),
-                    icon: const Icon(Icons.calendar_today_outlined, size: 16),
+                    icon: const Icon(
+                      FinanceIcons.calendarTodayOutlined,
+                      size: 16,
+                    ),
                     label: Text(
                       filters.startDate == null
                           ? 'Desde'
@@ -373,7 +370,10 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                     key: const Key('history-end-date-button'),
                     onPressed: () =>
                         _pickCustomDate(isStart: false, filters: filters),
-                    icon: const Icon(Icons.calendar_today_outlined, size: 16),
+                    icon: const Icon(
+                      FinanceIcons.calendarTodayOutlined,
+                      size: 16,
+                    ),
                     label: Text(
                       filters.endDate == null
                           ? 'Hasta'
@@ -531,7 +531,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
         textInputAction: TextInputAction.search,
         decoration: InputDecoration(
           hintText: 'Comercio (ej. Éxito)',
-          prefixIcon: const Icon(Icons.storefront_outlined),
+          prefixIcon: const Icon(FinanceIcons.storefrontOutlined),
           suffixIcon: value.text.isEmpty
               ? null
               : IconButton(
@@ -541,7 +541,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                     _storeController.clear();
                     controller.setStore(null);
                   },
-                  icon: const Icon(Icons.close),
+                  icon: const Icon(FinanceIcons.close),
                 ),
         ),
         onSubmitted: controller.setStore,
@@ -558,7 +558,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
         textInputAction: TextInputAction.search,
         decoration: InputDecoration(
           hintText: 'Buscar comercio, nota o categoría…',
-          prefixIcon: const Icon(Icons.search),
+          prefixIcon: const Icon(FinanceIcons.search),
           suffixIcon: value.text.isEmpty
               ? null
               : IconButton(
@@ -569,7 +569,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                     _searchController.clear();
                     _applySearch();
                   },
-                  icon: const Icon(Icons.close),
+                  icon: const Icon(FinanceIcons.close),
                 ),
         ),
         onSubmitted: (_) {
@@ -771,7 +771,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
 
   /// Chip label for the receipt-shape filter.
   String _receiptKindLabel(ReceiptKind kind) =>
-      kind == ReceiptKind.multi ? '🧾 Recibos' : '✎ Individuales';
+      kind == ReceiptKind.multi ? 'Recibos' : 'Individuales';
 
   String _periodSummary(HistoryFilters filters) {
     final period = filters.period;
@@ -953,7 +953,7 @@ class _FilterButtonWithBadge extends StatelessWidget {
   Widget build(BuildContext context) {
     final button = HeaderIconButton(
       key: const Key('history-filter-toggle'),
-      icon: count > 0 ? Icons.filter_alt_outlined : Icons.tune,
+      icon: count > 0 ? FinanceIcons.filterAltOutlined : FinanceIcons.tune,
       tooltip: count > 0 ? 'Filtros ($count)' : 'Filtros',
       onPressed: onPressed,
     );
@@ -1025,7 +1025,7 @@ class _ActiveFilterChip extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 4),
-                Icon(Icons.close, size: 14, color: palette.primaryDark),
+                Icon(FinanceIcons.close, size: 14, color: palette.primaryDark),
               ],
             ),
           ),
@@ -1156,7 +1156,7 @@ class _HistoryNoResults extends StatelessWidget {
               shape: BoxShape.circle,
             ),
             child: Icon(
-              Icons.manage_search_outlined,
+              FinanceIcons.manageSearchOutlined,
               size: 30,
               color: palette.primary,
             ),
@@ -1181,7 +1181,7 @@ class _HistoryNoResults extends StatelessWidget {
           OutlinedButton.icon(
             key: const Key('history-empty-clear-button'),
             onPressed: onClear,
-            icon: const Icon(Icons.filter_alt_off_outlined, size: 18),
+            icon: const Icon(FinanceIcons.filterAltOffOutlined, size: 18),
             label: const Text('Limpiar filtros'),
           ),
         ],
@@ -1216,7 +1216,7 @@ class _FilterFieldPlaceholder extends StatelessWidget {
   }
 }
 
-/// One movement of the feed: emoji tile, title, source/category meta, the
+/// One movement of the feed: icon tile, title, source/category meta, the
 /// signed amount in the app's money format and the capture time.
 class _HistoryCard extends ConsumerWidget {
   const _HistoryCard({required this.item});
@@ -1231,19 +1231,23 @@ class _HistoryCard extends ConsumerWidget {
       item.description ??
       transactionTypeLabel(item.type);
 
-  String get _emoji {
+  IconData get _icon {
     if (item.type != TransactionType.expense) {
-      return transactionTypeEmoji(item.type);
+      return transactionTypeIcon(item.type);
     }
     final category = item.expense?.items.firstOrNull?.category?.name;
     return category == null
-        ? transactionTypeEmoji(item.type)
-        : categoryEmoji(category);
+        ? transactionTypeIcon(item.type)
+        : categoryIcon(category);
   }
 
+  IconData get _sourceIcon => item.type == TransactionType.expense
+      ? captureSourceIcon(item.captureSource)
+      : transactionTypeIcon(item.type);
+
   String get _sourceTag => switch (item.type) {
-    TransactionType.income => '＋ Ingreso',
-    TransactionType.transfer => '🔄 Transferencia',
+    TransactionType.income => 'Ingreso',
+    TransactionType.transfer => 'Transferencia',
     TransactionType.expense => captureSourceLabel(
       item.captureSource,
       item.expense?.items.length ?? 0,
@@ -1342,10 +1346,7 @@ class _HistoryCard extends ConsumerWidget {
                         borderRadius: BorderRadius.circular(11),
                       ),
                       child: Center(
-                        child: Text(
-                          _emoji,
-                          style: const TextStyle(fontSize: 20),
-                        ),
+                        child: Icon(_icon, size: 20, color: palette.primary),
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -1383,7 +1384,7 @@ class _HistoryCard extends ConsumerWidget {
                       width: 16,
                       child: canNavigate
                           ? Icon(
-                              Icons.chevron_right,
+                              FinanceIcons.chevronRight,
                               size: 16,
                               color: palette.muted,
                             )
@@ -1408,13 +1409,20 @@ class _HistoryCard extends ConsumerWidget {
             color: palette.soft,
             borderRadius: BorderRadius.circular(5),
           ),
-          child: Text(
-            _sourceTag,
-            style: TextStyle(
-              fontSize: 9.5,
-              fontWeight: FontWeight.w700,
-              color: palette.muted,
-            ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(_sourceIcon, size: 11, color: palette.muted),
+              const SizedBox(width: 3),
+              Text(
+                _sourceTag,
+                style: TextStyle(
+                  fontSize: 9.5,
+                  fontWeight: FontWeight.w700,
+                  color: palette.muted,
+                ),
+              ),
+            ],
           ),
         ),
         const SizedBox(width: 6),

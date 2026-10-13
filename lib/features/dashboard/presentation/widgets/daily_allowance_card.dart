@@ -1,3 +1,4 @@
+import 'package:finance_ai/core/icons/finance_icon_catalog.dart';
 import 'package:flutter/material.dart';
 
 import '../../../../core/formatters/money_formatter.dart';
@@ -52,7 +53,11 @@ class DailyAllowanceCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              Icon(Icons.speed_outlined, size: 18, color: palette.primary),
+              Icon(
+                FinanceIcons.speedOutlined,
+                size: 18,
+                color: palette.primary,
+              ),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(

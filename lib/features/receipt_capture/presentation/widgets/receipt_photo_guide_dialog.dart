@@ -1,3 +1,4 @@
+import 'package:finance_ai/core/icons/finance_icon_catalog.dart';
 import 'package:flutter/material.dart';
 
 /// One-time educational dialog shown before the first receipt photo.
@@ -18,7 +19,7 @@ class ReceiptPhotoGuideDialog extends StatelessWidget {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       title: const Row(
         children: [
-          Icon(Icons.receipt_long_outlined, size: 26),
+          Icon(FinanceIcons.receiptLongOutlined, size: 26),
           SizedBox(width: 10),
           Expanded(
             child: Text(
@@ -38,19 +39,19 @@ class ReceiptPhotoGuideDialog extends StatelessWidget {
           ),
           SizedBox(height: 14),
           _GuideTip(
-            icon: Icons.light_mode_outlined,
+            icon: FinanceIcons.lightModeOutlined,
             title: '1. Busca buena luz',
             subtitle: 'Evita sombras y brillos sobre el papel.',
           ),
           SizedBox(height: 10),
           _GuideTip(
-            icon: Icons.crop_free_outlined,
+            icon: FinanceIcons.cropFreeOutlined,
             title: '2. Encuadra completo',
             subtitle: 'Que se vean los bordes, el total y el comercio.',
           ),
           SizedBox(height: 10),
           _GuideTip(
-            icon: Icons.straighten_outlined,
+            icon: FinanceIcons.straightenOutlined,
             title: '3. Ponlo recto',
             subtitle: 'Apóyalo en una superficie plana y oscura.',
           ),

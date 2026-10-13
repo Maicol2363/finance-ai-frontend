@@ -1,3 +1,4 @@
+import 'package:finance_ai/core/icons/finance_icon_catalog.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
@@ -15,16 +16,20 @@ class AppShell extends StatelessWidget {
   final StatefulNavigationShell navigationShell;
 
   static const destinations = <AppNavDestination>[
-    AppNavDestination(id: 'inicio', label: 'Inicio', icon: Icons.home_outlined),
+    AppNavDestination(
+      id: 'inicio',
+      label: 'Inicio',
+      icon: FinanceIcons.homeOutlined,
+    ),
     AppNavDestination(
       id: 'movimientos',
       label: 'Movimientos',
-      icon: Icons.receipt_long_outlined,
+      icon: FinanceIcons.receiptLongOutlined,
     ),
     AppNavDestination(
       id: 'ajustes',
       label: 'Ajustes',
-      icon: Icons.settings_outlined,
+      icon: FinanceIcons.settingsOutlined,
     ),
   ];
 
@@ -45,10 +50,7 @@ class AppShell extends StatelessWidget {
             CaptureWheel(
               onPhoto: () =>
                   startReceiptCapture(context, source: ImageSource.camera),
-              onVoice: () =>
-                  showQuickCaptureSheet(context, startWithVoice: true),
-              onText: () =>
-                  showQuickCaptureSheet(context, startWithVoice: false),
+              onAi: () => showQuickCaptureSheet(context),
               onManual: () => context.push('/expenses/new'),
             ),
           ],

@@ -194,10 +194,10 @@ void main() {
 
     await tester.tap(find.byKey(const Key('account-card-11')));
     await tester.pumpAndSettle();
-    expect(find.text('Account details'), findsOneWidget);
+    expect(find.text('Detalle de cuenta'), findsOneWidget);
     expect(
       find.text(
-        'Currency is locked because this account has confirmed activity.',
+        'La moneda está bloqueada porque esta cuenta ya tiene movimientos confirmados.',
       ),
       findsOneWidget,
     );
@@ -211,11 +211,16 @@ void main() {
     final repository = WidgetAccountsRepository();
     await pumpAccountsApp(tester, repository, initialLocation: '/accounts/11');
 
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('account-deactivate-button')),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
     await tester.tap(find.byKey(const Key('account-deactivate-button')));
     await tester.pumpAndSettle();
     expect(
       find.text(
-        'This account will remain in your history but will no longer be available for new financial entries.',
+        'La cuenta seguirá en tu historial, pero no estará disponible para registrar nuevos movimientos.',
       ),
       findsOneWidget,
     );
@@ -224,7 +229,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Inactive'), findsOneWidget);
+    expect(find.text('Inactiva'), findsOneWidget);
     expect(find.byKey(const Key('account-reactivate-button')), findsOneWidget);
     expect(repository.current.accountById(11)?.isActive, isFalse);
   });
@@ -251,7 +256,7 @@ void main() {
     expect(repository.createdCommand?.type, AccountType.cash);
     expect(repository.createdCommand?.currencyCode, 'COP');
     expect(repository.createdCommand?.openingBalance.toApiString(), '-1234.50');
-    expect(find.text('Account details'), findsOneWidget);
+    expect(find.text('Detalle de cuenta'), findsOneWidget);
   });
 
   testWidgets('permanent deletion requires confirmation and returns to list', (
@@ -264,17 +269,17 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('account-delete-button')));
     await tester.pumpAndSettle();
-    expect(find.text('Delete this account permanently?'), findsOneWidget);
+    expect(find.text('¿Eliminar esta cuenta definitivamente?'), findsOneWidget);
     expect(
-      find.textContaining('Accounts with activity must be deactivated'),
+      find.textContaining('Si tiene movimientos, debes desactivarla.'),
       findsOneWidget,
     );
     await tester.tap(find.byKey(const Key('account-confirm-delete-button')));
     await tester.pumpAndSettle();
 
-    expect(find.text('Accounts'), findsOneWidget);
+    expect(find.text('Cuentas'), findsOneWidget);
     expect(repository.current.accountById(11), isNull);
-    expect(find.text('Account permanently deleted.'), findsOneWidget);
+    expect(find.text('Cuenta eliminada definitivamente.'), findsOneWidget);
   });
 
   testWidgets('blocked deletion stays on detail with copyable safe failure', (
@@ -336,7 +341,9 @@ void main() {
     );
     expect(currency.onChanged, isNull);
     expect(
-      find.text('Currency is locked after confirmed account activity.'),
+      find.text(
+        'La moneda se bloquea cuando la cuenta ya tiene movimientos confirmados.',
+      ),
       findsOneWidget,
     );
   });

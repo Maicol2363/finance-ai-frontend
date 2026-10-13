@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:finance_ai/app.dart';
+import 'package:finance_ai/core/icons/finance_icon_catalog.dart';
 import 'package:finance_ai/core/router/app_router.dart';
 import 'package:finance_ai/core/time/clock_provider.dart';
 import 'package:finance_ai/features/accounts/data/accounts_repository.dart';
@@ -608,7 +609,7 @@ void main() {
     expect(repository.lastCreateCommand?.amount.toApiString(), '55.50');
     expect(repository.lastCreateCommand?.accountId, 11);
     expect(repository.lastCreateCommand?.note, 'Weekly grocery shopping');
-    expect(find.byKey(const Key('home-title')), findsOneWidget);
+    expect(find.byKey(const Key('home-title')), findsNothing);
   });
 
   testWidgets('delete asks for confirmation and returns to the list', (
@@ -626,7 +627,7 @@ void main() {
     await tester.tap(find.byKey(const Key('expense-confirm-delete-button')));
     await tester.pumpAndSettle();
 
-    expect(find.byKey(const Key('home-title')), findsOneWidget);
+    expect(find.byKey(const Key('home-title')), findsNothing);
     expect(repository.expenses, isEmpty);
   });
 
@@ -974,7 +975,7 @@ void main() {
       await tester.tap(find.byTooltip('Volver'));
       await tester.pumpAndSettle();
 
-      expect(find.widgetWithText(AppBar, 'Movimientos'), findsOneWidget);
+      expect(find.byKey(const Key('history-list')), findsOneWidget);
       expect(find.byKey(const Key('history-card-8')), findsOneWidget);
     },
   );
@@ -995,7 +996,7 @@ void main() {
       await tester.tap(find.byTooltip('Volver'));
       await tester.pumpAndSettle();
 
-      expect(find.widgetWithText(AppBar, 'Movimientos'), findsOneWidget);
+      expect(find.byKey(const Key('history-list')), findsOneWidget);
       expect(find.byKey(const Key('history-card-15')), findsOneWidget);
     },
   );
@@ -1130,7 +1131,7 @@ void main() {
       await tester.tap(
         find.descendant(
           of: find.byType(AccountFormScreen),
-          matching: find.byIcon(Icons.arrow_back),
+          matching: find.byIcon(FinanceIcons.arrowBack),
         ),
       );
       await tester.pumpAndSettle();
@@ -1177,7 +1178,7 @@ void main() {
       await tester.tap(
         find.descendant(
           of: find.byType(CategoryFormScreen),
-          matching: find.byIcon(Icons.arrow_back),
+          matching: find.byIcon(FinanceIcons.arrowBack),
         ),
       );
       await tester.pumpAndSettle();
@@ -1243,7 +1244,7 @@ void main() {
     expect(find.text(r'$ 100 COP'), findsOneWidget);
     // Flow chips are the current month (2026-09 from the pinned clock): no
     // incomes in the fake, one 25.00 expense in the history fixture.
-    expect(find.text('Movimientos de septiembre'), findsWidgets);
+    expect(find.text('septiembre · Balance'), findsOneWidget);
     // Zero income and the month expense, in the new "$ 25 COP" money format.
     expect(find.text(r'$ 0 COP'), findsWidgets);
     expect(find.text(r'-$ 25 COP'), findsWidgets);
@@ -1295,7 +1296,7 @@ void main() {
         initialLocation: '/dashboard',
       );
 
-      expect(find.byKey(const Key('home-title')), findsOneWidget);
+      expect(find.byKey(const Key('home-title')), findsNothing);
       expect(find.text('Saldo en cuentas'), findsOneWidget);
       expect(find.text('Historial reciente'), findsNothing);
       expect(find.byKey(const Key('expense-card-7')), findsNothing);
@@ -1363,7 +1364,7 @@ void main() {
       final repository = WidgetExpensesRepository();
       await pumpExpensesApp(tester, repository, initialLocation: '/home');
 
-      expect(find.byKey(const Key('home-title')), findsOneWidget);
+      expect(find.byKey(const Key('home-title')), findsNothing);
       expect(find.text('Saldo en cuentas'), findsOneWidget);
       expect(find.byKey(const Key('expenses-create-fab')), findsOneWidget);
       expect(find.text('Historial reciente'), findsNothing);
@@ -1372,7 +1373,7 @@ void main() {
       await tester.tap(find.byKey(const Key('bottom-nav-movimientos')));
       await tester.pumpAndSettle();
 
-      expect(find.widgetWithText(AppBar, 'Movimientos'), findsOneWidget);
+      expect(find.byKey(const Key('history-list')), findsOneWidget);
       expect(find.byKey(const Key('history-card-8')), findsOneWidget);
     },
   );
