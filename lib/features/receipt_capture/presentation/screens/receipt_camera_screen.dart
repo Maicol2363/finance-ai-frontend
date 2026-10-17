@@ -1,3 +1,5 @@
+import 'package:finance_ai/core/icons/finance_icon_catalog.dart';
+
 import 'dart:async';
 
 import 'package:camera/camera.dart';
@@ -66,6 +68,11 @@ class _ReceiptCameraScreenState extends ConsumerState<ReceiptCameraScreen>
     if (!mounted) return;
     final shouldShow = await ReceiptPhotoGuidePrefs.shouldShowGuide();
     if (!mounted || !shouldShow) return;
+    await _showPhotoGuide(markGuideSeen: true);
+  }
+
+  Future<void> _showPhotoGuide({required bool markGuideSeen}) async {
+    if (!mounted) return;
     await showDialog<void>(
       context: context,
       barrierDismissible: true,
@@ -73,7 +80,9 @@ class _ReceiptCameraScreenState extends ConsumerState<ReceiptCameraScreen>
         onConfirm: () => Navigator.of(dialogContext).pop(),
       ),
     );
-    await ReceiptPhotoGuidePrefs.markGuideSeen();
+    if (markGuideSeen) {
+      await ReceiptPhotoGuidePrefs.markGuideSeen();
+    }
   }
 
   @override
@@ -293,7 +302,7 @@ class _ReceiptCameraScreenState extends ConsumerState<ReceiptCameraScreen>
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             const Icon(
-              Icons.photo_camera_outlined,
+              FinanceIcons.photoCameraOutlined,
               size: 56,
               color: Colors.white54,
             ),
@@ -338,7 +347,7 @@ class _ReceiptCameraScreenState extends ConsumerState<ReceiptCameraScreen>
           child: Row(
             children: [
               _glassButton(
-                icon: Icons.close,
+                icon: FinanceIcons.close,
                 tooltip: 'Cerrar',
                 onTap: () => Navigator.of(context).pop(),
               ),
@@ -354,7 +363,15 @@ class _ReceiptCameraScreenState extends ConsumerState<ReceiptCameraScreen>
                 ),
               ),
               _glassButton(
-                icon: _torchOn ? Icons.flashlight_on : Icons.flashlight_off,
+                icon: FinanceIcons.infoOutline,
+                tooltip: 'Cómo tomar una buena foto',
+                semanticLabel: 'Ayuda: cómo tomar una buena foto',
+                onTap: () => _showPhotoGuide(markGuideSeen: false),
+              ),
+              _glassButton(
+                icon: _torchOn
+                    ? FinanceIcons.flashlightOn
+                    : FinanceIcons.flashlightOff,
                 tooltip: 'Linterna',
                 onTap: _toggleTorch,
               ),
@@ -376,13 +393,13 @@ class _ReceiptCameraScreenState extends ConsumerState<ReceiptCameraScreen>
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
               _glassButton(
-                icon: Icons.photo_library_outlined,
+                icon: FinanceIcons.photoLibraryOutlined,
                 tooltip: 'Galería',
                 onTap: _pickFromGallery,
               ),
               _buildShutter(),
               _glassButton(
-                icon: Icons.cameraswitch_outlined,
+                icon: FinanceIcons.cameraswitchOutlined,
                 tooltip: 'Cambiar cámara',
                 onTap: _flipCamera,
               ),
@@ -394,33 +411,46 @@ class _ReceiptCameraScreenState extends ConsumerState<ReceiptCameraScreen>
   }
 
   Widget _buildShutter() {
-    return GestureDetector(
-      onTap: _capturePhoto,
-      child: Container(
-        width: 78,
-        height: 78,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          border: Border.all(color: Colors.white, width: 4),
-        ),
-        padding: const EdgeInsets.all(5),
+    final controller = _controller;
+    final canCapture =
+        !_initializing &&
+        !_capturing &&
+        controller != null &&
+        controller.value.isInitialized;
+    return Semantics(
+      button: true,
+      label: 'Tomar foto del recibo',
+      enabled: canCapture,
+      onTap: canCapture ? _capturePhoto : null,
+      excludeSemantics: true,
+      child: GestureDetector(
+        onTap: canCapture ? _capturePhoto : null,
         child: Container(
+          width: 78,
+          height: 78,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            color: _capturing ? Colors.white54 : Colors.white,
+            border: Border.all(color: Colors.white, width: 4),
           ),
-          child: _capturing
-              ? const Center(
-                  child: SizedBox(
-                    width: 26,
-                    height: 26,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2.5,
-                      color: Colors.black,
+          padding: const EdgeInsets.all(5),
+          child: Container(
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: _capturing ? Colors.white54 : Colors.white,
+            ),
+            child: _capturing
+                ? const Center(
+                    child: SizedBox(
+                      width: 26,
+                      height: 26,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2.5,
+                        color: Colors.black,
+                      ),
                     ),
-                  ),
-                )
-              : null,
+                  )
+                : null,
+          ),
         ),
       ),
     );
@@ -455,21 +485,26 @@ class _ReceiptCameraScreenState extends ConsumerState<ReceiptCameraScreen>
   Widget _glassButton({
     required IconData icon,
     required String tooltip,
+    String? semanticLabel,
     required VoidCallback onTap,
   }) {
-    return Tooltip(
-      message: tooltip,
-      child: InkWell(
-        onTap: onTap,
-        customBorder: const CircleBorder(),
-        child: Container(
-          width: 48,
-          height: 48,
-          decoration: const BoxDecoration(
-            shape: BoxShape.circle,
-            color: Color(0x66000000),
+    return Semantics(
+      button: true,
+      label: semanticLabel ?? tooltip,
+      child: Tooltip(
+        message: tooltip,
+        child: InkWell(
+          onTap: onTap,
+          customBorder: const CircleBorder(),
+          child: Container(
+            width: 48,
+            height: 48,
+            decoration: const BoxDecoration(
+              shape: BoxShape.circle,
+              color: Color(0x66000000),
+            ),
+            child: Icon(icon, color: Colors.white, size: 24),
           ),
-          child: Icon(icon, color: Colors.white, size: 24),
         ),
       ),
     );

@@ -1,3 +1,4 @@
+import 'package:finance_ai/core/icons/finance_icon_catalog.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/diagnostics/error_diagnostic_panel.dart';
@@ -19,6 +20,10 @@ class BudgetDashboardSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (state.loadStatus == BudgetsLoadStatus.ready &&
+        (state.result?.budgets.isEmpty ?? true)) {
+      return const SizedBox.shrink();
+    }
     final palette = context.palette;
     final budgets = state.result?.budgets ?? const [];
     // Fast v1: riskiest first, so a budget close to its limit is never
@@ -43,7 +48,7 @@ class BudgetDashboardSection extends StatelessWidget {
             TextButton(
               key: const Key('dashboard-manage-budgets'),
               onPressed: onManage,
-              child: Text(budgets.isEmpty ? 'Crear' : 'Administrar'),
+              child: const Text('Ver presupuestos'),
             ),
           ],
         ),
@@ -58,7 +63,7 @@ class BudgetDashboardSection extends StatelessWidget {
           const SizedBox(height: 8),
           OutlinedButton.icon(
             onPressed: onRetry,
-            icon: const Icon(Icons.refresh),
+            icon: const Icon(FinanceIcons.refresh),
             label: const Text('Reintentar presupuestos'),
           ),
         ] else if (state.result != null && budgets.isEmpty)
@@ -71,7 +76,7 @@ class BudgetDashboardSection extends StatelessWidget {
             ),
             child: const Column(
               children: [
-                Icon(Icons.savings_outlined, size: 34),
+                Icon(FinanceIcons.savingsOutlined, size: 34),
                 SizedBox(height: 8),
                 Text(
                   'Aún no tienes presupuestos',
@@ -86,10 +91,8 @@ class BudgetDashboardSection extends StatelessWidget {
             ),
           )
         else
-          for (final budget in ordered.take(3)) ...[
+          for (final budget in ordered.take(1))
             BudgetProgressCard(budget: budget, compact: true),
-            const SizedBox(height: 10),
-          ],
       ],
     );
   }

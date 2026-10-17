@@ -1,3 +1,5 @@
+import 'package:finance_ai/core/icons/finance_icon_catalog.dart';
+
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -46,7 +48,7 @@ class ReceiptPhotoViewerDialog extends StatelessWidget {
                 ),
               ),
               IconButton(
-                icon: const Icon(Icons.close, color: Colors.white),
+                icon: const Icon(FinanceIcons.close, color: Colors.white),
                 onPressed: () => Navigator.of(context).pop(),
               ),
             ],

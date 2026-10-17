@@ -1,3 +1,4 @@
+import 'package:finance_ai/core/icons/finance_icon_catalog.dart';
 import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_palette.dart';
@@ -25,10 +26,14 @@ class InsightsCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              Icon(Icons.lightbulb_outline, size: 18, color: palette.primary),
+              Icon(
+                FinanceIcons.lightbulbOutline,
+                size: 18,
+                color: palette.primary,
+              ),
               const SizedBox(width: 8),
               Text(
-                'Análisis inteligente',
+                'Patrones y estimaciones',
                 style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w700,
@@ -58,9 +63,12 @@ class _InsightRow extends StatelessWidget {
     final palette = context.palette;
 
     final (icon, iconColor) = switch (insight.type) {
-      InsightType.warning => (Icons.warning_amber_rounded, palette.discard),
-      InsightType.positive => (Icons.shield_outlined, palette.income),
-      InsightType.info => (Icons.insights, palette.primary),
+      InsightType.warning => (
+        FinanceIcons.warningAmberRounded,
+        palette.discard,
+      ),
+      InsightType.positive => (FinanceIcons.shieldOutlined, palette.income),
+      InsightType.info => (FinanceIcons.insights, palette.primary),
     };
 
     return Container(

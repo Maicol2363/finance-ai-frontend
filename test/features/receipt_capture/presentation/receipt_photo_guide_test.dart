@@ -1,7 +1,12 @@
+import 'package:finance_ai/core/icons/finance_icon_catalog.dart';
+import 'package:finance_ai/core/theme/app_palette.dart';
+import 'package:finance_ai/core/theme/app_theme.dart';
 import 'package:finance_ai/features/receipt_capture/data/receipt_photo_guide_prefs.dart';
+import 'package:finance_ai/features/receipt_capture/presentation/screens/receipt_camera_screen.dart';
 import 'package:finance_ai/features/receipt_capture/presentation/widgets/receipt_photo_guide_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
@@ -47,6 +52,56 @@ void main() {
       expect(find.text('Solo te mostramos esto una vez.'), findsOneWidget);
     });
 
+    testWidgets('guide copy and illustrations use both theme palettes', (
+      tester,
+    ) async {
+      for (final theme in [AppTheme.light(), AppTheme.dark()]) {
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Theme(
+              data: theme,
+              child: const Scaffold(body: ReceiptPhotoGuideDialog()),
+            ),
+          ),
+        );
+
+        final palette = theme.extension<AppPalette>()!;
+        expect(
+          tester
+              .widget<Text>(
+                find.text(
+                  'Sigue estos 3 tips para que la IA lea tu recibo a la primera:',
+                ),
+              )
+              .style!
+              .color,
+          palette.muted,
+        );
+        expect(
+          tester
+              .widget<Text>(
+                find.text('Evita sombras y brillos sobre el papel.'),
+              )
+              .style!
+              .color,
+          palette.muted,
+        );
+        expect(
+          tester
+              .widget<Icon>(find.byIcon(FinanceIcons.lightModeOutlined))
+              .color,
+          palette.primaryDark,
+        );
+        expect(
+          tester
+              .widget<Text>(find.text('Solo te mostramos esto una vez.'))
+              .style!
+              .color,
+          palette.muted,
+        );
+      }
+    });
+
     testWidgets('default confirm pops the dialog', (tester) async {
       await tester.pumpWidget(
         const MaterialApp(home: Scaffold(body: ReceiptPhotoGuideDialog())),
@@ -59,5 +114,75 @@ void main() {
       // Dialog content is gone after pop.
       expect(find.text('Cómo tomar una buena foto'), findsNothing);
     });
+  });
+
+  testWidgets('camera help reopens guide without changing saved preference', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({
+      ReceiptPhotoGuidePrefs.guideSeenKey: true,
+    });
+
+    await tester.pumpWidget(
+      const ProviderScope(child: MaterialApp(home: ReceiptCameraScreen())),
+    );
+    await tester.pump(const Duration(milliseconds: 100));
+
+    expect(find.text('Cómo tomar una buena foto'), findsNothing);
+    expect(
+      find.bySemanticsLabel('Ayuda: cómo tomar una buena foto'),
+      findsOneWidget,
+    );
+    expect(find.byTooltip('Linterna'), findsOneWidget);
+    expect(find.byTooltip('Galería'), findsOneWidget);
+    expect(find.bySemanticsLabel('Tomar foto del recibo'), findsOneWidget);
+
+    final help = find.byTooltip('Cómo tomar una buena foto');
+    await tester.tap(help);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(find.text('Cómo tomar una buena foto'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('receipt-guide-confirm')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+
+    await tester.tap(help);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(find.text('Cómo tomar una buena foto'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('receipt-guide-confirm')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+
+    expect(await ReceiptPhotoGuidePrefs.shouldShowGuide(), isFalse);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('camera help remains reachable on a narrow scaled screen', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({
+      ReceiptPhotoGuidePrefs.guideSeenKey: true,
+    });
+    tester.view.physicalSize = const Size(960, 1920);
+    tester.view.devicePixelRatio = 3;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(
+      const ProviderScope(
+        child: MediaQuery(
+          data: MediaQueryData(textScaler: TextScaler.linear(2)),
+          child: MaterialApp(home: ReceiptCameraScreen()),
+        ),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 100));
+
+    expect(find.byTooltip('Cómo tomar una buena foto'), findsOneWidget);
+    await tester.tap(find.byTooltip('Cómo tomar una buena foto'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(find.text('Cómo tomar una buena foto'), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 }

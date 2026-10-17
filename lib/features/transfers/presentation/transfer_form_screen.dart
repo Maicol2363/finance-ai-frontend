@@ -1,8 +1,13 @@
+import 'package:finance_ai/core/icons/finance_icon_catalog.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/diagnostics/error_diagnostic_panel.dart';
+import '../../../core/widgets/app_header.dart';
+import '../../../core/widgets/management_page_scaffold.dart';
+import '../../../core/widgets/manage_widgets.dart';
+import '../../../core/widgets/theme_toggle_button.dart';
 import '../../accounts/application/accounts_controller.dart';
 import '../../accounts/application/accounts_state.dart';
 import '../../accounts/domain/account_models.dart';
@@ -69,21 +74,21 @@ class _TransferFormScreenState extends ConsumerState<TransferFormScreen> {
 
     return PopScope(
       canPop: !state.isSaving,
-      child: Scaffold(
-        appBar: AppBar(
-          leading: IconButton(
-            tooltip: 'Volver a cuentas',
-            onPressed: state.isSaving ? null : () => context.go('/accounts'),
-            icon: const Icon(Icons.arrow_back),
-          ),
-          title: const Text('Transferir entre cuentas'),
+      child: ManagementPageScaffold(
+        title: 'Transferir entre cuentas',
+        subtitle: 'Origen, destino y monto',
+        leading: HeaderIconButton(
+          icon: FinanceIcons.arrowBack,
+          tooltip: 'Volver a cuentas',
+          onPressed: state.isSaving ? null : () => context.go('/accounts'),
         ),
-        body: SafeArea(
-          child: Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 620),
-              child: ListView(
-                padding: const EdgeInsets.fromLTRB(24, 20, 24, 40),
+        actions: const [ThemeToggleButton()],
+        body: ListView(
+          padding: EdgeInsets.zero,
+          children: [
+            ManagementFormCard(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Text(
                     'Mueve dinero entre tus cuentas. En la misma moneda viaja el mismo monto; con monedas distintas indica cuánto sale y cuánto llega.',
@@ -92,20 +97,20 @@ class _TransferFormScreenState extends ConsumerState<TransferFormScreen> {
                   const SizedBox(height: 24),
                   if (state.mutationDiagnostic case final diagnostic?) ...[
                     ErrorDiagnosticPanel(diagnostic: diagnostic),
-                    const SizedBox(height: 20),
+                    const SizedBox(height: 16),
                   ],
                   if (optionsFailed) ...[
                     ErrorDiagnosticPanel(
                       diagnostic: accountsState.listDiagnostic!,
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 16),
                     OutlinedButton.icon(
                       onPressed: () =>
                           ref.read(accountsControllerProvider.notifier).load(),
-                      icon: const Icon(Icons.refresh),
+                      icon: const Icon(FinanceIcons.refresh),
                       label: const Text('Reintentar cuentas'),
                     ),
-                    const SizedBox(height: 20),
+                    const SizedBox(height: 16),
                   ],
                   DropdownButtonFormField<int>(
                     key: const Key('transfer-source-field'),
@@ -140,7 +145,7 @@ class _TransferFormScreenState extends ConsumerState<TransferFormScreen> {
                           }
                         : null,
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 16),
                   DropdownButtonFormField<int>(
                     key: const Key('transfer-destination-field'),
                     initialValue: _containedOrNull([
@@ -172,7 +177,7 @@ class _TransferFormScreenState extends ConsumerState<TransferFormScreen> {
                           }
                         : null,
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 16),
                   TextField(
                     key: const Key('transfer-source-amount-field'),
                     controller: _sourceAmountController,
@@ -192,7 +197,7 @@ class _TransferFormScreenState extends ConsumerState<TransferFormScreen> {
                         controller.clearFieldError('source_amount'),
                   ),
                   if (crossCurrency) ...[
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 16),
                     TextField(
                       key: const Key('transfer-destination-amount-field'),
                       controller: _destinationAmountController,
@@ -210,7 +215,7 @@ class _TransferFormScreenState extends ConsumerState<TransferFormScreen> {
                           controller.clearFieldError('destination_amount'),
                     ),
                   ],
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 16),
                   TextField(
                     key: const Key('transfer-description-field'),
                     controller: _descriptionController,
@@ -219,7 +224,7 @@ class _TransferFormScreenState extends ConsumerState<TransferFormScreen> {
                     maxLines: 2,
                     decoration: const InputDecoration(labelText: 'Descripción'),
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 16),
                   const Text('Fecha'),
                   const SizedBox(height: 4),
                   Text(
@@ -230,7 +235,7 @@ class _TransferFormScreenState extends ConsumerState<TransferFormScreen> {
                   OutlinedButton.icon(
                     key: const Key('transfer-date-button'),
                     onPressed: formEnabled && !optionsFailed ? _pickDate : null,
-                    icon: const Icon(Icons.calendar_today_outlined),
+                    icon: const Icon(FinanceIcons.calendarTodayOutlined),
                     label: const Text('Cambiar fecha'),
                   ),
                   if (_firstError(state, 'date') case final error?) ...[
@@ -261,10 +266,10 @@ class _TransferFormScreenState extends ConsumerState<TransferFormScreen> {
                         : const Text('Transferir'),
                   ),
                   if (state.requiresMutationReview) ...[
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 16),
                     OutlinedButton.icon(
                       onPressed: controller.resolveUncertainMutation,
-                      icon: const Icon(Icons.sync),
+                      icon: const Icon(FinanceIcons.sync),
                       label: const Text(
                         'Actualizar cuentas antes de reintentar',
                       ),
@@ -273,7 +278,7 @@ class _TransferFormScreenState extends ConsumerState<TransferFormScreen> {
                 ],
               ),
             ),
-          ),
+          ],
         ),
       ),
     );

@@ -1,13 +1,15 @@
+import 'package:finance_ai/core/icons/finance_icon_catalog.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/formatters/date_labels.dart';
+import '../../../core/diagnostics/error_diagnostic.dart';
+import '../../../core/diagnostics/error_diagnostic_panel.dart';
 import '../../../core/formatters/money_formatter.dart';
 import '../../../core/money/currency_totals.dart';
 import '../../../core/theme/app_palette.dart';
 import '../../../core/time/clock_provider.dart';
-import '../../../core/widgets/app_header.dart';
 import '../../../core/widgets/theme_toggle_button.dart';
 import '../../accounts/application/account_balances.dart';
 import '../../accounts/application/accounts_controller.dart';
@@ -16,30 +18,12 @@ import '../../accounts/domain/account_models.dart';
 import '../../auth/session/application/auth_session_controller.dart';
 import '../../budgets/application/budgets_controller.dart';
 import '../../budgets/application/budgets_state.dart';
-import '../../budgets/presentation/budget_dashboard_section.dart';
 import '../../expenses/application/expenses_controller.dart';
 import '../../expenses/application/expenses_state.dart';
-import '../../expenses/application/history_controller.dart';
 import '../../expenses/application/monthly_totals.dart';
-import '../../expenses/presentation/recent_movements_section.dart';
-import '../../expenses/presentation/transaction_visuals.dart';
-import '../../incomes/data/incomes_repository.dart';
-import '../application/dashboard_metrics.dart';
-import '../application/dashboard_summary_provider.dart';
-import 'spending_trend.dart';
-import 'spending_trend_card.dart';
-import 'widgets/accounts_shortcut.dart';
-import 'widgets/daily_allowance_card.dart';
-import 'widgets/insights_card.dart';
-import 'widgets/recent_movements_card.dart';
+import '../application/dashboard_currency_provider.dart';
+import '../application/home_financial_metrics.dart';
 
-/// Resumen y tendencias.
-///
-/// The balance card uses the same definition as the Gastos hub: stock (the sum
-/// of the live balances of the active accounts, per currency) plus the current
-/// month's flow chips, both from `activeAccountBalances` and
-/// `monthlyTotalsProvider`. The category breakdown is month-scoped too, so it
-/// cannot contradict the header of the same screen.
 class DashboardScreen extends ConsumerStatefulWidget {
   const DashboardScreen({super.key});
 
@@ -61,7 +45,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           AccountsLoadStatus.initial) {
         ref.read(accountsControllerProvider.notifier).load();
       }
-      ref.read(incomesListProvider);
       if (ref.read(budgetsControllerProvider).loadStatus ==
           BudgetsLoadStatus.initial) {
         ref.read(budgetsControllerProvider.notifier).load();
@@ -71,892 +54,189 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final palette = context.palette;
+    final now = ref.watch(clockProvider)();
+    final user = ref.watch(authSessionControllerProvider).user;
+    final preferredCurrency = user?.preferredCurrency ?? 'COP';
+    final selectedCurrency = ref.watch(dashboardCurrencyProvider);
     final accounts =
         ref.watch(accountsControllerProvider).result?.accounts ??
         const <Account>[];
-    final budgetsState = ref.watch(budgetsControllerProvider);
-    final preferredCurrency =
-        ref.watch(authSessionControllerProvider).user?.preferredCurrency ??
-        'COP';
-
-    final now = ref.watch(clockProvider)();
-    final stock = activeAccountBalances(accounts);
-    final period = ref.watch(dashboardPeriodProvider);
-    final window = period == DashboardPeriod.thisMonth
-        ? currentMonthWindow(now)
-        : periodWindow(period, now);
-    final windowName = period == DashboardPeriod.thisMonth
-        ? DateLabels.monthName(now)
-        : periodLabel(period, now);
-    final monthTotalsAsync = ref.watch(periodTotalsProvider);
-    final monthlyTotals = monthTotalsAsync.value;
-
-    final orderedCodes = orderedCurrencyCodes({
-      ...stock,
-      ...?monthlyTotals?.byCurrency,
-    }, preferred: preferredCurrency);
-    final currency = orderedCodes.isEmpty
-        ? preferredCurrency
-        : orderedCodes.first;
-    final otherCodes = orderedCodes.where((code) => code != currency).toList();
-    final breakdown = _breakdownFor(monthlyTotals, currency);
-    // Tendency: daily bars for short windows, weekly for longer ones, monthly
-    // buckets for the year. Longer windows show the last 30 days worth of
-    // buckets so bars keep volume instead of turning into zero-filled noise.
-    final useYear = period == DashboardPeriod.thisYear;
-    final useWeeks =
-        !useYear && window.end.difference(window.start).inDays > 21;
-    final trendWeeks = useYear
-        ? monthlyExpenseSeries(
-            items: monthlyTotals?.expenseItems ?? const [],
-            currencyCode: currency,
-            windowStart: window.start,
-            windowEnd: window.end,
-          )
-        : useWeeks
-        ? weeklyExpenseSeries(
-            items: monthlyTotals?.expenseItems ?? const [],
-            currencyCode: currency,
-            windowStart: window.start,
-            windowEnd: window.end,
-          )
+    final budgets = ref.watch(budgetsControllerProvider);
+    final totalsAsync = ref.watch(monthlyTotalsProvider);
+    final currentWindow = currentMonthWindow(now);
+    final loadedTotals = totalsAsync.value;
+    final totals =
+        loadedTotals != null &&
+            _sameCalendarDay(loadedTotals.monthStart, currentWindow.start) &&
+            _sameCalendarDay(loadedTotals.windowEnd, currentWindow.end)
+        ? loadedTotals
         : null;
-    final trend = dailyExpenseSeries(
-      items: monthlyTotals?.expenseItems ?? const [],
+    final stock = activeAccountBalances(accounts);
+    final currencyOptions = <String>{
+      preferredCurrency,
+      ...?ref
+          .watch(accountsControllerProvider)
+          .result
+          ?.supportedCurrencies
+          .map((item) => item.code),
+      ...stock.keys,
+      ...?totals?.byCurrency.keys,
+    }.toList()..sort();
+    final currency = selectedCurrency ?? preferredCurrency;
+    final currencyTotals = totals?.byCurrency[currency];
+    final incomes = currencyTotals?.incomes ?? 0;
+    final expenses = currencyTotals?.expenses ?? 0;
+    final saved = incomes - expenses;
+    final hasTotals = totals != null;
+    final previousWindowRange = previousWindow((
+      start: totals?.monthStart ?? DateTime(now.year, now.month),
+      end: totals?.windowEnd ?? now,
+    ));
+    final weekly = HomeFinancialMetrics.buildWeeklyInsight(
+      expenseItems: [
+        ...?totals?.previousExpenseItems,
+        ...?totals?.expenseItems,
+      ],
       currencyCode: currency,
       now: now,
-      maxDays: useYear ? 365 : 14,
-      windowStart: window.start,
-      windowEnd: window.end,
+      coverageStart: previousWindowRange.start,
+      coverageEnd: totals?.windowEnd ?? now,
+      historyIsComplete:
+          totals?.historyComplete == true &&
+          totals?.previousHistoryComplete == true,
     );
-    final summaryAsync = ref.watch(dashboardSummaryProvider);
-    final summary = summaryAsync.value;
-
-    // Honest badge: check summary first if available, otherwise fallback to compareWindows.
-    final totals = monthlyTotals?.byCurrency[currency];
-    final comparison = summary != null
-        ? (
-            ratio: summary.comparison.pct != null
-                ? (summary.comparison.direction == 'down'
-                      ? (1.0 - (summary.comparison.pct! / 100.0))
-                      : (1.0 + (summary.comparison.pct! / 100.0)))
-                : 1.0,
-            direction: summary.comparison.direction,
-          )
-        : compareWindows(
-            current: totals?.expenses ?? 0,
-            previous: monthlyTotals?.previousExpensesByCurrency[currency] ?? 0,
-          );
-    final comparisonLabel = _comparisonLabel(comparison, window, now);
-    final bucketTotal = useYear || useWeeks
-        ? (trendWeeks ?? const <WeeklySpend>[]).fold<int>(
-            0,
-            (s, w) => s + w.minorUnits,
-          )
-        : trend.fold<int>(0, (s, d) => s + d.minorUnits);
-    final bucketCount = useYear || useWeeks
-        ? (trendWeeks?.length ?? 0)
-        : trend.length;
-    final average = bucketCount > 0
-        ? (bucketTotal / bucketCount).round()
-        : null;
-
-    final isCurrent = period == DashboardPeriod.thisMonth;
-    final int daysElapsed =
-        summary?.period.daysElapsed ??
-        (isCurrent ? now.day : window.end.difference(window.start).inDays + 1);
-    final int daysTotal =
-        summary?.period.daysTotal ??
-        (window.end.difference(window.start).inDays + 1);
-
-    final dailyAllowance = summary != null
-        ? DashboardMetrics.calculateDailyAllowance(summary: summary)
-        : null;
-
-    final insights = summary != null
-        ? DashboardMetrics.buildInsights(
-            summary: summary,
-            currencyCode: currency,
-          )
-        : const <DashboardInsight>[];
+    final projection = HomeFinancialMetrics.buildMonthlyProjection(
+      expenseItems: totals?.expenseItems ?? const [],
+      currencyCode: currency,
+      now: now,
+      coverageStart: totals?.monthStart ?? DateTime(now.year, now.month),
+      coverageEnd: totals?.windowEnd ?? now,
+      historyIsComplete: totals?.historyComplete ?? false,
+    );
+    final displayName = user?.email.split('@').firstOrNull;
 
     return Scaffold(
       body: SafeArea(
-        child: Column(
-          children: [
-            const AppHeader(
-              title: 'Dashboard',
-              subtitle: 'Resumen y tendencias',
-              actions: [ThemeToggleButton()],
-            ),
-            Expanded(
-              child: Center(
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 760),
-                  child: ListView(
-                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
-                    children: [
-                      _DashboardPeriodChips(
-                        selected: period,
-                        onSelect: (value) => ref
-                            .read(dashboardPeriodProvider.notifier)
-                            .select(value),
-                      ),
-                      const SizedBox(height: 12),
-                      _UnifiedNetFlowCard(
-                        currency: currency,
-                        otherCodes: otherCodes,
-                        stock: stock,
-                        monthTotals: monthlyTotals?.byCurrency ?? const {},
-                        monthName: windowName,
-                        monthAvailable:
-                            monthTotalsAsync.hasValue || summary != null,
-                        isCurrent: isCurrent,
-                        daysElapsed: daysElapsed,
-                        daysTotal: daysTotal,
-                      ),
-                      const SizedBox(height: 12),
-                      AccountsShortcut(
-                        accounts: accounts,
-                        stock: stock,
-                        orderedCodes: orderedCodes,
-                        onTap: () => context.push('/accounts'),
-                      ),
-                      if (monthTotalsAsync.hasError &&
-                          summaryAsync.hasError) ...[
-                        const SizedBox(height: 12),
-                        _MonthTotalsError(
-                          onRetry: () {
-                            ref.invalidate(periodTotalsProvider);
-                            ref.invalidate(dashboardSummaryProvider);
-                          },
-                        ),
-                      ],
-                      if (isCurrent &&
-                          dailyAllowance != null &&
-                          summary != null) ...[
-                        const SizedBox(height: 24),
-                        DailyAllowanceCard(
-                          dailyAllowanceMinorUnits: dailyAllowance,
-                          spentMtdMinorUnits:
-                              summary.projection.spentMtd.minorUnits,
-                          projectedMinorUnits:
-                              summary.projection.projected.minorUnits,
-                          remainingDays: daysTotal > daysElapsed
-                              ? (daysTotal - daysElapsed)
-                              : 0,
-                          currency: currency,
-                        ),
-                      ],
-                      const SizedBox(height: 24),
-
-                      SpendingTrendCard(
-                        days: trend,
-                        currency: currency,
-                        available: monthTotalsAsync.hasValue || summary != null,
-                        weekly: trendWeeks,
-                        comparisonLabel: comparisonLabel,
-                        comparisonDirection: comparison?.direction,
-                        averageMinorUnits: average,
-                      ),
-                      const SizedBox(height: 24),
-
-                      BudgetDashboardSection(
-                        state: budgetsState,
-                        onRetry: ref
-                            .read(budgetsControllerProvider.notifier)
-                            .load,
-                        onManage: () => context.go('/budgets'),
-                      ),
-                      if (insights.isNotEmpty) ...[
-                        const SizedBox(height: 24),
-                        InsightsCard(insights: insights),
-                      ],
-                      if (summary != null && summary.recent.isNotEmpty) ...[
-                        const SizedBox(height: 24),
-                        RecentMovementsCard(
-                          movements: summary.recent,
-                          currency: currency,
-                          onViewAll: () => context.go('/history'),
-                        ),
-                      ],
-                      const SizedBox(height: 24),
-
-                      // The history that used to live in the Gastos tab: every
-                      // movement opens its detail.
-                      const RecentMovementsSection(),
-                      const SizedBox(height: 24),
-
-                      Text(
-                        'Gastos por categoría',
-                        style: TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w700,
-                          color: palette.text,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'Movimientos de $windowName',
-                        style: TextStyle(fontSize: 11, color: palette.muted),
-                      ),
-                      const SizedBox(height: 12),
-
-                      if (breakdown.isEmpty)
-                        _EmptyBreakdown(monthName: windowName)
-                      else
-                        _CategoryBreakdown(
-                          rows: breakdown,
-                          currency: currency,
-                          window: window,
-                          windowName: windowName,
-                        ),
-                    ],
+        bottom: false,
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 760),
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
+              children: [
+                _HomeHeader(
+                  name: displayName,
+                  currency: currency,
+                  currencyOptions: currencyOptions,
+                  onCurrencySelected: ref
+                      .read(dashboardCurrencyProvider.notifier)
+                      .select,
+                ),
+                const SizedBox(height: 22),
+                Text(
+                  'Saldo en cuentas',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+                const SizedBox(height: 4),
+                FittedBox(
+                  key: const Key('dashboard-account-balance'),
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    MoneyFormatter.display(
+                      stock[currency]?.balance ?? 0,
+                      currency,
+                    ),
+                    style: TextStyle(
+                      fontSize: 32,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: -0.7,
+                      color: context.palette.text,
+                    ),
                   ),
                 ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  /// The window's expenses in [currency], grouped by category with the top
-  /// merchant of each group (that's the "dónde se va" answer).
-  List<_BreakdownRow> _breakdownFor(MonthlyTotals? totals, String currency) {
-    if (totals == null) {
-      return const [];
-    }
-    final byCategory = <String, _CategoryAcc>{};
-    for (final item in totals.expenseItems) {
-      if (item.movements.isEmpty) {
-        continue;
-      }
-      final movement = item.movements.first;
-      if (movement.currencyCode != currency) {
-        continue;
-      }
-      final minorUnits = movement.amount.minorUnits.abs();
-      final category = item.expense?.items.firstOrNull?.category?.name;
-      final key = category ?? '';
-      final acc = byCategory.putIfAbsent(key, () => _CategoryAcc());
-      acc.total += minorUnits;
-      final store = (item.expense?.store ?? '').trim();
-      if (store.isNotEmpty) {
-        acc.stores[store] = (acc.stores[store] ?? 0) + minorUnits;
-      }
-      final itemCategoryId = item.expense?.items.firstOrNull?.category?.id;
-      if (itemCategoryId != null && itemCategoryId > 0) {
-        acc.categoryId ??= itemCategoryId;
-      }
-    }
-    final rows = <_BreakdownRow>[];
-    for (final entry in byCategory.entries) {
-      final acc = entry.value;
-      final topStore = acc.stores.entries.fold<MapEntry<String, int>?>(null, (
-        best,
-        e,
-      ) {
-        if (best == null || e.value > best.value) return e;
-        return best;
-      });
-      rows.add(
-        _BreakdownRow(
-          category: entry.key.isEmpty ? null : entry.key,
-          categoryId: acc.categoryId,
-          title: topStore?.key ?? 'Varios comercios',
-          minorUnits: acc.total,
-        ),
-      );
-    }
-    rows.sort((a, b) => b.minorUnits.compareTo(a.minorUnits));
-    return rows;
-  }
-}
-
-class _CategoryAcc {
-  int total = 0;
-  int? categoryId;
-  final Map<String, int> stores = {};
-}
-
-/// Honest badge: `+48% vs ago`, `-12% vs sep`, `Igual que antes`, or null when
-/// there is nothing to compare.
-String? _comparisonLabel(
-  ({double ratio, String direction})? comparison,
-  ({DateTime start, DateTime end}) window,
-  DateTime now,
-) {
-  if (comparison == null) return null;
-  final prev = previousWindow(window);
-  final isMultiMonth = prev.start.month != prev.end.month;
-  final prevName = isMultiMonth
-      ? '${shortMonthName(prev.start.month)}\u2013${shortMonthName(prev.end.month)}'
-      : shortMonthName(prev.start.month);
-  switch (comparison.direction) {
-    case 'up':
-      if (comparison.ratio.isInfinite) return 'Gastando de nuevo';
-      final pct = ((comparison.ratio - 1) * 100).round();
-      return '+$pct% vs $prevName';
-    case 'down':
-      final pct = ((1 - comparison.ratio) * 100).round();
-      return '-$pct% vs $prevName';
-    case 'flat':
-      return 'Igual que $prevName';
-  }
-  return null;
-}
-
-/// Window presets above the balance card: Este mes / Mes anterior /
-/// Últimos 3 meses / Este año. Reuses the history screen chip look.
-class _DashboardPeriodChips extends StatelessWidget {
-  const _DashboardPeriodChips({required this.selected, required this.onSelect});
-
-  final DashboardPeriod selected;
-  final ValueChanged<DashboardPeriod> onSelect;
-
-  @override
-  Widget build(BuildContext context) {
-    final palette = context.palette;
-    const options = [
-      (DashboardPeriod.thisMonth, 'Este mes'),
-      (DashboardPeriod.lastMonth, 'Mes anterior'),
-      (DashboardPeriod.last3Months, 'Últimos 3 meses'),
-      (DashboardPeriod.thisYear, 'Este año'),
-    ];
-    return Semantics(
-      label: 'Periodo del dashboard',
-      child: Wrap(
-        spacing: 8,
-        runSpacing: 8,
-        children: [
-          for (final option in options)
-            _PeriodChip(
-              label: option.$2,
-              selected: option.$1 == selected,
-              onTap: () => onSelect(option.$1),
-              palette: palette,
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-class _PeriodChip extends StatelessWidget {
-  const _PeriodChip({
-    required this.label,
-    required this.selected,
-    required this.onTap,
-    required this.palette,
-  });
-
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-  final AppPalette palette;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      key: Key('dashboard-period-$label'),
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 9),
-        decoration: BoxDecoration(
-          color: selected ? palette.primary : palette.card,
-          border: Border.all(color: selected ? palette.primary : palette.line),
-          borderRadius: BorderRadius.circular(999),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
-            color: selected ? palette.onPrimary : palette.muted,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// Balance del periodo: ingresos − gastos = ahorro, con tasa de ahorro.
-///
-/// Answers "¿cómo voy?": the header chips show the two flows but never
-/// subtract them. Savings rate = saved / incomes, hidden when no income.
-/// The Unified Net Flow and Balance card: combines stock accounts balance,
-/// period progress, single income/expense chips, and honest net flow (superávit/déficit).
-class _UnifiedNetFlowCard extends StatelessWidget {
-  const _UnifiedNetFlowCard({
-    required this.currency,
-    required this.otherCodes,
-    required this.stock,
-    required this.monthTotals,
-    required this.monthName,
-    required this.monthAvailable,
-    required this.isCurrent,
-    required this.daysElapsed,
-    required this.daysTotal,
-  });
-
-  final String currency;
-  final List<String> otherCodes;
-  final Map<String, CurrencyTotals> stock;
-  final Map<String, CurrencyTotals> monthTotals;
-  final String monthName;
-  final bool monthAvailable;
-  final bool isCurrent;
-  final int daysElapsed;
-  final int daysTotal;
-
-  @override
-  Widget build(BuildContext context) {
-    final palette = context.palette;
-    final totals = monthTotals[currency] ?? const CurrencyTotals();
-    final incomes = totals.incomes;
-    final expenses = totals.expenses;
-    final saved = incomes - expenses;
-    final positive = saved >= 0;
-
-    final incomesLabel = monthAvailable
-        ? MoneyFormatter.display(incomes, currency, signed: true)
-        : '—';
-    final expensesLabel = monthAvailable
-        ? MoneyFormatter.display(-expenses, currency, signed: true)
-        : '—';
-
-    final progressPct = (daysTotal > 0 && daysElapsed > 0)
-        ? (daysElapsed / daysTotal).clamp(0.0, 1.0)
-        : null;
-
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: palette.card,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: palette.line),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x060F172A),
-            blurRadius: 10,
-            offset: Offset(0, 3),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Saldo en cuentas',
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              color: palette.muted,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            MoneyFormatter.display(stock[currency]?.balance ?? 0, currency),
-            style: TextStyle(
-              fontSize: 26,
-              fontWeight: FontWeight.w800,
-              color: palette.text,
-              letterSpacing: -0.5,
-            ),
-          ),
-          for (final code in otherCodes) ...[
-            const SizedBox(height: 2),
-            Text(
-              MoneyFormatter.display(stock[code]?.balance ?? 0, code),
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: palette.muted,
-              ),
-            ),
-          ],
-          const SizedBox(height: 16),
-          Divider(height: 1, color: palette.line),
-          const SizedBox(height: 14),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Movimientos de $monthName',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
-                  color: palette.text,
-                ),
-              ),
-              if (isCurrent && progressPct != null)
                 Text(
-                  'Día $daysElapsed de $daysTotal (${(progressPct * 100).round()}%)',
-                  style: TextStyle(fontSize: 11, color: palette.muted),
+                  'Este mes',
+                  style: TextStyle(fontSize: 12, color: context.palette.muted),
                 ),
-            ],
-          ),
-          if (isCurrent && progressPct != null) ...[
-            const SizedBox(height: 6),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(4),
-              child: LinearProgressIndicator(
-                value: progressPct,
-                backgroundColor: palette.soft,
-                valueColor: AlwaysStoppedAnimation<Color>(palette.primary),
-                minHeight: 4,
-              ),
-            ),
-          ],
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: _FlowChip(
-                  label: 'Ingresos',
-                  value: incomesLabel,
-                  color: palette.income,
-                  icon: Icons.arrow_downward,
+                const SizedBox(height: 8),
+                _PeriodSummary(
+                  incomes: hasTotals
+                      ? MoneyFormatter.display(incomes, currency, signed: true)
+                      : '—',
+                  expenses: hasTotals
+                      ? MoneyFormatter.display(
+                          -expenses,
+                          currency,
+                          signed: true,
+                        )
+                      : '—',
+                  balance: hasTotals
+                      ? MoneyFormatter.display(saved, currency, signed: true)
+                      : '—',
                 ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _FlowChip(
-                  label: 'Gastos',
-                  value: expensesLabel,
-                  color: palette.discard,
-                  icon: Icons.arrow_upward,
+                const SizedBox(height: 20),
+                if (totalsAsync.hasError)
+                  _HomeError(
+                    onRetry: () {
+                      ref.invalidate(monthlyTotalsProvider);
+                    },
+                  )
+                else ...[
+                  _WeeklyInsightCard(insight: weekly),
+                  const SizedBox(height: 14),
+                  _ProjectionCard(
+                    projection: projection,
+                    currency: currency,
+                    now: now,
+                  ),
+                ],
+                const SizedBox(height: 14),
+                _BudgetLink(
+                  hasBudgets: budgets.result?.budgets.isNotEmpty ?? false,
+                  onTap: () => context.push('/budgets'),
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-            decoration: BoxDecoration(
-              color: palette.soft,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Row(
-              children: [
-                Icon(
-                  positive ? Icons.check_circle_outline : Icons.error_outline,
-                  size: 18,
-                  color: positive ? palette.income : palette.discard,
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
+                const SizedBox(height: 12),
+                Material(
+                  color: context.palette.primarySoft,
+                  borderRadius: BorderRadius.circular(14),
+                  child: InkWell(
+                    key: const Key('dashboard-open-analysis'),
+                    onTap: () => context.push('/analysis'),
+                    borderRadius: BorderRadius.circular(14),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 14,
+                      ),
+                      child: Row(
                         children: [
-                          Text(
-                            'Balance de $monthName',
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600,
-                              color: palette.muted,
+                          Icon(
+                            FinanceIcons.queryStatsRounded,
+                            color: context.palette.primaryDark,
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              'Ver análisis',
+                              style: TextStyle(
+                                color: context.palette.primaryDark,
+                                fontSize: 14,
+                                fontWeight: FontWeight.w700,
+                              ),
                             ),
                           ),
-                          const SizedBox(width: 6),
-                          Text(
-                            positive ? 'Ahorro' : 'Déficit',
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w700,
-                              color: positive
-                                  ? palette.income
-                                  : palette.discard,
-                            ),
+                          Icon(
+                            FinanceIcons.chevronRight,
+                            color: context.palette.primaryDark,
                           ),
                         ],
                       ),
-                      const SizedBox(height: 2),
-                      Text(
-                        positive
-                            ? 'Superávit del periodo'
-                            : 'Gastos superan ingresos',
-                        style: TextStyle(fontSize: 10, color: palette.muted),
-                      ),
-                    ],
-                  ),
-                ),
-                Text(
-                  !monthAvailable
-                      ? '—'
-                      : MoneyFormatter.display(saved, currency, signed: true),
-                  key: const Key('dashboard-savings-amount'),
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w800,
-                    color: positive ? palette.income : palette.discard,
+                    ),
                   ),
                 ),
               ],
             ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _FlowChip extends StatelessWidget {
-  const _FlowChip({
-    required this.label,
-    required this.value,
-    required this.color,
-    this.icon,
-  });
-
-  final String label;
-  final String value;
-  final Color color;
-  final IconData? icon;
-
-  @override
-  Widget build(BuildContext context) {
-    final palette = context.palette;
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: palette.soft,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              if (icon != null) ...[
-                Icon(icon, size: 12, color: color),
-                const SizedBox(width: 4),
-              ] else ...[
-                Container(
-                  width: 8,
-                  height: 8,
-                  decoration: BoxDecoration(
-                    color: color,
-                    shape: BoxShape.circle,
-                  ),
-                ),
-                const SizedBox(width: 6),
-              ],
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                  color: palette.muted,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 4),
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w800,
-              color: color,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// One expense of the month, for the category breakdown.
-@immutable
-class _BreakdownRow {
-  const _BreakdownRow({
-    required this.category,
-    required this.categoryId,
-    required this.title,
-    required this.minorUnits,
-  });
-
-  final String? category;
-
-  /// Backend category id for the history drill-down. Null when the items
-  /// carry no id (older captures): the row then navigates unfiltered.
-  final int? categoryId;
-  final String title;
-  final int minorUnits;
-}
-
-class _CategoryBreakdown extends StatelessWidget {
-  const _CategoryBreakdown({
-    required this.rows,
-    required this.currency,
-    required this.window,
-    required this.windowName,
-  });
-
-  final List<_BreakdownRow> rows;
-
-  /// Headline currency of the dashboard (single-currency rows).
-  final String currency;
-
-  /// Current window for the history drill-down.
-  final ({DateTime start, DateTime end}) window;
-  final String windowName;
-
-  @override
-  Widget build(BuildContext context) {
-    return Consumer(
-      builder: (context, ref, _) {
-        final palette = context.palette;
-        final visible = rows.take(5).toList();
-        final total = rows.fold<int>(0, (s, r) => s + r.minorUnits);
-        return Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: palette.card,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: palette.line),
-          ),
-          child: Column(
-            children: [
-              for (var index = 0; index < visible.length; index++) ...[
-                if (index > 0) Divider(height: 1, color: palette.line),
-                _BreakdownTile(
-                  row: visible[index],
-                  currency: currency,
-                  share: total > 0 ? visible[index].minorUnits / total : 0,
-                  onTap: () {
-                    ref
-                        .read(historyControllerProvider.notifier)
-                        .showWindowForCategory(
-                          categoryId: visible[index].categoryId,
-                          startDate: window.start,
-                          endDate: window.end,
-                        );
-                    context.push('/history');
-                  },
-                ),
-              ],
-            ],
-          ),
-        );
-      },
-    );
-  }
-}
-
-class _BreakdownTile extends StatelessWidget {
-  const _BreakdownTile({
-    required this.row,
-    required this.currency,
-    required this.share,
-    required this.onTap,
-  });
-
-  final _BreakdownRow row;
-  final String currency;
-  final double share;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final palette = context.palette;
-    final pct = (share * 100).round();
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        key: Key('dashboard-category-${row.category ?? 'sin-categoria'}'),
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 8),
-          child: Row(
-            children: [
-              Container(
-                width: 32,
-                height: 32,
-                decoration: BoxDecoration(
-                  color: palette.primarySoft,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Center(
-                  child: Text(
-                    categoryEmoji(row.category),
-                    style: const TextStyle(fontSize: 14),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            row.category ?? 'Sin categoría',
-                            style: TextStyle(
-                              fontSize: 13.5,
-                              fontWeight: FontWeight.w600,
-                              color: palette.text,
-                            ),
-                          ),
-                        ),
-                        Text(
-                          '$pct%',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w800,
-                            color: palette.text,
-                          ),
-                        ),
-                      ],
-                    ),
-                    Text(
-                      row.title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(fontSize: 11, color: palette.muted),
-                    ),
-                    const SizedBox(height: 6),
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(99),
-                      child: LinearProgressIndicator(
-                        value: share.clamp(0.0, 1.0),
-                        minHeight: 6,
-                        backgroundColor: palette.soft,
-                        color: palette.primary,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 12),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text(
-                    MoneyFormatter.display(
-                      -row.minorUnits,
-                      currency,
-                      signed: true,
-                    ),
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                      color: palette.discard,
-                    ),
-                  ),
-                  Icon(Icons.chevron_right, size: 16, color: palette.muted),
-                ],
-              ),
-            ],
           ),
         ),
       ),
@@ -964,72 +244,441 @@ class _BreakdownTile extends StatelessWidget {
   }
 }
 
-class _EmptyBreakdown extends StatelessWidget {
-  const _EmptyBreakdown({required this.monthName});
-
-  final String monthName;
+class _HomeHeader extends StatefulWidget {
+  const _HomeHeader({
+    required this.name,
+    required this.currency,
+    required this.currencyOptions,
+    required this.onCurrencySelected,
+  });
+  final String? name;
+  final String currency;
+  final List<String> currencyOptions;
+  final ValueChanged<String> onCurrencySelected;
 
   @override
-  Widget build(BuildContext context) {
-    final palette = context.palette;
-    return Container(
-      padding: const EdgeInsets.all(28),
-      decoration: BoxDecoration(
-        color: palette.card,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: palette.line),
-      ),
-      child: Center(
-        child: Column(
-          children: [
-            const Text('📊', style: TextStyle(fontSize: 36)),
-            const SizedBox(height: 10),
-            Text(
-              'Sin datos suficientes',
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w700,
-                color: palette.text,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              'Registra gastos de $monthName para ver el desglose.',
-              style: TextStyle(fontSize: 12, color: palette.muted),
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+  State<_HomeHeader> createState() => _HomeHeaderState();
 }
 
-/// The month totals could not be read: say so instead of showing a fake zero.
-class _MonthTotalsError extends StatelessWidget {
-  const _MonthTotalsError({required this.onRetry});
-
-  final VoidCallback onRetry;
+class _HomeHeaderState extends State<_HomeHeader> {
+  final _currencyMenuKey = GlobalKey<PopupMenuButtonState<String>>();
 
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
     return Row(
       children: [
-        Icon(Icons.error_outline, size: 16, color: palette.discard),
-        const SizedBox(width: 8),
         Expanded(
-          child: Text(
-            'No pudimos calcular los movimientos del mes.',
-            style: TextStyle(fontSize: 12, color: palette.muted),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                widget.name == null || widget.name!.isEmpty
+                    ? 'Hola'
+                    : 'Hola, ${widget.name}',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 19,
+                  fontWeight: FontWeight.w800,
+                  color: palette.text,
+                ),
+              ),
+              Text(
+                'Aquí tienes un resumen de tus finanzas',
+                style: TextStyle(fontSize: 13, color: palette.muted),
+              ),
+            ],
           ),
         ),
-        TextButton(
-          key: const Key('dashboard-month-totals-retry'),
-          onPressed: onRetry,
-          child: const Text('Reintentar'),
+        Semantics(
+          key: const Key('dashboard-currency-selector'),
+          container: true,
+          label: 'Seleccionar moneda',
+          button: true,
+          onTap: () => _currencyMenuKey.currentState?.showButtonMenu(),
+          child: ExcludeSemantics(
+            child: PopupMenuButton<String>(
+              key: _currencyMenuKey,
+              tooltip: 'Seleccionar moneda',
+              initialValue: widget.currency,
+              onSelected: widget.onCurrencySelected,
+              itemBuilder: (context) => [
+                for (final code in widget.currencyOptions)
+                  PopupMenuItem(value: code, child: Text(code)),
+              ],
+              child: Container(
+                constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 9,
+                ),
+                decoration: BoxDecoration(
+                  color: palette.primarySoft,
+                  borderRadius: BorderRadius.circular(24),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      widget.currency,
+                      style: TextStyle(
+                        color: palette.text,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    Icon(
+                      FinanceIcons.expandMore,
+                      size: 16,
+                      color: palette.text,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
         ),
+        const SizedBox(width: 4),
+        const ThemeToggleButton(),
       ],
     );
   }
+}
+
+class _PeriodSummary extends StatelessWidget {
+  const _PeriodSummary({
+    required this.incomes,
+    required this.expenses,
+    required this.balance,
+  });
+  final String incomes;
+  final String expenses;
+  final String balance;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 13, horizontal: 8),
+      decoration: BoxDecoration(
+        color: palette.primarySoft.withValues(alpha: 0.58),
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: _SummaryItem(
+              icon: FinanceIcons.arrowUpwardRounded,
+              label: 'Ingresos',
+              value: incomes,
+              color: palette.income,
+            ),
+          ),
+          _summaryDivider(palette),
+          Expanded(
+            child: _SummaryItem(
+              icon: FinanceIcons.arrowDownwardRounded,
+              label: 'Gastos',
+              value: expenses,
+              color: palette.discard,
+            ),
+          ),
+          _summaryDivider(palette),
+          Expanded(
+            child: _SummaryItem(
+              icon: FinanceIcons.trendingFlat,
+              label: 'Balance',
+              value: balance,
+              color: palette.primaryDark,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _summaryDivider(AppPalette palette) =>
+      Container(width: 1, height: 46, color: palette.line);
+}
+
+class _SummaryItem extends StatelessWidget {
+  const _SummaryItem({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+  final IconData icon;
+  final String label;
+  final String value;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.symmetric(horizontal: 5),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(icon, size: 15, color: color),
+            const SizedBox(width: 4),
+            Flexible(
+              child: Text(
+                label,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(fontSize: 11, color: context.palette.muted),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 4),
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: Alignment.centerLeft,
+          child: Text(
+            value,
+            maxLines: 1,
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w800,
+              color: color,
+            ),
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+class _WeeklyInsightCard extends StatelessWidget {
+  const _WeeklyInsightCard({required this.insight});
+  final WeeklySpendInsight insight;
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+    final maxDailySpend = insight.dailySpend.fold<int>(
+      0,
+      (maximum, value) => value > maximum ? value : maximum,
+    );
+    return Card(
+      key: const Key('dashboard-weekly-insight'),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  FinanceIcons.autoAwesome,
+                  color: palette.primary,
+                  size: 20,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Insight semanal',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w800,
+                      color: palette.text,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              insight.message,
+              style: TextStyle(fontSize: 13, height: 1.4, color: palette.muted),
+            ),
+            if (insight.isAvailable) ...[
+              const SizedBox(height: 14),
+              Semantics(
+                label: 'Gasto diario durante los últimos siete días',
+                child: SizedBox(
+                  height: 70,
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      for (var i = 0; i < insight.dailySpend.length; i++)
+                        Expanded(
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 4),
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.end,
+                              children: [
+                                Expanded(
+                                  child: Align(
+                                    alignment: Alignment.bottomCenter,
+                                    child: FractionallySizedBox(
+                                      heightFactor: maxDailySpend == 0
+                                          ? 0.06
+                                          : (insight.dailySpend[i] /
+                                                    maxDailySpend)
+                                                .clamp(0.08, 1),
+                                      child: Container(
+                                        decoration: BoxDecoration(
+                                          color: palette.primary.withValues(
+                                            alpha: maxDailySpend == 0
+                                                ? 0.4
+                                                : 0.35 +
+                                                      0.65 *
+                                                          (insight.dailySpend[i] /
+                                                              maxDailySpend),
+                                          ),
+                                          borderRadius: BorderRadius.circular(
+                                            4,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  _weekdayLabel(
+                                    insight.currentStart
+                                        .add(Duration(days: i))
+                                        .weekday,
+                                  ),
+                                  style: TextStyle(
+                                    fontSize: 9,
+                                    color: palette.muted,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+bool _sameCalendarDay(DateTime left, DateTime right) =>
+    left.year == right.year &&
+    left.month == right.month &&
+    left.day == right.day;
+
+String _weekdayLabel(int weekday) =>
+    const ['lun', 'mar', 'mié', 'jue', 'vie', 'sáb', 'dom'][weekday - 1];
+
+class _ProjectionCard extends StatelessWidget {
+  const _ProjectionCard({
+    required this.projection,
+    required this.currency,
+    required this.now,
+  });
+  final MonthlySpendProjection projection;
+  final String currency;
+  final DateTime now;
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+    final month = DateLabels.monthName(now);
+    return Card(
+      key: const Key('dashboard-month-projection'),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  FinanceIcons.queryStatsRounded,
+                  size: 20,
+                  color: palette.primary,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Proyección del mes',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w800,
+                      color: palette.text,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 7),
+            Text(
+              projection.isAvailable
+                  ? 'Al ritmo actual, cerrarías $month con ${MoneyFormatter.display(projection.projected!, currency)} en gastos.'
+                  : projection.message,
+              style: TextStyle(fontSize: 13, height: 1.4, color: palette.muted),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'Corte: ${now.day} de $month · ${projection.daysElapsed} días de ${projection.daysInMonth}.',
+              style: TextStyle(fontSize: 11, color: palette.muted),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _BudgetLink extends StatelessWidget {
+  const _BudgetLink({required this.hasBudgets, required this.onTap});
+  final bool hasBudgets;
+  final VoidCallback onTap;
+  @override
+  Widget build(BuildContext context) => Align(
+    alignment: Alignment.centerLeft,
+    child: TextButton.icon(
+      key: const Key('dashboard-budget-link'),
+      onPressed: onTap,
+      icon: const Icon(FinanceIcons.accountBalanceWalletOutlined, size: 18),
+      label: const Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text('Presupuestos'),
+          SizedBox(width: 6),
+          Icon(FinanceIcons.chevronRight, size: 16),
+        ],
+      ),
+      style: TextButton.styleFrom(
+        foregroundColor: context.palette.primaryDark,
+        minimumSize: const Size(48, 48),
+      ),
+    ),
+  );
+}
+
+class _HomeError extends StatelessWidget {
+  const _HomeError({required this.onRetry});
+  final VoidCallback onRetry;
+  @override
+  Widget build(BuildContext context) => Card(
+    child: Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        children: [
+          ErrorDiagnosticPanel(
+            diagnostic: ErrorDiagnostic.capture(
+              code: 'dashboard_summary_unavailable',
+              operation: 'load_dashboard',
+              userMessage: 'No pudimos cargar el resumen. Revisa tu conexión e inténtalo de nuevo.',
+              technicalReason: 'service_unavailable',
+            ),
+          ),
+          TextButton(onPressed: onRetry, child: const Text('Reintentar')),
+        ],
+      ),
+    ),
+  );
 }

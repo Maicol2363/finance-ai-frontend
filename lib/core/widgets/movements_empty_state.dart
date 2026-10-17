@@ -1,3 +1,4 @@
+import 'package:finance_ai/core/icons/finance_icon_catalog.dart';
 import 'package:flutter/material.dart';
 
 import '../theme/app_palette.dart';
@@ -44,7 +45,7 @@ class MovementsEmptyState extends StatelessWidget {
                 shape: BoxShape.circle,
               ),
               child: Icon(
-                Icons.receipt_long_outlined,
+                FinanceIcons.receiptLongOutlined,
                 size: 30,
                 color: palette.primary,
               ),
@@ -69,7 +70,7 @@ class MovementsEmptyState extends StatelessWidget {
             FilledButton.icon(
               key: const Key('movements-empty-register-button'),
               onPressed: onRegister,
-              icon: const Icon(Icons.add, size: 18),
+              icon: const Icon(FinanceIcons.add, size: 18),
               label: const Text('Registrar movimiento'),
             ),
           ],

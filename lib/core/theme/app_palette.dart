@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 
-/// Design tokens mirrored from `docs/mockups/index.html`
-/// (light + dark palettes) so the Flutter UI matches the mockup.
+/// Shared brand and semantic color tokens for the app's light and dark themes.
 @immutable
 class AppPalette extends ThemeExtension<AppPalette> {
   const AppPalette({
     required this.background,
+    required this.header,
     required this.card,
     required this.primary,
     required this.onPrimary,
@@ -29,6 +29,7 @@ class AppPalette extends ThemeExtension<AppPalette> {
   });
 
   final Color background;
+  final Color header;
   final Color card;
   final Color primary;
   final Color onPrimary;
@@ -50,59 +51,62 @@ class AppPalette extends ThemeExtension<AppPalette> {
   final Color warnFg;
   final Color placeholder;
 
-  /// `docs/mockups/index.html` -> `:root`
+  /// Olive brand with restrained neutral surfaces.
   static const light = AppPalette(
     background: Color(0xFFF5F6F8),
+    header: Color(0xFFFFFFFF),
     card: Color(0xFFFFFFFF),
     primary: Color(0xFF6B8E00),
-    onPrimary: Color(0xFFFFFFFF),
+    onPrimary: Color(0xFF101900),
     primarySoft: Color(0xFFE9F2D8),
     primaryDark: Color(0xFF546E00),
-    income: Color(0xFF0E9F6E),
-    incomeSoft: Color(0xFFE1F5EC),
-    text: Color(0xFF1F2933),
-    muted: Color(0xFF6B7280),
-    line: Color(0xFFE5E7EB),
-    confirm: Color(0xFF16A34A),
-    discard: Color(0xFFDC2626),
-    errorSoft: Color(0xFFFDECEC),
-    nav: Color(0xFF64748B),
-    soft: Color(0xFFF3F4F6),
-    soft2: Color(0xFFFAFAFB),
-    rowLine: Color(0xFFF3F4F6),
-    warnBg: Color(0xFFFDF3D8),
-    warnFg: Color(0xFF9A7B00),
-    placeholder: Color(0xFF9AA0A6),
+    income: Color(0xFF426D18),
+    incomeSoft: Color(0xFFE9F2D8),
+    text: Color(0xFF202B28),
+    muted: Color(0xFF5E6860),
+    line: Color(0xFFE1E5DC),
+    confirm: Color(0xFF426D18),
+    discard: Color(0xFFB3261E),
+    errorSoft: Color(0xFFFFEFEE),
+    nav: Color(0xFF5E6860),
+    soft: Color(0xFFF0F3EA),
+    soft2: Color(0xFFFAFBF9),
+    rowLine: Color(0xFFF0F2EC),
+    warnBg: Color(0xFFFFF4DA),
+    warnFg: Color(0xFF8A6900),
+    placeholder: Color(0xFF737D75),
   );
 
-  /// `docs/mockups/index.html` -> `:root[data-theme="dark"]`
+  /// Dark counterpart with accessible olive highlights.
   static const dark = AppPalette(
-    background: Color(0xFF101318),
-    card: Color(0xFF1A2027),
+    background: Color(0xFF171D22),
+    header: Color(0xFF222B31),
+    card: Color(0xFF20282E),
     primary: Color(0xFF8FB42C),
-    onPrimary: Color(0xFF0F1710),
-    primarySoft: Color(0xFF26301A),
-    primaryDark: Color(0xFFB7D45C),
-    income: Color(0xFF2DB886),
-    incomeSoft: Color(0xFF143129),
-    text: Color(0xFFE8EBF0),
-    muted: Color(0xFF9AA5B5),
-    line: Color(0xFF262E38),
-    confirm: Color(0xFF1FA254),
-    discard: Color(0xFFE5534D),
+    onPrimary: Color(0xFF171D22),
+    primarySoft: Color(0xFF354220),
+    primaryDark: Color(0xFFB4D875),
+    income: Color(0xFF9CC66B),
+    incomeSoft: Color(0xFF293720),
+    text: Color(0xFFF0F3F2),
+    muted: Color(0xFFADB8B4),
+    line: Color(0xFF303A40),
+    confirm: Color(0xFF9CC66B),
+    discard: Color(0xFFFF8A80),
     errorSoft: Color(0xFF351D20),
-    nav: Color(0xFF94A3B8),
-    soft: Color(0xFF20262E),
-    soft2: Color(0xFF232A33),
-    rowLine: Color(0xFF1F262E),
-    warnBg: Color(0xFF3A3113),
-    warnFg: Color(0xFFE5C76B),
-    placeholder: Color(0xFF6B7686),
+    nav: Color(0xFFADB8B4),
+    soft: Color(0xFF293238),
+    soft2: Color(0xFF242D33),
+    rowLine: Color(0xFF2A3339),
+    warnBg: Color(0xFF382F18),
+    warnFg: Color(0xFFE8CC74),
+    placeholder: Color(0xFF87938E),
   );
 
   @override
   AppPalette copyWith({
     Color? background,
+    Color? header,
     Color? card,
     Color? primary,
     Color? onPrimary,
@@ -126,6 +130,7 @@ class AppPalette extends ThemeExtension<AppPalette> {
   }) {
     return AppPalette(
       background: background ?? this.background,
+      header: header ?? this.header,
       card: card ?? this.card,
       primary: primary ?? this.primary,
       onPrimary: onPrimary ?? this.onPrimary,
@@ -157,6 +162,7 @@ class AppPalette extends ThemeExtension<AppPalette> {
     Color mix(Color a, Color b) => Color.lerp(a, b, t) ?? b;
     return AppPalette(
       background: mix(background, other.background),
+      header: mix(header, other.header),
       card: mix(card, other.card),
       primary: mix(primary, other.primary),
       onPrimary: mix(onPrimary, other.onPrimary),

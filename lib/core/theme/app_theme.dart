@@ -56,7 +56,7 @@ class AppTheme {
       scaffoldBackgroundColor: p.background,
       extensions: <ThemeExtension<dynamic>>[p],
       appBarTheme: AppBarTheme(
-        backgroundColor: p.background,
+        backgroundColor: p.header,
         foregroundColor: p.text,
         surfaceTintColor: Colors.transparent,
         elevation: 0,

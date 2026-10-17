@@ -1,9 +1,13 @@
+import 'package:finance_ai/core/icons/finance_icon_catalog.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/diagnostics/error_diagnostic.dart';
 import '../../../core/diagnostics/error_diagnostic_panel.dart';
+import '../../../core/widgets/app_header.dart';
+import '../../../core/widgets/manage_widgets.dart';
+import '../../../core/widgets/management_page_scaffold.dart';
 import '../data/incomes_repository.dart';
 import '../domain/income_models.dart';
 
@@ -56,7 +60,7 @@ class _IncomeDetailScreenState extends ConsumerState<IncomeDetailScreen> {
           FilledButton(
             key: const Key('income-confirm-delete-button'),
             style: FilledButton.styleFrom(
-              minimumSize: const Size(0, 40),
+              minimumSize: const Size(0, 48),
               backgroundColor: Theme.of(context).colorScheme.error,
               foregroundColor: Theme.of(context).colorScheme.onError,
             ),
@@ -118,127 +122,115 @@ class _IncomeDetailScreenState extends ConsumerState<IncomeDetailScreen> {
       _loadedRevision = revision;
       _reload();
     }
-    return Scaffold(
-      appBar: AppBar(
-        leading: IconButton(
-          tooltip: context.canPop() ? 'Volver' : 'Volver a ingresos',
-          onPressed: () {
-            if (context.canPop()) {
-              context.pop();
-            } else {
-              context.go('/incomes');
-            }
-          },
-          icon: const Icon(Icons.arrow_back),
-        ),
-        title: const Text('Detalle del ingreso'),
+    return ManagementPageScaffold(
+      title: 'Detalle del ingreso',
+      maxWidth: 680,
+      leading: HeaderIconButton(
+        icon: FinanceIcons.arrowBack,
+        tooltip: context.canPop() ? 'Volver' : 'Volver a ingresos',
+        onPressed: () {
+          if (context.canPop()) {
+            context.pop();
+          } else {
+            context.go('/incomes');
+          }
+        },
       ),
-      body: SafeArea(
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 680),
-            child: FutureBuilder<Income>(
-              future: _incomeFuture,
-              builder: (context, snapshot) {
-                if (!snapshot.hasData && !snapshot.hasError) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-                if (snapshot.hasError) {
-                  final error = snapshot.error;
-                  final failure = error is IncomeFailure ? error : null;
-                  return Padding(
-                    padding: const EdgeInsets.all(20),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        ErrorDiagnosticPanel(
-                          diagnostic: ErrorDiagnostic.capture(
-                            code: failure?.code ?? 'unexpected_client_error',
-                            operation: 'load_income_detail',
-                            userMessage:
-                                failure?.userMessage ??
-                                'No pudimos cargar este ingreso.',
-                            correlationId:
-                                failure?.correlationId ?? 'unavailable',
-                            technicalReason:
-                                failure?.technicalReason ??
-                                'unclassified_client_failure',
-                          ),
-                        ),
-                        OutlinedButton(
-                          onPressed: () => setState(_reload),
-                          child: const Text('Reintentar'),
-                        ),
-                      ],
+      body: FutureBuilder<Income>(
+        future: _incomeFuture,
+        builder: (context, snapshot) {
+          if (!snapshot.hasData && !snapshot.hasError) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          if (snapshot.hasError) {
+            final error = snapshot.error;
+            final failure = error is IncomeFailure ? error : null;
+            return Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  ErrorDiagnosticPanel(
+                    diagnostic: ErrorDiagnostic.capture(
+                      code: failure?.code ?? 'unexpected_client_error',
+                      operation: 'load_income_detail',
+                      userMessage:
+                          failure?.userMessage ??
+                          'No pudimos cargar este ingreso.',
+                      correlationId: failure?.correlationId ?? 'unavailable',
+                      technicalReason:
+                          failure?.technicalReason ??
+                          'unclassified_client_failure',
                     ),
-                  );
-                }
-                final income = snapshot.data!;
-                return ListView(
-                  padding: const EdgeInsets.all(20),
-                  children: [
-                    Text(
-                      income.amount.formatWithCurrency(income.currencyCode),
-                      style: Theme.of(context).textTheme.headlineMedium,
-                    ),
-                    const SizedBox(height: 16),
-                    ListTile(
-                      title: const Text('Cuenta'),
-                      subtitle: Text(income.accountName),
-                    ),
-                    ListTile(
-                      title: const Text('Fecha'),
-                      subtitle: Text(incomeDateWire(income.date)),
-                    ),
-                    ListTile(
-                      title: const Text('Fuente'),
-                      subtitle: Text(income.incomeSourceName ?? 'Sin fuente'),
-                    ),
-                    ListTile(
-                      title: const Text('Descripción'),
-                      subtitle: Text(income.description ?? 'Sin descripción'),
-                    ),
-                    const SizedBox(height: 20),
-                    FilledButton.icon(
-                      key: const Key('income-edit-button'),
-                      onPressed: _deleting || _uncertain
-                          ? null
-                          : () async {
-                              await context.push('/incomes/${income.id}/edit');
-                              if (context.mounted) {
-                                setState(_reload);
-                              }
-                            },
-                      icon: const Icon(Icons.edit_outlined),
-                      label: const Text('Editar ingreso'),
-                    ),
-                    const SizedBox(height: 12),
-                    OutlinedButton.icon(
-                      key: const Key('income-delete-button'),
-                      onPressed: _deleting || _uncertain
-                          ? null
-                          : _confirmDelete,
-                      icon: const Icon(Icons.delete_outline),
-                      label: const Text('Eliminar ingreso'),
-                    ),
-                    if (_deleting) const LinearProgressIndicator(),
-                    if (_diagnostic != null) ...[
-                      const SizedBox(height: 16),
-                      ErrorDiagnosticPanel(diagnostic: _diagnostic!),
-                    ],
-                    if (_uncertain)
-                      OutlinedButton(
-                        onPressed: () => context.go('/incomes'),
-                        child: const Text(
-                          'Revisar lista antes de volver a intentar',
-                        ),
-                      ),
-                  ],
-                );
-              },
-            ),
-          ),
-        ),
+                  ),
+                  OutlinedButton(
+                    onPressed: () => setState(_reload),
+                    child: const Text('Reintentar'),
+                  ),
+                ],
+              ),
+            );
+          }
+          final income = snapshot.data!;
+          return ListView(
+            padding: EdgeInsets.zero,
+            children: [
+              Text(
+                income.amount.formatWithCurrency(income.currencyCode),
+                style: Theme.of(context).textTheme.headlineMedium,
+              ),
+              const SizedBox(height: 16),
+              ManageCard(
+                children: [
+                  ManageRow(title: 'Cuenta', subtitle: income.accountName),
+                  ManageRow(
+                    title: 'Fecha',
+                    subtitle: incomeDateWire(income.date),
+                  ),
+                  ManageRow(
+                    title: 'Fuente',
+                    subtitle: income.incomeSourceName ?? 'Sin fuente',
+                  ),
+                  ManageRow(
+                    title: 'Descripción',
+                    subtitle: income.description ?? 'Sin descripción',
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              FilledButton.icon(
+                key: const Key('income-edit-button'),
+                onPressed: _deleting || _uncertain
+                    ? null
+                    : () async {
+                        await context.push('/incomes/${income.id}/edit');
+                        if (context.mounted) {
+                          setState(_reload);
+                        }
+                      },
+                icon: const Icon(FinanceIcons.editOutlined),
+                label: const Text('Editar ingreso'),
+              ),
+              const SizedBox(height: 12),
+              OutlinedButton.icon(
+                key: const Key('income-delete-button'),
+                onPressed: _deleting || _uncertain ? null : _confirmDelete,
+                icon: const Icon(FinanceIcons.deleteOutline),
+                label: const Text('Eliminar ingreso'),
+              ),
+              if (_deleting) const LinearProgressIndicator(),
+              if (_diagnostic != null) ...[
+                const SizedBox(height: 16),
+                ErrorDiagnosticPanel(diagnostic: _diagnostic!),
+              ],
+              if (_uncertain)
+                OutlinedButton(
+                  onPressed: () => context.go('/incomes'),
+                  child: const Text('Revisar lista antes de volver a intentar'),
+                ),
+            ],
+          );
+        },
       ),
     );
   }

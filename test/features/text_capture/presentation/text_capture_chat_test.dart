@@ -1,11 +1,15 @@
 import 'dart:async';
 
+import 'package:finance_ai/core/icons/finance_icon_catalog.dart';
 import 'package:finance_ai/core/theme/app_theme.dart';
+import 'package:finance_ai/core/theme/app_palette.dart';
 import 'package:finance_ai/features/accounts/application/accounts_controller.dart';
 import 'package:finance_ai/features/categories/application/categories_controller.dart';
 import 'package:finance_ai/features/text_capture/application/text_capture_controller.dart';
 import 'package:finance_ai/features/text_capture/domain/text_capture_models.dart';
 import 'package:finance_ai/features/text_capture/presentation/text_capture_chat.dart';
+import 'package:finance_ai/features/voice_capture/data/native_speech_service.dart';
+import 'package:finance_ai/features/voice_capture/domain/speech_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -23,6 +27,8 @@ Future<ProviderContainer> pumpChat(
   ThemeData? theme,
   FakeExpensesRepository? expenses,
   FakeAccountsRepository? accountsRepository,
+  SpeechService? speech,
+  TextCaptureChat chat = const TextCaptureChat(),
 }) async {
   tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1.0;
@@ -31,8 +37,7 @@ Future<ProviderContainer> pumpChat(
     routes: [
       GoRoute(
         path: '/',
-        builder: (_, _) =>
-            const Scaffold(body: SafeArea(child: TextCaptureChat())),
+        builder: (_, _) => Scaffold(body: SafeArea(child: chat)),
       ),
       GoRoute(
         path: '/expenses/new',
@@ -48,11 +53,14 @@ Future<ProviderContainer> pumpChat(
   addTearDown(router.dispose);
   await tester.pumpWidget(
     ProviderScope(
-      overrides: baseOverrides(
-        repository: repository,
-        expensesRepository: expenses,
-        accountsRepository: accountsRepository,
-      ),
+      overrides: [
+        ...baseOverrides(
+          repository: repository,
+          expensesRepository: expenses,
+          accountsRepository: accountsRepository,
+        ),
+        if (speech != null) speechServiceProvider.overrideWithValue(speech),
+      ],
       child: MaterialApp.router(
         routerConfig: router,
         theme: theme ?? AppTheme.light(),
@@ -105,15 +113,15 @@ void main() {
     expect(field.controller!.text, 'Pasé 50 mil de Nequi a efectivo');
   });
 
-  testWidgets('send is disabled until there is text', (tester) async {
+  testWidgets('send appears when the composer has text', (tester) async {
     await pumpChat(tester, FakeTextCaptureRepository());
 
     IconButton button() => tester.widget<IconButton>(byKey('chat-send-button'));
-    expect(button().onPressed, isNull);
+    expect(byKey('chat-send-button'), findsNothing);
 
     await tester.enterText(byKey('chat-composer-field'), '   ');
     await tester.pump();
-    expect(button().onPressed, isNull);
+    expect(byKey('chat-send-button'), findsNothing);
 
     await tester.enterText(byKey('chat-composer-field'), 'gasté 5 mil');
     await tester.pump();
@@ -131,7 +139,7 @@ void main() {
 
     expect(find.text(messageText), findsOneWidget);
     expect(byKey('proposal-card'), findsOneWidget);
-    expect(find.text('✨ IA · Entendí un gasto'), findsOneWidget);
+    expect(find.text('IA · Entendí un gasto'), findsOneWidget);
     expect(find.text('listo para confirmar'), findsOneWidget);
     expect(find.text(r'$ 15.900 COP'), findsOneWidget);
     expect(find.text('Almuerzo en Subway'), findsOneWidget);
@@ -328,7 +336,7 @@ void main() {
     expect(byKey('proposal-category-field'), findsNothing);
     await tester.tap(byKey('proposal-save-edit'));
     await tester.pumpAndSettle();
-    expect(find.text('✨ IA · Entendí un ingreso'), findsOneWidget);
+    expect(find.text('IA · Entendí un ingreso'), findsOneWidget);
     expect(find.text('Entra a'), findsOneWidget);
 
     await tester.tap(byKey('proposal-confirm'));
@@ -372,7 +380,7 @@ void main() {
 
       await send(tester, 'pasé 400 mil de efectivo a dólares');
 
-      expect(find.text('✨ IA · Entendí una transferencia'), findsOneWidget);
+      expect(find.text('IA · Entendí una transferencia'), findsOneWidget);
       expect(find.text('Monto que sale'), findsOneWidget);
       expect(find.text('De'), findsOneWidget);
       expect(find.text('A'), findsOneWidget);
@@ -570,7 +578,10 @@ void main() {
 
       expect(byKey('chat-failure'), findsOneWidget);
       expect(find.textContaining('No pude leer tu mensaje'), findsOneWidget);
-      expect(find.text('Error code: text_capture_unavailable'), findsOneWidget);
+      expect(
+        find.text('Código de error: text_capture_unavailable'),
+        findsOneWidget,
+      );
       expect(byKey('copy-error-details-button'), findsOneWidget);
       expect(byKey('chat-manual'), findsOneWidget);
       // The user's own text stays in the conversation, not in the report.
@@ -677,10 +688,7 @@ void main() {
 
       expect(byKey('chat-thinking'), findsOneWidget);
       expect(find.text('Leyendo tu mensaje…'), findsOneWidget);
-      expect(
-        tester.widget<IconButton>(byKey('chat-send-button')).onPressed,
-        isNull,
-      );
+      expect(byKey('chat-send-button'), findsNothing);
 
       await tester.pump(const Duration(seconds: 8));
       expect(
@@ -695,7 +703,7 @@ void main() {
     },
   );
 
-  testWidgets('the floating + stays and offers every way to add a movement', (
+  testWidgets('the floating + keeps its radial capture options', (
     tester,
   ) async {
     await pumpChat(tester, FakeTextCaptureRepository());
@@ -706,10 +714,10 @@ void main() {
     await tester.tap(byKey('expenses-create-fab'));
     await tester.pumpAndSettle();
     expect(byKey('expenses-wheel-photo'), findsOneWidget);
-    expect(byKey('expenses-wheel-voice'), findsOneWidget);
-    expect(byKey('expenses-wheel-text'), findsOneWidget);
+    expect(byKey('expenses-wheel-ai'), findsOneWidget);
     expect(byKey('expenses-wheel-manual'), findsOneWidget);
     expect(find.text('Foto'), findsOneWidget);
+    expect(find.text('Mensaje'), findsOneWidget);
     expect(find.text('Manual'), findsOneWidget);
 
     await tester.tap(byKey('expenses-wheel-manual'));
@@ -718,8 +726,60 @@ void main() {
     expect(find.text('manual-form'), findsOneWidget);
   });
 
+  testWidgets('radial options fit a narrow phone and keep separate targets', (
+    tester,
+  ) async {
+    await pumpChat(
+      tester,
+      FakeTextCaptureRepository(),
+      size: const Size(320, 600),
+    );
+    await tester.tap(byKey('expenses-create-fab'));
+    await tester.pumpAndSettle();
+
+    final targets = [
+      tester.getRect(byKey('expenses-wheel-photo')),
+      tester.getRect(byKey('expenses-wheel-ai')),
+      tester.getRect(byKey('expenses-wheel-manual')),
+    ];
+    for (final rect in targets) {
+      expect(rect.left, greaterThanOrEqualTo(0));
+      expect(rect.right, lessThanOrEqualTo(320));
+      expect(rect.top, greaterThanOrEqualTo(0));
+      expect(rect.bottom, lessThanOrEqualTo(600));
+    }
+    expect(targets[0].overlaps(targets[1]), isFalse);
+    expect(targets[1].overlaps(targets[2]), isFalse);
+    expect(targets[0].overlaps(targets[2]), isFalse);
+    expect(find.bySemanticsLabel('Foto de un recibo'), findsOneWidget);
+    expect(find.bySemanticsLabel('Escribir o dictar'), findsOneWidget);
+    expect(find.bySemanticsLabel('Formulario manual'), findsOneWidget);
+  });
+
+  testWidgets('dark wheel keeps theme paired colors and dark option surfaces', (
+    tester,
+  ) async {
+    await pumpChat(tester, FakeTextCaptureRepository(), theme: AppTheme.dark());
+    final palette = AppTheme.dark().extension<AppPalette>()!;
+
+    await tester.tap(byKey('expenses-create-fab'));
+    await tester.pumpAndSettle();
+    final fab = tester.widget<FloatingActionButton>(
+      byKey('expenses-create-fab'),
+    );
+    expect(fab.backgroundColor, palette.primary);
+    expect(fab.foregroundColor, palette.onPrimary);
+    final surface = tester.widget<Container>(
+      find.descendant(
+        of: byKey('expenses-wheel-ai'),
+        matching: find.byType(Container),
+      ),
+    );
+    expect((surface.decoration! as BoxDecoration).color, palette.card);
+  });
+
   testWidgets(
-    'the wheel closes by tapping outside and its text option writes',
+    'the wheel closes outside and its message option focuses the editor',
     (tester) async {
       await pumpChat(tester, FakeTextCaptureRepository());
 
@@ -731,7 +791,7 @@ void main() {
 
       await tester.tap(byKey('expenses-create-fab'));
       await tester.pumpAndSettle();
-      await tester.tap(byKey('expenses-wheel-text'));
+      await tester.tap(byKey('expenses-wheel-ai'));
       await tester.pumpAndSettle();
 
       expect(byKey('expenses-wheel-photo'), findsNothing);
@@ -739,19 +799,6 @@ void main() {
       expect(field.focusNode!.hasFocus, isTrue);
     },
   );
-
-  testWidgets('the voice option explains it is not available yet', (
-    tester,
-  ) async {
-    await pumpChat(tester, FakeTextCaptureRepository());
-
-    await tester.tap(byKey('expenses-create-fab'));
-    await tester.pumpAndSettle();
-    await tester.tap(byKey('expenses-wheel-voice'));
-    await tester.pump();
-
-    expect(find.text('Captura por nota de voz próximamente'), findsOneWidget);
-  });
 
   testWidgets('the floating + never hides the newest message', (tester) async {
     final repository = FakeTextCaptureRepository(
@@ -765,6 +812,23 @@ void main() {
     final fab = tester.getRect(byKey('expenses-create-fab'));
     final confirm = tester.getRect(byKey('proposal-confirm'));
     expect(confirm.bottom, lessThanOrEqualTo(fab.top + 1));
+  });
+
+  testWidgets('the IA editor keeps voice dictation available from its mic', (
+    tester,
+  ) async {
+    await pumpChat(tester, FakeTextCaptureRepository());
+
+    await tester.tap(byKey('expenses-create-fab'));
+    await tester.pumpAndSettle();
+    await tester.tap(byKey('expenses-wheel-ai'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byIcon(FinanceIcons.micOutlined));
+    await tester.pumpAndSettle();
+
+    expect(byKey('voice-controls'), findsOneWidget);
+    expect(byKey('voice-error-details'), findsOneWidget);
+    expect(find.text('Captura por nota de voz próximamente'), findsNothing);
   });
 
   testWidgets('the recorded movement opens its detail', (tester) async {
@@ -828,6 +892,8 @@ void main() {
       find.bySemanticsLabel(RegExp('^Propuesta de gasto')),
       findsOneWidget,
     );
+    await tester.enterText(byKey('chat-composer-field'), 'otro mensaje');
+    await tester.pump();
     expect(find.byTooltip('Enviar mensaje'), findsOneWidget);
     handle.dispose();
   });

@@ -20,6 +20,13 @@ android {
 
     defaultConfig {
         applicationId = "com.nullcorvus.finance_ai"
+        val audioTest = project.findProperty("financeAiAudioTest") == "true"
+        val voiceVerification = project.findProperty("financeAiVoiceVerification") == "true"
+        if (voiceVerification) applicationId = "com.nullcorvus.finance_ai.voice_verification"
+        else if (audioTest) applicationId = "com.nullcorvus.finance_ai.audio_test"
+        manifestPlaceholders["financeAiAppLabel"] = if (voiceVerification) "Finance AI (voice verification)"
+            else if (audioTest) "Finance AI (audio test)" else "Finance AI"
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = 24
@@ -48,4 +55,17 @@ kotlin {
 
 flutter {
     source = "../.."
+}
+
+android.sourceSets.getByName("androidTest").assets.srcDir("../../build/voice-verification/assets")
+
+dependencies {
+    implementation("com.alphacephei:vosk-android:0.3.75@aar")
+    implementation("net.java.dev.jna:jna:5.18.1@aar")
+    testImplementation("junit:junit:4.13.2")
+    // Keep Flutter integration_test's debug runtime consistent with this
+    // instrumentation suite and Android's current permission requirements.
+    debugImplementation("androidx.test:runner:1.7.0")
+    androidTestImplementation("androidx.test:runner:1.7.0")
+    androidTestImplementation("androidx.test.ext:junit:1.3.0")
 }

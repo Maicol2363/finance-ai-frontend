@@ -1,8 +1,13 @@
+import 'package:finance_ai/core/icons/finance_icon_catalog.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/diagnostics/error_diagnostic_panel.dart';
+import '../../../core/widgets/app_header.dart';
+import '../../../core/widgets/manage_widgets.dart';
+import '../../../core/widgets/management_page_scaffold.dart';
+import '../../../core/widgets/theme_toggle_button.dart';
 import '../application/accounts_controller.dart';
 import '../application/accounts_state.dart';
 import '../domain/account_models.dart';
@@ -48,112 +53,105 @@ class _AccountDetailScreenState extends ConsumerState<AccountDetailScreen> {
     final account = state.detailAccountId == widget.accountId
         ? state.detailAccount
         : null;
-    return Scaffold(
-      appBar: AppBar(
-        leading: IconButton(
-          tooltip: 'Back to accounts',
-          onPressed: () => context.go('/accounts'),
-          icon: const Icon(Icons.arrow_back),
-        ),
-        title: const Text('Account details'),
+    return ManagementPageScaffold(
+      title: 'Detalle de cuenta',
+      subtitle: 'Consulta saldos y movimientos',
+      leading: HeaderIconButton(
+        icon: FinanceIcons.arrowBack,
+        tooltip: 'Volver a cuentas',
+        onPressed: () =>
+            context.canPop() ? context.pop() : context.go('/accounts'),
       ),
-      body: SafeArea(
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 680),
-            child: ListView(
-              padding: const EdgeInsets.fromLTRB(24, 20, 24, 40),
-              children: [
-                if (state.detailStatus == AccountDetailStatus.loading) ...[
-                  Semantics(
-                    liveRegion: true,
-                    label: 'Loading account details',
-                    child: const LinearProgressIndicator(),
-                  ),
-                  const SizedBox(height: 20),
-                ],
-                if (state.detailDiagnostic case final diagnostic?) ...[
-                  ErrorDiagnosticPanel(diagnostic: diagnostic),
-                  const SizedBox(height: 12),
-                  OutlinedButton.icon(
-                    onPressed: () => controller.loadDetail(widget.accountId),
-                    icon: const Icon(Icons.refresh),
-                    label: const Text('Retry'),
-                  ),
-                  const SizedBox(height: 20),
-                ],
-                if (account != null) _AccountDetails(account: account),
-                if (account != null) ...[
-                  const SizedBox(height: 28),
-                  FilledButton.icon(
-                    key: const Key('account-edit-button'),
-                    onPressed: state.isSaving
-                        ? null
-                        : () =>
-                              context.go('/accounts/${widget.accountId}/edit'),
-                    icon: const Icon(Icons.edit_outlined),
-                    label: const Text('Edit account'),
-                  ),
-                  const SizedBox(height: 12),
-                  if (account.isActive)
-                    OutlinedButton.icon(
-                      key: const Key('account-deactivate-button'),
-                      onPressed: state.isSaving
-                          ? null
-                          : () => _confirmDeactivation(account),
-                      icon: const Icon(Icons.pause_circle_outline),
-                      label: const Text('Deactivate account'),
-                    )
-                  else
-                    OutlinedButton.icon(
-                      key: const Key('account-reactivate-button'),
-                      onPressed: state.isSaving
-                          ? null
-                          : () => _setActive(account, isActive: true),
-                      icon: const Icon(Icons.play_circle_outline),
-                      label: const Text('Reactivate account'),
-                    ),
-                  const SizedBox(height: 12),
-                  OutlinedButton.icon(
-                    key: const Key('account-delete-button'),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: Theme.of(context).colorScheme.error,
-                    ),
-                    onPressed: state.isSaving
-                        ? null
-                        : () => _confirmDeletion(account),
-                    icon: const Icon(Icons.delete_outline),
-                    label: const Text('Delete account permanently'),
-                  ),
-                ],
-                if (state.isSaving) ...[
-                  const SizedBox(height: 20),
-                  Semantics(
-                    liveRegion: true,
-                    label: 'Saving account status',
-                    child: const LinearProgressIndicator(),
-                  ),
-                ],
-                if (state.mutationDiagnostic case final diagnostic?) ...[
-                  const SizedBox(height: 20),
-                  ErrorDiagnosticPanel(diagnostic: diagnostic),
-                ],
-                if (state.requiresMutationReview) ...[
-                  const SizedBox(height: 12),
-                  FilledButton.icon(
-                    onPressed: controller.resolveUncertainMutation,
-                    icon: const Icon(Icons.sync),
-                    label: const Text('Refresh before trying again'),
-                  ),
-                ],
-                if (account != null) ...[
-                  const SizedBox(height: 28),
-                  AccountIncomeActivity(accountId: account.id),
-                ],
-              ],
+      actions: const [ThemeToggleButton()],
+      body: ListView(
+        padding: EdgeInsets.zero,
+        children: [
+          if (state.detailStatus == AccountDetailStatus.loading) ...[
+            Semantics(
+              liveRegion: true,
+              label: 'Cargando detalles de la cuenta',
+              child: const LinearProgressIndicator(),
             ),
-          ),
-        ),
+            const SizedBox(height: 20),
+          ],
+          if (state.detailDiagnostic case final diagnostic?) ...[
+            ErrorDiagnosticPanel(diagnostic: diagnostic),
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
+              onPressed: () => controller.loadDetail(widget.accountId),
+              icon: const Icon(FinanceIcons.refresh),
+              label: const Text('Reintentar'),
+            ),
+            const SizedBox(height: 20),
+          ],
+          if (account != null) _AccountDetails(account: account),
+          if (account != null) ...[
+            const SizedBox(height: 28),
+            FilledButton.icon(
+              key: const Key('account-edit-button'),
+              onPressed: state.isSaving
+                  ? null
+                  : () => context.push('/accounts/${widget.accountId}/edit'),
+              icon: const Icon(FinanceIcons.editOutlined),
+              label: const Text('Editar cuenta'),
+            ),
+            const SizedBox(height: 12),
+            if (account.isActive)
+              OutlinedButton.icon(
+                key: const Key('account-deactivate-button'),
+                onPressed: state.isSaving
+                    ? null
+                    : () => _confirmDeactivation(account),
+                icon: const Icon(FinanceIcons.pauseCircleOutline),
+                label: const Text('Desactivar cuenta'),
+              )
+            else
+              OutlinedButton.icon(
+                key: const Key('account-reactivate-button'),
+                onPressed: state.isSaving
+                    ? null
+                    : () => _setActive(account, isActive: true),
+                icon: const Icon(FinanceIcons.playCircleOutline),
+                label: const Text('Reactivar cuenta'),
+              ),
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
+              key: const Key('account-delete-button'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: Theme.of(context).colorScheme.error,
+              ),
+              onPressed: state.isSaving
+                  ? null
+                  : () => _confirmDeletion(account),
+              icon: const Icon(FinanceIcons.deleteOutline),
+              label: const Text('Eliminar cuenta definitivamente'),
+            ),
+          ],
+          if (state.isSaving) ...[
+            const SizedBox(height: 20),
+            Semantics(
+              liveRegion: true,
+              label: 'Guardando estado de la cuenta',
+              child: const LinearProgressIndicator(),
+            ),
+          ],
+          if (state.mutationDiagnostic case final diagnostic?) ...[
+            const SizedBox(height: 20),
+            ErrorDiagnosticPanel(diagnostic: diagnostic),
+          ],
+          if (state.requiresMutationReview) ...[
+            const SizedBox(height: 12),
+            FilledButton.icon(
+              onPressed: controller.resolveUncertainMutation,
+              icon: const Icon(FinanceIcons.sync),
+              label: const Text('Actualizar antes de volver a intentar'),
+            ),
+          ],
+          if (account != null) ...[
+            const SizedBox(height: 28),
+            AccountIncomeActivity(accountId: account.id),
+          ],
+        ],
       ),
     );
   }
@@ -162,9 +160,9 @@ class _AccountDetailScreenState extends ConsumerState<AccountDetailScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Deactivate this account?'),
+        title: const Text('¿Desactivar esta cuenta?'),
         content: const Text(
-          'This account will remain in your history but will no longer be available for new financial entries.',
+          'La cuenta seguirá en tu historial, pero no estará disponible para registrar nuevos movimientos.',
         ),
         actionsPadding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
         actions: [
@@ -176,7 +174,7 @@ class _AccountDetailScreenState extends ConsumerState<AccountDetailScreen> {
                   style: OutlinedButton.styleFrom(
                     minimumSize: const Size.fromHeight(44),
                   ),
-                  child: const Text('Cancel'),
+                  child: const Text('Cancelar'),
                 ),
               ),
               const SizedBox(width: 12),
@@ -187,7 +185,7 @@ class _AccountDetailScreenState extends ConsumerState<AccountDetailScreen> {
                     minimumSize: const Size.fromHeight(44),
                   ),
                   onPressed: () => Navigator.pop(context, true),
-                  child: const Text('Deactivate'),
+                  child: const Text('Desactivar'),
                 ),
               ),
             ],
@@ -204,9 +202,9 @@ class _AccountDetailScreenState extends ConsumerState<AccountDetailScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Delete this account permanently?'),
+        title: const Text('¿Eliminar esta cuenta definitivamente?'),
         content: const Text(
-          'This permanently removes the account if it has no financial activity. This cannot be undone. Accounts with activity must be deactivated instead.',
+          'La cuenta se elimina si no tiene movimientos. Esta acción no se puede deshacer. Si tiene movimientos, debes desactivarla.',
         ),
         actionsPadding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
         actions: [
@@ -218,7 +216,7 @@ class _AccountDetailScreenState extends ConsumerState<AccountDetailScreen> {
                   style: OutlinedButton.styleFrom(
                     minimumSize: const Size.fromHeight(44),
                   ),
-                  child: const Text('Cancel'),
+                  child: const Text('Cancelar'),
                 ),
               ),
               const SizedBox(width: 12),
@@ -231,7 +229,7 @@ class _AccountDetailScreenState extends ConsumerState<AccountDetailScreen> {
                     foregroundColor: Theme.of(context).colorScheme.onError,
                   ),
                   onPressed: () => Navigator.pop(context, true),
-                  child: const Text('Delete permanently'),
+                  child: const Text('Eliminar definitivamente'),
                 ),
               ),
             ],
@@ -250,7 +248,7 @@ class _AccountDetailScreenState extends ConsumerState<AccountDetailScreen> {
     }
     context.go('/accounts');
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Account permanently deleted.')),
+      const SnackBar(content: Text('Cuenta eliminada definitivamente.')),
     );
   }
 
@@ -263,9 +261,7 @@ class _AccountDetailScreenState extends ConsumerState<AccountDetailScreen> {
     }
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(
-          isActive ? 'Account reactivated.' : 'Account deactivated.',
-        ),
+        content: Text(isActive ? 'Cuenta reactivada.' : 'Cuenta desactivada.'),
       ),
     );
   }
@@ -288,63 +284,45 @@ class _AccountDetails extends StatelessWidget {
           alignment: Alignment.centerLeft,
           child: Chip(
             avatar: Icon(
-              account.isActive ? Icons.check_circle_outline : Icons.pause,
+              account.isActive
+                  ? FinanceIcons.checkCircleOutline
+                  : FinanceIcons.pause,
             ),
-            label: Text(account.isActive ? 'Active' : 'Inactive'),
+            label: Text(account.isActive ? 'Activa' : 'Inactiva'),
           ),
         ),
         const SizedBox(height: 20),
-        Semantics(
-          label: account.balance.isNegative
-              ? 'Negative current balance $balance'
-              : 'Current balance $balance',
-          child: ExcludeSemantics(
-            child: _DetailRow(label: 'Current balance', value: balance),
-          ),
-        ),
-        _DetailRow(
-          label: 'Opening balance',
-          value: account.openingBalance.formatWithCurrency(
-            account.currency.code,
-          ),
-        ),
-        _DetailRow(label: 'Type', value: account.type.label),
-        _DetailRow(
-          label: 'Currency',
-          value: '${account.currency.code} · ${account.currency.name}',
+        ManageCard(
+          children: [
+            Semantics(
+              label: account.balance.isNegative
+                  ? 'Saldo actual negativo: $balance'
+                  : 'Saldo actual: $balance',
+              child: ExcludeSemantics(
+                child: ManageRow(title: 'Saldo actual', subtitle: balance),
+              ),
+            ),
+            ManageRow(
+              title: 'Saldo inicial',
+              subtitle: account.openingBalance.formatWithCurrency(
+                account.currency.code,
+              ),
+            ),
+            ManageRow(title: 'Tipo', subtitle: account.type.label),
+            ManageRow(
+              title: 'Moneda',
+              subtitle: '${account.currency.code} · ${account.currency.name}',
+            ),
+          ],
         ),
         if (account.currencyIsLocked)
           const Padding(
             padding: EdgeInsets.only(top: 8),
             child: Text(
-              'Currency is locked because this account has confirmed activity.',
+              'La moneda está bloqueada porque esta cuenta ya tiene movimientos confirmados.',
             ),
           ),
       ],
-    );
-  }
-}
-
-class _DetailRow extends StatelessWidget {
-  const _DetailRow({required this.label, required this.value});
-
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 10),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 150,
-            child: Text(label, style: Theme.of(context).textTheme.labelLarge),
-          ),
-          Expanded(child: Text(value)),
-        ],
-      ),
     );
   }
 }

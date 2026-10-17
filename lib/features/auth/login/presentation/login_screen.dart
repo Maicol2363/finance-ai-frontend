@@ -1,3 +1,4 @@
+import 'package:finance_ai/core/icons/finance_icon_catalog.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -119,10 +120,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                 diagnostic: diagnostic,
                               ),
                             ],
-                            const FieldLabel(
-                              'Correo electrónico',
-                              uppercase: false,
-                            ),
                             TextField(
                               key: const Key('login-email-input'),
                               controller: _emailController,
@@ -133,8 +130,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                               decoration: pillInputDecoration(
                                 context,
                                 hint: 'tu@correo.com',
+                                labelText: 'Correo electrónico',
                                 prefixIcon: Icon(
-                                  Icons.mail_outline,
+                                  FinanceIcons.mailOutline,
                                   size: 18,
                                   color: palette.muted,
                                 ),
@@ -144,7 +142,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                   controller.clearFieldError('email'),
                               onSubmitted: (_) => _passwordFocus.requestFocus(),
                             ),
-                            const FieldLabel('Contraseña', uppercase: false),
                             TextField(
                               key: const Key('login-password-input'),
                               controller: _passwordController,
@@ -158,8 +155,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                               decoration: pillInputDecoration(
                                 context,
                                 hint: 'Tu contraseña',
+                                labelText: 'Contraseña',
                                 prefixIcon: Icon(
-                                  Icons.lock_outline,
+                                  FinanceIcons.lockOutline,
                                   size: 18,
                                   color: palette.muted,
                                 ),
@@ -178,8 +176,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                         ),
                                   icon: Icon(
                                     _showPassword
-                                        ? Icons.visibility_off
-                                        : Icons.visibility,
+                                        ? FinanceIcons.visibilityOff
+                                        : FinanceIcons.visibility,
                                     size: 18,
                                   ),
                                 ),
