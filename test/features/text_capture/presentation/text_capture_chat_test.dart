@@ -22,6 +22,7 @@ Future<ProviderContainer> pumpChat(
   double textScale = 1.0,
   ThemeData? theme,
   FakeExpensesRepository? expenses,
+  FakeAccountsRepository? accountsRepository,
 }) async {
   tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1.0;
@@ -50,6 +51,7 @@ Future<ProviderContainer> pumpChat(
       overrides: baseOverrides(
         repository: repository,
         expensesRepository: expenses,
+        accountsRepository: accountsRepository,
       ),
       child: MaterialApp.router(
         routerConfig: router,
@@ -264,6 +266,53 @@ void main() {
     },
   );
 
+  testWidgets('an oversized amount is told apart from an empty one', (
+    tester,
+  ) async {
+    final repository = FakeTextCaptureRepository(proposals: [proposal()]);
+    await pumpChat(tester, repository);
+    await send(tester, messageText);
+
+    await tester.tap(byKey('proposal-edit'));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      byKey('proposal-amount-field'),
+      '99999999999999999999999999',
+    );
+    await tester.tap(byKey('proposal-save-edit'));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('El monto es demasiado grande'), findsOneWidget);
+    expect(repository.confirmCalls, isEmpty);
+  });
+
+  testWidgets('an amount beyond the account balance is blocked inline', (
+    tester,
+  ) async {
+    final repository = FakeTextCaptureRepository(proposals: [proposal()]);
+    await pumpChat(tester, repository);
+    await send(tester, messageText);
+
+    await tester.tap(byKey('proposal-edit'));
+    await tester.pumpAndSettle();
+    await tester.enterText(byKey('proposal-amount-field'), '500000');
+    await tester.tap(byKey('proposal-save-edit'));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.textContaining('Fondos insuficientes en Efectivo'),
+      findsOneWidget,
+    );
+    expect(repository.confirmCalls, isEmpty);
+
+    await tester.enterText(byKey('proposal-amount-field'), '500');
+    await tester.tap(byKey('proposal-save-edit'));
+    await tester.pumpAndSettle();
+    await tester.tap(byKey('proposal-confirm'));
+    await tester.pumpAndSettle();
+    expect(repository.confirmCalls, hasLength(1));
+  });
+
   testWidgets('switching the type in place turns an expense into an income', (
     tester,
   ) async {
@@ -309,7 +358,17 @@ void main() {
           ),
         ],
       );
-      await pumpChat(tester, repository);
+      await pumpChat(
+        tester,
+        repository,
+        accountsRepository: FakeAccountsRepository(
+          fixtureAccounts: [
+            account(1, 'Efectivo', balance: '1000000.00'),
+            account(2, 'Nequi'),
+            account(4, 'Dólares', currency: usd),
+          ],
+        ),
+      );
 
       await send(tester, 'pasé 400 mil de efectivo a dólares');
 

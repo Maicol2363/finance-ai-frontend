@@ -229,6 +229,10 @@ class HttpTextCaptureRepository implements TextCaptureRepository {
         'Elige dos cuentas distintas para la transferencia.',
         false,
       ),
+      'transfer_insufficient_funds' => (
+        'La cuenta de origen no tiene fondos suficientes para esa transferencia.',
+        false,
+      ),
       'transfer_destination_amount_required' => (
         'Indica el monto que llega a la cuenta de destino.',
         false,

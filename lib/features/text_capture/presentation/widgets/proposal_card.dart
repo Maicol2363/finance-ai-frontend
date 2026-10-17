@@ -72,7 +72,26 @@ class ProposalDraft {
     final parsed = MoneyAmount.tryParseUserInput(cleaned);
     return parsed == null || parsed.minorUnits <= 0 ? null : parsed;
   }
+
+  /// How a typed amount reads, so the user gets told why it cannot be used.
+  static AmountShape moneyShape(String text) {
+    final cleaned = MoneyFormatter.clean(text);
+    if (cleaned.isEmpty) return AmountShape.empty;
+    final match = RegExp(r'^(\d+)(?:[\.,](\d{0,2}))?$').firstMatch(cleaned);
+    if (match == null) return AmountShape.unreadable;
+    final fraction = (match.group(2) ?? '').padRight(2, '0');
+    final digits = '${match.group(1)}$fraction';
+    if (digits.length > 18) return AmountShape.oversized;
+    final magnitude = int.tryParse(digits);
+    if (magnitude == null) return AmountShape.oversized;
+    if (magnitude <= 0) return AmountShape.empty;
+    if (magnitude > MoneyAmount.maximumMinorUnits) return AmountShape.oversized;
+    return AmountShape.valid;
+  }
 }
+
+/// Why a typed amount cannot be used as written.
+enum AmountShape { empty, unreadable, oversized, valid }
 
 /// Review card for a proposal: compact by default, editable in place.
 ///
@@ -147,8 +166,20 @@ class _ProposalCardState extends ConsumerState<ProposalCard> {
   bool _validate() {
     _syncDraftFromFields();
     _errors.clear();
-    if (ProposalDraft.parseMoney(_draft.amountText) == null) {
+    final shape = ProposalDraft.moneyShape(_draft.amountText);
+    final amount = ProposalDraft.parseMoney(_draft.amountText);
+    if (shape == AmountShape.oversized) {
+      _errors['amount'] = 'El monto es demasiado grande: usa un valor menor.';
+    } else if (amount == null) {
       _errors['amount'] = 'Escribe un monto mayor que cero.';
+    } else if (_draft.intent != CaptureIntent.income &&
+        _draft.accountId != null) {
+      final account = _account(_draft.accountId);
+      if (account != null && amount.minorUnits > account.balance.minorUnits) {
+        _errors['amount'] =
+            'Fondos insuficientes en ${account.name} (disponible '
+            '${account.balance.formatWithCurrency(account.currency.code)}).';
+      }
     }
     if (_draft.accountId == null) {
       _errors['account'] = 'Elige una cuenta.';
@@ -158,9 +189,19 @@ class _ProposalCardState extends ConsumerState<ProposalCard> {
         _errors['destination'] = 'Elige la cuenta de destino.';
       } else if (_draft.destinationId == _draft.accountId) {
         _errors['destination'] = 'Elige una cuenta distinta al origen.';
-      } else if (_needsDestinationAmount &&
-          ProposalDraft.parseMoney(_draft.destinationAmountText) == null) {
-        _errors['destinationAmount'] = 'Indica cuánto llegó.';
+      } else if (_needsDestinationAmount) {
+        final destinationShape = ProposalDraft.moneyShape(
+          _draft.destinationAmountText,
+        );
+        final destinationAmount = ProposalDraft.parseMoney(
+          _draft.destinationAmountText,
+        );
+        if (destinationShape == AmountShape.oversized) {
+          _errors['destinationAmount'] =
+              'El monto que llega es demasiado grande: usa un valor menor.';
+        } else if (destinationAmount == null) {
+          _errors['destinationAmount'] = 'Indica cuánto llegó.';
+        }
       }
     }
     return _errors.isEmpty;
