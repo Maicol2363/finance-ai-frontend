@@ -50,7 +50,7 @@ class _UnavailableRegistrationRepository implements AuthRepository {
   Future<RegistrationResult> register(RegistrationRequest request) {
     throw const RegistrationRetryableFailure(
       code: 'network_unavailable',
-      userMessage: 'We could not reach the service. Check your connection and try again.',
+      userMessage: 'No se pudo conectar con el servicio. Revisa tu conexión e inténtalo de nuevo.',
       correlationId: 'windows-smoke-request',
       technicalReason: 'connection_failure',
     );
@@ -529,7 +529,12 @@ void main() {
     await tester.tap(find.byKey(const Key('register-submit-button')));
     await tester.pumpAndSettle();
 
-    expect(find.text('Código de error: network_unavailable'), findsOneWidget);
+    expect(
+      find.textContaining('No se pudo conectar con el servicio.'),
+      findsOneWidget,
+    );
+    expect(find.byKey(const Key('error-diagnostic-code')), findsNothing);
+    expect(find.textContaining('network_unavailable'), findsNothing);
     expect(find.byKey(const Key('copy-error-details-button')), findsOneWidget);
   }, skip: defaultTargetPlatform != TargetPlatform.windows);
 
@@ -616,12 +621,10 @@ void main() {
     expect(find.text('Cuenta eliminada definitivamente.'), findsOneWidget);
     expect(accounts.accounts, isEmpty);
 
-    await tester.tap(find.byTooltip('Volver al inicio'));
+    expect(find.byKey(const Key('accounts-list')), findsOneWidget);
+    await tester.tap(find.byTooltip('Volver a la pantalla anterior'));
     await tester.pumpAndSettle();
-    GoRouter.of(
-      tester.element(find.byKey(const Key('dashboard-account-balance'))),
-    ).go('/settings');
-    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('settings-accounts-row')), findsOneWidget);
     await tester.scrollUntilVisible(
       find.byKey(const Key('logout-button')),
       200,
