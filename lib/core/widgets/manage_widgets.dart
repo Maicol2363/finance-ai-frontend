@@ -489,11 +489,15 @@ class SegmentedControl extends StatelessWidget {
       button: true,
       selected: index == selectedIndex,
       label: labels[index],
+      excludeSemantics: true,
+      onTap: () => onChanged(index),
       child: GestureDetector(
         key: keyPrefix == null ? null : Key('$keyPrefix-$index'),
         onTap: () => onChanged(index),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 180),
+          constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
+          alignment: Alignment.center,
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
           decoration: BoxDecoration(
             color: index == selectedIndex
@@ -584,11 +588,18 @@ class FilterChipRow<T> extends StatelessWidget {
                   button: true,
                   selected: isSelected,
                   label: option.label,
+                  excludeSemantics: true,
+                  onTap: () => onChanged(option.value),
                   child: GestureDetector(
                     key: keyPrefix == null ? null : Key('$keyPrefix-$index'),
                     onTap: () => onChanged(option.value),
                     child: AnimatedContainer(
                       duration: const Duration(milliseconds: 180),
+                      constraints: const BoxConstraints(
+                        minWidth: 48,
+                        minHeight: 48,
+                      ),
+                      alignment: Alignment.center,
                       padding: const EdgeInsets.symmetric(
                         horizontal: 13,
                         vertical: 9,

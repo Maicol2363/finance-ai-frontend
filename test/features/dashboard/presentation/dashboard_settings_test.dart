@@ -1,7 +1,11 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:finance_ai/app.dart';
 import 'package:finance_ai/core/router/app_router.dart';
+import 'package:finance_ai/core/theme/app_palette.dart';
+import 'package:finance_ai/core/formatters/money_formatter.dart';
+import 'package:finance_ai/core/money/currency_totals.dart';
 import 'package:finance_ai/core/time/clock_provider.dart';
 import 'package:finance_ai/features/accounts/data/accounts_repository.dart';
 import 'package:finance_ai/features/accounts/domain/account_models.dart';
@@ -12,6 +16,7 @@ import 'package:finance_ai/features/categories/domain/category_models.dart';
 import 'package:finance_ai/features/dashboard/application/dashboard_summary_provider.dart';
 import 'package:finance_ai/features/dashboard/domain/dashboard_summary.dart';
 import 'package:finance_ai/features/dashboard/presentation/dashboard_screen.dart';
+import 'package:finance_ai/features/dashboard/presentation/spending_trend_card.dart';
 import 'package:finance_ai/features/expenses/data/expenses_repository.dart';
 import 'package:finance_ai/features/expenses/domain/expense_models.dart';
 import 'package:finance_ai/features/expenses/domain/history_models.dart';
@@ -20,11 +25,10 @@ import 'package:finance_ai/features/income_sources/domain/income_source_models.d
 import 'package:finance_ai/features/incomes/data/incomes_repository.dart';
 import 'package:finance_ai/features/incomes/domain/income_models.dart';
 
-import '../../budgets/budget_test_helpers.dart' as budget_helpers;
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
+import 'package:finance_ai/features/expenses/application/monthly_totals.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
@@ -34,6 +38,13 @@ const _cop = CurrencySummary(
   id: 1,
   code: 'COP',
   name: 'Colombian Peso',
+  decimals: 2,
+);
+
+const _usd = CurrencySummary(
+  id: 2,
+  code: 'USD',
+  name: 'US Dollar',
   decimals: 2,
 );
 
@@ -143,10 +154,14 @@ class _FakeExpensesRepository implements ExpensesRepository {
 
 /// The month's expense entry as the history endpoint reports it: the Dashboard
 /// breakdown is built from this, not from the first page of `/expenses`.
-HistoryItem _historyItem({String amount = '25.00'}) => HistoryItem(
+HistoryItem _historyItem({
+  String amount = '25.00',
+  ExpenseStatus status = ExpenseStatus.confirmed,
+  String categoryName = 'Food',
+}) => HistoryItem(
   id: 8,
   type: TransactionType.expense,
-  status: ExpenseStatus.confirmed,
+  status: status,
   occurredAt: DateTime.utc(2026, 9, 17, 12, 30),
   description: 'Purchase at Market',
   captureSource: CaptureSource.manual,
@@ -177,7 +192,10 @@ HistoryItem _historyItem({String amount = '25.00'}) => HistoryItem(
         quantity: '1.000',
         unitPrice: MoneyAmount.parseApi(amount),
         note: null,
-        category: ExpenseCategory(id: 3, name: 'Food'),
+        category: ExpenseCategory(
+          id: categoryName == 'Food' ? 3 : 4,
+          name: categoryName,
+        ),
         imagePath: null,
       ),
     ],
@@ -186,12 +204,16 @@ HistoryItem _historyItem({String amount = '25.00'}) => HistoryItem(
 );
 
 class _FakeAccountsRepository implements AccountsRepository {
+  _FakeAccountsRepository({this.includeUsd = false});
+
+  final bool includeUsd;
+
   @override
   Future<AccountListResult> list({bool includeInactive = false}) async =>
       AccountListResult(
         accounts: [_testAccount],
         suggestedCurrencyCode: 'COP',
-        supportedCurrencies: const [_cop],
+        supportedCurrencies: includeUsd ? const [_cop, _usd] : const [_cop],
         accountTypes: const [AccountType.cash],
       );
 
@@ -326,6 +348,10 @@ Future<void> _pumpAt(
   List<Budget>? budgets,
   DashboardSummary? dashboardSummary,
   bool isolatedDashboard = false,
+  bool totalsFailure = false,
+  bool includeUsd = false,
+  MonthlyTotals? analysisTotals,
+  Completer<MonthlyTotals>? pendingAnalysisTotals,
 }) async {
   final router = isolatedDashboard
       ? GoRouter(
@@ -364,10 +390,25 @@ Future<void> _pumpAt(
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
+        if (totalsFailure)
+          monthlyTotalsProvider.overrideWith(
+            (ref) async => throw StateError('private-financial-form-value'),
+          ),
+        if (analysisTotals != null)
+          periodTotalsProvider.overrideWith((ref) async {
+            final period = ref.watch(dashboardPeriodProvider);
+            if (period == DashboardPeriod.thisMonth ||
+                pendingAnalysisTotals == null) {
+              return analysisTotals;
+            }
+            return pendingAnalysisTotals.future;
+          }),
         expensesRepositoryProvider.overrideWithValue(
           _FakeExpensesRepository(expenses: expenses),
         ),
-        accountsRepositoryProvider.overrideWithValue(_FakeAccountsRepository()),
+        accountsRepositoryProvider.overrideWithValue(
+          _FakeAccountsRepository(includeUsd: includeUsd),
+        ),
         categoriesRepositoryProvider.overrideWithValue(
           _FakeCategoriesRepository(),
         ),
@@ -394,6 +435,42 @@ Future<void> _pumpAt(
 }
 
 void main() {
+  testWidgets(
+    'Home failure is Spanish and exposes only a safe copyable diagnostic',
+    (tester) async {
+      String? copied;
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        (call) async {
+          if (call.method == 'Clipboard.setData') {
+            copied =
+                (call.arguments as Map<Object?, Object?>)['text'] as String?;
+          }
+          return null;
+        },
+      );
+      addTearDown(
+        () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+          SystemChannels.platform,
+          null,
+        ),
+      );
+      await _pumpAt(tester, '/home', totalsFailure: true);
+      final copy = find.byKey(const Key('copy-error-details-button'));
+      await tester.ensureVisible(copy);
+      await tester.pumpAndSettle();
+      expect(
+        find.text('Código de error: dashboard_summary_unavailable'),
+        findsOneWidget,
+      );
+      expect(find.textContaining('private-financial-form-value'), findsNothing);
+      await tester.tap(copy);
+      await tester.pumpAndSettle();
+      expect(copied, contains('dashboard_summary_unavailable'));
+      expect(copied, isNot(contains('private-financial-form-value')));
+    },
+  );
+
   setUpAll(() async {
     final font = await File(
       'test/features/dashboard/presentation/fonts/Roboto-Regular.ttf',
@@ -409,9 +486,7 @@ void main() {
         .load();
   });
 
-  testWidgets('compact spending summary fits common mobile viewports', (
-    tester,
-  ) async {
+  testWidgets('compact home cards fit common mobile viewports', (tester) async {
     const sizes = [
       Size(320, 568),
       Size(360, 800),
@@ -421,133 +496,110 @@ void main() {
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
-
     for (final size in sizes) {
       tester.view.physicalSize = size;
-      await _pumpAt(
-        tester,
-        '/dashboard',
-        isolatedDashboard: true,
-        budgets: [
-          budget_helpers.budget(
-            amount: '600000.00',
-            spent: '590000.00',
-            remaining: '10000.00',
-            progress: 98.3,
-          ),
-        ],
-      );
-
-      await tester.drag(find.byType(ListView).first, const Offset(0, -500));
-      await tester.pumpAndSettle();
-      expect(find.text('Gastos este mes'), findsOneWidget);
+      await _pumpAt(tester, '/dashboard', isolatedDashboard: true);
       expect(
-        find.byKey(const Key('dashboard-spending-amount')),
+        find.byKey(const Key('dashboard-account-balance')),
         findsOneWidget,
       );
-      expect(find.text('Ver análisis'), findsOneWidget);
-      expect(find.byKey(const Key('dashboard-period-selector')), findsNothing);
+      expect(find.byKey(const Key('dashboard-weekly-insight')), findsOneWidget);
+      expect(
+        find.byKey(const Key('dashboard-month-projection')),
+        findsOneWidget,
+      );
+      await tester.drag(find.byType(ListView).first, const Offset(0, -400));
+      await tester.pumpAndSettle();
+      expect(find.text('Presupuestos'), findsOneWidget);
+      expect(find.text('Movimientos'), findsNothing);
+      expect(find.byKey(const Key('dashboard-analysis-toggle')), findsNothing);
       expect(
         tester.takeException(),
         isNull,
-        reason: 'collapsed dashboard at ${size.width}x${size.height}',
+        reason: 'home at ${size.width}x${size.height}',
       );
-
-      if (size.width == 320) continue;
-      final toggle = find.byKey(const Key('dashboard-analysis-toggle'));
-      await tester.tap(toggle);
-      await tester.pumpAndSettle();
-      expect(
-        find.byKey(const Key('dashboard-period-selector')),
-        findsOneWidget,
-      );
-      expect(find.text('Gastos por categoría'), findsOneWidget);
-      final expandedException = tester.takeException();
-      expect(
-        expandedException,
-        isNull,
-        reason:
-            'expanded dashboard at ${size.width}x${size.height}: $expandedException',
-      );
-      await tester.tap(toggle);
-      await tester.pumpAndSettle();
-      expect(find.byKey(const Key('dashboard-period-selector')), findsNothing);
     }
-
     tester.view.physicalSize = const Size(390, 844);
-    await _pumpAt(
-      tester,
-      '/dashboard',
-      isolatedDashboard: true,
-      expenses: [_expense(amount: '590000.00')],
-      budgets: [
-        budget_helpers.budget(
-          amount: '600000.00',
-          spent: '590000.00',
-          remaining: '10000.00',
-          progress: 98.3,
-        ),
-      ],
-    );
-    final summaryRect = tester.getRect(
-      find.byKey(const Key('dashboard-analysis')),
-    );
-    expect(summaryRect.bottom, lessThanOrEqualTo(844));
+    await _pumpAt(tester, '/dashboard', isolatedDashboard: true);
     await expectLater(
       find.byType(MaterialApp),
       matchesGoldenFile('goldens/dashboard_spending_summary_390x844.png'),
     );
   });
 
-  testWidgets('dark dashboard hero uses a dark olive surface and light text', (
+  testWidgets(
+    'dark dashboard uses accessible olive tokens and light surfaces',
+    (tester) async {
+      await _pumpAt(tester, '/dashboard');
+      await tester.tap(find.byKey(const Key('theme-toggle-button')));
+      await tester.pumpAndSettle();
+
+      final theme = Theme.of(tester.element(find.text('Saldo en cuentas')));
+      final palette = theme.extension<AppPalette>()!;
+      expect(palette.primary, const Color(0xFF8FB42C));
+      expect(palette.header, const Color(0xFF222B31));
+      expect(find.byKey(const Key('dashboard-hero')), findsNothing);
+    },
+  );
+
+  testWidgets('dashboard renders compact summary and destinations', (
     tester,
   ) async {
-    await _pumpAt(tester, '/dashboard');
-    await tester.tap(find.byKey(const Key('theme-toggle-button')));
-    await tester.pumpAndSettle();
-
-    final hero = tester.widget<Container>(
-      find.byKey(const Key('dashboard-hero')),
-    );
-    final gradient =
-        (hero.decoration! as BoxDecoration).gradient! as LinearGradient;
-    expect(gradient.colors, const [Color(0xFF252B1D), Color(0xFF1B2118)]);
-    expect(find.byKey(const Key('home-title')), findsNothing);
-  });
-
-  testWidgets('dashboard renders balance summary with data', (tester) async {
-    await _pumpAt(tester, '/dashboard');
-
-    // Same definition as the Gastos hub: stock (live account balances), so the
-    // two tabs can never disagree. Chips below are the current month's flow.
+    final semantics = tester.ensureSemantics();
+    await _pumpAt(tester, '/dashboard', includeUsd: true);
     expect(find.text('Saldo en cuentas'), findsOneWidget);
     expect(find.text(r'$ 100 COP'), findsOneWidget);
-    expect(find.text('septiembre · Balance'), findsOneWidget);
-    expect(find.text(r'+$ 500 COP'), findsOneWidget);
-    expect(find.text(r'-$ 25 COP'), findsWidgets);
-    expect(find.text('Presupuestos'), findsNothing);
-    expect(find.text(r'+$ 475 COP'), findsOneWidget);
-    expect(find.text('Gastos este mes'), findsOneWidget);
-    expect(find.byKey(const Key('dashboard-spending-amount')), findsOneWidget);
+    expect(find.text('Este mes'), findsOneWidget);
+    expect(find.text('Ingresos'), findsOneWidget);
+    expect(find.text('Gastos'), findsOneWidget);
+    expect(find.text('Balance'), findsOneWidget);
+    expect(find.text('Insight semanal'), findsOneWidget);
+    expect(find.text('Proyección del mes'), findsOneWidget);
+    final currencyButton = find.byKey(const Key('dashboard-currency-selector'));
+    final currencySemantics = tester.getSemantics(currencyButton);
+    expect(currencySemantics.label, 'Seleccionar moneda');
+    expect(currencySemantics.flagsCollection.isButton, isTrue);
+    expect(
+      currencySemantics.getSemanticsData().hasAction(SemanticsAction.tap),
+      isTrue,
+    );
+    expect(tester.getSize(currencyButton).width, greaterThanOrEqualTo(48));
+    expect(tester.getSize(currencyButton).height, greaterThanOrEqualTo(48));
+    await tester.tap(find.bySemanticsLabel('Seleccionar moneda'));
+    await tester.pumpAndSettle();
+    expect(find.byType(PopupMenuItem<String>), findsNWidgets(2));
+    await tester.tap(find.text('USD').last);
+    await tester.pumpAndSettle();
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('dashboard-account-balance')),
+        matching: find.text(MoneyFormatter.display(0, 'USD')),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.text(MoneyFormatter.display(0, 'USD', signed: true)),
+      findsNWidgets(4),
+    );
+    await tester.drag(find.byType(ListView).first, const Offset(0, -500));
+    await tester.pumpAndSettle();
+    expect(find.text('Presupuestos'), findsOneWidget);
     expect(find.text('Ver análisis'), findsOneWidget);
-    expect(find.byKey(const Key('dashboard-period-selector')), findsNothing);
-    expect(find.text('Gastos por categoría'), findsNothing);
-    expect(find.text('Puedes gastar hasta'), findsNothing);
-    expect(find.text('Ritmo de gasto diario'), findsNothing);
-    expect(find.text('Ocultar análisis'), findsNothing);
-    expect(find.text('Ver detalle'), findsNothing);
-    expect(find.text('Ritmo de gasto diario'), findsNothing);
-    await tester.tap(find.byKey(const Key('dashboard-analysis-toggle')));
+    expect(find.byKey(const Key('dashboard-hero')), findsNothing);
+    expect(find.text('Últimos movimientos'), findsNothing);
+    await tester.ensureVisible(
+      find.byKey(const Key('dashboard-open-analysis')),
+    );
+    await tester.tap(find.byKey(const Key('dashboard-open-analysis')));
     await tester.pumpAndSettle();
-    expect(find.byKey(const Key('dashboard-period-selector')), findsOneWidget);
-    expect(find.text('Gastos por categoría'), findsOneWidget);
-    // History cards show merchant names (Market). The category breakdown may
-    // need one more scroll once the lazy history list settles.
-    await tester.scrollUntilVisible(find.text('Market').first, 200);
-    expect(find.text('Market'), findsWidgets);
-    await tester.pumpAndSettle();
-    // Grouped by category: one row with share.
-    expect(find.text('100%'), findsOneWidget);
+    expect(find.text('Análisis'), findsOneWidget);
+    expect(find.text('USD'), findsOneWidget);
+    final analysisAmount = tester.widget<Text>(
+      find.byKey(const Key('dashboard-spending-amount')),
+    );
+    expect(analysisAmount.data, MoneyFormatter.display(0, 'USD'));
+    expect(tester.takeException(), isNull);
+    semantics.dispose();
   });
 
   testWidgets('trend owns the period summary without a duplicate card', (
@@ -563,7 +615,7 @@ void main() {
         'end': '2026-09-30T23:59:59Z',
         'today': '2026-09-29T12:00:00Z',
         'is_current': true,
-        'days_elapsed': 29,
+        'days_elapsed': 12,
         'days_total': 30,
       },
       'flow': {'incomes': '0.00', 'expenses': '25.00', 'net': '-25.00'},
@@ -598,51 +650,147 @@ void main() {
       ],
       'recent': [],
     });
-    await _pumpAt(tester, '/dashboard', dashboardSummary: summary);
+    await _pumpAt(tester, '/analysis', dashboardSummary: summary);
 
-    expect(find.byKey(const Key('dashboard-spending-summary')), findsNothing);
-    expect(find.text('Resumen de gastos'), findsNothing);
-    expect(find.text('Gastado este mes'), findsNothing);
-    expect(find.text('Gasto estimado al cierre'), findsNothing);
-    expect(find.byKey(const Key('dashboard-period-selector')), findsNothing);
-    expect(find.text('Ver análisis'), findsOneWidget);
-    await tester.tap(find.byKey(const Key('dashboard-analysis-toggle')));
-    await tester.pumpAndSettle();
-    expect(find.textContaining('Cierre est.:'), findsOneWidget);
-    expect(find.text('Ocultar análisis'), findsOneWidget);
-    expect(tester.takeException(), isNull, reason: 'on initial dashboard');
-
-    await tester.tap(find.byKey(const Key('dashboard-period-lastMonth')));
-    await tester.pumpAndSettle();
+    expect(find.text('Análisis'), findsOneWidget);
+    expect(find.byKey(const Key('dashboard-period-selector')), findsOneWidget);
+    expect(find.text('Gastos por categoría'), findsOneWidget);
+    expect(find.text('Insight semanal'), findsNothing);
+    expect(find.textContaining('Generado por IA'), findsNothing);
     expect(
-      tester.takeException(),
-      isNull,
-      reason: 'after selecting last month',
+      find.textContaining(
+        '÷ 29 días observados × 30 días del periodo. Corte: 29 de septiembre.',
+      ),
+      findsOneWidget,
+      reason: 'cutoff and elapsed days come from the local selected window',
     );
-    expect(find.byKey(const Key('dashboard-spending-summary')), findsNothing);
-    expect(find.textContaining('Cierre est.:'), findsNothing);
+    final expectedCurrentMonthProjection = MoneyFormatter.display(
+      (2500 * 30 / 29).round(),
+      'COP',
+    );
+    final projectionLabel = find.textContaining('Cierre est.:');
+    await tester.scrollUntilVisible(projectionLabel, 240);
+    expect(
+      find.text('Cierre est.: $expectedCurrentMonthProjection'),
+      findsOneWidget,
+      reason:
+          'the chart must use the same deterministic pace as Inicio, not the '
+          'different backend projection of COP 28.00',
+    );
+    expect(tester.takeException(), isNull);
+  });
 
-    for (final period in ['last3Months', 'thisYear', 'thisMonth']) {
-      await tester.tap(find.byKey(Key('dashboard-period-$period')));
-      await tester.pumpAndSettle();
-      expect(find.byKey(const Key('dashboard-spending-summary')), findsNothing);
-      expect(find.text('Resumen de gastos'), findsNothing);
-      expect(tester.takeException(), isNull);
-    }
-    expect(find.textContaining('Cierre est.:'), findsOneWidget);
-    expect(find.text('Puedes gastar hasta'), findsNothing);
-    expect(find.text('Colchón financiero sólido'), findsNothing);
-    expect(find.text('Próximo recurrente estimado'), findsNothing);
-    expect(find.text('Patrones y estimaciones'), findsNothing);
+  testWidgets('analysis excludes voided movements from all summaries', (
+    tester,
+  ) async {
+    final totals = MonthlyTotals(
+      monthStart: DateTime.utc(2026, 9, 1),
+      windowEnd: DateTime.utc(2026, 9, 30),
+      byCurrency: const {'COP': CurrencyTotals(expenses: 2500)},
+      expenseItems: [
+        _historyItem(),
+        _historyItem(
+          amount: '100.00',
+          status: ExpenseStatus.voided,
+          categoryName: 'Voided category',
+        ),
+      ],
+      historyComplete: true,
+      previousHistoryComplete: true,
+    );
+    await _pumpAt(tester, '/analysis', analysisTotals: totals);
+
+    final amount = tester.widget<Text>(
+      find.byKey(const Key('dashboard-spending-amount')),
+    );
+    expect(amount.data, MoneyFormatter.display(2500, 'COP'));
+
+    final trend = tester.widget<SpendingTrendCard>(
+      find.byType(SpendingTrendCard),
+    );
+    expect(trend.cumulativeDays, isNotEmpty);
+    expect(trend.cumulativeDays!.last.cumulativeMinorUnits, 2500);
+    expect(
+      find.byKey(const Key('dashboard-category-Voided category')),
+      findsNothing,
+    );
+    expect(find.byKey(const Key('dashboard-category-Food')), findsOneWidget);
+
+    final projection = MoneyFormatter.display((2500 * 30 / 29).round(), 'COP');
+    final projectionLabel = find.textContaining('Cierre est.:');
+    await tester.scrollUntilVisible(projectionLabel, 240);
+    expect(find.text('Cierre est.: $projection'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('analysis hides prior period totals during range reload', (
+    tester,
+  ) async {
+    final previousMonth = MonthlyTotals(
+      monthStart: DateTime.utc(2026, 9, 1),
+      windowEnd: DateTime.utc(2026, 9, 30),
+      byCurrency: const {'COP': CurrencyTotals(expenses: 2500)},
+      expenseItems: [_historyItem(categoryName: 'September category')],
+      historyComplete: true,
+      previousHistoryComplete: true,
+    );
+    final currentYear = MonthlyTotals(
+      monthStart: DateTime.utc(2026, 1, 1),
+      windowEnd: DateTime.utc(2026, 12, 31),
+      byCurrency: const {'COP': CurrencyTotals(expenses: 5000)},
+      expenseItems: [
+        _historyItem(amount: '50.00', categoryName: 'Year category'),
+      ],
+      historyComplete: true,
+      previousHistoryComplete: true,
+      period: DashboardPeriod.thisYear,
+    );
+    final pending = Completer<MonthlyTotals>();
+    await _pumpAt(
+      tester,
+      '/analysis',
+      analysisTotals: previousMonth,
+      pendingAnalysisTotals: pending,
+    );
+    expect(
+      find.byKey(const Key('dashboard-category-September category')),
+      findsOneWidget,
+    );
+
+    final yearPeriod = find.byKey(const Key('dashboard-period-thisYear'));
+    await tester.ensureVisible(yearPeriod);
+    await tester.tap(yearPeriod);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    final amountDuringReload = tester.widget<Text>(
+      find.byKey(const Key('dashboard-spending-amount')),
+    );
+    expect(amountDuringReload.data, '—');
+    expect(
+      find.byKey(const Key('dashboard-category-September category')),
+      findsNothing,
+    );
+    expect(tester.widget<ChoiceChip>(yearPeriod).selected, isTrue);
+
+    pending.complete(currentYear);
+    await tester.pumpAndSettle();
+    final loadedAmount = tester.widget<Text>(
+      find.byKey(const Key('dashboard-spending-amount')),
+    );
+    expect(loadedAmount.data, MoneyFormatter.display(5000, 'COP'));
+    final yearCategory = find.byKey(
+      const Key('dashboard-category-Year category'),
+    );
+    await tester.scrollUntilVisible(yearCategory, 240);
+    expect(yearCategory, findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
   testWidgets('dashboard category tap drills to filtered history', (
     tester,
   ) async {
-    await _pumpAt(tester, '/dashboard');
-    await tester.tap(find.byKey(const Key('dashboard-analysis-toggle')));
-    await tester.pumpAndSettle();
+    await _pumpAt(tester, '/analysis');
 
     final tile = find.byKey(const Key('dashboard-category-Food'));
     await tester.scrollUntilVisible(tile, 200);
@@ -654,12 +802,15 @@ void main() {
     expect(find.byKey(const Key('history-list')), findsOneWidget);
   });
 
-  testWidgets('dashboard period selector switches to the year', (tester) async {
-    await _pumpAt(tester, '/dashboard');
-
-    expect(find.text('septiembre · Balance'), findsOneWidget);
-    await tester.tap(find.byKey(const Key('dashboard-analysis-toggle')));
+  testWidgets('analysis deep link has a safe back destination', (tester) async {
+    await _pumpAt(tester, '/analysis');
+    await tester.tap(find.byTooltip('Volver'));
     await tester.pumpAndSettle();
+    expect(find.text('Saldo en cuentas'), findsOneWidget);
+  });
+
+  testWidgets('dashboard period selector switches to the year', (tester) async {
+    await _pumpAt(tester, '/analysis');
     final yearPeriod = find.text('Este año').last;
     await tester.ensureVisible(yearPeriod);
     await tester.tap(yearPeriod);
@@ -678,9 +829,7 @@ void main() {
     tester,
   ) async {
     final semantics = tester.ensureSemantics();
-    await _pumpAt(tester, '/dashboard');
-    await tester.tap(find.byKey(const Key('dashboard-analysis-toggle')));
-    await tester.pumpAndSettle();
+    await _pumpAt(tester, '/analysis');
 
     for (final entry in {
       'thisMonth': 'Este mes',
@@ -709,11 +858,14 @@ void main() {
 
     expect(find.text('Saldo en cuentas'), findsOneWidget);
     expect(find.text(r'$ 0 COP'), findsWidgets);
-    await tester.tap(find.byKey(const Key('dashboard-analysis-toggle')));
-    await tester.pumpAndSettle();
-    expect(find.text('Gastos por categoría'), findsOneWidget);
-    await tester.scrollUntilVisible(find.text('Sin datos suficientes'), 200);
-    expect(find.text('Sin datos suficientes'), findsOneWidget);
+    expect(find.text('Insight semanal'), findsOneWidget);
+    expect(find.text('Proyección del mes'), findsOneWidget);
+    expect(find.textContaining('No se registraron gastos'), findsWidgets);
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('dashboard-open-analysis')),
+      200,
+    );
+    expect(find.text('Ver análisis'), findsOneWidget);
   });
 
   testWidgets(

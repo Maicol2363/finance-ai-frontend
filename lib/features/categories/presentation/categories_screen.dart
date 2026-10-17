@@ -78,7 +78,7 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
               key: const Key('categories-add-button'),
               onPressed: state.result == null || state.isSaving
                   ? null
-                  : () => context.go('/categories/new'),
+                  : () => context.push('/categories/new'),
               icon: const Icon(FinanceIcons.add),
               label: const Text('Agregar categoría'),
             ),
@@ -165,7 +165,7 @@ class _CategoryCard extends StatelessWidget {
         subtitle: 'Posición ${index + 1}',
         onTap: disabled
             ? null
-            : () => context.go('/categories/${category.id}/edit'),
+            : () => context.push('/categories/${category.id}/edit'),
         trailing: [
           ManageActionButton(
             key: Key('category-up-${category.id}'),

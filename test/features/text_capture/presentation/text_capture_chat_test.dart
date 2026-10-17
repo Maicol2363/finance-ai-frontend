@@ -516,7 +516,10 @@ void main() {
 
       expect(byKey('chat-failure'), findsOneWidget);
       expect(find.textContaining('No pude leer tu mensaje'), findsOneWidget);
-      expect(find.text('Error code: text_capture_unavailable'), findsOneWidget);
+      expect(
+        find.text('Código de error: text_capture_unavailable'),
+        findsOneWidget,
+      );
       expect(byKey('copy-error-details-button'), findsOneWidget);
       expect(byKey('chat-manual'), findsOneWidget);
       // The user's own text stays in the conversation, not in the report.

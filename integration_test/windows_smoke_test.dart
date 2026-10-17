@@ -529,7 +529,7 @@ void main() {
     await tester.tap(find.byKey(const Key('register-submit-button')));
     await tester.pumpAndSettle();
 
-    expect(find.text('Error code: network_unavailable'), findsOneWidget);
+    expect(find.text('Código de error: network_unavailable'), findsOneWidget);
     expect(find.byKey(const Key('copy-error-details-button')), findsOneWidget);
   }, skip: defaultTargetPlatform != TargetPlatform.windows);
 
@@ -581,12 +581,13 @@ void main() {
     await tester.tap(find.byKey(const Key('login-submit-button')));
     await tester.pumpAndSettle();
 
-    expect(find.byKey(const Key('dashboard-hero')), findsOneWidget);
+    expect(find.byKey(const Key('dashboard-account-balance')), findsOneWidget);
     expect(store.value, _SuccessfulSessionRepository.renewable);
 
     // Account management lives under Ajustes in the current mobile navigation.
-    GoRouter.of(tester.element(find.byKey(const Key('dashboard-hero'))))
-        .go('/settings');
+    GoRouter.of(
+      tester.element(find.byKey(const Key('dashboard-account-balance'))),
+    ).go('/settings');
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('settings-accounts-row')));
     await tester.pumpAndSettle();
@@ -617,8 +618,9 @@ void main() {
 
     await tester.tap(find.byTooltip('Volver al inicio'));
     await tester.pumpAndSettle();
-    GoRouter.of(tester.element(find.byKey(const Key('dashboard-hero'))))
-        .go('/settings');
+    GoRouter.of(
+      tester.element(find.byKey(const Key('dashboard-account-balance'))),
+    ).go('/settings');
     await tester.pumpAndSettle();
     await tester.scrollUntilVisible(
       find.byKey(const Key('logout-button')),

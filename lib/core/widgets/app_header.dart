@@ -34,12 +34,15 @@ class AppHeader extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    title,
-                    style: TextStyle(
-                      fontSize: 17,
-                      fontWeight: FontWeight.w700,
-                      color: palette.text,
+                  Semantics(
+                    header: true,
+                    child: Text(
+                      title,
+                      style: TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w700,
+                        color: palette.text,
+                      ),
                     ),
                   ),
                   if (subtitle != null)

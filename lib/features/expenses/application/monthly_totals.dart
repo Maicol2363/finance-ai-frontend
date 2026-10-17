@@ -5,6 +5,7 @@ import '../../../core/money/currency_totals.dart';
 import '../../../core/time/clock_provider.dart';
 import '../../incomes/data/incomes_repository.dart';
 import '../data/expenses_repository.dart';
+import '../domain/expense_models.dart';
 import '../domain/history_models.dart';
 import 'expenses_controller.dart';
 
@@ -176,6 +177,9 @@ class MonthlyTotals {
     this.period = DashboardPeriod.thisMonth,
     DateTime? windowEnd,
     this.previousExpensesByCurrency = const {},
+    this.historyComplete = true,
+    this.previousHistoryComplete = true,
+    this.previousExpenseItems = const [],
   }) : windowEnd = windowEnd ?? monthStart;
 
   /// First day of the reported window (UTC midnight, for display helpers).
@@ -197,6 +201,10 @@ class MonthlyTotals {
 
   /// The month's expense entries across all pages, for the category breakdown.
   final List<HistoryItem> expenseItems;
+
+  final bool historyComplete;
+  final bool previousHistoryComplete;
+  final List<HistoryItem> previousExpenseItems;
 
   CurrencyTotals forCurrency(String? currencyCode) => currencyCode == null
       ? const CurrencyTotals()
@@ -239,6 +247,7 @@ Future<MonthlyTotals> loadPeriodTotals(
 
   final repository = ref.watch(expensesRepositoryProvider);
   final expenseItems = <HistoryItem>[];
+  var historyComplete = false;
   for (var page = 1; page <= _maxPages; page++) {
     final result = await repository.history(
       HistoryFilters(
@@ -249,8 +258,13 @@ Future<MonthlyTotals> loadPeriodTotals(
         pageSize: _pageSize,
       ),
     );
-    expenseItems.addAll(result.items);
-    for (final item in result.items) {
+    final activeExpenses = result.items.where(
+      (item) =>
+          item.type == TransactionType.expense &&
+          item.status != ExpenseStatus.voided,
+    );
+    expenseItems.addAll(activeExpenses);
+    for (final item in activeExpenses) {
       for (final movement in item.movements) {
         final minorUnits = movement.amount.minorUnits;
         if (minorUnits < 0) {
@@ -259,32 +273,45 @@ Future<MonthlyTotals> loadPeriodTotals(
       }
     }
     if (!result.hasNext) {
+      historyComplete = true;
       break;
     }
   }
 
-  // Previous equivalent window: one extra first-page read, expenses only.
-  // Incomes are not compared (only spend gets a tendency). When the previous
-  // window is busier than one page the badge still compares first-page sums;
-  // acceptable: the badge is a hint, totals stay exact.
+  // Compare complete equivalent windows; never compare a full total with
+  // only the first page of the prior window.
   final prev = previousWindow(window);
   final prevExpenses = <String, int>{};
-  final prevResult = await repository.history(
-    HistoryFilters(
-      type: TransactionType.expense,
-      startDate: prev.start,
-      endDate: prev.end,
-      page: 1,
-      pageSize: _pageSize,
-    ),
-  );
-  for (final item in prevResult.items) {
-    for (final movement in item.movements) {
-      final minorUnits = movement.amount.minorUnits;
-      if (minorUnits < 0) {
-        prevExpenses[movement.currencyCode] =
-            (prevExpenses[movement.currencyCode] ?? 0) - minorUnits;
+  var previousHistoryComplete = false;
+  final previousExpenseItems = <HistoryItem>[];
+  for (var page = 1; page <= _maxPages; page++) {
+    final result = await repository.history(
+      HistoryFilters(
+        type: TransactionType.expense,
+        startDate: prev.start,
+        endDate: prev.end,
+        page: page,
+        pageSize: _pageSize,
+      ),
+    );
+    final activeExpenses = result.items.where(
+      (item) =>
+          item.type == TransactionType.expense &&
+          item.status != ExpenseStatus.voided,
+    );
+    previousExpenseItems.addAll(activeExpenses);
+    for (final item in activeExpenses) {
+      for (final movement in item.movements) {
+        final units = movement.amount.minorUnits;
+        if (units < 0) {
+          prevExpenses[movement.currencyCode] =
+              (prevExpenses[movement.currencyCode] ?? 0) - units;
+        }
       }
+    }
+    if (!result.hasNext) {
+      previousHistoryComplete = true;
+      break;
     }
   }
 
@@ -294,6 +321,9 @@ Future<MonthlyTotals> loadPeriodTotals(
     period: period,
     byCurrency: builder.build(),
     expenseItems: List.unmodifiable(expenseItems),
+    historyComplete: historyComplete,
+    previousHistoryComplete: previousHistoryComplete,
+    previousExpenseItems: List.unmodifiable(previousExpenseItems),
     previousExpensesByCurrency: Map.unmodifiable(prevExpenses),
   );
 }

@@ -1,4 +1,4 @@
-import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../features/accounts/presentation/account_detail_screen.dart';
@@ -14,6 +14,7 @@ import '../../features/budgets/presentation/budgets_screen.dart';
 import '../../features/categories/presentation/categories_screen.dart';
 import '../../features/categories/presentation/category_form_screen.dart';
 import '../../features/dashboard/presentation/dashboard_screen.dart';
+import '../../features/dashboard/presentation/dashboard_analysis_screen.dart';
 import '../../features/expenses/presentation/expense_create_screen.dart';
 import '../../features/expenses/presentation/expense_detail_screen.dart';
 import '../../features/expenses/presentation/expense_form_screen.dart';
@@ -30,6 +31,8 @@ import 'app_shell.dart';
 const _authenticatedRoots = <String>[
   '/home',
   '/dashboard',
+  '/analysis',
+  '/chat',
   '/settings',
   '/accounts',
   '/budgets',
@@ -130,16 +133,23 @@ GoRouter createAppRouter({
           ),
         ],
       ),
+      GoRoute(
+        path: '/analysis',
+        name: 'analysis',
+        builder: (context, state) =>
+            const _ManagementRoot(child: DashboardAnalysisScreen()),
+      ),
       GoRoute(path: '/dashboard', redirect: (context, state) => '/home'),
       GoRoute(
         path: '/chat',
         name: 'chat',
-        builder: (context, state) => const HomeScreen(),
+        builder: (context, state) => const _ManagementRoot(child: HomeScreen()),
       ),
       GoRoute(
         path: '/budgets',
         name: 'budgets',
-        builder: (context, state) => const BudgetsScreen(),
+        builder: (context, state) =>
+            const _ManagementRoot(child: BudgetsScreen()),
         routes: [
           GoRoute(
             path: 'new',
@@ -159,12 +169,14 @@ GoRouter createAppRouter({
       GoRoute(
         path: '/income-sources',
         name: 'incomeSources',
-        builder: (context, state) => const IncomeSourcesScreen(),
+        builder: (context, state) =>
+            const _ManagementRoot(child: IncomeSourcesScreen()),
       ),
       GoRoute(
         path: '/incomes',
         name: 'incomes',
-        builder: (context, state) => const IncomeListScreen(),
+        builder: (context, state) =>
+            const _ManagementRoot(child: IncomeListScreen()),
         routes: [
           GoRoute(
             path: 'new',
@@ -210,7 +222,8 @@ GoRouter createAppRouter({
       GoRoute(
         path: '/categories',
         name: 'categories',
-        builder: (context, state) => const CategoriesScreen(),
+        builder: (context, state) =>
+            const _ManagementRoot(child: CategoriesScreen()),
         routes: [
           GoRoute(
             path: 'new',
@@ -236,7 +249,7 @@ GoRouter createAppRouter({
           }
           return null;
         },
-        builder: (context, state) => const HomeScreen(),
+        builder: (context, state) => const _ManagementRoot(child: HomeScreen()),
         routes: [
           GoRoute(
             path: 'new',
@@ -267,7 +280,8 @@ GoRouter createAppRouter({
       GoRoute(
         path: '/accounts',
         name: 'accounts',
-        builder: (context, state) => const AccountsScreen(),
+        builder: (context, state) =>
+            const _ManagementRoot(child: AccountsScreen()),
         routes: [
           GoRoute(
             path: 'new',
@@ -307,4 +321,27 @@ GoRouter createAppRouter({
       ),
     ],
   );
+}
+
+/// A deep link or a form's go() can rebuild a section with no originating
+/// shell history. Android Back at that root must still return to Inicio.
+class _ManagementRoot extends StatelessWidget {
+  const _ManagementRoot({required this.child});
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final router = GoRouter.of(context);
+    return ListenableBuilder(
+      listenable: router.routerDelegate,
+      child: child,
+      builder: (context, child) => PopScope(
+        canPop: router.canPop(),
+        onPopInvokedWithResult: (didPop, result) {
+          if (!didPop) router.go('/home');
+        },
+        child: child!,
+      ),
+    );
+  }
 }

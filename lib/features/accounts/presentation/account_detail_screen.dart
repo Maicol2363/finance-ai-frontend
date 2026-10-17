@@ -59,7 +59,8 @@ class _AccountDetailScreenState extends ConsumerState<AccountDetailScreen> {
       leading: HeaderIconButton(
         icon: FinanceIcons.arrowBack,
         tooltip: 'Volver a cuentas',
-        onPressed: () => context.go('/accounts'),
+        onPressed: () =>
+            context.canPop() ? context.pop() : context.go('/accounts'),
       ),
       actions: const [ThemeToggleButton()],
       body: ListView(
@@ -90,7 +91,7 @@ class _AccountDetailScreenState extends ConsumerState<AccountDetailScreen> {
               key: const Key('account-edit-button'),
               onPressed: state.isSaving
                   ? null
-                  : () => context.go('/accounts/${widget.accountId}/edit'),
+                  : () => context.push('/accounts/${widget.accountId}/edit'),
               icon: const Icon(FinanceIcons.editOutlined),
               label: const Text('Editar cuenta'),
             ),
