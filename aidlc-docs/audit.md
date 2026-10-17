@@ -1342,3 +1342,10 @@ otra vez el mismo error
 **Context**: Continuación de auditoría de espaciado móvil más allá de la pantalla de inicio de sesión.
 
 ---
+
+## Entrega APK y apertura de PR
+**Timestamp**: 2026-10-17T18:59:06Z
+**User Input**: "ok egenra la apk orginal v8 y la pasa a download y le haces deploy en la nube abvre el pr en git de lo que hemos hecho ok ?"
+**AI Response**: Se generó la APK release ARM64 v8a 0.8.0+2008 configurada contra la API Cloud Run existente y se copió a /home/d3ad/Downloads/FinanceAI-v0.8.0-arm64-v8a-2026-10-17.apk. Se abrieron los PR frontend #35 y backend #24. Los cambios del backend no se desplegaron sobre producción: su workflow ejecuta migraciones en la base real y el PR aún no pasó CI/aprobación. La API actualmente desplegada respondió HTTP 200 en health/ready. No se hizo merge.
+**Context**: Empaquetado distribuible, API cloud existente y revisión de cambios por PR. La migración aditiva de idempotencia sigue el ciclo normal del PR antes del despliegue.
+---

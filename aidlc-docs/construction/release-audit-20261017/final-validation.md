@@ -197,3 +197,17 @@ Se añadió un margen estándar de 16dp entre la introducción y el campo de cor
 También se revisaron las capturas disponibles de cuentas, registro, presupuesto, transferencia, gasto manual, análisis, ajustes e historial; no se observaron otros solapamientos relevantes en ese material. La captura `artifacts/android/presentation-audit-release-20261017/expense-validation.png` pertenece a una compilación anterior y muestra un código técnico ya oculto en el código actual; se marca como obsoleta y no se debe incluir en la presentación. No se reemplazó porque el paquete instalado no tenía sesión autenticada durante esta ronda.
 
 Cumplimiento de extensiones para esta ronda: Security Baseline N/A (solo ajustes de espaciado; no cambia manejo de credenciales o permisos), Resiliency Baseline deshabilitada, Property-Based Testing N/A (cambios de layout verificados con pruebas de widgets y análisis estático).
+
+## Entrega Android y PR (2026-10-17)
+
+| Verificación | Resultado |
+|---|---|
+| APK release ABI arm64-v8a | PASS; versionName 0.8.0, versionCode 2008 |
+| Endpoint configurado en APK | API Cloud Run existente: https://finance-api-7caahuohmq-rj.a.run.app; /health/ready devolvió HTTP 200 |
+| Tamaño APK | 33,976,441 bytes |
+| SHA-256 | 01c064ee636d0e31278ff2e88e0e655a76cb4f05f9618426efc22df6edfa5db4 |
+| APK copiada a Descargas | PASS; /home/d3ad/Downloads/FinanceAI-v0.8.0-arm64-v8a-2026-10-17.apk |
+| PR frontend | https://github.com/Maicol2363/finance-ai-frontend/pull/35; checks pendientes al abrir |
+| PR backend | https://github.com/Maicol2363/finance-ai-backend/pull/24; checks pendientes al abrir |
+| Despliegue del nuevo backend | Pendiente de CI y aprobación/merge del PR; el APK usa el servicio Cloud Run actualmente activo |
+| Instalación en dispositivo | No ejecutada en esta entrega |
