@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:finance_ai/core/icons/finance_icon_catalog.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -5,6 +7,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/diagnostics/error_diagnostic.dart';
 import '../../../core/diagnostics/error_diagnostic_panel.dart';
+import '../../../core/formatters/catalog_labels.dart';
 import '../../../core/formatters/money_formatter.dart';
 import '../../../core/theme/app_palette.dart';
 import '../../../core/widgets/app_header.dart';
@@ -22,6 +25,7 @@ import '../../incomes/data/incomes_repository.dart';
 import '../../incomes/domain/income_models.dart';
 import '../application/expenses_controller.dart';
 import '../application/expenses_state.dart';
+import '../application/history_controller.dart';
 
 enum MovementType { expense, income }
 
@@ -30,11 +34,13 @@ class ExpenseCreateOptions {
     required this.accounts,
     required this.categories,
     required this.incomeSources,
+    this.warnings = const [],
   });
 
   final List<Account> accounts;
   final List<Category> categories;
   final List<IncomeSource> incomeSources;
+  final List<ErrorDiagnostic> warnings;
 }
 
 final expenseCreateOptionsProvider =
@@ -43,34 +49,69 @@ final expenseCreateOptionsProvider =
         final accountsFuture = ref
             .read(accountsRepositoryProvider)
             .list(includeInactive: false);
-        final categoriesFuture = ref.read(categoriesRepositoryProvider).list();
-
-        final accountsResult = await accountsFuture;
-        CategoryListResult? categoriesResult;
-        try {
-          categoriesResult = await categoriesFuture;
-        } catch (e) {
-          debugPrint('Warning: Failed to load categories: $e');
-        }
-
-        List<IncomeSource> sources = const [];
-        try {
-          sources = await ref
+        final categoriesFuture = _loadOptionalCategories(
+          () => ref.read(categoriesRepositoryProvider).list(),
+        );
+        final sourcesFuture = _loadOptionalIncomeSources(
+          () => ref
               .read(authSessionControllerProvider.notifier)
               .runProtected(
                 (access) => ref
                     .read(incomeSourcesRepositoryProvider)
                     .list(accessCredential: access),
-              );
-        } catch (_) {}
+              ),
+        );
+
+        final accountsResult = await accountsFuture;
+        final categories = await categoriesFuture;
+        final sources = await sourcesFuture;
 
         return ExpenseCreateOptions(
           accounts: accountsResult.accounts,
-          categories: categoriesResult?.categories ?? const [],
-          incomeSources: sources,
+          categories: categories.values,
+          incomeSources: sources.values,
+          warnings: [?categories.warning, ?sources.warning],
         );
       };
     });
+
+Future<({List<Category> values, ErrorDiagnostic? warning})>
+_loadOptionalCategories(Future<CategoryListResult> Function() load) async {
+  try {
+    return (values: (await load()).categories, warning: null);
+  } on InvalidSessionFailure {
+    rethrow;
+  } on Object {
+    return (
+      values: const <Category>[],
+      warning: ErrorDiagnostic.capture(
+        code: 'expense_categories_unavailable',
+        operation: 'load_expense_categories',
+        userMessage: 'No pudimos cargar las categorías. Puedes continuar y reintentar después.',
+        technicalReason: 'category_catalog_load_failure',
+      ),
+    );
+  }
+}
+
+Future<({List<IncomeSource> values, ErrorDiagnostic? warning})>
+_loadOptionalIncomeSources(Future<List<IncomeSource>> Function() load) async {
+  try {
+    return (values: await load(), warning: null);
+  } on InvalidSessionFailure {
+    rethrow;
+  } on Object {
+    return (
+      values: const <IncomeSource>[],
+      warning: ErrorDiagnostic.capture(
+        code: 'income_sources_unavailable',
+        operation: 'load_income_sources',
+        userMessage: 'No pudimos cargar las fuentes de ingreso. Puedes continuar y reintentar después.',
+        technicalReason: 'income_source_catalog_load_failure',
+      ),
+    );
+  }
+}
 
 class ExpenseCreateScreen extends ConsumerStatefulWidget {
   const ExpenseCreateScreen({super.key});
@@ -93,6 +134,7 @@ class _ExpenseCreateScreenState extends ConsumerState<ExpenseCreateScreen> {
   List<Account> _accounts = const [];
   List<Category> _categories = const [];
   List<IncomeSource> _incomeSources = const [];
+  List<ErrorDiagnostic> _optionWarnings = const [];
   int? _selectedAccountId;
   int? _selectedCategoryId;
   int? _selectedSourceId;
@@ -139,6 +181,7 @@ class _ExpenseCreateScreenState extends ConsumerState<ExpenseCreateScreen> {
         _accounts = options.accounts;
         _categories = options.categories;
         _incomeSources = options.incomeSources;
+        _optionWarnings = options.warnings;
         if (_selectedAccountId == null ||
             !_accounts.any((a) => a.id == _selectedAccountId)) {
           _selectedAccountId = options.accounts
@@ -157,8 +200,7 @@ class _ExpenseCreateScreenState extends ConsumerState<ExpenseCreateScreen> {
           _amountFocus.requestFocus();
         }
       });
-    } on Object catch (e, stack) {
-      debugPrint('Error loading expense create options: $e\n$stack');
+    } on Object catch (e) {
       if (!mounted) return;
       final (code, message, correlationId, reason) = switch (e) {
         AccountFailure f => (
@@ -183,7 +225,7 @@ class _ExpenseCreateScreenState extends ConsumerState<ExpenseCreateScreen> {
           'expense_options_unavailable',
           'No pudimos cargar tus cuentas y catálogos. Inténtalo de nuevo.',
           'unavailable',
-          e.toString(),
+          'options_load_failure',
         ),
       };
       setState(() {
@@ -241,6 +283,7 @@ class _ExpenseCreateScreenState extends ConsumerState<ExpenseCreateScreen> {
     );
     if (!mounted) return;
     if (outcome == ExpenseMutationOutcome.success) {
+      unawaited(ref.read(historyControllerProvider.notifier).load());
       if (context.canPop()) {
         context.pop();
       } else {
@@ -300,6 +343,7 @@ class _ExpenseCreateScreenState extends ConsumerState<ExpenseCreateScreen> {
       await repository.create(command);
       if (!mounted) return;
       ref.read(incomeRevisionProvider.notifier).changed();
+      unawaited(ref.read(historyControllerProvider.notifier).load());
       if (context.canPop()) {
         context.pop();
       } else {
@@ -308,7 +352,7 @@ class _ExpenseCreateScreenState extends ConsumerState<ExpenseCreateScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Ingreso registrado exitosamente.')),
       );
-    } catch (e) {
+    } catch (_) {
       if (!mounted) return;
       setState(() {
         _isSavingIncome = false;
@@ -316,7 +360,7 @@ class _ExpenseCreateScreenState extends ConsumerState<ExpenseCreateScreen> {
           code: 'income_save_failed',
           operation: 'save_income',
           userMessage: 'No pudimos guardar el ingreso. Inténtalo de nuevo.',
-          technicalReason: e.toString(),
+          technicalReason: 'income_save_failure',
         );
       });
     }
@@ -503,6 +547,25 @@ class _ExpenseCreateScreenState extends ConsumerState<ExpenseCreateScreen> {
               ),
               const SizedBox(height: 16),
             ],
+            if (_optionWarnings.isNotEmpty) ...[
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Text(
+                  'Algunas opciones no están disponibles. Puedes continuar con el registro manual.',
+                  style: TextStyle(color: palette.muted, fontSize: 13),
+                ),
+              ),
+              for (final warning in _optionWarnings) ...[
+                ErrorDiagnosticPanel(diagnostic: warning),
+                const SizedBox(height: 8),
+              ],
+              OutlinedButton.icon(
+                onPressed: _loadingOptions ? null : _loadOptions,
+                icon: const Icon(FinanceIcons.refresh),
+                label: const Text('Reintentar carga de catálogos'),
+              ),
+              const SizedBox(height: 12),
+            ],
             if (state.mutationDiagnostic case final diagnostic?) ...[
               ErrorDiagnosticPanel(diagnostic: diagnostic),
               const SizedBox(height: 16),
@@ -664,7 +727,7 @@ class _ExpenseCreateScreenState extends ConsumerState<ExpenseCreateScreen> {
                               ),
                               const SizedBox(width: 6),
                               Text(
-                                source.name,
+                                CatalogLabels.display(source.name),
                                 style: TextStyle(
                                   fontSize: 12.5,
                                   fontWeight: _selectedSourceId == source.id

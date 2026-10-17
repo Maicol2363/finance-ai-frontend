@@ -1,9 +1,12 @@
+import 'dart:async';
+
 import 'package:finance_ai/core/icons/finance_icon_catalog.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/diagnostics/error_diagnostic_panel.dart';
+import '../../../core/formatters/date_labels.dart';
 import '../../../core/widgets/app_header.dart';
 import '../../../core/widgets/management_page_scaffold.dart';
 import '../../../core/widgets/manage_widgets.dart';
@@ -11,6 +14,7 @@ import '../../../core/widgets/theme_toggle_button.dart';
 import '../../accounts/application/accounts_controller.dart';
 import '../../accounts/application/accounts_state.dart';
 import '../../accounts/domain/account_models.dart';
+import '../../expenses/application/history_controller.dart';
 import '../application/transfer_controller.dart';
 import '../application/transfer_state.dart';
 
@@ -77,7 +81,15 @@ class _TransferFormScreenState extends ConsumerState<TransferFormScreen> {
         leading: HeaderIconButton(
           icon: FinanceIcons.arrowBack,
           tooltip: 'Volver a cuentas',
-          onPressed: state.isSaving ? null : () => context.go('/accounts'),
+          onPressed: state.isSaving
+              ? null
+              : () {
+                  if (context.canPop()) {
+                    context.pop();
+                  } else {
+                    context.go('/accounts');
+                  }
+                },
         ),
         actions: const [ThemeToggleButton()],
         body: ListView(
@@ -289,10 +301,7 @@ class _TransferFormScreenState extends ConsumerState<TransferFormScreen> {
   }
 
   String _formatDate(DateTime value) {
-    final date = value.toUtc();
-    return '${date.year.toString().padLeft(4, '0')}-'
-        '${date.month.toString().padLeft(2, '0')}-'
-        '${date.day.toString().padLeft(2, '0')}';
+    return DateLabels.calendarDate(value);
   }
 
   String? _currencyOf(List<Account> accounts, int? accountId) {
@@ -332,11 +341,16 @@ class _TransferFormScreenState extends ConsumerState<TransferFormScreen> {
       return;
     }
     if (outcome == TransferMutationOutcome.success) {
+      unawaited(ref.read(historyControllerProvider.notifier).load());
       await ref.read(accountsControllerProvider.notifier).load();
       if (!mounted) {
         return;
       }
-      context.go('/accounts');
+      if (context.canPop()) {
+        context.pop();
+      } else {
+        context.go('/accounts');
+      }
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text('Transferencia guardada.')));

@@ -44,7 +44,7 @@ class _AccountsScreenState extends ConsumerState<AccountsScreen> {
       subtitle: 'Administra tus cuentas y saldos',
       leading: HeaderIconButton(
         icon: FinanceIcons.arrowBack,
-        tooltip: 'Volver al inicio',
+        tooltip: 'Volver a la pantalla anterior',
         onPressed: () {
           if (context.canPop()) {
             context.pop();

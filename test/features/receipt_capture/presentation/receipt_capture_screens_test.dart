@@ -429,10 +429,7 @@ void main() {
       );
 
       expect(find.byType(ErrorDiagnosticPanel), findsOneWidget);
-      expect(
-        find.text('Código de error: unexpected_client_error'),
-        findsOneWidget,
-      );
+      expect(find.byKey(const Key('error-diagnostic-code')), findsNothing);
       expect(
         find.byKey(const Key('copy-error-details-button')),
         findsOneWidget,
@@ -711,10 +708,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byType(ErrorDiagnosticPanel), findsOneWidget);
-      expect(
-        find.text('Código de error: receipt_proposal_not_found'),
-        findsOneWidget,
-      );
+      expect(find.byKey(const Key('error-diagnostic-code')), findsNothing);
       expect(
         find.text('El borrador del recibo ya no está disponible.'),
         findsWidgets,

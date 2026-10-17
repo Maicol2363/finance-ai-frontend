@@ -4,9 +4,10 @@ import '../theme/app_palette.dart';
 
 /// Shared product mark and name for sign-in and account creation.
 class AuthBrand extends StatelessWidget {
-  const AuthBrand({super.key, this.showTitle = true});
+  const AuthBrand({super.key, this.showTitle = true, this.iconSize = 96});
 
   final bool showTitle;
+  final double iconSize;
 
   @override
   Widget build(BuildContext context) {
@@ -15,8 +16,8 @@ class AuthBrand extends StatelessWidget {
       children: [
         Image.asset(
           'assets/branding/finance-ai-app-icon.png',
-          width: 96,
-          height: 96,
+          width: iconSize,
+          height: iconSize,
           semanticLabel: 'Finance AI',
           fit: BoxFit.contain,
         ),

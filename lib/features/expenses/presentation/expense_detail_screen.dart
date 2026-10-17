@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/diagnostics/error_diagnostic_panel.dart';
+import '../../../core/formatters/catalog_labels.dart';
 import '../../../core/widgets/app_header.dart';
 import '../../../core/widgets/management_page_scaffold.dart';
 import '../../receipt_capture/data/receipt_photo_cache_repository.dart';
@@ -327,7 +328,9 @@ class _ExpenseDetails extends StatelessWidget {
           _DetailRow(label: 'Lugar / Comercio', value: expense.receiptName),
         _DetailRow(
           label: 'Categoría',
-          value: expense.category?.name ?? 'Sin categoría',
+          value: expense.category == null
+              ? 'Sin categoría'
+              : CatalogLabels.display(expense.category!.name),
         ),
         _DetailRow(
           label: 'Cuenta',
@@ -336,7 +339,8 @@ class _ExpenseDetails extends StatelessWidget {
         ),
         _DetailRow(
           label: 'Moneda',
-          value: '${expense.currency.code} · ${expense.currency.name}',
+          value:
+              '${expense.currency.code} · ${CatalogLabels.display(expense.currency.name)}',
         ),
         _DetailRow(label: 'Estado', value: _statusLabel(expense.status)),
         if (!isReceipt) ...[

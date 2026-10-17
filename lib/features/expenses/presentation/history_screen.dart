@@ -8,6 +8,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/diagnostics/error_diagnostic_panel.dart';
 import '../../../core/formatters/date_labels.dart';
+import '../../../core/formatters/catalog_labels.dart';
 import '../../../core/formatters/money_formatter.dart';
 import '../../../core/theme/app_palette.dart';
 import '../../../core/widgets/app_header.dart';
@@ -231,7 +232,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                   child: filters.hasActiveFilters
                       ? _HistoryNoResults(onClear: _clearFilters)
                       : MovementsEmptyState(
-                          onRegister: () => context.go('/expenses/new'),
+                          onRegister: () => context.push('/expenses/new'),
                         ),
                 ),
               ),
@@ -243,7 +244,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                     total: result.total,
                     loaded: items.length,
                     balance: result.total == items.length
-                        ? _balanceLabel(items)
+                        ? _balanceLabel(items, accountId: filters.accountId)
                         : null,
                   ),
                 ),
@@ -398,6 +399,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
   }) {
     showModalBottomSheet<void>(
       context: context,
+      useRootNavigator: true,
       isScrollControlled: true,
       showDragHandle: true,
       shape: const RoundedRectangleBorder(
@@ -487,7 +489,10 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                           ),
                         ),
                       ],
+                      // Keep the account label clear of the merchant chip row.
+                      const SizedBox(height: 24),
                       _buildAccountDropdown(live, sheetAccounts),
+                      const SizedBox(height: 12),
                       _buildCategoryDropdown(live, sheetCategories),
                       const SizedBox(height: 16),
                       SizedBox(
@@ -653,7 +658,10 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                   ),
                   const SizedBox(width: 8),
                   Expanded(
-                    child: Text(category.name, overflow: TextOverflow.ellipsis),
+                    child: Text(
+                      CatalogLabels.display(category.name),
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
                 ],
               ),
@@ -756,7 +764,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
     if (filters.categoryId case final categoryId?) {
       final name = categories
           .where((category) => category.id == categoryId)
-          .map((category) => category.name)
+          .map((category) => CatalogLabels.display(category.name))
           .firstOrNull;
       chips.add(
         _ActiveFilterChip(
@@ -886,13 +894,13 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
   List<_HistoryDayGroup> _groupByDay(List<HistoryItem> items) {
     final groups = <_HistoryDayGroup>[];
     for (final item in items) {
-      final local = item.occurredAt.toLocal();
+      final local = item.displayDate;
       final day = DateTime(local.year, local.month, local.day);
       if (groups.isEmpty || groups.last.day != day) {
         groups.add(
           _HistoryDayGroup(
             day: day,
-            label: DateLabels.relativeDay(item.occurredAt),
+            label: DateLabels.relativeDay(local),
             items: <HistoryItem>[item],
           ),
         );
@@ -904,19 +912,8 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
   }
 
   /// Signed total of the loaded page, or `null` when currencies are mixed.
-  String? _balanceLabel(List<HistoryItem> items) {
-    final totals = <String, int>{};
-    for (final item in items) {
-      final movement = item.movements.isEmpty ? null : item.movements.first;
-      if (movement == null) {
-        return null;
-      }
-      totals.update(
-        movement.currencyCode,
-        (value) => value + movement.amount.minorUnits,
-        ifAbsent: () => movement.amount.minorUnits,
-      );
-    }
+  String? _balanceLabel(List<HistoryItem> items, {int? accountId}) {
+    final totals = historyBalanceByCurrency(items, accountId: accountId);
     if (totals.length != 1) {
       return null;
     }
@@ -1076,8 +1073,9 @@ class _HistoryResultHeader extends StatelessWidget {
     final palette = context.palette;
     final countLabel = '$total ${total == 1 ? 'movimiento' : 'movimientos'}';
     final trailing = balance ?? '$loaded de $total cargados';
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    return Wrap(
+      alignment: WrapAlignment.spaceBetween,
+      runSpacing: 4,
       children: [
         Text(
           countLabel,
@@ -1260,10 +1258,11 @@ class _HistoryCard extends ConsumerWidget {
   String get _meta => switch (item.type) {
     TransactionType.expense => [
       _accountName,
-      item.expense?.items.firstOrNull?.category?.name,
+      if (item.expense?.items.firstOrNull?.category?.name case final category?)
+        CatalogLabels.display(category),
     ].whereType<String>().where((value) => value.isNotEmpty).join(' · '),
     TransactionType.income => [
-      item.incomeSource,
+      if (item.incomeSource case final source?) CatalogLabels.display(source),
       _accountName,
     ].whereType<String>().where((value) => value.isNotEmpty).join(' · '),
     TransactionType.transfer => [
@@ -1273,11 +1272,10 @@ class _HistoryCard extends ConsumerWidget {
   };
 
   String get _detail {
-    final time = DateLabels.time(item.occurredAt);
+    if (item.type != TransactionType.expense) return '';
+    final time = DateLabels.time(item.displayDate);
     final items = item.expense?.items.length;
-    if (item.type != TransactionType.expense || items == null) {
-      return time;
-    }
+    if (items == null) return time;
     return '$time · ${items == 1 ? '1 elemento' : '$items elementos'}';
   }
 

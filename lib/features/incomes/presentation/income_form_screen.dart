@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/diagnostics/error_diagnostic.dart';
+import '../../../core/formatters/catalog_labels.dart';
 import '../../../core/diagnostics/error_diagnostic_panel.dart';
 import '../../../core/formatters/money_formatter.dart';
 import '../../../core/widgets/app_header.dart';
@@ -308,7 +309,7 @@ class _IncomeFormScreenState extends ConsumerState<IncomeFormScreen> {
                   ..._sources.map(
                     (source) => DropdownMenuItem(
                       value: source.id,
-                      child: Text(source.name),
+                      child: Text(CatalogLabels.display(source.name)),
                     ),
                   ),
                 ],

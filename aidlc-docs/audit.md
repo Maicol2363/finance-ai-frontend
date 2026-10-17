@@ -1122,3 +1122,223 @@ La verificación final en el teléfono pasó: Inicio y Análisis muestran la mis
 **Context**: Complete raw public interaction.
 
 ---
+
+## User interaction: autonomous presentation audit continuation
+**Timestamp**: 2026-10-17T16:03:29Z
+**User Input**:
+````text
+## Modo de ejecución autónoma — Finance AI
+
+A partir de este momento, trabaja en **modo autónomo de principio a fin**.
+
+**Te autorizo explícitamente a avanzar por todas las fases de AI-DLC sin solicitar mi aprobación en cada etapa.**
+
+### Reglas de autonomía
+
+1. **No me hagas preguntas de confirmación rutinarias.** No preguntes si debes continuar, implementar una corrección, ejecutar pruebas o pasar a la siguiente fase.
+2. Considera preaprobados los checkpoints y approval gates de Inception y Construction para las actividades comprendidas en la auditoría y mejora de Finance AI. Si una regla obligatoria del framework impide omitir una aprobación, solicítala una sola vez y agrupa las decisiones necesarias.
+3. Toma decisiones técnicas razonables de forma independiente. Si encuentras varias soluciones, selecciona la más adecuada según estabilidad, mantenibilidad, accesibilidad, rendimiento y experiencia de usuario.
+4. Ejecuta el ciclo completo: **investigar → diagnosticar → corregir → probar → verificar → continuar**.
+5. Utiliza el celular conectado mediante ADB para realizar pruebas reales de todas las pantallas y funcionalidades posibles. No necesitas preguntarme antes de ejecutar pruebas no destructivas.
+6. Si encuentras nuevos errores durante las pruebas, corrígelos y vuelve a ejecutar las pruebas correspondientes sin esperar autorización.
+7. Utiliza las skills `graphify`, `finance-ai-safe-worktree` y las demás herramientas disponibles cuando sean útiles.
+8. Puedes utilizar subagentes para investigar, implementar y probar tareas independientes, evitando conflictos de archivos. El agente principal debe integrar y verificar los resultados.
+9. No detengas el trabajo por decisiones visuales menores, refactorizaciones justificadas o correcciones normales.
+10. Registra tus decisiones, hallazgos, cambios y pruebas en la documentación del proyecto, pero no conviertas la documentación en un motivo para detener la ejecución.
+
+### Cuándo sí puedes interrumpirme
+
+Solamente si:
+
+- Necesitas credenciales o información indispensable que no está disponible.
+- Existe riesgo de pérdida de datos personales o modificación destructiva.
+- Una acción requiere autorización externa obligatoria.
+- Aparece un bloqueo técnico real que no puedes resolver mediante alternativas razonables.
+
+Ante un bloqueo aislado, continúa con las demás tareas independientes.
+
+### Restricciones que siguen vigentes
+
+- No realizar push ni merge sin mi autorización.
+- No modificar `main`.
+- Trabajar en un worktree o rama aislada.
+- No eliminar datos reales ni alterar permanentemente el dispositivo.
+- No introducir cambios fuera del alcance del proyecto.
+- No ocultar errores ni declarar aprobadas pruebas que no se ejecutaron.
+
+### Objetivo final
+
+Quiero una versión de Finance AI preparada para la presentación, con todas las pantallas auditadas, problemas prioritarios corregidos, funciones comprobadas, accesibilidad revisada y validación real en Android.
+
+**No necesito aprobar cada paso. Necesito que ejecutes el trabajo y me entregues los resultados.**
+
+Puedes informarme de avances importantes sin convertirlos en preguntas ni detener la ejecución.
+
+Continúa desde el estado actual del repositorio y de AI-DLC, sin reiniciar el análisis ya realizado ni repetir trabajo.
+
+No te detengas hasta completar las tareas posibles o identificar bloqueos reales que impidan continuar.
+````
+**AI Response**: Se trabajó en `codex/presentation-audit-20261017` desde `origin/develop` `e5be471`. Se integraron correcciones selectivas, se creó una variante release separada, se validaron 548 pruebas Flutter y 415 backend, y se registraron los límites de la prueba física. No hubo push, merge ni cambios a `main`.
+**Context**: Continuación autorizada del ciclo AI-DLC de auditoría y estabilización.
+
+---
+
+## User interaction: architecture validation and isolated branch
+**Timestamp**: 2026-10-17T16:03:29Z
+**User Input**:
+````text
+Antes de implementar el cuarto rol, realiza una última validación de arquitectura.
+
+Tu propuesta de Responsable de cierre tiene funcionalidades exclusivas, pero debes resolver un problema fundamental: si este usuario no puede registrar movimientos, ¿de dónde obtiene los datos que va a conciliar?
+
+Investiga el modelo real de usuarios, autenticación, propiedad de transacciones y permisos de Finance AI.
+
+Determina si el rol puede funcionar de manera independiente o necesita relaciones entre usuarios. No inventes permisos ni mecanismos de compartición que no existan.
+
+Compara esta solución con las otras alternativas, considerando que tenemos hasta el 19 de octubre de 2026 para presentar una versión estable.
+
+Prioriza:
+
+1. Diferenciación funcional real.
+2. Coherencia con una aplicación de finanzas personales.
+3. Bajo esfuerzo de implementación.
+4. Pocos cambios en la arquitectura y base de datos.
+5. Facilidad de demostración al profesor.
+
+Entrega una recomendación definitiva, con un MVP implementable y criterios de aceptación verificables.
+
+No implementes todavía el rol hasta resolver esta contradicción de diseño. No necesito otra investigación extensa: necesito una decisión técnica concreta y justificada.
+
+Y CREA UNA RAMA NO LO APSES A DEVELOP DE 1 0OSEA TENGO CONECTADO CON ADB EL CLEUALR Y TODO OSEA TE APSE LOS CMABIOS DE OTRO CHAT PERO DE TODAS MANERAS DEBES REVISAR OK ? CREA CUENTA DE ETST CON DATOS DE TEST Y PRUEBA A VER
+````
+**AI Response**: La validación encontró que backend actualmente asigna `user` o `admin` pero no tiene permisos de administración funcionales ni relaciones/membresías entre usuarios. Los recursos financieros se limitan al `user_id` autenticado. Recomendación registrada: no implementar el cuarto rol antes del 19 de octubre; demostrar cierre personal sobre movimientos propios y datos sintéticos. No se añadió rol ni mecanismo de compartición.
+**Context**: Se verificó el contrato existente antes de plantear un MVP; se mantuvieron rama y app test aisladas.
+
+---
+
+## Android UI audit continuation
+**Timestamp**: 2026-10-17T17:10:42Z
+**User Input**: "WHAT ABOUT THIS SCREN??? MIRA ESTA MUY PEGADO UNAS PARTES OSEA ANLZIA CADA PANTALLAY REVISA ERRORES O COSAS QUE NO TENGAN SENTIDO EN LA UI"
+**Attachments**: `/tmp/codex-clipboard-dc473a56-85b6-48f1-a002-0df2e09c0272.png`, `/tmp/codex-clipboard-31577743-bc05-40c2-84af-9f64f9e6000c.png`
+**AI Response**: Amplié la auditoría a capturas y rutas existentes, corregí los problemas UI confirmados y ejecuté validación física adicional en el dispositivo.
+**Context**: Revisión de solapamiento en filtros de Movimientos y login en horizontal; se amplió por instrucción posterior a todas las pantallas disponibles.
+
+---
+
+## Android UI audit scope expansion
+**Timestamp**: 2026-10-17T17:10:42Z
+**User Input**: "HAZ ESO CON TODAS LAS PANTALLAS PLS REVISA ANAZLIA SI TODO ESTA BIEN SI SE PEUDE EMJROAR ALGO SI TODO TIENE SENTIDO"
+**AI Response**: Revisé capturas/rutas de todas las áreas disponibles, separé lo validado físicamente de lo cubierto solo por pruebas o no ejecutable, corregí errores confirmados y registré los límites de validación.
+**Context**: Segunda pasada de experiencia de usuario y contenido de Finance AI en rama aislada; sin push, merge, borrado de datos ni cambios en la instalación habitual.
+
+---
+
+## Android dictation error correction
+**Timestamp**: 2026-10-17T17:33:38Z
+**User Input**: "`speech_fallback_unavailable` estos errores deberian estar todos en espanol en la vercion final"
+**AI Response**: Verifiqué el catálogo de errores de dictado y su fallback; todos los mensajes visibles se presentan en español. Añadí cobertura para códigos nativos desconocidos y texto privado no filtrado. Se diagnosticó además que R8 renombraba un campo JNA requerido por JNI; se agregó regla de conservación. Falta concluir build e instalación Android.
+**Context**: Corrección final de accesibilidad lingüística y recuperación del dictado en la rama aislada, sin tocar `main` ni publicar cambios.
+
+---
+
+## Android voice release fix follow-up
+**Timestamp**: 2026-10-17T17:36:19Z
+**User Input**: "Diagnostica la captura en el teléfono por ADB: confirma paquete APK abierto, API SDK/ABI, reconocimiento disponible y servicio/exported, permisos, idioma instalado/offline Vosk model. Reproduce la preparación y dictado con datos no sensibles; captura logcat acotado al proceso/code tags sin revelar correos/audio; revisa SHA actual. No limpies datos, no cambies ajustes permanentes, no instales otra app todavía."
+**AI Response**: La revisión de mapping confirmó R8 renombrando `Pointer.peer` y la excepción `Native.initIDs`. Se añadió keep de JNA y una supresión limitada de las referencias desktop `java.awt`; se construyó e instaló release ARM64 solo en `release_audit`. Analyzer y suite Flutter pasan. La prueba física de voz sigue pendiente porque API 8016 no escucha, el backend local carece de configuración privada recuperable y la única opción visible eliminaría la sesión local; no se tocó la sesión ni la base.
+**Context**: Fix Android nativo para JNI/JNA y verificación del paquete aislado. No se afirmó transcripción física.
+
+---
+
+## Follow-up: español en errores y APK instalable
+**Timestamp**: 2026-10-17T17:33:38Z
+**User Input**:
+```text
+`speech_fallback_unavailable` estos errores deberian estar todos en espanol en la vercion final
+```
+**AI Response**: Cubrí con pruebas los 21 códigos de voz conocidos, el fallback de códigos desconocidos y la privacidad de mensajes; todos los textos visibles de voz se resuelven en español. Corregí el fallo JNI/R8 con una regla de conservación JNA, compilé e instalé la APK `release_audit` en el teléfono. Flutter analyze y 633 pruebas pasan. El reconocimiento de voz en ejecución queda sin verificar porque no responde la API aislada del puerto 8016 y no hay `.env` en el worktree backend; preservé sesión/base y no reutilicé credenciales. La APK instalada quedó con SHA-256 `ee8e7a0ca792aff55e018ac8449e0286e010a42dea8582b40a3a912bec51cda5`.
+**Context**: Continuación del despliegue local autorizado para pruebas; sin push, merge ni cambios a `main`.
+
+---
+
+## Dictado offline: causa R8/JNA y verificación Android
+**Timestamp**: 2026-10-17T17:49:55Z
+**AI Response**: La inspección de `usage.txt` encontró que R8 eliminaba el constructor público `org.vosk.Model()` que Vosk/JNA instancia por reflexión. Las reglas conservan todo `org.vosk.**` y `com.sun.jna.**`; el mapping/Dex final mantiene el constructor y `Pointer.peer`. Se recuperó la API solo contra la base PostgreSQL de auditoría tmpfs, se reconstruyó con el Dart define local correcto y se instaló mediante `adb install -r` únicamente en `release_audit`. Dictado local es-ES preparó y escuchó; una frase TTS sintética produjo transcripción temporal que fue descartada antes de enviar o guardar. No se preservó el texto. API `/health/ready` respondió 200 y la APK final coincidente tiene SHA-256 `516699955a52a969eb426bc8c4dfee54477082ee7ffe2da1c07c28d220e3650e`.
+**Context**: Validación de regresión JNI/reflection en Android físico; paquete normal, datos y volumen/base auditados se preservaron.
+
+---
+
+## Reproducción física del error tras primera reinstalación
+**Timestamp**: 2026-10-17T17:50:22Z
+**User Input**:
+```text
+otra vez el mismo error
+```
+**Attachments**: `/tmp/codex-clipboard-ef2cf065-bd3e-4b9c-8246-0c9bd448ec77.png`
+**AI Response**: La captura coincidía con la primera APK reinstalada. La causa ya no era solo el campo JNA: R8 también había eliminado el constructor vacío de `org.vosk.Model` usado por reflexión. Añadí la regla keep, recompilé con la URL API de auditoría correcta, inicié backend aislado y validé físicamente preparación y escucha es-ES, con reconocimiento de audio TTS sintético. El texto se descartó sin envío ni persistencia. La app quedó en Inicio.
+**Context**: Segunda iteración de corrección tras evidencia del mismo error en Android.
+
+---
+
+## Corrección de flecha Atrás desde Ajustes y Cuentas
+**Timestamp**: 2026-10-17T17:51:00Z
+**User Input**: "hay una cosa cuando le doy atras en nueva cuenta luego otra vez ayras para cuenats y luego otra vez me manda al inciio no a settigns fixea eso pls"
+**Follow-up**: "opsea cuando le doy a la flecha de atras"
+**AI Response**: Diagnostiqué que el formulario de cuenta usaba `go('/accounts')`, reemplazando la pila de rutas; por eso la segunda flecha ya no podía regresar a Ajustes. Cambié el formulario para hacer `pop()` cuando existe una ruta previa y conservé la navegación fallback para enlaces/direct entry. Cambié el tooltip de Cuentas a un destino neutral y extendí la prueba integrada del recorrido Ajustes → Cuentas → Nueva cuenta → Atrás → Cuentas → Atrás → Ajustes.
+**Context**: Corrección de navegación en la rama aislada `codex/presentation-audit-20261017`; validar prueba dirigida antes de cerrar.
+
+---
+
+## Ampliación de corrección de Atrás a otras pantallas
+**Timestamp**: 2026-10-17T17:55:00Z
+**User Input**: "y pasa en otras ventanas tambien \\"
+**AI Response**: Extendí la revisión a los flujos de formularios y catálogos: categorías, presupuestos, transferencias y cuentas. Los retornos tras guardar/eliminar preservan la pila de rutas mediante pop; altas de cuenta reemplazan el formulario por su detalle sin descartar las pantallas previas. La eliminación de categoría deja que el controlador actualice la lista y no reinicia la ruta. Añadí regresión integrada para el trayecto de cuentas.
+**Context**: Auditoría de navegación ampliada por el usuario; prueba dirigida pendiente.
+
+---
+
+## Resultado: navegación atrás en otras pantallas
+**Timestamp**: 2026-10-17T17:55:00Z
+**AI Response**: Corregí el retorno en formularios de cuenta/categoría/presupuesto/transferencia y el borrado de cuenta/categoría para preservar la pila de navegación. La prueba integrada y 21 pruebas dirigidas de formularios pasan; `flutter analyze` pasa. Recompilé e instalé la variante `release_audit`; en el teléfono se comprobó Ajustes → Cuentas → Nueva cuenta → Atrás → Cuentas → Atrás → Ajustes sin guardar datos. SHA-256 instalado/artefacto: `8bbf47e7dc78d621a11b91c15b66ed98c4dc9deceb46e8ad73219d4e4d0183b7`.
+**Context**: Verificación física de la corrección solicitada, paquete separado; sin cambios a `main`, push o merge.
+
+---
+
+## Análisis de proyección y visibilidad de errores
+**Timestamp**: 2026-10-17T18:23:07Z
+**User Input**: "una dud ay esos codigos de error y cosas se van a ver en la evrcion final ?? pro que aqui en mes anterior no aparece proyection pero en los demas si como este mes ultimos 3 meses etc ??"
+**AI Response**: Se comprobó el comportamiento del análisis por periodo. Los periodos cerrados muestran gasto real sin proyección; los errores muestran texto en español sin códigos técnicos, y el reporte copiado conserva un identificador seguro para soporte. Se ajustó el texto del periodo cerrado y se actualizó una prueba de interfaz.
+**Context**: Revisión de pantalla de Análisis y diagnóstico de errores visibles para la versión de presentación.
+
+---
+
+## Permanencia de ayuda del gráfico de tendencia
+**Timestamp**: 2026-10-17T18:32:31Z
+**User Input**: "una duda el ! donde esta el grafico se cierra muy rapido cuando le doy no alcanzo a leer"
+**AI Response**: Se reemplazó el tooltip de corta duración por un diálogo persistente en español con un botón de cierre, objetivo táctil de 48dp y prueba que confirma que permanece abierto durante diez segundos.
+**Context**: Usabilidad y accesibilidad del control de información del gráfico de gastos.
+
+---
+
+## Espaciado entre introducción y campo de correo
+**Timestamp**: 2026-10-17T18:43:14Z
+**User Input**: "el texto no esta como muy cerca del box???"
+**AI Response**: Se añadió separación de 16dp en el diseño de teléfono (12dp compacto) antes del campo de correo y una aserción de geometría para evitar que la etiqueta flotante choque con el texto introductorio.
+**Context**: Ajuste visual de la pantalla de inicio de sesión basado en captura Android.
+
+---
+
+## Separación del mensaje de error y campos de inicio de sesión
+**Timestamp**: 2026-10-17T18:44:54Z
+**User Input**: "mira tambien este error no hay espacio entre los boxes"
+**AI Response**: Se amplió a 24dp el margen entre paneles de estado (incluidos errores de autenticación) y el campo de correo; se añadió una aserción geométrica para evitar que las cajas o etiquetas vuelvan a quedar juntas.
+**Context**: Segunda captura del login muestra panel de credenciales inválidas pegado al campo de correo.
+
+---
+
+## Revisión de espaciado en otras pantallas
+**Timestamp**: 2026-10-17T18:52:44Z
+**User Input**: "y en que otars revisa"
+**AI Response**: Se inspeccionaron capturas existentes y rutas de pantalla. Se identificaron ajustes concretos en filtros de historial, error de guardado de propuesta IA y acciones de error del dictado; el resto de formularios y pantallas verificables se observan razonablemente separados en la evidencia disponible.
+**Context**: Continuación de auditoría de espaciado móvil más allá de la pantalla de inicio de sesión.
+
+---

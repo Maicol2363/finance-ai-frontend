@@ -1,4 +1,5 @@
 import 'package:finance_ai/core/icons/finance_icon_catalog.dart';
+import 'package:finance_ai/core/formatters/catalog_labels.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -161,7 +162,7 @@ class _CategoryCard extends StatelessWidget {
         rowKey: Key('category-card-${category.id}'),
         icon: category.icon.emphasisValue,
         swatchColor: category.color.value,
-        title: category.name,
+        title: CatalogLabels.display(category.name),
         subtitle: 'Posición ${index + 1}',
         onTap: disabled
             ? null

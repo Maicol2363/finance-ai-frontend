@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/diagnostics/error_diagnostic_panel.dart';
 import '../../../core/formatters/money_formatter.dart';
+import '../../../core/formatters/catalog_labels.dart';
 import '../../../core/theme/app_palette.dart';
 import '../../../core/widgets/movements_empty_state.dart';
 import '../../incomes/data/incomes_repository.dart';
@@ -279,7 +280,7 @@ class _HubExpenseCard extends StatelessWidget {
                         const SizedBox(width: 6),
                         Expanded(
                           child: Text(
-                            '${expense.accountName}${expense.category == null ? '' : ' · ${expense.category!.name}'}',
+                            '${expense.accountName}${expense.category == null ? '' : ' · ${CatalogLabels.display(expense.category!.name)}'}',
                             style: TextStyle(
                               fontSize: 11,
                               color: palette.muted,

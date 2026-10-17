@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:finance_ai/features/accounts/domain/account_models.dart';
 import 'package:finance_ai/features/expenses/application/history_controller.dart';
 import 'package:finance_ai/features/expenses/application/history_state.dart';
@@ -44,6 +46,7 @@ HistoryResult historyPage({List<HistoryItem>? items, int page = 1}) =>
 class FakeExpensesRepository implements ExpensesRepository {
   HistoryResult historyResult = historyPage();
   Object? historyFailure;
+  Completer<HistoryResult>? pendingHistory;
   final List<HistoryFilters> seenFilters = [];
 
   @override
@@ -74,6 +77,11 @@ class FakeExpensesRepository implements ExpensesRepository {
   @override
   Future<HistoryResult> history(HistoryFilters filters) async {
     seenFilters.add(filters);
+    final pending = pendingHistory;
+    if (pending != null) {
+      pendingHistory = null;
+      return pending.future;
+    }
     if (historyFailure case final failure?) {
       throw failure;
     }
@@ -110,6 +118,45 @@ void main() {
     expect(state.result?.items.map((entry) => entry.id), [8, 9]);
     expect(repository.seenFilters.last.page, 2);
   });
+
+  test(
+    'load requested during loadMore reloads the first page afterward',
+    () async {
+      final repository = FakeExpensesRepository()
+        ..historyResult = HistoryResult(
+          items: [item()],
+          total: 2,
+          page: 1,
+          pageSize: 50,
+          hasNext: true,
+        );
+      final container = ProviderContainer(
+        overrides: [expensesRepositoryProvider.overrideWithValue(repository)],
+      );
+      addTearDown(container.dispose);
+      final controller = container.read(historyControllerProvider.notifier);
+
+      await controller.load();
+      final nextPage = Completer<HistoryResult>();
+      repository.pendingHistory = nextPage;
+
+      final loadMore = controller.loadMore();
+      expect(
+        container.read(historyControllerProvider).status,
+        HistoryLoadStatus.loadingMore,
+      );
+      await controller.load();
+
+      repository.historyResult = historyPage(items: [item(id: 10)]);
+      nextPage.complete(historyPage(items: [item(id: 9)], page: 2));
+      await loadMore;
+
+      final state = container.read(historyControllerProvider);
+      expect(state.status, HistoryLoadStatus.ready);
+      expect(state.result?.items.map((entry) => entry.id), [10]);
+      expect(repository.seenFilters.map((filters) => filters.page), [1, 2, 1]);
+    },
+  );
 
   test('updating filters reloads from the first page', () async {
     final repository = FakeExpensesRepository();

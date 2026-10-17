@@ -224,7 +224,8 @@ class _VoiceControlsState extends State<VoiceControls> {
                   style: TextStyle(fontSize: 12, color: palette.discard),
                 ),
                 Wrap(
-                  spacing: 4,
+                  spacing: 8,
+                  runSpacing: 8,
                   children: [
                     TextButton(
                       key: const Key('voice-error-details'),

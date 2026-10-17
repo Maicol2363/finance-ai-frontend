@@ -35,6 +35,52 @@ class Harness {
 }
 
 void main() {
+  test('every native and controller speech failure has Spanish safe copy', () {
+    const emittedCodes = {
+      'speech_busy',
+      'speech_fallback_model_missing',
+      'speech_language_unavailable',
+      'speech_microphone_busy',
+      'speech_model_invalid',
+      'speech_model_missing',
+      'speech_no_match',
+      'speech_no_speech',
+      'speech_permission_denied',
+      'speech_permission_required',
+      'speech_provider_error',
+      'speech_session_ended',
+      'speech_settings_unavailable',
+      'speech_text_too_long',
+      'speech_offline_unavailable',
+      'speech_model_download_pending',
+      'speech_model_download_failed',
+      'speech_preparation_timeout',
+      'speech_finalize_timeout',
+      'speech_fallback_unavailable',
+      'speech_fallback_memory',
+    };
+    expect(SpeechFailure.messages.keys, containsAll(emittedCodes));
+    for (final code in emittedCodes) {
+      final message = SpeechFailure(code).userMessage;
+      expect(message, isNotEmpty, reason: code);
+      expect(
+        message,
+        matches(RegExp(r'^(Este|No|Falta|La|Permite|El|No entendí|Prepara)')),
+        reason: '$code debe tener copy en español',
+      );
+      expect(message, isNot(contains('Please')), reason: code);
+      expect(message, isNot(contains('unavailable')), reason: code);
+    }
+
+    const unknown = SpeechFailure('native-private-error');
+    expect(unknown.code, 'native-private-error');
+    expect(
+      unknown.userMessage,
+      SpeechFailure.messages['speech_provider_error'],
+    );
+    expect(unknown.userMessage, isNot(contains('native-private-error')));
+  });
+
   testWidgets(
     'valid words establish listening when the provider omits its ready callback',
     (tester) async {

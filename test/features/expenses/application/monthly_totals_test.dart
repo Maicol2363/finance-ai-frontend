@@ -172,33 +172,62 @@ void main() {
     },
   );
   test(
-    'reports incomplete history when capped, for both comparison windows',
+    'fails instead of returning totals when pagination exceeds safety cap',
     () async {
       final expenses = _FakeExpensesRepository(
         pages: {
-          for (var page = 1; page <= 6; page++)
+          for (var page = 1; page <= 101; page++)
             page: [expenseItem(id: page, amount: '-1.00')],
         },
       );
       final container = _container(expenses: expenses, incomes: []);
-      final totals = await container.read(monthlyTotalsProvider.future);
-      expect(totals.historyComplete, isFalse);
-      expect(totals.previousHistoryComplete, isFalse);
-      expect(totals.expenseItems, hasLength(5));
-      expect(expenses.seenFilters.map((f) => f.page), [
-        1,
-        2,
-        3,
-        4,
-        5,
-        1,
-        2,
-        3,
-        4,
-        5,
-      ]);
+      await expectLater(
+        container.read(monthlyTotalsProvider.future),
+        throwsA(
+          isA<StateError>().having(
+            (error) => error.message,
+            'message',
+            'history_page_limit_reached',
+          ),
+        ),
+      );
+      expect(expenses.seenFilters, hasLength(100));
+      expect(expenses.seenFilters.last.page, 100);
     },
   );
+
+  test('matches cached totals only to their exact period window', () {
+    final totals = MonthlyTotals(
+      monthStart: DateTime.utc(2026, 9, 1),
+      windowEnd: DateTime.utc(2026, 9, 30),
+      period: DashboardPeriod.thisMonth,
+      byCurrency: {},
+      expenseItems: [],
+    );
+    final september = (
+      start: DateTime.utc(2026, 9, 1),
+      end: DateTime.utc(2026, 9, 30),
+    );
+    expect(
+      totalsMatchWindow(totals, DashboardPeriod.thisMonth, september),
+      isTrue,
+    );
+    expect(
+      totalsMatchWindow(totals, DashboardPeriod.lastMonth, september),
+      isFalse,
+    );
+    expect(
+      totalsMatchWindow(totals, DashboardPeriod.thisMonth, (
+        start: DateTime.utc(2026, 9, 2),
+        end: DateTime.utc(2026, 9, 30),
+      )),
+      isFalse,
+    );
+    expect(
+      totalsMatchWindow(null, DashboardPeriod.thisMonth, september),
+      isFalse,
+    );
+  });
 
   test('sums the month expenses per currency and asks for the month', () async {
     final expenses = _FakeExpensesRepository(

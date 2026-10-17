@@ -11,6 +11,8 @@ final historyControllerProvider =
     NotifierProvider<HistoryController, HistoryState>(HistoryController.new);
 
 class HistoryController extends Notifier<HistoryState> {
+  bool _reloadRequested = false;
+
   /// Sentinel marking a field as "not provided" in [_composeFilter], so passing
   /// `null` can explicitly clear a filter while omitting it keeps it.
   static const Object _unset = Object();
@@ -21,6 +23,7 @@ class HistoryController extends Notifier<HistoryState> {
   Future<void> load() async {
     if (state.status == HistoryLoadStatus.loading ||
         state.status == HistoryLoadStatus.loadingMore) {
+      _reloadRequested = true;
       return;
     }
     final filters = state.filters;
@@ -63,6 +66,11 @@ class HistoryController extends Notifier<HistoryState> {
         status: HistoryLoadStatus.failure,
         diagnostic: _unexpected(operation: 'load_history'),
       );
+    } finally {
+      if (_reloadRequested) {
+        _reloadRequested = false;
+        await load();
+      }
     }
   }
 
@@ -120,6 +128,11 @@ class HistoryController extends Notifier<HistoryState> {
         status: HistoryLoadStatus.failure,
         diagnostic: _unexpected(operation: 'load_more_history'),
       );
+    } finally {
+      if (_reloadRequested) {
+        _reloadRequested = false;
+        await load();
+      }
     }
   }
 

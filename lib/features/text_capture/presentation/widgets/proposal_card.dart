@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/diagnostics/error_diagnostic_panel.dart';
+import '../../../../core/formatters/catalog_labels.dart';
 import '../../../../core/formatters/date_labels.dart';
 import '../../../../core/formatters/money_formatter.dart';
 import '../../../../core/theme/app_palette.dart';
@@ -285,9 +286,13 @@ class _ProposalCardState extends ConsumerState<ProposalCard> {
               for (final note in _proposal.notes) _note(note, palette),
               if (entry.failure case final failure?) ...[
                 const SizedBox(height: 10),
-                ErrorDiagnosticPanel(diagnostic: failure),
-                const SizedBox(height: 4),
+                ErrorDiagnosticPanel(
+                  key: const Key('proposal-save-error-panel'),
+                  diagnostic: failure,
+                ),
+                const SizedBox(height: 8),
                 Text(
+                  key: const Key('proposal-retry-safety-note'),
                   'Puedes reintentar: no se guardará dos veces.',
                   style: TextStyle(fontSize: 11.5, color: palette.muted),
                 ),
@@ -466,17 +471,17 @@ class _ProposalCardState extends ConsumerState<ProposalCard> {
     final categories =
         ref.read(categoriesControllerProvider).result?.categories ?? const [];
     for (final category in categories) {
-      if (category.id == id) return category.name;
+      if (category.id == id) return CatalogLabels.display(category.name);
     }
-    return fallback?.id == id ? fallback?.name : null;
+    return fallback?.id == id ? CatalogLabels.display(fallback!.name) : null;
   }
 
   String? _sourceName(int? id, CatalogRef? fallback) {
     if (id == null) return null;
     for (final source in ref.read(incomeSourcesControllerProvider).items) {
-      if (source.id == id) return source.name;
+      if (source.id == id) return CatalogLabels.display(source.name);
     }
-    return fallback?.id == id ? fallback?.name : null;
+    return fallback?.id == id ? CatalogLabels.display(fallback!.name) : null;
   }
 
   // ------------------------------------------------------------ editing
@@ -645,7 +650,7 @@ class _ProposalCardState extends ConsumerState<ProposalCard> {
               for (final category in categories)
                 DropdownMenuItem<int?>(
                   value: category.id,
-                  child: Text(category.name),
+                  child: Text(CatalogLabels.display(category.name)),
                 ),
             ],
             onChanged: (value) => setState(() => _draft.categoryId = value),
@@ -671,7 +676,7 @@ class _ProposalCardState extends ConsumerState<ProposalCard> {
               for (final source in sources)
                 DropdownMenuItem<int?>(
                   value: source.id,
-                  child: Text(source.name),
+                  child: Text(CatalogLabels.display(source.name)),
                 ),
             ],
             onChanged: (value) => setState(() => _draft.incomeSourceId = value),

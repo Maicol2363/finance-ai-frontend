@@ -1,4 +1,5 @@
 import 'package:finance_ai/core/icons/finance_icon_catalog.dart';
+import 'package:finance_ai/core/formatters/catalog_labels.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -385,7 +386,7 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
               .map(
                 (category) => DropdownMenuItem(
                   value: category.id,
-                  child: Text(category.name),
+                  child: Text(CatalogLabels.display(category.name)),
                 ),
               )
               .toList(growable: false),

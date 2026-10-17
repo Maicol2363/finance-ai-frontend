@@ -81,7 +81,7 @@ void main() {
     final repository = ScreenFakeRepository();
     await pumpScreen(tester, repository);
 
-    expect(find.text('Salary'), findsOneWidget);
+    expect(find.text('Salario'), findsOneWidget);
 
     await tester.enterText(
       find.byKey(const Key('income-source-name-field')),
@@ -106,7 +106,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(repository.deleted, [1]);
-    expect(find.text('Salary'), findsNothing);
+    expect(find.text('Salario'), findsNothing);
   });
 
   testWidgets('renames a value through the dialog', (tester) async {
@@ -123,7 +123,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Freelance'), findsOneWidget);
-    expect(find.text('Salary'), findsNothing);
+    expect(find.text('Salario'), findsNothing);
   });
 
   testWidgets(

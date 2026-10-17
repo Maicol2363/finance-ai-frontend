@@ -9,6 +9,7 @@ import '../../../core/widgets/management_page_scaffold.dart';
 import '../../../core/widgets/manage_widgets.dart';
 import '../../../core/widgets/theme_toggle_button.dart';
 import '../../../core/formatters/money_formatter.dart';
+import '../../../core/formatters/catalog_labels.dart';
 import '../application/accounts_controller.dart';
 import '../application/accounts_state.dart';
 import '../domain/account_models.dart';
@@ -204,13 +205,18 @@ class _AccountFormScreenState extends ConsumerState<AccountFormScreen> {
               helperText: currencyLocked
                   ? 'La moneda se bloquea cuando la cuenta ya tiene movimientos confirmados.'
                   : 'La sugerencia es editable y no modifica cuentas guardadas.',
+              helperMaxLines: 2,
               errorText: _firstError(state, 'currency_code'),
             ),
             items: options.supportedCurrencies
                 .map(
                   (currency) => DropdownMenuItem(
                     value: currency.code,
-                    child: Text('${currency.code} · ${currency.name}'),
+                    child: Text(
+                      '${currency.code} · ${CatalogLabels.display(currency.name)}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
                 )
                 .toList(growable: false),
@@ -236,6 +242,7 @@ class _AccountFormScreenState extends ConsumerState<AccountFormScreen> {
             decoration: InputDecoration(
               labelText: 'Saldo inicial',
               helperText: 'Usa signo menos para deuda. Separa miles con punto.',
+              helperMaxLines: 2,
               errorText: _firstError(state, 'opening_balance'),
             ),
             onChanged: (_) => controller.clearFieldError('opening_balance'),
@@ -347,9 +354,13 @@ class _AccountFormScreenState extends ConsumerState<AccountFormScreen> {
         return;
       }
       if (saved != null) {
-        context.go('/accounts/${saved.id}');
+        context.replace('/accounts/${saved.id}');
       } else {
-        context.go('/accounts');
+        if (context.canPop()) {
+          context.pop();
+        } else {
+          context.go('/accounts');
+        }
       }
       return;
     }
@@ -368,7 +379,7 @@ class _AccountFormScreenState extends ConsumerState<AccountFormScreen> {
   }
 
   void _goBack() {
-    if (widget.returnToPrevious && context.canPop()) {
+    if (context.canPop()) {
       context.pop();
       return;
     }

@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/diagnostics/error_diagnostic_panel.dart';
 import '../../../core/formatters/money_formatter.dart';
+import '../../../core/formatters/catalog_labels.dart';
 import '../../../core/widgets/app_header.dart';
 import '../../../core/widgets/management_page_scaffold.dart';
 import '../../../core/widgets/manage_widgets.dart';
@@ -193,7 +194,7 @@ class _BudgetFormScreenState extends ConsumerState<BudgetFormScreen> {
                       const SizedBox(width: 8),
                       Flexible(
                         child: Text(
-                          category.name,
+                          CatalogLabels.display(category.name),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -378,6 +379,7 @@ class _BudgetFormScreenState extends ConsumerState<BudgetFormScreen> {
             decoration: InputDecoration(
               labelText: 'Moneda',
               helperText: 'Solo los gastos en la misma moneda cuentan para el progreso.',
+              helperMaxLines: 2,
               errorText: _firstError(state, 'currency_code'),
             ),
             items: result.supportedCurrencies
@@ -385,7 +387,7 @@ class _BudgetFormScreenState extends ConsumerState<BudgetFormScreen> {
                   (currency) => DropdownMenuItem(
                     value: currency.code,
                     child: Text(
-                      '${currency.code} · ${currency.name}',
+                      '${currency.code} · ${CatalogLabels.display(currency.name)}',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -488,7 +490,11 @@ class _BudgetFormScreenState extends ConsumerState<BudgetFormScreen> {
         );
     if (!mounted) return;
     if (outcome == BudgetMutationOutcome.success) {
-      context.go('/budgets');
+      if (context.canPop()) {
+        context.pop();
+      } else {
+        context.go('/budgets');
+      }
     } else if (outcome == BudgetMutationOutcome.invalid) {
       _amountFocus.requestFocus();
     }
@@ -520,7 +526,11 @@ class _BudgetFormScreenState extends ConsumerState<BudgetFormScreen> {
         .read(budgetsControllerProvider.notifier)
         .deleteBudget(budget.id);
     if (mounted && outcome == BudgetMutationOutcome.success) {
-      context.go('/budgets');
+      if (context.canPop()) {
+        context.pop();
+      } else {
+        context.go('/budgets');
+      }
     }
   }
 

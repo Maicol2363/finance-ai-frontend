@@ -211,6 +211,19 @@ class MonthlyTotals {
       : byCurrency[currencyCode] ?? const CurrencyTotals();
 }
 
+/// Whether a cached async total belongs to the currently selected date window.
+/// Riverpod may expose the previous value while recomputing after a period
+/// change; consumers must hide it until all three scope fields match.
+bool totalsMatchWindow(
+  MonthlyTotals? totals,
+  DashboardPeriod period,
+  ({DateTime start, DateTime end}) window,
+) =>
+    totals != null &&
+    totals.period == period &&
+    totals.monthStart == window.start &&
+    totals.windowEnd == window.end;
+
 /// Income/expense totals per currency for a Dashboard window.
 ///
 /// * Incomes come from `GET /incomes`, which is not paginated, so the list is
@@ -247,7 +260,7 @@ Future<MonthlyTotals> loadPeriodTotals(
 
   final repository = ref.watch(expensesRepositoryProvider);
   final expenseItems = <HistoryItem>[];
-  var historyComplete = false;
+  var currentHasNext = false;
   for (var page = 1; page <= _maxPages; page++) {
     final result = await repository.history(
       HistoryFilters(
@@ -258,13 +271,9 @@ Future<MonthlyTotals> loadPeriodTotals(
         pageSize: _pageSize,
       ),
     );
-    final activeExpenses = result.items.where(
-      (item) =>
-          item.type == TransactionType.expense &&
-          item.status != ExpenseStatus.voided,
-    );
-    expenseItems.addAll(activeExpenses);
-    for (final item in activeExpenses) {
+    expenseItems.addAll(result.items.where(_isCountableExpense));
+    for (final item in result.items) {
+      if (!_isCountableExpense(item)) continue;
       for (final movement in item.movements) {
         final minorUnits = movement.amount.minorUnits;
         if (minorUnits < 0) {
@@ -272,17 +281,16 @@ Future<MonthlyTotals> loadPeriodTotals(
         }
       }
     }
-    if (!result.hasNext) {
-      historyComplete = true;
-      break;
-    }
+    currentHasNext = result.hasNext;
+    if (!currentHasNext) break;
   }
+  if (currentHasNext) throw StateError('history_page_limit_reached');
 
   // Compare complete equivalent windows; never compare a full total with
   // only the first page of the prior window.
   final prev = previousWindow(window);
   final prevExpenses = <String, int>{};
-  var previousHistoryComplete = false;
+  var previousHasNext = false;
   final previousExpenseItems = <HistoryItem>[];
   for (var page = 1; page <= _maxPages; page++) {
     final result = await repository.history(
@@ -294,13 +302,9 @@ Future<MonthlyTotals> loadPeriodTotals(
         pageSize: _pageSize,
       ),
     );
-    final activeExpenses = result.items.where(
-      (item) =>
-          item.type == TransactionType.expense &&
-          item.status != ExpenseStatus.voided,
-    );
-    previousExpenseItems.addAll(activeExpenses);
-    for (final item in activeExpenses) {
+    previousExpenseItems.addAll(result.items.where(_isCountableExpense));
+    for (final item in result.items) {
+      if (!_isCountableExpense(item)) continue;
       for (final movement in item.movements) {
         final units = movement.amount.minorUnits;
         if (units < 0) {
@@ -309,11 +313,10 @@ Future<MonthlyTotals> loadPeriodTotals(
         }
       }
     }
-    if (!result.hasNext) {
-      previousHistoryComplete = true;
-      break;
-    }
+    previousHasNext = result.hasNext;
+    if (!previousHasNext) break;
   }
+  if (previousHasNext) throw StateError('history_page_limit_reached');
 
   return MonthlyTotals(
     monthStart: window.start,
@@ -321,8 +324,8 @@ Future<MonthlyTotals> loadPeriodTotals(
     period: period,
     byCurrency: builder.build(),
     expenseItems: List.unmodifiable(expenseItems),
-    historyComplete: historyComplete,
-    previousHistoryComplete: previousHistoryComplete,
+    historyComplete: true,
+    previousHistoryComplete: true,
     previousExpenseItems: List.unmodifiable(previousExpenseItems),
     previousExpensesByCurrency: Map.unmodifiable(prevExpenses),
   );
@@ -339,6 +342,10 @@ final periodTotalsProvider = FutureProvider<MonthlyTotals>((ref) async {
   return loadPeriodTotals(ref, period: period);
 });
 
-/// A month never needs an unbounded walk: 5 pages of 100 cover 500 movements.
+/// Bound requests while covering up to 10,000 entries per window. If the API
+/// still reports another page, fail instead of returning a partial total.
 const _pageSize = 100;
-const _maxPages = 5;
+const _maxPages = 100;
+
+bool _isCountableExpense(HistoryItem item) =>
+    item.type == TransactionType.expense && item.status != ExpenseStatus.voided;

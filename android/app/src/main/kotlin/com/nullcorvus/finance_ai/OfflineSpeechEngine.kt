@@ -6,6 +6,7 @@ import android.media.AudioRecord
 import android.media.MediaRecorder
 import android.os.Handler
 import android.os.Looper
+import android.util.Log
 import org.json.JSONObject
 import org.vosk.LibVosk
 import org.vosk.Model
@@ -31,6 +32,20 @@ internal class OfflineSpeechEngine(context: Context,
     private var model: Model? = null // Accessed only by the worker.
     private var modelLanguage = ""
     private var download: Download? = null // Accessed only on the main thread.
+
+    private fun logLinkageFailure(error: LinkageError) {
+        // Native initialization details are useful for device diagnosis, but
+        // keep logs bounded and exclude characters used in URLs/credentials.
+        val causes = generateSequence(error as Throwable?) { it.cause }
+            .take(4)
+            .joinToString(" <- ") { cause ->
+                val detail = (cause.message ?: "unavailable")
+                    .replace(Regex("[^A-Za-z0-9 ._:/()\\[\\]-]"), "?")
+                    .take(180)
+                "${cause.javaClass.simpleName}: $detail"
+            }
+        Log.e("FinanceAiSpeech", "Offline engine linkage failure: $causes")
+    }
 
     private class Capture(val epoch: Long) {
         val stopped = AtomicBoolean()
@@ -65,7 +80,10 @@ internal class OfflineSpeechEngine(context: Context,
             if (disposed || epoch.get() != stamp) return@execute
             val code = try {
                 if (load(language)) null else "speech_fallback_model_missing"
-            } catch (_: LinkageError) { "speech_fallback_unavailable" }
+            } catch (error: LinkageError) {
+                logLinkageFailure(error)
+                "speech_fallback_unavailable"
+            }
               catch (_: OutOfMemoryError) { "speech_fallback_memory" }
               catch (_: Exception) {
                   store.invalidate(OfflineModelStore.spec(language))
@@ -138,7 +156,10 @@ internal class OfflineSpeechEngine(context: Context,
                     }
                 }
             } catch (_: SecurityException) { emit("error", code = "speech_permission_denied") }
-              catch (_: LinkageError) { emit("error", code = "speech_fallback_unavailable") }
+              catch (error: LinkageError) {
+                  logLinkageFailure(error)
+                  emit("error", code = "speech_fallback_unavailable")
+              }
               catch (_: OutOfMemoryError) { emit("error", code = "speech_fallback_memory") }
               catch (_: Exception) { emit("error", code = "speech_provider_error") }
             finally {

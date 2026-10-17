@@ -504,12 +504,17 @@ void main() {
         code: 'speech_permission_denied',
       );
       await tester.pumpAndSettle();
-      await tester.tap(key('voice-error-details'));
-      await tester.pumpAndSettle();
+      expect(key('voice-error-message'), findsOneWidget);
       expect(
-        find.text('Código de error: speech_permission_denied'),
+        find.text(
+          'El micrófono no tiene permiso. Puedes activarlo en los ajustes o escribir el mensaje.',
+        ),
         findsOneWidget,
       );
+      expect(find.textContaining('permission denied'), findsNothing);
+      await tester.tap(key('voice-error-details'));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('error-diagnostic-code')), findsNothing);
       expect(key('copy-error-details-button'), findsOneWidget);
       expect(
         find.descendant(

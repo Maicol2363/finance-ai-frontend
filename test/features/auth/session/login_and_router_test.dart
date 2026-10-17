@@ -8,6 +8,7 @@ import 'package:finance_ai/features/expenses/application/expenses_state.dart';
 import 'package:finance_ai/features/auth/session/data/auth_session_repository.dart';
 import 'package:finance_ai/features/auth/session/data/secure_credential_store.dart';
 import 'package:finance_ai/features/auth/session/domain/session_models.dart';
+import 'package:finance_ai/features/auth/session/application/auth_session_controller.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -169,9 +170,12 @@ void main() {
       await tester.tap(find.byKey(const Key('login-submit-button')));
       await tester.pumpAndSettle();
 
-      expect(find.text('Email is required.'), findsOneWidget);
-      expect(find.text('Password is required.'), findsOneWidget);
-      expect(find.text('Código de error: login_invalid'), findsOneWidget);
+      expect(
+        find.text('El correo electrónico es obligatorio.'),
+        findsOneWidget,
+      );
+      expect(find.text('La contraseña es obligatoria.'), findsOneWidget);
+      expect(find.byKey(const Key('error-diagnostic-code')), findsNothing);
       expect(
         find.byKey(const Key('copy-error-details-button')),
         findsOneWidget,
@@ -179,6 +183,78 @@ void main() {
       expect(find.byKey(const Key('home-title')), findsNothing);
     },
   );
+
+  testWidgets('login API errors use Spanish safe messages', (tester) async {
+    final repository = WidgetAuthRepository()
+      ..loginFailure = const InvalidCredentialsFailure();
+    await tester.pumpWidget(appWith(repository, MemoryStore()));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const Key('login-email-input')),
+      'p@example.com',
+    );
+    await tester.enterText(
+      find.byKey(const Key('login-password-input')),
+      'password',
+    );
+    await tester.tap(find.byKey(const Key('login-submit-button')));
+    await tester.pumpAndSettle();
+    expect(
+      find.text('El correo electrónico o la contraseña no son correctos.'),
+      findsOneWidget,
+    );
+    final errorPanelBottom = tester
+        .getRect(find.byKey(const Key('login-error-banner')))
+        .bottom;
+    final emailFieldTop = tester
+        .getRect(find.byKey(const Key('login-email-input')))
+        .top;
+    expect(emailFieldTop - errorPanelBottom, greaterThanOrEqualTo(20));
+    expect(find.text('Invalid email or password.'), findsNothing);
+
+    repository.loginFailure = const AuthRetryableFailure(
+      code: 'network_unavailable',
+      userMessage: 'We could not reach the server. Raw server detail.',
+      technicalReason: 'socket_exception',
+    );
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(FinanceApp)),
+    );
+    await container
+        .read(authSessionControllerProvider.notifier)
+        .login(email: 'p@example.com', password: 'password');
+    await tester.pumpAndSettle();
+    expect(
+      find.text(
+        'No se pudo conectar con el servicio. Revisa tu conexión e inténtalo de nuevo.',
+      ),
+      findsOneWidget,
+    );
+    expect(find.textContaining('Raw server detail'), findsNothing);
+  });
+
+  testWidgets('login remains scrollable and unclipped in landscape', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(800, 360);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+
+    await tester.pumpWidget(appWith(WidgetAuthRepository(), MemoryStore()));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Finance AI'), findsNothing);
+    expect(find.byKey(const Key('login-email-input')), findsOneWidget);
+    expect(find.byKey(const Key('login-password-input')), findsOneWidget);
+    expect(find.byKey(const Key('login-submit-button')), findsOneWidget);
+    await tester.ensureVisible(find.byKey(const Key('login-submit-button')));
+    await tester.pumpAndSettle();
+    expect(
+      tester.getRect(find.byKey(const Key('login-submit-button'))).bottom,
+      lessThanOrEqualTo(tester.view.physicalSize.height),
+    );
+    expect(tester.takeException(), isNull);
+  });
 
   testWidgets('successful Login reaches Home and Logout protects it again', (
     tester,
@@ -232,8 +308,16 @@ void main() {
       container.read(accountsControllerProvider).listStatus,
       AccountsLoadStatus.ready,
     );
-    await tester.tap(find.byTooltip('Volver al inicio'));
+    await tester.tap(find.byKey(const Key('accounts-add-button')));
     await tester.pumpAndSettle();
+    expect(find.text('Nueva cuenta'), findsOneWidget);
+    await tester.tap(find.byTooltip('Volver a cuentas'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('accounts-list')), findsOneWidget);
+    await tester.tap(find.byTooltip('Volver a la pantalla anterior'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('settings-accounts-row')), findsOneWidget);
+    expect(find.byKey(const Key('accounts-list')), findsNothing);
 
     // Navigate to Ajustes to log out.
     await tester.tap(find.byKey(const Key('bottom-nav-ajustes')));
@@ -287,8 +371,11 @@ void main() {
     await tester.tap(find.byKey(const Key('login-submit-button')));
     await tester.pumpAndSettle();
 
-    expect(find.text('Invalid email or password.'), findsOneWidget);
-    expect(find.text('Código de error: invalid_credentials'), findsOneWidget);
+    expect(
+      find.text('El correo electrónico o la contraseña no son correctos.'),
+      findsOneWidget,
+    );
+    expect(find.byKey(const Key('error-diagnostic-code')), findsNothing);
     expect(find.byKey(const Key('login-email-input')), findsOneWidget);
   });
 
@@ -331,6 +418,13 @@ void main() {
       expect(find.text('Finance AI'), findsOneWidget);
       expect(find.text('Tu dinero, más claro.'), findsOneWidget);
       expect(find.byKey(const Key('login-submit-button')), findsOneWidget);
+      final introBottom = tester
+          .getRect(find.text('Accede para ver tus gastos, ingresos y cuentas.'))
+          .bottom;
+      final emailFieldTop = tester
+          .getRect(find.byKey(const Key('login-email-input')))
+          .top;
+      expect(emailFieldTop - introBottom, greaterThanOrEqualTo(12));
 
       await tester.tap(find.byKey(const Key('theme-toggle-button')));
       await tester.pumpAndSettle();

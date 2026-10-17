@@ -162,6 +162,11 @@ void main() {
     final transfers = WidgetTransfersRepository();
     await pumpTransferForm(tester, transfers);
 
+    expect(
+      tester.widget<Text>(find.byKey(const Key('transfer-date-value'))).data,
+      matches(RegExp(r'^\d{1,2} de [a-z]+ de \d{4}$')),
+    );
+
     await selectOption(
       tester,
       const Key('transfer-source-field'),

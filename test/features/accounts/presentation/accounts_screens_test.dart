@@ -240,6 +240,16 @@ void main() {
     final repository = WidgetAccountsRepository();
     await pumpAccountsApp(tester, repository, initialLocation: '/accounts/new');
 
+    final currencyField = tester.widget<DropdownButtonFormField<String>>(
+      find.byKey(const Key('account-currency-field')),
+    );
+    final openingBalanceField = tester.widget<TextField>(
+      find.byKey(const Key('account-opening-balance-field')),
+    );
+    expect(currencyField.decoration.helperMaxLines, 2);
+    expect(openingBalanceField.decoration?.helperMaxLines, 2);
+    expect(find.text('COP · Peso colombiano'), findsOneWidget);
+
     await tester.enterText(
       find.byKey(const Key('account-name-field')),
       'Nequi',
@@ -318,10 +328,7 @@ void main() {
     await tester.tap(find.byKey(const Key('account-confirm-delete-button')));
     await tester.pumpAndSettle();
 
-    expect(
-      find.text('Código de error: account_delete_blocked'),
-      findsOneWidget,
-    );
+    expect(find.byKey(const Key('error-diagnostic-code')), findsNothing);
     await tester.drag(find.byType(ListView), const Offset(0, -320));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('copy-error-details-button')));
@@ -392,7 +399,7 @@ void main() {
     await tester.ensureVisible(find.byKey(const Key('account-save-button')));
     await tester.tap(find.byKey(const Key('account-save-button')));
     await tester.pumpAndSettle();
-    expect(find.text('Código de error: account_name_conflict'), findsOneWidget);
+    expect(find.byKey(const Key('error-diagnostic-code')), findsNothing);
 
     await tester.ensureVisible(
       find.byKey(const Key('copy-error-details-button')),

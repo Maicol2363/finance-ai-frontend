@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/diagnostics/error_diagnostic_panel.dart';
+import '../../../../core/formatters/catalog_labels.dart';
 import '../../../../core/widgets/app_header.dart';
 import '../../../../core/widgets/management_page_scaffold.dart';
 import '../../../../core/widgets/manage_widgets.dart';
@@ -127,7 +128,7 @@ class _IncomeSourcesScreenState extends ConsumerState<IncomeSourcesScreen> {
               ManageRow(
                 rowKey: Key('income-source-tile-${source.id}'),
                 icon: FinanceIconCatalog.dataFor(FinanceIconKey.income),
-                title: source.name,
+                title: CatalogLabels.display(source.name),
                 subtitle: 'Fuente de ingreso',
                 trailing: [
                   ManageActionButton(

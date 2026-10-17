@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/diagnostics/error_diagnostic_panel.dart';
+import '../../../core/formatters/catalog_labels.dart';
 import '../../../core/widgets/app_header.dart';
 import '../../../core/widgets/manage_widgets.dart';
 import '../../../core/widgets/management_page_scaffold.dart';
@@ -246,7 +247,11 @@ class _AccountDetailScreenState extends ConsumerState<AccountDetailScreen> {
     if (!mounted || outcome != AccountMutationOutcome.success) {
       return;
     }
-    context.go('/accounts');
+    if (context.canPop()) {
+      context.pop();
+    } else {
+      context.go('/accounts');
+    }
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Cuenta eliminada definitivamente.')),
     );
@@ -311,7 +316,8 @@ class _AccountDetails extends StatelessWidget {
             ManageRow(title: 'Tipo', subtitle: account.type.label),
             ManageRow(
               title: 'Moneda',
-              subtitle: '${account.currency.code} · ${account.currency.name}',
+              subtitle:
+                  '${account.currency.code} · ${CatalogLabels.display(account.currency.name)}',
             ),
           ],
         ),
