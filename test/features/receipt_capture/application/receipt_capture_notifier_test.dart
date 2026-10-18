@@ -2,6 +2,8 @@ import 'dart:io';
 
 import 'package:finance_ai/core/api/api_client.dart';
 import 'package:finance_ai/features/auth/session/application/auth_session_controller.dart';
+import 'package:finance_ai/features/budgets/application/budgets_controller.dart';
+import 'package:finance_ai/features/budgets/application/budgets_state.dart';
 import 'package:finance_ai/features/expenses/application/expenses_controller.dart';
 import 'package:finance_ai/features/expenses/application/expenses_state.dart';
 import 'package:finance_ai/features/expenses/application/history_controller.dart';
@@ -39,6 +41,18 @@ class _FakeHistoryController extends HistoryController {
 
   @override
   HistoryState build() => const HistoryState();
+
+  @override
+  Future<void> load() async {
+    loadCalls += 1;
+  }
+}
+
+class _FakeBudgetsController extends BudgetsController {
+  int loadCalls = 0;
+
+  @override
+  BudgetsState build() => const BudgetsState();
 
   @override
   Future<void> load() async {
@@ -192,6 +206,7 @@ void main() {
   late _FakePhotoCacheRepository fakeCache;
   late _FakeImagePicker fakePicker;
   late _FakeHistoryController fakeHistory;
+  late _FakeBudgetsController fakeBudgets;
   late File sampleFile;
 
   setUp(() {
@@ -199,6 +214,7 @@ void main() {
     fakeCache = _FakePhotoCacheRepository();
     fakePicker = _FakeImagePicker();
     fakeHistory = _FakeHistoryController();
+    fakeBudgets = _FakeBudgetsController();
 
     sampleFile = File('${Directory.systemTemp.path}/notifier_test.jpg')
       ..writeAsBytesSync([1, 2, 3, 4, 5]);
@@ -212,6 +228,7 @@ void main() {
         imagePickerProvider.overrideWithValue(fakePicker),
         expensesControllerProvider.overrideWith(_FakeExpensesController.new),
         historyControllerProvider.overrideWith(() => fakeHistory),
+        budgetsControllerProvider.overrideWith(() => fakeBudgets),
       ],
     );
   });
@@ -400,6 +417,7 @@ void main() {
         expect(result, isNotNull);
         expect(result!.id, 200);
         expect(fakeHistory.loadCalls, 1);
+        expect(fakeBudgets.loadCalls, 1);
         expect(fakeCache.stored[200], sampleFile.path);
 
         final state = container.read(receiptCaptureNotifierProvider);

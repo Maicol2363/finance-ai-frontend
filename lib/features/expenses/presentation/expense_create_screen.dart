@@ -14,6 +14,7 @@ import '../../../core/widgets/app_header.dart';
 import '../../../core/widgets/management_page_scaffold.dart';
 import '../../accounts/data/accounts_repository.dart';
 import '../../accounts/domain/account_models.dart';
+import '../../budgets/application/budgets_controller.dart';
 import '../../auth/session/application/auth_session_controller.dart';
 import '../../auth/session/domain/session_models.dart';
 import '../../categories/data/categories_repository.dart';
@@ -284,6 +285,7 @@ class _ExpenseCreateScreenState extends ConsumerState<ExpenseCreateScreen> {
     if (!mounted) return;
     if (outcome == ExpenseMutationOutcome.success) {
       unawaited(ref.read(historyControllerProvider.notifier).load());
+      unawaited(ref.read(budgetsControllerProvider.notifier).load());
       if (context.canPop()) {
         context.pop();
       } else {
@@ -1130,7 +1132,7 @@ class _ExpenseCreateScreenState extends ConsumerState<ExpenseCreateScreen> {
                             ),
                             const SizedBox(width: 6),
                             Text(
-                              cat.name,
+                              CatalogLabels.display(cat.name),
                               style: TextStyle(
                                 fontSize: 12.5,
                                 fontWeight: _selectedCategoryId == cat.id

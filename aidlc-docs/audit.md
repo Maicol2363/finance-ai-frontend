@@ -1381,3 +1381,11 @@ otra vez el mismo error
 **Context**: Diagnóstico y corrección de actualización de datos entre pestañas; sin limpieza de datos ni cambios en dispositivo.
 
 ---
+
+## Catálogo y umbral de presupuestos
+**Timestamp**: 2026-10-18T14:14:08Z
+**User Input**: "por que pasa esto ? por que se dezplazan por que en una parte aparecen necesidasdes y en otra needs ??? osea toca areglar eso y queiro ;limpiar y actulziar el usuario de prueba [credencial omitida por seguridad] con datos limpios y transaccioens presopuestos cuentas doalres etc y que pasa cuando se llega al limite de un presopuesto nada ??? no debreria pasar algo ??"
+**AI Response**: Las etiquetas canónicas se traducen al presentarlas en el formulario manual, la revisión de recibos y las tarjetas de presupuesto, manteniendo intactos los IDs del catálogo. El teclado numérico reduce el área visible y desplaza la lista para conservar el campo enfocado a la vista. Al 80–99.9% hay aviso de proximidad; al 100% se muestra “Límite alcanzado”; por encima se muestra “Presupuesto superado” y el excedente. Los gastos continúan registrándose; Inicio y Presupuestos actualizan su progreso tras guardar. Suite completa: 570 PASS. Se prepara el restablecimiento de la cuenta de prueba tras inventario y copia local.
+**Context**: Auditoría visual y funcional basada en las cuatro capturas; actualización limitada a la cuenta de prueba indicada. La contraseña se omitió del registro persistente.
+
+---

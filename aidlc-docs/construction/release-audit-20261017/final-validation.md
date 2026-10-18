@@ -262,3 +262,21 @@ Cumplimiento de extensiones para esta ronda: Security Baseline N/A (solo ajustes
 | `flutter analyze` focalizado | PASS |
 
 Diagnóstico: las confirmaciones de IA y recibos recargaban los gastos de Inicio, pero no el proveedor de historial usado por Movimientos. Se agregó la recarga del historial en ambos caminos y pruebas de regresión. No se hizo prueba física autenticada de este flujo en esta ronda.
+
+## Consistencia del catálogo y alertas de presupuesto (2026-10-18)
+
+| Verificación | Resultado |
+|---|---|
+| Etiquetas `needs`/`wants`/`other` visibles en formulario de gasto, recibo y presupuesto | PASS; se traduce solo al presentar, conserva IDs y valores de API |
+| Alerta de presupuesto bajo 80% | PASS; no muestra proximidad |
+| Alerta entre 80% y 99.9% | PASS; muestra “Casi al límite” |
+| Presupuesto exactamente al 100% | PASS; muestra “Límite alcanzado” |
+| Presupuesto por encima del 100% | PASS; muestra “Presupuesto superado” y monto excedido |
+| Progreso después de guardar gasto manual, IA o recibo | PASS; se recargan presupuestos y se encola la recarga si ya había una en curso |
+| Suite Flutter completa | PASS, 570 pruebas |
+| Build e instalación ARM64 en Xiaomi Android 13 | PASS, v0.8.0+4011; datos del dispositivo preservados |
+| Reset y seed de la cuenta de pruebas | Bloqueado; no se mutaron datos porque no se pudo generar un respaldo JSON completo y restaurable |
+
+La sesión del dispositivo correspondía a la cuenta de pruebas. La interfaz no expone IDs ni todos los campos necesarios para reconstruir sus recursos; por eso no se creó un respaldo parcial ni se modificaron cuentas, gastos, ingresos o presupuestos. El filtro de transferencias mostró vacío, pero no prueba que no existan transferencias en el historial paginado; su cantidad queda sin verificar. No se creó el archivo de backup solicitado.
+
+El formulario se desplaza cuando el teclado numérico reduce el viewport para mantener el campo enfocado visible. Eso no cambia el orden de los controles. La discrepancia de idioma sí era real: varias vistas omitían `CatalogLabels`; las etiquetas ahora se presentan en español sin cambiar los valores enviados al backend.

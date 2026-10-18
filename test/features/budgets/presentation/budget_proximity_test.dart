@@ -1,8 +1,10 @@
 import 'package:finance_ai/core/theme/app_theme.dart';
 import 'package:finance_ai/core/widgets/manage_widgets.dart';
 import 'package:finance_ai/features/budgets/application/budgets_state.dart';
+import 'package:finance_ai/features/budgets/domain/budget_models.dart';
 import 'package:finance_ai/features/budgets/presentation/budget_dashboard_section.dart';
 import 'package:finance_ai/features/budgets/presentation/budget_widgets.dart';
+import 'package:finance_ai/features/categories/domain/category_models.dart';
 import 'package:finance_ai/features/categories/presentation/category_visuals.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -31,14 +33,38 @@ void main() {
     expect(find.byType(ManageIcon), findsOneWidget);
   });
 
+  testWidgets('budget card displays canonical category labels in Spanish', (
+    t,
+  ) async {
+    final needs = BudgetCategory(
+      id: 9,
+      name: 'needs',
+      color: CategoryColor.blue,
+      icon: CategoryIcon.essentials,
+    );
+    await _pump(t, BudgetProgressCard(budget: budget(category: needs)));
+    expect(find.text('Necesidades'), findsOneWidget);
+    expect(find.text('needs'), findsNothing);
+  });
+
   testWidgets('shows near-limit warning at 80 percent', (t) async {
-    await _pump(t, BudgetProgressCard(budget: budget(progress: 85)));
-    expect(find.byKey(const Key('budget-near-limit-7')), findsOneWidget);
+    await _pump(t, BudgetProgressCard(budget: budget(progress: 80)));
+    expect(find.byKey(const Key('budget-alert-7')), findsOneWidget);
     expect(find.textContaining('Casi al l'), findsOneWidget);
   });
   testWidgets('no warning below 80 percent', (t) async {
     await _pump(t, BudgetProgressCard(budget: budget(progress: 25)));
-    expect(find.byKey(const Key('budget-near-limit-7')), findsNothing);
+    expect(find.byKey(const Key('budget-alert-7')), findsNothing);
+  });
+  testWidgets('marks exact limit as reached, not almost reached', (t) async {
+    await _pump(
+      t,
+      BudgetProgressCard(
+        budget: budget(progress: 100, spent: '500000.00', remaining: '0.00'),
+      ),
+    );
+    expect(find.textContaining('Límite alcanzado'), findsNWidgets(2));
+    expect(find.textContaining('Casi al límite'), findsNothing);
   });
   testWidgets('no near-limit badge when already exceeded', (t) async {
     await _pump(
@@ -51,8 +77,9 @@ void main() {
         ),
       ),
     );
-    expect(find.byKey(const Key('budget-near-limit-7')), findsNothing);
+    expect(find.byKey(const Key('budget-alert-7')), findsOneWidget);
     expect(find.textContaining('Excedido'), findsOneWidget);
+    expect(find.textContaining('Presupuesto superado'), findsOneWidget);
   });
   testWidgets('dashboard section orders riskiest first', (t) async {
     final state = BudgetsState(
@@ -73,6 +100,6 @@ void main() {
         .widgetList<BudgetProgressCard>(find.byType(BudgetProgressCard))
         .toList();
     expect(cards.map((c) => c.budget.id).toList(), [8]);
-    expect(find.byKey(const Key('budget-near-limit-8')), findsOneWidget);
+    expect(find.byKey(const Key('budget-alert-8')), findsOneWidget);
   });
 }

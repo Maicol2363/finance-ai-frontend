@@ -11,6 +11,8 @@ import 'package:finance_ai/features/accounts/presentation/accounts_screen.dart';
 import 'package:finance_ai/features/auth/session/application/auth_session_controller.dart';
 import 'package:finance_ai/features/auth/session/application/auth_session_state.dart';
 import 'package:finance_ai/features/auth/session/domain/session_models.dart';
+import 'package:finance_ai/features/budgets/application/budgets_controller.dart';
+import 'package:finance_ai/features/budgets/application/budgets_state.dart';
 import 'package:finance_ai/features/categories/data/categories_repository.dart';
 import 'package:finance_ai/features/categories/domain/category_models.dart';
 import 'package:finance_ai/features/categories/presentation/categories_screen.dart';
@@ -194,6 +196,16 @@ class FailingWidgetOptionsCategoriesRepository
       throw StateError('private-category-response');
 }
 
+class NeedsWidgetOptionsCategoriesRepository
+    extends WidgetOptionsCategoriesRepository {
+  @override
+  Future<CategoryListResult> list() async => CategoryListResult(
+    categories: [optionCategory(name: 'needs')],
+    supportedColors: CategoryColor.values,
+    supportedIcons: CategoryIcon.values,
+  );
+}
+
 class _AuthenticatedWidgetSessionController extends AuthSessionController {
   @override
   AuthSessionState build() => const AuthSessionState(
@@ -365,6 +377,18 @@ class WidgetExpensesRepository implements ExpensesRepository {
       hasNext: false,
     );
   }
+}
+
+class _WidgetBudgetsController extends BudgetsController {
+  _WidgetBudgetsController(this.onLoad);
+
+  final void Function()? onLoad;
+
+  @override
+  BudgetsState build() => const BudgetsState();
+
+  @override
+  Future<void> load() async => onLoad?.call();
 }
 
 class FakeAccountsRepository implements AccountsRepository {
@@ -570,6 +594,7 @@ Future<void> pumpExpensesApp(
   IncomesRepository? incomesRepository,
   ReceiptPhotoCacheRepository? receiptPhotoCacheRepository,
   DateTime Function()? clock,
+  void Function()? onBudgetsLoad,
   bool authenticatedSession = true,
 }) async {
   final router = createAppRouter(initialLocation: initialLocation);
@@ -586,6 +611,9 @@ Future<void> pumpExpensesApp(
             _WidgetIncomeSourcesRepository(),
           ),
         expensesRepositoryProvider.overrideWithValue(repository),
+        budgetsControllerProvider.overrideWith(
+          () => _WidgetBudgetsController(onBudgetsLoad),
+        ),
         // The month-scoped cards read "now" from here: pinned so the tests do
         // not depend on the machine date.
         clockProvider.overrideWithValue(
@@ -611,6 +639,25 @@ Future<void> pumpExpensesApp(
 }
 
 void main() {
+  testWidgets('manual expense catalog displays canonical labels in Spanish', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(800, 2400);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+
+    await pumpExpensesApp(
+      tester,
+      WidgetExpensesRepository(),
+      initialLocation: '/expenses/new',
+      categoriesRepository: NeedsWidgetOptionsCategoriesRepository(),
+    );
+
+    expect(find.byKey(const Key('expense-category-chip-3')), findsOneWidget);
+    expect(find.text('Necesidades'), findsOneWidget);
+    expect(find.text('needs'), findsNothing);
+  });
+
   testWidgets('category catalog failure keeps manual expense form available', (
     tester,
   ) async {
@@ -757,7 +804,13 @@ void main() {
       final repository = WidgetExpensesRepository()
         ..expenses = []
         ..historyItems = [];
-      await pumpExpensesApp(tester, repository, initialLocation: '/home');
+      var budgetLoadCalls = 0;
+      await pumpExpensesApp(
+        tester,
+        repository,
+        initialLocation: '/home',
+        onBudgetsLoad: () => budgetLoadCalls += 1,
+      );
 
       await tester.tap(find.byKey(const Key('expenses-create-fab')));
       await tester.pumpAndSettle();
@@ -771,10 +824,17 @@ void main() {
         find.byKey(const Key('expense-create-amount-field')),
         '25.00',
       );
+      final historyCallsBeforeSave = repository.seenHistoryFilters.length;
+      final budgetLoadsBeforeSave = budgetLoadCalls;
       await tester.tap(find.byKey(const Key('expense-create-submit-button')));
       await tester.pumpAndSettle();
 
       expect(repository.lastCreateCommand?.merchant, 'Compra inmediata');
+      expect(
+        repository.seenHistoryFilters.length,
+        greaterThan(historyCallsBeforeSave),
+      );
+      expect(budgetLoadCalls, greaterThan(budgetLoadsBeforeSave));
       await tester.tap(find.byKey(const Key('bottom-nav-movimientos')));
       await tester.pumpAndSettle();
 

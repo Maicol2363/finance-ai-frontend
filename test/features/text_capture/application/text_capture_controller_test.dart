@@ -13,6 +13,7 @@ ProviderContainer containerFor(
   FakeTextCaptureRepository repository, {
   FakeExpensesRepository? expenses,
   FakeAccountsRepository? accountsRepository,
+  FakeBudgetsController? budgetsController,
   int userId = 1,
 }) {
   final container = ProviderContainer(
@@ -20,6 +21,7 @@ ProviderContainer containerFor(
       repository: repository,
       expensesRepository: expenses,
       accountsRepository: accountsRepository,
+      budgetsController: budgetsController,
       userId: userId,
     ),
   );
@@ -275,10 +277,12 @@ void main() {
       final repository = FakeTextCaptureRepository(proposals: [proposal()]);
       final expenses = FakeExpensesRepository();
       final accountsRepository = FakeAccountsRepository();
+      final budgetsController = FakeBudgetsController();
       final container = containerFor(
         repository,
         expenses: expenses,
         accountsRepository: accountsRepository,
+        budgetsController: budgetsController,
       );
       await controllerOf(container).send(taskText);
       final entry = stateOf(container).entries
@@ -307,6 +311,7 @@ void main() {
       expect(expenses.listCalls, greaterThanOrEqualTo(1));
       expect(expenses.historyCalls, greaterThanOrEqualTo(1));
       expect(accountsRepository.listCalls, greaterThanOrEqualTo(1));
+      expect(budgetsController.loadCalls, 1);
     },
   );
 

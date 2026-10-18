@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../../core/diagnostics/error_diagnostic.dart';
+import '../../budgets/application/budgets_controller.dart';
 import '../../expenses/application/expenses_controller.dart';
 import '../../expenses/application/history_controller.dart';
 import '../../expenses/domain/expense_models.dart';
@@ -348,6 +349,7 @@ class ReceiptCaptureNotifier extends Notifier<ReceiptCaptureState> {
       try {
         ref.read(expensesControllerProvider.notifier).load();
         ref.read(historyControllerProvider.notifier).load();
+        ref.read(budgetsControllerProvider.notifier).load();
       } catch (_) {}
 
       state = ReceiptCaptureSuccess(

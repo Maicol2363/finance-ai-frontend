@@ -15,6 +15,7 @@ class FakeBudgetsRepository implements BudgetsRepository {
   Object? saveFailure;
   Object? deleteFailure;
   Completer<Budget>? pendingCreate;
+  Completer<BudgetListResult>? pendingList;
   Completer<void>? pendingDelete;
   BudgetCreateCommand? savedCommand;
   int listCalls = 0;
@@ -26,6 +27,9 @@ class FakeBudgetsRepository implements BudgetsRepository {
   Future<BudgetListResult> list() async {
     listCalls += 1;
     if (listFailure case final failure?) throw failure;
+    final pending = pendingList;
+    pendingList = null;
+    if (pending != null) return pending.future;
     return current;
   }
 
@@ -90,6 +94,42 @@ ProviderContainer containerFor(FakeBudgetsRepository repository) =>
     );
 
 void main() {
+  test(
+    'queues a refresh requested while a budget load is in progress',
+    () async {
+      final firstList = Completer<BudgetListResult>();
+      final oldBudget = budget(id: 7);
+      final newBudget = budget(id: 8, currency: usd);
+      final repository = FakeBudgetsRepository()
+        ..pendingList = firstList
+        ..current = budgetResult(budgets: [oldBudget]);
+      final container = containerFor(repository);
+      addTearDown(container.dispose);
+      final controller = container.read(budgetsControllerProvider.notifier);
+
+      final initialLoad = controller.load();
+      await Future<void>.delayed(Duration.zero);
+      await controller.load();
+      repository.current = budgetResult(budgets: [newBudget]);
+      firstList.complete(budgetResult(budgets: [oldBudget]));
+      await initialLoad;
+
+      expect(repository.listCalls, 2);
+      expect(
+        container.read(budgetsControllerProvider).loadStatus,
+        BudgetsLoadStatus.ready,
+      );
+      expect(
+        container
+            .read(budgetsControllerProvider)
+            .result
+            ?.budgets
+            .map((item) => item.id),
+        [newBudget.id],
+      );
+    },
+  );
+
   test('loads all simultaneous budgets', () async {
     final repository = FakeBudgetsRepository()
       ..current = budgetResult(
