@@ -47,8 +47,9 @@ The release audit API/PostgreSQL service, previously stopped at the end of the f
 - [x] PR #24: reintentos de gasto/ingreso/transferencia se reportan como replay y se recupera por clave de propuesta antes de ramificar por intención.
 - [x] Flutter completo 565/565, analyzer, formatter, diff-check y merge de recursos/manifiestos debug/release.
 - [x] Revisión estática final de los tres cambios frontend: sin bloqueos/regresiones detectados.
-- [ ] Actualizar PR frontend #35 con commit de estas correcciones y confirmar CI; no hacer merge.
+- [x] Actualizar PR frontend #35 con commit `394fd25`; resolver los tres hilos y dejar CI ejecutándose; no hacer merge.
 - [x] PR backend #24 CI Backend CI: success en `db83815`; no hacer merge ni desplegar migración a producción.
+- [x] APK ARM64 0.8.0+2009 construida desde `394fd25`, verificada y copiada a Downloads. Instalación física pendiente: ADB no detectó dispositivo.
 
 - [x] Aclaración de proyección por periodo y ocultación de códigos técnicos visibles: test dirigido, 10 suites (137 tests), analyzer, instalación ARM64 y validación física Análisis → Mes anterior completados el 2026-10-17. Evidencias en `construction/release-audit-20261017/final-validation.md`.
 - [x] Se corrigió el cierre automático de la explicación del gráfico de tendencia: diálogo persistente, control de 48dp, suite focalizada 10/10, analyzer y verificación Android de 10 segundos completados el 2026-10-17.

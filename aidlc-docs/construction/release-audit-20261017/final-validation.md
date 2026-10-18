@@ -170,7 +170,20 @@ La interfaz deja de mostrar identificadores internos como `speech_fallback_unava
 | Merge de recursos/manifiestos Android debug y release | PASS; LAN cleartext solo en debug |
 | Revisión estática final | PASS; sin bloqueos/regresiones detectados |
 
-La regresión de Home restablece el desplazamiento del `ListView` dentro de la prueba porque la ruta conserva su posición inferior al regresar; los valores y el flujo de navegación se verifican después de llevar la lista al inicio. Los hilos de revisión se mantienen abiertos hasta publicar las correcciones en el PR.
+La regresión de Home restablece el desplazamiento del `ListView` dentro de la prueba porque la ruta conserva su posición inferior al regresar; los valores y el flujo de navegación se verifican después de llevar la lista al inicio. Las tres observaciones frontend y las dos backend están resueltas en GitHub.
+
+## Build de revisión y disponibilidad de Android (2026-10-18)
+
+| Verificación | Resultado |
+|---|---|
+| API Cloud Run existente `/health/ready` | PASS, HTTP 200; no se desplegó ni modificó infraestructura |
+| APK release audit | PASS; versión 0.8.0+2009, solo ABI arm64-v8a, ZIP íntegro |
+| SHA-256 | `a8fef331e9d355c3569246a7378b3c2eeebec05d885f93657eb12d3ba92c8dbb` |
+| Copia en Descargas | PASS; `/home/d3ad/Downloads/FinanceAI-v0.8.0-arm64-v8a-2026-10-18-reviewfix.apk`, hash coincidente |
+| Instalación y revisión visual física de esta nueva build | NOT RUN: `adb devices -l` no detectó teléfono ni emulador en dos comprobaciones; no se limpió ni alteró ningún dato local |
+| CI frontend para `394fd25` | En ejecución al cerrar esta verificación; confirmar el resultado en GitHub |
+
+La ausencia del dispositivo es el único bloqueo para instalar esta APK y verificar en pantalla el flujo Análisis → Mes anterior → Volver. La APK está lista para instalar manualmente o con `adb install -r` cuando el dispositivo aparezca. La variante Android release mantiene bloqueado HTTP remoto; la configuración debug permite LAN para pruebas.
 
 ## Ventana de información del gráfico de tendencia (2026-10-17)
 

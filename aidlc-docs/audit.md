@@ -1357,3 +1357,11 @@ otra vez el mismo error
 **Context**: Seguimiento de revisión de código en ramas aisladas; sin merge.
 
 ---
+
+## Publicación de correcciones de review y APK actualizada
+**Timestamp**: 2026-10-18T13:49:05Z
+**User Input**: "mira el review tambien"
+**AI Response**: Se publicó `394fd253` en el branch del PR frontend #35, y se resolvieron los tres hilos frontend más los dos hilos backend ya corregidos en `db83815`. CI frontend estaba ejecutándose al verificar. Se generó APK ARM64 0.8.0+2009, SHA-256 `a8fef331e9d355c3569246a7378b3c2eeebec05d885f93657eb12d3ba92c8dbb`, copiada a `/home/d3ad/Downloads/FinanceAI-v0.8.0-arm64-v8a-2026-10-18-reviewfix.apk`. `/health/ready` respondió HTTP 200. ADB no detectó dispositivo, por lo que no se instaló ni se capturó pantalla.
+**Context**: Entrega de build para pruebas y cierre de observaciones; sin merge ni despliegue de backend.
+
+---
