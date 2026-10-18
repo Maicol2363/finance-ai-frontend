@@ -1,7 +1,11 @@
 import 'package:finance_ai/app.dart';
+import 'package:finance_ai/core/icons/finance_icon_catalog.dart';
 import 'package:finance_ai/core/router/app_router.dart';
 import 'package:finance_ai/features/accounts/data/accounts_repository.dart';
 import 'package:finance_ai/features/accounts/domain/account_models.dart';
+import 'package:finance_ai/features/accounts/presentation/account_detail_screen.dart';
+import 'package:finance_ai/features/accounts/presentation/account_form_screen.dart';
+import 'package:finance_ai/features/accounts/presentation/accounts_screen.dart';
 import 'package:finance_ai/features/incomes/data/incomes_repository.dart';
 import 'package:finance_ai/features/incomes/domain/income_models.dart';
 import 'package:flutter/material.dart';
@@ -356,6 +360,46 @@ void main() {
       ),
       findsOneWidget,
     );
+  });
+
+  testWidgets('saving an edit returns to the existing detail page', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(800, 2400);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final repository = WidgetAccountsRepository();
+    await pumpAccountsApp(tester, repository, initialLocation: '/accounts/11');
+
+    await tester.ensureVisible(find.byKey(const Key('account-edit-button')));
+    await tester.tap(find.byKey(const Key('account-edit-button')));
+    await tester.pumpAndSettle();
+    expect(find.byType(AccountFormScreen), findsOneWidget);
+
+    await tester.enterText(
+      find.byKey(const Key('account-name-field')),
+      'Nequi',
+    );
+    await tester.ensureVisible(find.byKey(const Key('account-save-button')));
+    await tester.tap(find.byKey(const Key('account-save-button')));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(AccountFormScreen), findsNothing);
+    expect(find.byType(AccountDetailScreen), findsOneWidget);
+    expect(repository.current.accountById(11)?.name, 'Nequi');
+
+    await tester.tap(
+      find.descendant(
+        of: find.byType(AccountDetailScreen),
+        matching: find.byIcon(FinanceIcons.arrowBack),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byType(AccountDetailScreen), findsNothing);
+    expect(find.byType(AccountsScreen), findsOneWidget);
   });
 
   testWidgets('copied account failure omits name and amount', (tester) async {

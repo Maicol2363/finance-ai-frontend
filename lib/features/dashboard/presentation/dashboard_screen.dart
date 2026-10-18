@@ -7,6 +7,7 @@ import '../../../core/formatters/date_labels.dart';
 import '../../../core/diagnostics/error_diagnostic.dart';
 import '../../../core/diagnostics/error_diagnostic_panel.dart';
 import '../../../core/formatters/money_formatter.dart';
+import '../../../core/money/currency_totals.dart';
 import '../../../core/theme/app_palette.dart';
 import '../../../core/time/clock_provider.dart';
 import '../../../core/widgets/theme_toggle_button.dart';
@@ -62,11 +63,16 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         const <Account>[];
     final budgets = ref.watch(budgetsControllerProvider);
     final totalsAsync = ref.watch(monthlyTotalsProvider);
-    final period = ref.watch(dashboardPeriodProvider);
-    final customRange = ref.watch(dashboardCustomRangeProvider);
-    final currentWindow = periodWindow(period, now, customRange: customRange);
+    // Home always summarizes the current month. The period selector belongs
+    // to Analysis and may retain its selection while navigating back here.
+    final currentWindow = currentMonthWindow(now);
     final loadedTotals = totalsAsync.value;
-    final totals = totalsMatchWindow(loadedTotals, period, currentWindow)
+    final totals =
+        totalsMatchWindow(
+          loadedTotals,
+          DashboardPeriod.thisMonth,
+          currentWindow,
+        )
         ? loadedTotals
         : null;
     final stock = activeAccountBalances(accounts);

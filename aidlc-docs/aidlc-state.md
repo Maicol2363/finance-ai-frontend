@@ -41,6 +41,15 @@ The isolated API and database container are stopped and retained. Existing app d
 
 The release audit API/PostgreSQL service, previously stopped at the end of the first pass, was restarted for this expanded pass and is currently ready on loopback port 8016 with PostgreSQL using tmpfs. Only synthetic records were added to the isolated audit package. The normal package remains installed and unchanged. No push, merge, or main-branch modification.
 
+## Seguimiento de revisión de PR — 2026-10-18
+
+- [x] PR #35: Home ancla los totales a `thisMonth` aunque Análisis conserve otro periodo; editar cuenta regresa al detalle existente; cleartext LAN permitido solo en debug.
+- [x] PR #24: reintentos de gasto/ingreso/transferencia se reportan como replay y se recupera por clave de propuesta antes de ramificar por intención.
+- [x] Flutter completo 565/565, analyzer, formatter, diff-check y merge de recursos/manifiestos debug/release.
+- [x] Revisión estática final de los tres cambios frontend: sin bloqueos/regresiones detectados.
+- [ ] Actualizar PR frontend #35 con commit de estas correcciones y confirmar CI; no hacer merge.
+- [x] PR backend #24 CI Backend CI: success en `db83815`; no hacer merge ni desplegar migración a producción.
+
 - [x] Aclaración de proyección por periodo y ocultación de códigos técnicos visibles: test dirigido, 10 suites (137 tests), analyzer, instalación ARM64 y validación física Análisis → Mes anterior completados el 2026-10-17. Evidencias en `construction/release-audit-20261017/final-validation.md`.
 - [x] Se corrigió el cierre automático de la explicación del gráfico de tendencia: diálogo persistente, control de 48dp, suite focalizada 10/10, analyzer y verificación Android de 10 segundos completados el 2026-10-17.
 - [x] Espaciado de login corregido para el formulario normal y con error, pruebas 8/8, analyzer y verificación física Android completados el 2026-10-17.

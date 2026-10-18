@@ -1349,3 +1349,11 @@ otra vez el mismo error
 **AI Response**: Se generó la APK release ARM64 v8a 0.8.0+2008 configurada contra la API Cloud Run existente y se copió a /home/d3ad/Downloads/FinanceAI-v0.8.0-arm64-v8a-2026-10-17.apk. Se abrieron los PR frontend #35 y backend #24. Los cambios del backend no se desplegaron sobre producción: su workflow ejecuta migraciones en la base real y el PR aún no pasó CI/aprobación. La API actualmente desplegada respondió HTTP 200 en health/ready. No se hizo merge.
 **Context**: Empaquetado distribuible, API cloud existente y revisión de cambios por PR. La migración aditiva de idempotencia sigue el ciclo normal del PR antes del despliegue.
 ---
+
+## Seguimiento de comentarios de revisión en PR
+**Timestamp**: 2026-10-18T13:44:09Z
+**User Input**: "mira el review tambien"
+**AI Response**: Se verificaron los hilos activos de los PR frontend #35 y backend #24. En frontend se corrigieron los totales de Inicio al cambiar el periodo de Análisis, el acceso HTTP LAN limitado a debug y el regreso al detalle tras editar una cuenta. En backend, `db83815` marca como reintentos las operaciones recuperadas y busca por clave de propuesta antes de ramificar por intención.
+**Context**: Seguimiento de revisión de código en ramas aisladas; sin merge.
+
+---

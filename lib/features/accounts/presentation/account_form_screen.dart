@@ -353,6 +353,16 @@ class _AccountFormScreenState extends ConsumerState<AccountFormScreen> {
         context.pop(saved?.id);
         return;
       }
+      if (widget.isEditing) {
+        if (context.canPop()) {
+          context.pop(saved?.id);
+        } else if (saved != null) {
+          context.go('/accounts/${saved.id}');
+        } else {
+          context.go('/accounts');
+        }
+        return;
+      }
       if (saved != null) {
         context.replace('/accounts/${saved.id}');
       } else {

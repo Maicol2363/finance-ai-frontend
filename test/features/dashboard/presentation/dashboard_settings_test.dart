@@ -350,6 +350,7 @@ Future<void> _pumpAt(
   bool isolatedDashboard = false,
   bool totalsFailure = false,
   MonthlyTotals? staleSummaryTotals,
+  MonthlyTotals? monthlyTotalsOverride,
   bool includeUsd = false,
   MonthlyTotals? analysisTotals,
   Completer<MonthlyTotals>? pendingAnalysisTotals,
@@ -397,6 +398,10 @@ Future<void> _pumpAt(
           ),
         if (staleSummaryTotals != null)
           monthlyTotalsProvider.overrideWith((ref) async => staleSummaryTotals),
+        if (monthlyTotalsOverride != null)
+          monthlyTotalsProvider.overrideWith(
+            (ref) async => monthlyTotalsOverride,
+          ),
         if (analysisTotals != null)
           periodTotalsProvider.overrideWith((ref) async {
             final period = ref.watch(dashboardPeriodProvider);
@@ -628,6 +633,66 @@ void main() {
     expect(tester.takeException(), isNull);
     semantics.dispose();
   });
+
+  testWidgets(
+    'home keeps current-month totals after changing analysis period',
+    (tester) async {
+      await _pumpAt(
+        tester,
+        '/home',
+        monthlyTotalsOverride: MonthlyTotals(
+          monthStart: DateTime.utc(2026, 9, 1),
+          windowEnd: DateTime.utc(2026, 9, 30),
+          byCurrency: const {
+            'COP': CurrencyTotals(incomes: 50000, expenses: 2500),
+          },
+          expenseItems: const [],
+        ),
+      );
+
+      final openAnalysis = find.byKey(const Key('dashboard-open-analysis'));
+      await tester.scrollUntilVisible(openAnalysis, 200);
+      await tester.tap(openAnalysis);
+      await tester.pumpAndSettle();
+      final previousMonth = find.byKey(const Key('dashboard-period-lastMonth'));
+      await tester.ensureVisible(previousMonth);
+      await tester.tap(previousMonth);
+      await tester.pumpAndSettle();
+
+      final analysisBack = find.byTooltip('Volver');
+      final router = GoRouter.of(tester.element(analysisBack));
+      await tester.tap(analysisBack);
+      await tester.pumpAndSettle();
+
+      expect(router.routeInformationProvider.value.uri.path, '/home');
+      expect(find.byType(DashboardScreen), findsOneWidget);
+      tester
+          .state<ScrollableState>(
+            find
+                .descendant(
+                  of: find.byType(DashboardScreen),
+                  matching: find.byType(Scrollable),
+                )
+                .first,
+          )
+          .position
+          .jumpTo(0);
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const Key('dashboard-account-balance')),
+        findsOneWidget,
+      );
+      expect(find.text('Este mes'), findsOneWidget);
+      expect(
+        find.text(MoneyFormatter.display(50000, 'COP', signed: true)),
+        findsOneWidget,
+      );
+      expect(
+        find.text(MoneyFormatter.display(-2500, 'COP', signed: true)),
+        findsOneWidget,
+      );
+    },
+  );
 
   testWidgets('trend owns the period summary without a duplicate card', (
     tester,

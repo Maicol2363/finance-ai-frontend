@@ -152,6 +152,26 @@ La ausencia de proyección en un mes totalmente cerrado es intencional: no se es
 
 La interfaz deja de mostrar identificadores internos como `speech_fallback_unavailable`; el mensaje legible continúa en español. Al pulsar “Copiar detalles del error”, el reporte voluntario contiene el código técnico, hora, operación y contexto seguro con nombres de campo en español, sin datos del formulario ni secretos.
 
+## Seguimiento de observaciones de revisión en PR (2026-10-18)
+
+| Observación | Corrección y verificación |
+|---|---|
+| Home perdía totales al volver desde Análisis con otro periodo | Home valida `monthlyTotalsProvider` contra `DashboardPeriod.thisMonth` y `currentMonthWindow(now)`. Regresión cubre selección de “Mes anterior”, vuelta a `/home` y conserva ingresos/gastos actuales. |
+| Desarrollo en teléfono físico bloqueado por política de cleartext | Configuración Android específica de `debug` permite HTTP LAN para pruebas. Recursos y manifiestos release mantienen cleartext remoto bloqueado; solo se conservan excepciones localhost/emulador. |
+| Guardar una edición duplicaba el detalle de cuenta en la pila | Guardar una edición hace `pop()` al detalle existente, con fallback de ruta si se abre directamente. Prueba cubre guardar y volver al listado sin repetir el detalle. |
+| Reintentos backend no distinguían operación recuperada ni intención modificada | Corregido en `db83815`; las tres vías informan `replayed`, y la operación se busca por usuario y proposal ID antes de ramificar por tipo. Backend CI asociado al commit: success. |
+
+| Validación local frontend | Resultado |
+|---|---|
+| `flutter test --no-pub` | PASS, 565 pruebas |
+| `flutter analyze --no-pub` | PASS |
+| `dart format --output=none --set-exit-if-changed` | PASS |
+| `git diff --check` | PASS |
+| Merge de recursos/manifiestos Android debug y release | PASS; LAN cleartext solo en debug |
+| Revisión estática final | PASS; sin bloqueos/regresiones detectados |
+
+La regresión de Home restablece el desplazamiento del `ListView` dentro de la prueba porque la ruta conserva su posición inferior al regresar; los valores y el flujo de navegación se verifican después de llevar la lista al inicio. Los hilos de revisión se mantienen abiertos hasta publicar las correcciones en el PR.
+
 ## Ventana de información del gráfico de tendencia (2026-10-17)
 
 | Verificación | Resultado |
