@@ -156,6 +156,13 @@ class WidgetOptionsAccountsRepository implements AccountsRepository {
   Future<void> deleteAccount(int accountId) async => throw UnimplementedError();
 }
 
+class FailingWidgetOptionsAccountsRepository
+    extends WidgetOptionsAccountsRepository {
+  @override
+  Future<AccountListResult> list({required bool includeInactive}) async =>
+      throw StateError('private-account-response');
+}
+
 class WidgetOptionsCategoriesRepository implements CategoriesRepository {
   @override
   Future<CategoryListResult> list() async => CategoryListResult(
@@ -240,6 +247,17 @@ class _WidgetIncomeSourcesRepository implements IncomeSourcesRepository {
   @override
   Future<void> delete({required String accessCredential, required int id}) =>
       throw UnimplementedError();
+}
+
+class FailingWidgetIncomeSourcesRepository
+    extends _WidgetIncomeSourcesRepository {
+  bool fail = true;
+
+  @override
+  Future<List<IncomeSource>> list({required String accessCredential}) async {
+    if (fail) throw StateError('private-income-source-response');
+    return const [IncomeSource(id: 21, name: 'Salario')];
+  }
 }
 
 HistoryItem historyItem({
@@ -591,6 +609,7 @@ Future<void> pumpExpensesApp(
   String initialLocation = '/expenses',
   AccountsRepository? accountsRepository,
   CategoriesRepository? categoriesRepository,
+  IncomeSourcesRepository? incomeSourcesRepository,
   IncomesRepository? incomesRepository,
   ReceiptPhotoCacheRepository? receiptPhotoCacheRepository,
   DateTime Function()? clock,
@@ -608,7 +627,7 @@ Future<void> pumpExpensesApp(
           ),
         if (authenticatedSession)
           incomeSourcesRepositoryProvider.overrideWithValue(
-            _WidgetIncomeSourcesRepository(),
+            incomeSourcesRepository ?? _WidgetIncomeSourcesRepository(),
           ),
         expensesRepositoryProvider.overrideWithValue(repository),
         budgetsControllerProvider.overrideWith(
@@ -677,10 +696,128 @@ void main() {
       findsOneWidget,
     );
     expect(
-      find.textContaining('Puedes continuar con el registro manual'),
+      find.textContaining('No pudimos cargar las categorías'),
       findsOneWidget,
     );
     expect(find.textContaining('private-category-response'), findsNothing);
+  });
+
+  testWidgets('income source failure is shown only in income context', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(800, 2400);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+
+    await pumpExpensesApp(
+      tester,
+      WidgetExpensesRepository(),
+      initialLocation: '/expenses/new',
+      incomeSourcesRepository: FailingWidgetIncomeSourcesRepository(),
+    );
+
+    expect(find.textContaining('No se cargaron las fuentes'), findsNothing);
+    expect(
+      find.byKey(const Key('expense-create-submit-button')),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.byKey(const Key('segment-ingreso')));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('No se cargaron las fuentes'), findsOneWidget);
+    expect(find.text('Copiar detalles del error'), findsNothing);
+    expect(
+      find.byKey(const Key('income-create-submit-button')),
+      findsOneWidget,
+    );
+    expect(
+      tester
+          .widget<FilledButton>(
+            find.byKey(const Key('income-create-submit-button')),
+          )
+          .onPressed,
+      isNotNull,
+    );
+  });
+
+  testWidgets('retry preserves a custom income source and saves without ID', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(800, 2400);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    final sourcesRepository = FailingWidgetIncomeSourcesRepository();
+    final incomesRepository = FakeIncomesRepository();
+
+    await pumpExpensesApp(
+      tester,
+      WidgetExpensesRepository(),
+      initialLocation: '/expenses/new',
+      incomeSourcesRepository: sourcesRepository,
+      incomesRepository: incomesRepository,
+    );
+    await tester.tap(find.byKey(const Key('segment-ingreso')));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const Key('income-create-source-custom-field')),
+      'Consultoría externa',
+    );
+
+    sourcesRepository.fail = false;
+    await tester.ensureVisible(find.text('Reintentar'));
+    await tester.tap(find.text('Reintentar'));
+    await tester.pumpAndSettle();
+
+    expect(
+      tester
+          .widget<TextField>(
+            find.byKey(const Key('income-create-source-custom-field')),
+          )
+          .controller
+          ?.text,
+      'Consultoría externa',
+    );
+    await tester.enterText(
+      find.byKey(const Key('expense-create-amount-field')),
+      '250',
+    );
+    await tester.ensureVisible(
+      find.byKey(const Key('income-create-submit-button')),
+    );
+    await tester.tap(find.byKey(const Key('income-create-submit-button')));
+    await tester.pumpAndSettle();
+
+    expect(incomesRepository.lastCreateCommand?.incomeSourceId, isNull);
+    expect(
+      incomesRepository.lastCreateCommand?.description,
+      'Consultoría externa',
+    );
+  });
+
+  testWidgets('account load failure blocks save without claiming no accounts', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(800, 2400);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+
+    await pumpExpensesApp(
+      tester,
+      WidgetExpensesRepository(),
+      initialLocation: '/expenses/new',
+      accountsRepository: FailingWidgetOptionsAccountsRepository(),
+    );
+
+    expect(find.text('No tienes cuentas registradas'), findsNothing);
+    expect(
+      tester
+          .widget<FilledButton>(
+            find.byKey(const Key('expense-create-submit-button')),
+          )
+          .onPressed,
+      isNull,
+    );
   });
 
   for (final route in ['/accounts/new', '/categories/new', '/budgets/new']) {

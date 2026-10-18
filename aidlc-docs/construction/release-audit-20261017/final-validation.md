@@ -280,3 +280,24 @@ Diagnóstico: las confirmaciones de IA y recibos recargaban los gastos de Inicio
 La sesión del dispositivo correspondía a la cuenta de pruebas. La interfaz no expone IDs ni todos los campos necesarios para reconstruir sus recursos; por eso no se creó un respaldo parcial ni se modificaron cuentas, gastos, ingresos o presupuestos. El filtro de transferencias mostró vacío, pero no prueba que no existan transferencias en el historial paginado; su cantidad queda sin verificar. No se creó el archivo de backup solicitado.
 
 El formulario se desplaza cuando el teclado numérico reduce el viewport para mantener el campo enfocado visible. Eso no cambia el orden de los controles. La discrepancia de idioma sí era real: varias vistas omitían `CatalogLabels`; las etiquetas ahora se presentan en español sin cambiar los valores enviados al backend.
+
+## Revisión del aviso de fuentes de ingreso (2026-10-18)
+
+La captura muestra un fallo al cargar un catálogo opcional de fuentes de ingreso mientras el formulario está en modo Gasto. El fallo no bloquea el registro manual, pero el panel rojo, el reporte copiable y el reintento global aparecían aunque el gasto no usa ese catálogo. El aviso ahora solo se presenta en modo Ingreso, con un mensaje compacto y reintento local; las fuentes sugeridas y el texto personalizado siguen disponibles. Un reintento no cambia el foco ni reemplaza una fuente personalizada por el primer elemento del catálogo.
+
+Los errores de carga de cuentas/sesión sí son obligatorios: bloquean el guardado y no se muestran como si la persona no tuviera cuentas. El estado vacío de cuentas solo aparece tras una carga correcta sin resultados.
+
+| Verificación | Resultado |
+|---|---|
+| `expenses_screens_test.dart` | PASS, 44 pruebas; incluye fallo opcional solo en Ingreso, cuentas obligatorias y fuente personalizada preservada tras reintentar |
+| Suite Flutter completa | PASS, 573 pruebas |
+| `flutter analyze --no-pub` / `git diff --check` | PASS |
+| API `/health/ready` | HTTP 200 |
+| Catálogo autenticado de fuentes en Android | Cargó desde Ajustes; el fallo de la captura no se reprodujo |
+| Formulario Gasto en Android | PASS; no muestra el aviso de fuentes de ingreso |
+| Formulario Ingreso en Android | PASS; el catálogo cargó y no mostró el aviso. El caso de error se cubre en pruebas, no se forzó en el teléfono |
+| APK audit ARM64 | PASS, `0.8.0+4012`, `com.nullcorvus.finance_ai.release_audit`; ZIP íntegro e instalado con `adb install -r` sin borrar datos |
+| SHA-256 APK | `331357d4d09ba9f82d97ac0d3288cbfd42c68bef177b99382e038513528e86ca` |
+| Datos de cuenta | Sin cambios |
+
+El endpoint de fuentes exige Bearer token; una consulta no autenticada devuelve 401 como se espera. La API estaba saludable y el catálogo autenticado se cargó durante la comprobación, por lo que no se pudo atribuir el error puntual de la captura a un fallo actual del backend.

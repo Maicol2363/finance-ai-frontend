@@ -1389,3 +1389,27 @@ otra vez el mismo error
 **Context**: Auditoría visual y funcional basada en las cuatro capturas; actualización limitada a la cuenta de prueba indicada. La contraseña se omitió del registro persistente.
 
 ---
+
+## Error opcional de fuentes de ingreso y revisión de presupuesto
+**Timestamp**: 2026-10-18T14:35:19Z
+**User Input**: "hay un error  y que cambios rekizaste ?? y asegurate de reivsar con sol"
+**AI Response**: El aviso de la captura provenía del fallo del catálogo opcional de fuentes de ingreso, pero se mostraba también en el modo Gasto. Sol revisó el flujo y encontró además que un error obligatorio de cuentas podía dejar habilitado el guardado, aparentar que no había cuentas y que reintentar podía robar el foco. Se ajustó el aviso al contexto Ingreso, se compactó, se conservó el flujo manual y se bloqueó guardar si falla la carga obligatoria. La API y el catálogo respondieron en la comprobación posterior; no se reprodujo el fallo. Se preserva una fuente escrita al reintentar. Datos financieros intactos.
+**Context**: Revisión de error reportado, código y estado actual del API/dispositivo; cambios en la rama aislada con pruebas de regresión.
+
+---
+
+## Pregunta sobre el comportamiento de presupuestos
+**Timestamp**: 2026-10-18T14:35:19Z
+**User Input**: "Ok y que pasa con los presopuestos que funcion tiene nque pasa si se pasa en uno ? o si esta cerca ?"
+**AI Response**: Se explicó que el presupuesto compara el gasto confirmado del periodo con el tope: alerta de proximidad entre 80% y menos de 100%, límite alcanzado al 100%, y excedente sobre 100%. El registro de gastos sigue permitido y el progreso se actualiza para reflejar los movimientos.
+**Context**: Explicación funcional durante el diagnóstico del formulario de captura.
+
+---
+
+## Corrección contextual de advertencia y validación Sol
+**Timestamp**: 2026-10-18T14:41:23Z
+**User Input**: "Ok y que pasa con los presopuestos que funcion tiene nque pasa si se pasa en uno ? o si esta cerca ?"
+**AI Response**: Sol revisó el manejo de errores y confirmó que el formulario de gasto no debe mostrar la caída del catálogo de ingresos. Se oculta la advertencia opcional en Gasto, se muestra compacta y con reintento en Ingreso, se conserva el foco al reintentar, se bloquea Guardar ante error obligatorio de cuentas/sesión y no se presenta un falso estado vacío. Se conserva una fuente personalizada tras recuperar el catálogo. Verificación: expenses_screens 44/44; suite Flutter 573; analyze y diff-check PASS. API saludable, catálogo autenticado cargó en Android y no se reprodujo el fallo de la captura. APK ARM64 0.8.0+4012 instalada con datos intactos; SHA-256 registrado en `final-validation.md`. Cuenta de prueba sin cambios.
+**Context**: Corrección del reporte de catálogo, revisión de seguridad del flujo de guardado, pruebas y nueva instalación física no destructiva.
+
+---

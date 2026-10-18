@@ -155,7 +155,7 @@ class _ExpenseCreateScreenState extends ConsumerState<ExpenseCreateScreen> {
     Future<void>.microtask(() {
       if (!mounted) return;
       ref.read(expensesControllerProvider.notifier).clearMutationFeedback();
-      _loadOptions();
+      _loadOptions(focusAmount: true);
     });
   }
 
@@ -170,7 +170,7 @@ class _ExpenseCreateScreenState extends ConsumerState<ExpenseCreateScreen> {
     super.dispose();
   }
 
-  Future<void> _loadOptions() async {
+  Future<void> _loadOptions({bool focusAmount = false}) async {
     setState(() {
       _loadingOptions = true;
       _loadDiagnostic = null;
@@ -190,17 +190,22 @@ class _ExpenseCreateScreenState extends ConsumerState<ExpenseCreateScreen> {
               .firstOrNull
               ?.id;
         }
-        if (_selectedSourceId == null && options.incomeSources.isNotEmpty) {
+        if (_selectedSourceId == null &&
+            _selectedSourceName == null &&
+            _customSourceController.text.trim().isEmpty &&
+            options.incomeSources.isNotEmpty) {
           _selectedSourceId = options.incomeSources.first.id;
           _selectedSourceName = options.incomeSources.first.name;
         }
         _loadingOptions = false;
       });
-      Future<void>.microtask(() {
-        if (mounted) {
-          _amountFocus.requestFocus();
-        }
-      });
+      if (focusAmount) {
+        Future<void>.microtask(() {
+          if (mounted) {
+            _amountFocus.requestFocus();
+          }
+        });
+      }
     } on Object catch (e) {
       if (!mounted) return;
       final (code, message, correlationId, reason) = switch (e) {
@@ -405,7 +410,10 @@ class _ExpenseCreateScreenState extends ConsumerState<ExpenseCreateScreen> {
     final controller = ref.read(expensesControllerProvider.notifier);
     final isSaving = state.isSaving || _isSavingIncome;
     final formEnabled =
-        !isSaving && !state.requiresMutationReview && !_loadingOptions;
+        !isSaving &&
+        !state.requiresMutationReview &&
+        !_loadingOptions &&
+        _loadDiagnostic == null;
 
     final selectedAccount = _accounts
         .where((a) => a.id == _selectedAccountId)
@@ -415,6 +423,11 @@ class _ExpenseCreateScreenState extends ConsumerState<ExpenseCreateScreen> {
         : '\$';
 
     final isIncome = _type == MovementType.income;
+    final visibleOptionWarnings = _optionWarnings
+        .where(
+          (warning) => isIncome || warning.operation != 'load_income_sources',
+        )
+        .toList(growable: false);
 
     return PopScope(
       canPop: !isSaving,
@@ -543,30 +556,66 @@ class _ExpenseCreateScreenState extends ConsumerState<ExpenseCreateScreen> {
               ErrorDiagnosticPanel(diagnostic: diagnostic),
               const SizedBox(height: 12),
               OutlinedButton.icon(
-                onPressed: _loadOptions,
+                onPressed: () => _loadOptions(focusAmount: false),
                 icon: const Icon(FinanceIcons.refresh),
                 label: const Text('Reintentar carga de cuentas'),
               ),
               const SizedBox(height: 16),
             ],
-            if (_optionWarnings.isNotEmpty) ...[
-              Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: Text(
-                  'Algunas opciones no están disponibles. Puedes continuar con el registro manual.',
-                  style: TextStyle(color: palette.muted, fontSize: 13),
-                ),
-              ),
-              for (final warning in _optionWarnings) ...[
-                ErrorDiagnosticPanel(diagnostic: warning),
-                const SizedBox(height: 8),
+            if (visibleOptionWarnings.isNotEmpty) ...[
+              for (final warning in visibleOptionWarnings) ...[
+                if (warning.operation == 'load_income_sources')
+                  Semantics(
+                    liveRegion: true,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
+                      decoration: BoxDecoration(
+                        color: palette.warnBg,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            FinanceIcons.infoOutline,
+                            color: palette.warnFg,
+                            size: 20,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'No se cargaron las fuentes. Puedes elegir una sugerida o escribirla.',
+                              style: TextStyle(
+                                color: palette.warnFg,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ),
+                          TextButton(
+                            onPressed: _loadingOptions
+                                ? null
+                                : () => _loadOptions(focusAmount: false),
+                            child: const Text('Reintentar'),
+                          ),
+                        ],
+                      ),
+                    ),
+                  )
+                else ...[
+                  ErrorDiagnosticPanel(diagnostic: warning),
+                  const SizedBox(height: 8),
+                  OutlinedButton.icon(
+                    onPressed: _loadingOptions
+                        ? null
+                        : () => _loadOptions(focusAmount: false),
+                    icon: const Icon(FinanceIcons.refresh),
+                    label: const Text('Reintentar carga de catálogos'),
+                  ),
+                ],
+                const SizedBox(height: 12),
               ],
-              OutlinedButton.icon(
-                onPressed: _loadingOptions ? null : _loadOptions,
-                icon: const Icon(FinanceIcons.refresh),
-                label: const Text('Reintentar carga de catálogos'),
-              ),
-              const SizedBox(height: 12),
             ],
             if (state.mutationDiagnostic case final diagnostic?) ...[
               ErrorDiagnosticPanel(diagnostic: diagnostic),
@@ -814,6 +863,7 @@ class _ExpenseCreateScreenState extends ConsumerState<ExpenseCreateScreen> {
               ),
               const SizedBox(height: 8),
               TextField(
+                key: const Key('income-create-source-custom-field'),
                 controller: _customSourceController,
                 enabled: formEnabled,
                 decoration: const InputDecoration(
@@ -877,7 +927,9 @@ class _ExpenseCreateScreenState extends ConsumerState<ExpenseCreateScreen> {
             ],
 
             // Si no hay cuentas (y ya terminamos de cargar), mostramos un card con el botón para crearla directamente
-            if (!_loadingOptions && _accounts.isEmpty) ...[
+            if (!_loadingOptions &&
+                _loadDiagnostic == null &&
+                _accounts.isEmpty) ...[
               Container(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 14,
