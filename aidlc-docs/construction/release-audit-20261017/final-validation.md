@@ -183,7 +183,13 @@ La regresión de Home restablece el desplazamiento del `ListView` dentro de la p
 | Instalación y revisión visual física de esta nueva build | NOT RUN: `adb devices -l` no detectó teléfono ni emulador en dos comprobaciones; no se limpió ni alteró ningún dato local |
 | CI frontend para `394fd25` | En ejecución al cerrar esta verificación; confirmar el resultado en GitHub |
 
-La ausencia del dispositivo es el único bloqueo para instalar esta APK y verificar en pantalla el flujo Análisis → Mes anterior → Volver. La APK está lista para instalar manualmente o con `adb install -r` cuando el dispositivo aparezca. La variante Android release mantiene bloqueado HTTP remoto; la configuración debug permite LAN para pruebas.
+En la primera comprobación el teléfono no apareció en ADB. Se reconectó después y el resultado actualizado está en la sección siguiente. La variante Android release mantiene bloqueado HTTP remoto; la configuración debug permite LAN para pruebas.
+
+### Instalación física tras reconectar el teléfono
+
+El Xiaomi 23021RAAEG (Android 13, serial ADB `6d3dd54`) reapareció. La APK se instaló con `adb install -r` como paquete separado `com.nullcorvus.finance_ai.release_audit`, versión 0.8.0+2009, y se abrió correctamente. La actualización preservó los datos de la variante de auditoría. Capturas y jerarquía: `artifacts/android/review-fix-20261018/initial.png` y `initial.xml`.
+
+La pantalla abierta es el login, sin sesión sintética. No se ingresaron credenciales; por tanto el flujo físico autenticado Análisis → Mes anterior → Volver permanece NOT RUN. No se modificaron movimientos ni otros datos. La prueba de widget automatizada sí cubre el cambio de periodo y los totales de Home al regresar.
 
 ## Ventana de información del gráfico de tendencia (2026-10-17)
 
@@ -244,3 +250,15 @@ Cumplimiento de extensiones para esta ronda: Security Baseline N/A (solo ajustes
 | PR backend | https://github.com/Maicol2363/finance-ai-backend/pull/24; checks pendientes al abrir |
 | Despliegue del nuevo backend | Pendiente de CI y aprobación/merge del PR; el APK usa el servicio Cloud Run actualmente activo |
 | Instalación en dispositivo | No ejecutada en esta entrega |
+
+## Actualización inmediata de Movimientos tras guardar (2026-10-18)
+
+| Verificación | Resultado |
+|---|---|
+| Confirmación de gasto con IA actualiza el historial | PASS; aserción en `text_capture_controller_test.dart` |
+| Confirmación de gasto desde recibo actualiza el historial | PASS; aserción en `receipt_capture_notifier_test.dart` |
+| Creación manual y navegación Inicio → Movimientos | PASS; regresión en `expenses_screens_test.dart` |
+| Tests focalizados de captura IA, recibos y pantallas de gastos | PASS |
+| `flutter analyze` focalizado | PASS |
+
+Diagnóstico: las confirmaciones de IA y recibos recargaban los gastos de Inicio, pero no el proveedor de historial usado por Movimientos. Se agregó la recarga del historial en ambos caminos y pruebas de regresión. No se hizo prueba física autenticada de este flujo en esta ronda.

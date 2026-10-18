@@ -747,6 +747,42 @@ void main() {
     expect(find.byKey(const Key('home-title')), findsNothing);
   });
 
+  testWidgets(
+    'new expense appears in Movimientos after switching tabs from Inicio',
+    (tester) async {
+      tester.view.physicalSize = const Size(800, 2400);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+
+      final repository = WidgetExpensesRepository()
+        ..expenses = []
+        ..historyItems = [];
+      await pumpExpensesApp(tester, repository, initialLocation: '/home');
+
+      await tester.tap(find.byKey(const Key('expenses-create-fab')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('expenses-wheel-manual')));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const Key('expense-create-merchant-field')),
+        'Compra inmediata',
+      );
+      await tester.enterText(
+        find.byKey(const Key('expense-create-amount-field')),
+        '25.00',
+      );
+      await tester.tap(find.byKey(const Key('expense-create-submit-button')));
+      await tester.pumpAndSettle();
+
+      expect(repository.lastCreateCommand?.merchant, 'Compra inmediata');
+      await tester.tap(find.byKey(const Key('bottom-nav-movimientos')));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('history-card-99')), findsOneWidget);
+      expect(find.byKey(const Key('movements-empty-state')), findsNothing);
+    },
+  );
+
   testWidgets('delete asks for confirmation and returns to the list', (
     tester,
   ) async {

@@ -6,6 +6,7 @@ import '../../accounts/application/accounts_controller.dart';
 import '../../auth/session/application/auth_session_controller.dart';
 import '../../auth/session/domain/session_models.dart';
 import '../../expenses/application/expenses_controller.dart';
+import '../../expenses/application/history_controller.dart';
 import '../../incomes/data/incomes_repository.dart';
 import '../data/text_capture_repository.dart';
 import '../domain/text_capture_models.dart';
@@ -324,6 +325,7 @@ class TextCaptureController extends Notifier<TextCaptureChatState> {
   void _refreshMovements() {
     try {
       ref.read(expensesControllerProvider.notifier).load();
+      ref.read(historyControllerProvider.notifier).load();
       ref.read(accountsControllerProvider.notifier).load();
       ref.read(incomeRevisionProvider.notifier).changed();
     } catch (_) {

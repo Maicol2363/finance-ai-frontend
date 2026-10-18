@@ -305,6 +305,7 @@ void main() {
       );
       expect(stateOf(container).activeProposalId, isNull);
       expect(expenses.listCalls, greaterThanOrEqualTo(1));
+      expect(expenses.historyCalls, greaterThanOrEqualTo(1));
       expect(accountsRepository.listCalls, greaterThanOrEqualTo(1));
     },
   );

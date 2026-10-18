@@ -1365,3 +1365,19 @@ otra vez el mismo error
 **Context**: Entrega de build para pruebas y cierre de observaciones; sin merge ni despliegue de backend.
 
 ---
+
+## Validación al reconectar Android
+**Timestamp**: 2026-10-18T13:49:05Z
+**User Input**: "Ya conecte el telefono"
+**AI Response**: Se detectó el Xiaomi 23021RAAEG con Android 13 y se instaló con `adb install -r` la APK 0.8.0+2009, preservando los datos del paquete de auditoría. La app abrió en login. No se introdujeron credenciales; el flujo de Análisis requiere una sesión y quedó NOT RUN.
+**Context**: Instalación de la build actualizada y validación física no destructiva.
+
+---
+
+## Investigación de gasto ausente en Movimientos
+**Timestamp**: 2026-10-18T14:02:39Z
+**User Input**: "una duda pore que cuando cambia a movimientos osea ingrese un gasto cambie a movimientos y luego no aparecia el gasto que habia acabado de ingresar solo hasta cuando actulice"
+**AI Response**: Se rastrearon las rutas de guardado. El formulario manual ya solicita una recarga del historial; la confirmación de gastos con IA y desde recibos solo recargaba el proveedor de gastos de Inicio, dejando obsoleto el historial de Movimientos hasta una actualización manual. Se añadió la recarga del historial en ambas rutas y pruebas de regresión. Tests focalizados y análisis estático pasaron.
+**Context**: Diagnóstico y corrección de actualización de datos entre pestañas; sin limpieza de datos ni cambios en dispositivo.
+
+---

@@ -353,6 +353,7 @@ class FakeIncomeSourcesRepository implements IncomeSourcesRepository {
 /// Counts reloads so a test can see that Accept refreshes the movements.
 class FakeExpensesRepository implements ExpensesRepository {
   int listCalls = 0;
+  int historyCalls = 0;
 
   @override
   Future<ExpenseListResult> list({int page = 1, int pageSize = 50}) async {
@@ -367,14 +368,16 @@ class FakeExpensesRepository implements ExpensesRepository {
   }
 
   @override
-  Future<HistoryResult> history(HistoryFilters filters) async =>
-      const HistoryResult(
-        items: [],
-        total: 0,
-        page: 1,
-        pageSize: 50,
-        hasNext: false,
-      );
+  Future<HistoryResult> history(HistoryFilters filters) async {
+    historyCalls += 1;
+    return const HistoryResult(
+      items: [],
+      total: 0,
+      page: 1,
+      pageSize: 50,
+      hasNext: false,
+    );
+  }
 
   @override
   dynamic noSuchMethod(Invocation invocation) =>
