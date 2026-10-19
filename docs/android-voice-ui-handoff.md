@@ -94,24 +94,20 @@ Wi-Fi or a hosted API requires building with that server's reachable URL.
 
 ## Cable-free testing
 
-On 2026-10-13, the Anchored Composer audio-test APK was rebuilt with the
-computer's current Wi-Fi API address. The existing Docker services were restarted,
-and readiness was verified from both the computer and the phone over Wi-Fi.
-This changes the build configuration; authentication and capture logic are unchanged.
-
-Keep the computer awake, Docker running, and both devices on the same Wi-Fi.
-Use the computer's Wi-Fi IPv4 address from `ipconfig` when building:
+Remote API endpoints must use HTTPS, including debug builds. Cleartext HTTP is
+limited to local development endpoints such as `127.0.0.1` over USB forwarding
+and the Android emulator bridge `10.0.2.2`. For cable-free testing, configure a
+reachable HTTPS endpoint with a certificate trusted by the phone:
 
 ```powershell
-$wifiApiBaseUrl = 'http://<computer-wifi-ip>:8000'
+$wifiApiBaseUrl = 'https://<trusted-api-host>'
 .\tool\build_android.ps1 -AudioTest -ApiBaseUrl $wifiApiBaseUrl
 ```
 
-Check `http://<computer-wifi-ip>:8000/health/ready` in the phone's browser before
-installing the update. The expected response is `{"status":"ready"}`. Update the
-existing **Finance AI (audio test)** installation to preserve its app data.
-USB forwarding is unnecessary for this build. If the computer's address changes,
-rebuild with the new address.
+Check the HTTPS health endpoint from the phone before installing the update. The
+existing **Finance AI (audio test)** installation can then be updated to preserve
+its app data. The API remains configurable for physical devices; cleartext LAN
+addresses are rejected before any credentials or financial data are sent.
 
 Login, session restoration and financial operations still require the API.
 Transcription can work offline after model setup. If session restoration reports

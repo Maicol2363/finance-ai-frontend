@@ -58,6 +58,67 @@ void main() {
     );
   });
 
+  test(
+    'does not expose server detail or field values in validation failures',
+    () async {
+      final mock = MockClient(
+        (_) async => jsonResponse({
+          'status': 422,
+          'code': 'income_source_invalid',
+          'detail': 'password=private-value',
+          'field_errors': {
+            'name': ['private-account-name'],
+          },
+        }, 422),
+      );
+
+      await expectLater(
+        HttpIncomeSourcesRepository(apiClient(mock))
+            .create(accessCredential: 't', name: 'private-account-name'),
+        throwsA(
+          isA<IncomeSourcesValidationFailure>()
+              .having(
+                (failure) => failure.userMessage,
+                'message',
+                isNot(contains('private-value')),
+              )
+              .having(
+                (failure) => failure.fieldErrors['name']?.single,
+                'field error',
+                isNot(contains('private-account-name')),
+              ),
+        ),
+      );
+    },
+  );
+
+  test(
+    'does not pass an unknown server error code or detail to the UI',
+    () async {
+      final mock = MockClient(
+        (_) async => jsonResponse({
+          'status': 500,
+          'code': 'private-internal-code',
+          'detail': 'token=private-value',
+        }, 500),
+      );
+
+      await expectLater(
+        HttpIncomeSourcesRepository(apiClient(mock))
+            .list(accessCredential: 't'),
+        throwsA(
+          isA<IncomeSourcesRetryableFailure>()
+              .having((failure) => failure.code, 'code', 'unexpected_response')
+              .having(
+                (failure) => failure.userMessage,
+                'message',
+                isNot(contains('private-value')),
+              ),
+        ),
+      );
+    },
+  );
+
   test('rename maps a missing id to a not-found failure', () async {
     final mock = MockClient(
       (request) async => jsonResponse({

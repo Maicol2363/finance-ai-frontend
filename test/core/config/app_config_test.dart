@@ -35,5 +35,48 @@ void main() {
         'https://api.example.test',
       );
     });
+
+    test('allows HTTP for local development servers', () {
+      expect(
+        AppConfig.resolveApiBaseUrl(
+          platform: TargetPlatform.android,
+          configuredValue: 'http://10.0.2.2:8000',
+          allowInsecureHttp: true,
+        ),
+        'http://10.0.2.2:8000',
+      );
+    });
+
+    test('rejects remote HTTP URLs even in debug builds', () {
+      expect(
+        () => AppConfig.resolveApiBaseUrl(
+          platform: TargetPlatform.windows,
+          configuredValue: 'http://192.168.1.20:8000',
+          allowInsecureHttp: true,
+        ),
+        throwsA(isA<FormatException>()),
+      );
+    });
+
+    test('rejects HTTP URLs when release transport is required', () {
+      expect(
+        () => AppConfig.resolveApiBaseUrl(
+          platform: TargetPlatform.windows,
+          configuredValue: 'http://localhost:8000',
+          allowInsecureHttp: false,
+        ),
+        throwsA(isA<FormatException>()),
+      );
+    });
+
+    test('rejects non-HTTP API URLs', () {
+      expect(
+        () => AppConfig.resolveApiBaseUrl(
+          platform: TargetPlatform.windows,
+          configuredValue: 'file:///tmp/api',
+        ),
+        throwsA(isA<FormatException>()),
+      );
+    });
   });
 }
