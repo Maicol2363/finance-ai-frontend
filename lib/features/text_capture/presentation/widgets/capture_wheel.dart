@@ -170,71 +170,77 @@ class _WheelBubble extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
-    return AnimatedBuilder(
-      animation: animation,
-      builder: (context, child) {
-        final curved = CurvedAnimation(
-          parent: animation,
-          curve: Interval(delayRatio, 1.0, curve: Curves.easeOutBack),
-        );
-        return Positioned(
-          right: right,
-          bottom: bottom,
-          child: Transform.scale(
-            scale: curved.value,
-            child: Opacity(
-              opacity: curved.value.clamp(0.0, 1.0),
-              child: Semantics(
-                button: true,
-                label: description,
-                excludeSemantics: true,
-                child: GestureDetector(
-                  onTap: onTap,
-                  child: Container(
-                    width: 52,
-                    height: 52,
-                    key: ValueKey('$label-surface'),
-                    decoration: BoxDecoration(
-                      color: palette.card,
-                      shape: BoxShape.circle,
-                      border: Border.all(color: palette.line),
-                      boxShadow: const [
-                        BoxShadow(
-                          color: Color(0x1A0F172A),
-                          blurRadius: 10,
-                          offset: Offset(0, 4),
+    final curved = CurvedAnimation(
+      parent: animation,
+      curve: Interval(delayRatio, 1.0, curve: Curves.easeOutBack),
+    );
+    return Positioned(
+      right: right,
+      bottom: bottom,
+      child: ScaleTransition(
+        scale: curved,
+        child: FadeTransition(
+          opacity: _ClampedAnimation(curved),
+          child: Semantics(
+            button: true,
+            label: description,
+            excludeSemantics: true,
+            child: GestureDetector(
+              onTap: onTap,
+              child: Container(
+                width: 52,
+                height: 52,
+                key: ValueKey('$label-surface'),
+                decoration: BoxDecoration(
+                  color: palette.card,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: palette.line),
+                  boxShadow: const [
+                    BoxShadow(
+                      color: Color(0x1A0F172A),
+                      blurRadius: 10,
+                      offset: Offset(0, 4),
+                    ),
+                  ],
+                ),
+                // Keep the Material icon and label inside the 52 px circle.
+                child: Padding(
+                  padding: const EdgeInsets.all(5),
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(icon, size: 18, color: palette.text),
+                        Text(
+                          label,
+                          style: TextStyle(
+                            fontSize: 9.5,
+                            height: 1.1,
+                            fontWeight: FontWeight.w700,
+                            color: palette.muted,
+                          ),
                         ),
                       ],
-                    ),
-                    // Keep the Material icon and label inside the 52 px circle.
-                    child: Padding(
-                      padding: const EdgeInsets.all(5),
-                      child: FittedBox(
-                        fit: BoxFit.scaleDown,
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(icon, size: 18, color: palette.text),
-                            Text(
-                              label,
-                              style: TextStyle(
-                                fontSize: 9.5,
-                                height: 1.1,
-                                fontWeight: FontWeight.w700,
-                                color: palette.muted,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
                     ),
                   ),
                 ),
               ),
             ),
           ),
-        );
-      },
+        ),
+      ),
     );
   }
+}
+
+class _ClampedAnimation extends Animation<double>
+    with AnimationWithParentMixin<double> {
+  _ClampedAnimation(this.parent);
+
+  @override
+  final Animation<double> parent;
+
+  @override
+  double get value => parent.value.clamp(0.0, 1.0).toDouble();
 }

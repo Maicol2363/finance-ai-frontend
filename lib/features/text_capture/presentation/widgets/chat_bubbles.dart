@@ -222,16 +222,14 @@ class _ThinkingBubbleState extends State<ThinkingBubble>
                     for (var index = 0; index < 3; index++)
                       Padding(
                         padding: const EdgeInsets.only(right: 4),
-                        child: Opacity(
-                          opacity: _opacityFor(index),
-                          child: Container(
-                            width: 7,
-                            height: 7,
-                            decoration: BoxDecoration(
-                              color: palette.primary,
-                              shape: BoxShape.circle,
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                            color: palette.primary.withValues(
+                              alpha: _opacityFor(index),
                             ),
+                            shape: BoxShape.circle,
                           ),
+                          child: const SizedBox.square(dimension: 7),
                         ),
                       ),
                   ],
