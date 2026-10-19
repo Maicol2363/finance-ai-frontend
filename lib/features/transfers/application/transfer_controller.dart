@@ -202,6 +202,20 @@ class TransferController extends Notifier<TransferState> {
     );
   }
 
+  MoneyAmount? _balanceOf(int? accountId) {
+    if (accountId == null) {
+      return null;
+    }
+    final accounts =
+        ref.read(accountsControllerProvider).result?.accounts ?? const [];
+    for (final account in accounts) {
+      if (account.id == accountId) {
+        return account.balance;
+      }
+    }
+    return null;
+  }
+
   bool _isCrossCurrency(int? sourceAccountId, int? destinationAccountId) {
     if (sourceAccountId == null || destinationAccountId == null) {
       return false;

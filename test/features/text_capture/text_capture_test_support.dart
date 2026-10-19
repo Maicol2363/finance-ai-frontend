@@ -262,13 +262,17 @@ class FakeSession extends AuthSessionController {
 }
 
 class FakeAccountsRepository implements AccountsRepository {
+  FakeAccountsRepository({List<Account>? fixtureAccounts})
+    : fixtureAccounts = fixtureAccounts ?? accounts;
+
+  final List<Account> fixtureAccounts;
   int listCalls = 0;
 
   @override
   Future<AccountListResult> list({bool includeInactive = false}) async {
     listCalls += 1;
     return AccountListResult(
-      accounts: accounts,
+      accounts: fixtureAccounts,
       suggestedCurrencyCode: 'COP',
       supportedCurrencies: const [cop, usd],
       accountTypes: AccountType.values,
@@ -276,14 +280,15 @@ class FakeAccountsRepository implements AccountsRepository {
   }
 
   @override
-  Future<Account> get(int accountId) async => accounts.first;
+  Future<Account> get(int accountId) async => fixtureAccounts.first;
 
   @override
-  Future<Account> create(AccountCreateCommand command) async => accounts.first;
+  Future<Account> create(AccountCreateCommand command) async =>
+      fixtureAccounts.first;
 
   @override
   Future<Account> update(int accountId, AccountUpdateCommand command) async =>
-      accounts.first;
+      fixtureAccounts.first;
 
   @override
   Future<Account> setActive(int accountId, {required bool isActive}) async =>

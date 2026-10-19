@@ -107,6 +107,8 @@ class HttpTransfersRepository implements TransfersRepository {
         'Indica el monto que llega en la moneda de destino.',
       'transfer_source_destination_mismatch' =>
         'En la misma moneda el monto debe ser igual en ambos lados.',
+      'transfer_insufficient_funds' =>
+        'La cuenta de origen no tiene fondos suficientes.',
       'request_invalid' => 'Corrige los campos marcados.',
       _ => null,
     };
