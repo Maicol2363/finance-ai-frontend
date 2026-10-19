@@ -491,40 +491,55 @@ class SegmentedControl extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
-    Widget option(int index) => Semantics(
-      button: true,
-      selected: index == selectedIndex,
-      label: labels[index],
-      excludeSemantics: true,
-      onTap: () => onChanged(index),
-      child: GestureDetector(
-        key: keyPrefix == null ? null : Key('$keyPrefix-$index'),
+    final duration = MediaQuery.disableAnimationsOf(context)
+        ? Duration.zero
+        : const Duration(milliseconds: 180);
+    Widget option(int index) {
+      final isSelected = index == selectedIndex;
+      return Semantics(
+        button: true,
+        selected: isSelected,
+        label: labels[index],
+        excludeSemantics: true,
         onTap: () => onChanged(index),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
-          constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
-          alignment: Alignment.center,
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-          decoration: BoxDecoration(
-            color: index == selectedIndex
-                ? palette.primary
-                : Colors.transparent,
+        child: Material(
+          color: Colors.transparent,
+          borderRadius: BorderRadius.circular(7),
+          child: InkWell(
+            key: keyPrefix == null ? null : Key('$keyPrefix-$index'),
+            onTap: () => onChanged(index),
             borderRadius: BorderRadius.circular(7),
-          ),
-          child: Text(
-            labels[index],
-            textAlign: TextAlign.center,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              color: index == selectedIndex ? palette.onPrimary : palette.muted,
+            focusColor: palette.primarySoft,
+            child: AnimatedContainer(
+              duration: duration,
+              constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
+              alignment: Alignment.center,
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+              decoration: BoxDecoration(
+                color: isSelected ? palette.primary : Colors.transparent,
+                borderRadius: BorderRadius.circular(7),
+                border: Border.all(
+                  color: isSelected ? palette.primary : Colors.transparent,
+                  width: 1,
+                ),
+              ),
+              child: Text(
+                labels[index],
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: isSelected ? palette.onPrimary : palette.muted,
+                ),
+              ),
             ),
           ),
         ),
-      ),
-    );
+      );
+    }
+
     return Container(
       padding: const EdgeInsets.all(3),
       decoration: BoxDecoration(
@@ -580,6 +595,9 @@ class FilterChipRow<T> extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
+    final duration = MediaQuery.disableAnimationsOf(context)
+        ? Duration.zero
+        : const Duration(milliseconds: 180);
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       child: Row(
@@ -596,33 +614,41 @@ class FilterChipRow<T> extends StatelessWidget {
                   label: option.label,
                   excludeSemantics: true,
                   onTap: () => onChanged(option.value),
-                  child: GestureDetector(
-                    key: keyPrefix == null ? null : Key('$keyPrefix-$index'),
-                    onTap: () => onChanged(option.value),
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 180),
-                      constraints: const BoxConstraints(
-                        minWidth: 48,
-                        minHeight: 48,
-                      ),
-                      alignment: Alignment.center,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 13,
-                        vertical: 9,
-                      ),
-                      decoration: BoxDecoration(
-                        color: isSelected ? palette.primary : palette.card,
-                        border: Border.all(
-                          color: isSelected ? palette.primary : palette.line,
+                  child: Material(
+                    color: Colors.transparent,
+                    borderRadius: BorderRadius.circular(999),
+                    child: InkWell(
+                      key: keyPrefix == null ? null : Key('$keyPrefix-$index'),
+                      onTap: () => onChanged(option.value),
+                      borderRadius: BorderRadius.circular(999),
+                      focusColor: palette.primarySoft,
+                      child: AnimatedContainer(
+                        duration: duration,
+                        constraints: const BoxConstraints(
+                          minWidth: 48,
+                          minHeight: 48,
                         ),
-                        borderRadius: BorderRadius.circular(999),
-                      ),
-                      child: Text(
-                        option.label,
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: isSelected ? palette.onPrimary : palette.muted,
+                        alignment: Alignment.center,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 13,
+                          vertical: 9,
+                        ),
+                        decoration: BoxDecoration(
+                          color: isSelected ? palette.primary : palette.card,
+                          border: Border.all(
+                            color: isSelected ? palette.primary : palette.line,
+                          ),
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                        child: Text(
+                          option.label,
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: isSelected
+                                ? palette.onPrimary
+                                : palette.muted,
+                          ),
                         ),
                       ),
                     ),
@@ -687,7 +713,11 @@ InputDecoration pillInputDecoration(
 
   return InputDecoration(
     hintText: hint,
+    hintStyle: TextStyle(color: palette.placeholder, fontSize: 14),
     labelText: labelText,
+    labelStyle: TextStyle(color: palette.muted, fontSize: 14),
+    floatingLabelStyle: TextStyle(color: palette.muted, fontSize: 12),
+    floatingLabelBehavior: FloatingLabelBehavior.auto,
     errorText: errorText,
     prefixIcon: prefixIcon,
     suffixIcon: suffixIcon,

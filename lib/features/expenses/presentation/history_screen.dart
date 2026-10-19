@@ -535,6 +535,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
         controller: _storeController,
         textInputAction: TextInputAction.search,
         decoration: InputDecoration(
+          labelText: 'Comercio',
           hintText: 'Comercio (ej. Éxito)',
           prefixIcon: const Icon(FinanceIcons.storefrontOutlined),
           suffixIcon: value.text.isEmpty
@@ -562,6 +563,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
         controller: _searchController,
         textInputAction: TextInputAction.search,
         decoration: InputDecoration(
+          labelText: 'Buscar',
           hintText: 'Buscar comercio, nota o categoría…',
           prefixIcon: const Icon(FinanceIcons.search),
           suffixIcon: value.text.isEmpty

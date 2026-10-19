@@ -138,9 +138,13 @@ class _AccountsLoadingPlaceholder extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Padding(
-      padding: EdgeInsets.symmetric(vertical: 48),
-      child: Center(child: CircularProgressIndicator()),
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 48),
+      child: Semantics(
+        label: 'Cargando…',
+        liveRegion: true,
+        child: const Center(child: CircularProgressIndicator()),
+      ),
     );
   }
 }

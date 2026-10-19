@@ -92,7 +92,13 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
           Expanded(
             child: categories == null
                 ? state.loadStatus == CategoriesLoadStatus.loading
-                      ? const Center(child: CircularProgressIndicator())
+                      ? Semantics(
+                          label: 'Cargando…',
+                          liveRegion: true,
+                          child: const Center(
+                            child: CircularProgressIndicator(),
+                          ),
+                        )
                       : const SizedBox.shrink()
                 : categories.isEmpty
                 ? const _EmptyCategories()

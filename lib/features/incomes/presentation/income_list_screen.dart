@@ -67,7 +67,11 @@ class _IncomeListScreenState extends ConsumerState<IncomeListScreen> {
               future: _incomeFuture,
               builder: (context, snapshot) {
                 if (!snapshot.hasData && !snapshot.hasError) {
-                  return const Center(child: CircularProgressIndicator());
+                  return Semantics(
+                    label: 'Cargando…',
+                    liveRegion: true,
+                    child: const Center(child: CircularProgressIndicator()),
+                  );
                 }
                 if (snapshot.hasError) {
                   return _IncomeLoadError(

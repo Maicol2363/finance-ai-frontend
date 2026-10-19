@@ -662,46 +662,50 @@ class _ExpenseCreateScreenState extends ConsumerState<ExpenseCreateScreen> {
                   ),
                   const SizedBox(width: 8),
                   Expanded(
-                    child: TextField(
-                      key: const Key('expense-create-amount-field'),
-                      controller: _amountController,
-                      focusNode: _amountFocus,
-                      autofocus: true,
-                      enabled: formEnabled,
-                      keyboardType: const TextInputType.numberWithOptions(
-                        decimal: true,
-                      ),
-                      inputFormatters: const [
-                        MoneyInputFormatter(allowNegative: false),
-                      ],
-                      textInputAction: TextInputAction.next,
-                      style: TextStyle(
-                        fontSize: 32,
-                        fontWeight: FontWeight.w800,
-                        color: isIncome ? palette.income : palette.discard,
-                      ),
-                      decoration: InputDecoration(
-                        hintText: '0',
-                        hintStyle: TextStyle(
-                          fontSize: 32,
-                          fontWeight: FontWeight.w700,
-                          color: palette.placeholder,
+                    child: Semantics(
+                      label: 'Monto en pesos',
+                      explicitChildNodes: true,
+                      child: TextField(
+                        key: const Key('expense-create-amount-field'),
+                        controller: _amountController,
+                        focusNode: _amountFocus,
+                        enabled: formEnabled,
+                        keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true,
                         ),
-                        border: InputBorder.none,
-                        enabledBorder: InputBorder.none,
-                        focusedBorder: InputBorder.none,
-                        errorBorder: InputBorder.none,
-                        focusedErrorBorder: InputBorder.none,
-                        contentPadding: EdgeInsets.zero,
-                        filled: false,
+                        inputFormatters: const [
+                          MoneyInputFormatter(allowNegative: false),
+                        ],
+                        textInputAction: TextInputAction.next,
+                        style: TextStyle(
+                          fontSize: 32,
+                          fontWeight: FontWeight.w800,
+                          color: isIncome ? palette.income : palette.discard,
+                        ),
+                        decoration: InputDecoration(
+                          labelText: 'Monto',
+                          hintText: '0',
+                          hintStyle: TextStyle(
+                            fontSize: 32,
+                            fontWeight: FontWeight.w700,
+                            color: palette.placeholder,
+                          ),
+                          border: InputBorder.none,
+                          enabledBorder: InputBorder.none,
+                          focusedBorder: InputBorder.none,
+                          errorBorder: InputBorder.none,
+                          focusedErrorBorder: InputBorder.none,
+                          contentPadding: EdgeInsets.zero,
+                          filled: false,
+                        ),
+                        onChanged: (_) {
+                          controller.clearFieldError('amount');
+                          setState(() {
+                            _incomeFieldErrors = Map.from(_incomeFieldErrors)
+                              ..remove('amount');
+                          });
+                        },
                       ),
-                      onChanged: (_) {
-                        controller.clearFieldError('amount');
-                        setState(() {
-                          _incomeFieldErrors = Map.from(_incomeFieldErrors)
-                            ..remove('amount');
-                        });
-                      },
                     ),
                   ),
                 ],
@@ -867,6 +871,7 @@ class _ExpenseCreateScreenState extends ConsumerState<ExpenseCreateScreen> {
                 controller: _customSourceController,
                 enabled: formEnabled,
                 decoration: const InputDecoration(
+                  labelText: 'Otra fuente de ingreso',
                   hintText: 'O escribe otra fuente de ingreso...',
                 ),
                 onChanged: (text) {
@@ -897,6 +902,7 @@ class _ExpenseCreateScreenState extends ConsumerState<ExpenseCreateScreen> {
                 textInputAction: TextInputAction.next,
                 maxLength: 150,
                 decoration: InputDecoration(
+                  labelText: 'Concepto o comercio',
                   hintText: 'ej. Almuerzo, D1, Taxi, Café...',
                   errorText: _firstError(state, 'merchant'),
                 ),
