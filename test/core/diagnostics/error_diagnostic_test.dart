@@ -57,6 +57,47 @@ void main() {
     );
   });
 
+  test('replaces raw or sensitive technical reasons with a safe fallback', () {
+    final diagnostic = ErrorDiagnostic.capture(
+      code: 'network_unavailable',
+      operation: 'load_accounts',
+      userMessage: 'No pudimos cargar las cuentas.',
+      technicalReason: 'password=private-value token=private-token',
+    );
+
+    expect(diagnostic.technicalReason, 'unclassified_failure');
+    expect(diagnostic.clipboardText, isNot(contains('private-value')));
+    expect(diagnostic.clipboardText, isNot(contains('private-token')));
+  });
+
+  test('preserves only enumerated voice diagnostic context', () {
+    final safeContext = ErrorDiagnostic.capture(
+      code: 'speech_fallback_model_missing',
+      operation: 'voice_capture',
+      userMessage: 'Revisa los ajustes del dictado.',
+      technicalReason:
+          'speech_fallback_model_missing; stage=prepare; engine=integrated; '
+          'cause=native_service_timeout; android_api=33',
+    );
+    final unsafeContext = ErrorDiagnostic.capture(
+      code: 'speech_provider_error',
+      operation: 'voice_capture',
+      userMessage: 'No se pudo continuar.',
+      technicalReason:
+          'speech_provider_error; stage=prepare; engine=integrated; '
+          'cause=private@example.com; android_api=33',
+    );
+
+    expect(safeContext.technicalReason, contains('engine=integrated'));
+    expect(
+      safeContext.technicalReason,
+      contains('cause=native_service_timeout'),
+    );
+    expect(safeContext.technicalReason, contains('android_api=33'));
+    expect(unsafeContext.technicalReason, 'unclassified_failure');
+    expect(unsafeContext.clipboardText, isNot(contains('private@example.com')));
+  });
+
   testWidgets('diagnostic panel is Spanish and copies the stable safe report', (
     tester,
   ) async {
@@ -95,7 +136,7 @@ void main() {
     );
 
     expect(find.text('No pudimos conectar con el servicio.'), findsOneWidget);
-    expect(find.text('Código de error: network_unavailable'), findsOneWidget);
+    expect(find.byKey(const Key('error-diagnostic-code')), findsNothing);
     expect(
       find.text(
         'Copia el reporte seguro al pedir ayuda. No incluye los datos del formulario.',
@@ -107,11 +148,14 @@ void main() {
     await tester.tap(find.byKey(const Key('copy-error-details-button')));
     await tester.pumpAndSettle();
 
-    expect(copiedText, diagnostic.clipboardText);
-    expect(copiedText, contains('Error code: network_unavailable'));
+    expect(copiedText, isNot(diagnostic.clipboardText));
+    expect(copiedText, contains('Motivo técnico: connection_failure'));
+    expect(copiedText, contains('Código de error: network_unavailable'));
     expect(
       copiedText,
-      contains('Privacy: form values and secrets are intentionally excluded.'),
+      contains(
+        'Privacidad: el reporte excluye datos del formulario y secretos.',
+      ),
     );
     expect(
       find.text('Se copiaron los detalles seguros del error.'),

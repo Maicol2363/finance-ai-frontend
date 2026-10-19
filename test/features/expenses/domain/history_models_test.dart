@@ -70,6 +70,47 @@ void main() {
     expect(income.expense, isNull);
   });
 
+  test('preserves API calendar day for income and transfer history rows', () {
+    final income = HistoryItem.fromJson({
+      ...historyItemJson(type: 'income'),
+      'occurred_at': '2026-09-18T00:00:00Z',
+    });
+    final expense = HistoryItem.fromJson(historyItemJson());
+
+    expect(income.displayDate, DateTime(2026, 9, 18));
+    expect(income.displayDate.isUtc, isFalse);
+    expect(expense.displayDate, expense.occurredAt.toLocal());
+  });
+
+  test('balance includes confirmed movements, nets internal transfers, scopes account and currency', () {
+    final purchase = HistoryItem.fromJson(historyItemJson());
+    final transfer = HistoryItem.fromJson({
+      ...historyItemJson(id: 10, type: 'transfer'),
+      'movements': [
+        movementJson(),
+        {...movementJson(), 'account_id': 12, 'amount': '25.00'},
+        {
+          ...movementJson(),
+          'account_id': 13,
+          'currency_code': 'USD',
+          'amount': '-3.00',
+        },
+      ],
+    });
+    final pending = HistoryItem.fromJson({
+      ...historyItemJson(id: 11, type: 'income'),
+      'status': 'pending',
+    });
+
+    expect(historyBalanceByCurrency([purchase, transfer, pending]), {
+      'COP': -2500,
+      'USD': -300,
+    });
+    expect(historyBalanceByCurrency([purchase, transfer], accountId: 12), {
+      'COP': 2500,
+    });
+  });
+
   test('filters build the exact backend query parameters', () {
     final params = const HistoryFilters(
       search: '  market ',

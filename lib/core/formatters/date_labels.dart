@@ -66,4 +66,11 @@ class DateLabels {
     final minute = date.minute.toString().padLeft(2, '0');
     return '$hour:$minute';
   }
+
+  /// Full Colombian Spanish calendar date without converting the date-only
+  /// value through a timezone (which can move API dates to the prior day).
+  static String calendarDate(DateTime value) {
+    final month = _monthsLong[value.month - 1];
+    return '${value.day} de $month de ${value.year}';
+  }
 }

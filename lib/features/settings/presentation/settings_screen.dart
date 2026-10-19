@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/diagnostics/error_diagnostic_panel.dart';
+import '../../../core/formatters/catalog_labels.dart';
 import '../../../core/theme/theme_controller.dart';
 import '../../../core/widgets/management_page_scaffold.dart';
 import '../../../core/widgets/manage_widgets.dart';
@@ -283,6 +284,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     if (sources.isEmpty) {
       return null;
     }
-    return sources.map((source) => source.name).join(' · ');
+    return sources
+        .map((source) => CatalogLabels.display(source.name))
+        .join(' · ');
   }
 }

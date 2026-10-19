@@ -223,6 +223,7 @@ void main() {
     );
 
     final row = find.byKey(const Key('settings-test-row'));
+    expectMinTouchTarget(tester, row);
     expect(tester.getSemantics(row).hasAction(SemanticsAction.tap), isTrue);
     expect(find.bySemanticsLabel(RegExp('Cuentas y saldos')), findsOneWidget);
     await tester.tap(row);

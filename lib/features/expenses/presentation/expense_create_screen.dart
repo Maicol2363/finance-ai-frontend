@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:finance_ai/core/icons/finance_icon_catalog.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -5,12 +7,14 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/diagnostics/error_diagnostic.dart';
 import '../../../core/diagnostics/error_diagnostic_panel.dart';
+import '../../../core/formatters/catalog_labels.dart';
 import '../../../core/formatters/money_formatter.dart';
 import '../../../core/theme/app_palette.dart';
 import '../../../core/widgets/app_header.dart';
 import '../../../core/widgets/management_page_scaffold.dart';
 import '../../accounts/data/accounts_repository.dart';
 import '../../accounts/domain/account_models.dart';
+import '../../budgets/application/budgets_controller.dart';
 import '../../auth/session/application/auth_session_controller.dart';
 import '../../auth/session/domain/session_models.dart';
 import '../../categories/data/categories_repository.dart';
@@ -22,6 +26,7 @@ import '../../incomes/data/incomes_repository.dart';
 import '../../incomes/domain/income_models.dart';
 import '../application/expenses_controller.dart';
 import '../application/expenses_state.dart';
+import '../application/history_controller.dart';
 
 enum MovementType { expense, income }
 
@@ -30,11 +35,13 @@ class ExpenseCreateOptions {
     required this.accounts,
     required this.categories,
     required this.incomeSources,
+    this.warnings = const [],
   });
 
   final List<Account> accounts;
   final List<Category> categories;
   final List<IncomeSource> incomeSources;
+  final List<ErrorDiagnostic> warnings;
 }
 
 final expenseCreateOptionsProvider =
@@ -43,34 +50,69 @@ final expenseCreateOptionsProvider =
         final accountsFuture = ref
             .read(accountsRepositoryProvider)
             .list(includeInactive: false);
-        final categoriesFuture = ref.read(categoriesRepositoryProvider).list();
-
-        final accountsResult = await accountsFuture;
-        CategoryListResult? categoriesResult;
-        try {
-          categoriesResult = await categoriesFuture;
-        } catch (e) {
-          debugPrint('Warning: Failed to load categories: $e');
-        }
-
-        List<IncomeSource> sources = const [];
-        try {
-          sources = await ref
+        final categoriesFuture = _loadOptionalCategories(
+          () => ref.read(categoriesRepositoryProvider).list(),
+        );
+        final sourcesFuture = _loadOptionalIncomeSources(
+          () => ref
               .read(authSessionControllerProvider.notifier)
               .runProtected(
                 (access) => ref
                     .read(incomeSourcesRepositoryProvider)
                     .list(accessCredential: access),
-              );
-        } catch (_) {}
+              ),
+        );
+
+        final accountsResult = await accountsFuture;
+        final categories = await categoriesFuture;
+        final sources = await sourcesFuture;
 
         return ExpenseCreateOptions(
           accounts: accountsResult.accounts,
-          categories: categoriesResult?.categories ?? const [],
-          incomeSources: sources,
+          categories: categories.values,
+          incomeSources: sources.values,
+          warnings: [?categories.warning, ?sources.warning],
         );
       };
     });
+
+Future<({List<Category> values, ErrorDiagnostic? warning})>
+_loadOptionalCategories(Future<CategoryListResult> Function() load) async {
+  try {
+    return (values: (await load()).categories, warning: null);
+  } on InvalidSessionFailure {
+    rethrow;
+  } on Object {
+    return (
+      values: const <Category>[],
+      warning: ErrorDiagnostic.capture(
+        code: 'expense_categories_unavailable',
+        operation: 'load_expense_categories',
+        userMessage: 'No pudimos cargar las categorías. Puedes continuar y reintentar después.',
+        technicalReason: 'category_catalog_load_failure',
+      ),
+    );
+  }
+}
+
+Future<({List<IncomeSource> values, ErrorDiagnostic? warning})>
+_loadOptionalIncomeSources(Future<List<IncomeSource>> Function() load) async {
+  try {
+    return (values: await load(), warning: null);
+  } on InvalidSessionFailure {
+    rethrow;
+  } on Object {
+    return (
+      values: const <IncomeSource>[],
+      warning: ErrorDiagnostic.capture(
+        code: 'income_sources_unavailable',
+        operation: 'load_income_sources',
+        userMessage: 'No pudimos cargar las fuentes de ingreso. Puedes continuar y reintentar después.',
+        technicalReason: 'income_source_catalog_load_failure',
+      ),
+    );
+  }
+}
 
 class ExpenseCreateScreen extends ConsumerStatefulWidget {
   const ExpenseCreateScreen({super.key});
@@ -93,6 +135,7 @@ class _ExpenseCreateScreenState extends ConsumerState<ExpenseCreateScreen> {
   List<Account> _accounts = const [];
   List<Category> _categories = const [];
   List<IncomeSource> _incomeSources = const [];
+  List<ErrorDiagnostic> _optionWarnings = const [];
   int? _selectedAccountId;
   int? _selectedCategoryId;
   int? _selectedSourceId;
@@ -112,7 +155,7 @@ class _ExpenseCreateScreenState extends ConsumerState<ExpenseCreateScreen> {
     Future<void>.microtask(() {
       if (!mounted) return;
       ref.read(expensesControllerProvider.notifier).clearMutationFeedback();
-      _loadOptions();
+      _loadOptions(focusAmount: true);
     });
   }
 
@@ -127,7 +170,7 @@ class _ExpenseCreateScreenState extends ConsumerState<ExpenseCreateScreen> {
     super.dispose();
   }
 
-  Future<void> _loadOptions() async {
+  Future<void> _loadOptions({bool focusAmount = false}) async {
     setState(() {
       _loadingOptions = true;
       _loadDiagnostic = null;
@@ -139,6 +182,7 @@ class _ExpenseCreateScreenState extends ConsumerState<ExpenseCreateScreen> {
         _accounts = options.accounts;
         _categories = options.categories;
         _incomeSources = options.incomeSources;
+        _optionWarnings = options.warnings;
         if (_selectedAccountId == null ||
             !_accounts.any((a) => a.id == _selectedAccountId)) {
           _selectedAccountId = options.accounts
@@ -146,19 +190,23 @@ class _ExpenseCreateScreenState extends ConsumerState<ExpenseCreateScreen> {
               .firstOrNull
               ?.id;
         }
-        if (_selectedSourceId == null && options.incomeSources.isNotEmpty) {
+        if (_selectedSourceId == null &&
+            _selectedSourceName == null &&
+            _customSourceController.text.trim().isEmpty &&
+            options.incomeSources.isNotEmpty) {
           _selectedSourceId = options.incomeSources.first.id;
           _selectedSourceName = options.incomeSources.first.name;
         }
         _loadingOptions = false;
       });
-      Future<void>.microtask(() {
-        if (mounted) {
-          _amountFocus.requestFocus();
-        }
-      });
-    } on Object catch (e, stack) {
-      debugPrint('Error loading expense create options: $e\n$stack');
+      if (focusAmount) {
+        Future<void>.microtask(() {
+          if (mounted) {
+            _amountFocus.requestFocus();
+          }
+        });
+      }
+    } on Object catch (e) {
       if (!mounted) return;
       final (code, message, correlationId, reason) = switch (e) {
         AccountFailure f => (
@@ -183,7 +231,7 @@ class _ExpenseCreateScreenState extends ConsumerState<ExpenseCreateScreen> {
           'expense_options_unavailable',
           'No pudimos cargar tus cuentas y catálogos. Inténtalo de nuevo.',
           'unavailable',
-          e.toString(),
+          'options_load_failure',
         ),
       };
       setState(() {
@@ -241,6 +289,8 @@ class _ExpenseCreateScreenState extends ConsumerState<ExpenseCreateScreen> {
     );
     if (!mounted) return;
     if (outcome == ExpenseMutationOutcome.success) {
+      unawaited(ref.read(historyControllerProvider.notifier).load());
+      unawaited(ref.read(budgetsControllerProvider.notifier).load());
       if (context.canPop()) {
         context.pop();
       } else {
@@ -300,6 +350,7 @@ class _ExpenseCreateScreenState extends ConsumerState<ExpenseCreateScreen> {
       await repository.create(command);
       if (!mounted) return;
       ref.read(incomeRevisionProvider.notifier).changed();
+      unawaited(ref.read(historyControllerProvider.notifier).load());
       if (context.canPop()) {
         context.pop();
       } else {
@@ -308,7 +359,7 @@ class _ExpenseCreateScreenState extends ConsumerState<ExpenseCreateScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Ingreso registrado exitosamente.')),
       );
-    } catch (e) {
+    } catch (_) {
       if (!mounted) return;
       setState(() {
         _isSavingIncome = false;
@@ -316,7 +367,7 @@ class _ExpenseCreateScreenState extends ConsumerState<ExpenseCreateScreen> {
           code: 'income_save_failed',
           operation: 'save_income',
           userMessage: 'No pudimos guardar el ingreso. Inténtalo de nuevo.',
-          technicalReason: e.toString(),
+          technicalReason: 'income_save_failure',
         );
       });
     }
@@ -359,7 +410,10 @@ class _ExpenseCreateScreenState extends ConsumerState<ExpenseCreateScreen> {
     final controller = ref.read(expensesControllerProvider.notifier);
     final isSaving = state.isSaving || _isSavingIncome;
     final formEnabled =
-        !isSaving && !state.requiresMutationReview && !_loadingOptions;
+        !isSaving &&
+        !state.requiresMutationReview &&
+        !_loadingOptions &&
+        _loadDiagnostic == null;
 
     final selectedAccount = _accounts
         .where((a) => a.id == _selectedAccountId)
@@ -369,6 +423,11 @@ class _ExpenseCreateScreenState extends ConsumerState<ExpenseCreateScreen> {
         : '\$';
 
     final isIncome = _type == MovementType.income;
+    final visibleOptionWarnings = _optionWarnings
+        .where(
+          (warning) => isIncome || warning.operation != 'load_income_sources',
+        )
+        .toList(growable: false);
 
     return PopScope(
       canPop: !isSaving,
@@ -497,11 +556,66 @@ class _ExpenseCreateScreenState extends ConsumerState<ExpenseCreateScreen> {
               ErrorDiagnosticPanel(diagnostic: diagnostic),
               const SizedBox(height: 12),
               OutlinedButton.icon(
-                onPressed: _loadOptions,
+                onPressed: () => _loadOptions(focusAmount: false),
                 icon: const Icon(FinanceIcons.refresh),
                 label: const Text('Reintentar carga de cuentas'),
               ),
               const SizedBox(height: 16),
+            ],
+            if (visibleOptionWarnings.isNotEmpty) ...[
+              for (final warning in visibleOptionWarnings) ...[
+                if (warning.operation == 'load_income_sources')
+                  Semantics(
+                    liveRegion: true,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
+                      decoration: BoxDecoration(
+                        color: palette.warnBg,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            FinanceIcons.infoOutline,
+                            color: palette.warnFg,
+                            size: 20,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'No se cargaron las fuentes. Puedes elegir una sugerida o escribirla.',
+                              style: TextStyle(
+                                color: palette.warnFg,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ),
+                          TextButton(
+                            onPressed: _loadingOptions
+                                ? null
+                                : () => _loadOptions(focusAmount: false),
+                            child: const Text('Reintentar'),
+                          ),
+                        ],
+                      ),
+                    ),
+                  )
+                else ...[
+                  ErrorDiagnosticPanel(diagnostic: warning),
+                  const SizedBox(height: 8),
+                  OutlinedButton.icon(
+                    onPressed: _loadingOptions
+                        ? null
+                        : () => _loadOptions(focusAmount: false),
+                    icon: const Icon(FinanceIcons.refresh),
+                    label: const Text('Reintentar carga de catálogos'),
+                  ),
+                ],
+                const SizedBox(height: 12),
+              ],
             ],
             if (state.mutationDiagnostic case final diagnostic?) ...[
               ErrorDiagnosticPanel(diagnostic: diagnostic),
@@ -664,7 +778,7 @@ class _ExpenseCreateScreenState extends ConsumerState<ExpenseCreateScreen> {
                               ),
                               const SizedBox(width: 6),
                               Text(
-                                source.name,
+                                CatalogLabels.display(source.name),
                                 style: TextStyle(
                                   fontSize: 12.5,
                                   fontWeight: _selectedSourceId == source.id
@@ -749,6 +863,7 @@ class _ExpenseCreateScreenState extends ConsumerState<ExpenseCreateScreen> {
               ),
               const SizedBox(height: 8),
               TextField(
+                key: const Key('income-create-source-custom-field'),
                 controller: _customSourceController,
                 enabled: formEnabled,
                 decoration: const InputDecoration(
@@ -812,7 +927,9 @@ class _ExpenseCreateScreenState extends ConsumerState<ExpenseCreateScreen> {
             ],
 
             // Si no hay cuentas (y ya terminamos de cargar), mostramos un card con el botón para crearla directamente
-            if (!_loadingOptions && _accounts.isEmpty) ...[
+            if (!_loadingOptions &&
+                _loadDiagnostic == null &&
+                _accounts.isEmpty) ...[
               Container(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 14,
@@ -1067,7 +1184,7 @@ class _ExpenseCreateScreenState extends ConsumerState<ExpenseCreateScreen> {
                             ),
                             const SizedBox(width: 6),
                             Text(
-                              cat.name,
+                              CatalogLabels.display(cat.name),
                               style: TextStyle(
                                 fontSize: 12.5,
                                 fontWeight: _selectedCategoryId == cat.id

@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/formatters/date_labels.dart';
+import '../../../core/formatters/catalog_labels.dart';
 import '../../../core/formatters/money_formatter.dart';
 import '../../../core/money/currency_totals.dart';
 import '../../../core/theme/app_palette.dart';
@@ -259,6 +260,14 @@ class _DashboardAnalysisScreenState
       trendProjectedMinorUnits = null;
     }
 
+    final projectionExplanation = trendProjectedMinorUnits != null
+        ? 'Proyección: gasto acumulado ÷ $daysElapsed días observados × $daysTotal días del periodo. Corte: ${cutoffDate.day} de ${DateLabels.monthName(cutoffDate)}. Los porcentajes comparan el rango indicado; los importes se mantienen en $currency.'
+        : daysElapsed >= daysTotal
+        ? 'Periodo cerrado al ${cutoffDate.day} de ${DateLabels.monthName(cutoffDate)}: se muestran los gastos reales, sin proyección. Los porcentajes comparan el rango indicado; los importes se mantienen en $currency.'
+        : daysElapsed == 0
+        ? 'Aún no hay días observados para proyectar este periodo. Los importes se mantienen en $currency.'
+        : 'No hay datos suficientes para proyectar este rango. Se muestran los gastos reales disponibles en $currency.';
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Análisis'),
@@ -295,9 +304,7 @@ class _DashboardAnalysisScreenState
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
                 child: Text(
-                  daysElapsed > 0
-                      ? 'Proyección: gasto acumulado ÷ $daysElapsed días observados × $daysTotal días del periodo. Corte: ${cutoffDate.day} de ${DateLabels.monthName(cutoffDate)}. Los porcentajes comparan el rango indicado; los importes se mantienen en $currency.'
-                      : 'Aún no hay días observados para proyectar este periodo. Los importes se mantienen en $currency.',
+                  projectionExplanation,
                   style: TextStyle(
                     fontSize: 12,
                     height: 1.4,
@@ -978,7 +985,9 @@ class _BreakdownTile extends StatelessWidget {
                       children: [
                         Expanded(
                           child: Text(
-                            row.category ?? 'Sin categoría',
+                            row.category == null
+                                ? 'Sin categoría'
+                                : CatalogLabels.display(row.category!),
                             style: TextStyle(
                               fontSize: 13.5,
                               fontWeight: FontWeight.w600,

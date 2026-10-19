@@ -86,45 +86,48 @@ class SettingsRow extends StatelessWidget {
       child: InkWell(
         key: rowKey,
         onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
-          child: Row(
-            children: [
-              if (leading != null) ...[leading!, const SizedBox(width: 10)],
-              Expanded(
-                child: Text(
-                  label,
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                    color: palette.text,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              if (value != null)
-                Text(
-                  value!,
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                    color: palette.text,
-                  ),
-                )
-              else if (subtitle != null)
-                Flexible(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: 48),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
+            child: Row(
+              children: [
+                if (leading != null) ...[leading!, const SizedBox(width: 10)],
+                Expanded(
                   child: Text(
-                    subtitle!,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(fontSize: 11, color: palette.muted),
+                    label,
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                      color: palette.text,
+                    ),
                   ),
                 ),
-              if (onTap != null) ...[
-                const SizedBox(width: 6),
-                Icon(FinanceIcons.chevronRight, size: 18, color: palette.nav),
+                const SizedBox(width: 8),
+                if (value != null)
+                  Text(
+                    value!,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: palette.text,
+                    ),
+                  )
+                else if (subtitle != null)
+                  Flexible(
+                    child: Text(
+                      subtitle!,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(fontSize: 11, color: palette.muted),
+                    ),
+                  ),
+                if (onTap != null) ...[
+                  const SizedBox(width: 6),
+                  Icon(FinanceIcons.chevronRight, size: 18, color: palette.nav),
+                ],
               ],
-            ],
+            ),
           ),
         ),
       ),
@@ -153,6 +156,9 @@ class CatalogAddButton extends StatelessWidget {
     return Semantics(
       button: true,
       enabled: enabled,
+      label: label,
+      hint: hint,
+      excludeSemantics: true,
       child: InkWell(
         onTap: onPressed,
         borderRadius: BorderRadius.circular(12),

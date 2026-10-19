@@ -42,22 +42,35 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     final palette = context.palette;
     final state = ref.watch(authSessionControllerProvider);
     final controller = ref.read(authSessionControllerProvider.notifier);
+    final compact = MediaQuery.sizeOf(context).height < 500;
+    final hasStatusPanel =
+        widget.registrationConfirmation != null ||
+        state.logoutWarning != null ||
+        state.diagnostic != null;
     return Scaffold(
       body: SafeArea(
         child: Stack(
           children: [
             SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(22, 20, 22, 28),
+              padding: EdgeInsets.fromLTRB(
+                22,
+                compact ? 8 : 20,
+                22,
+                compact ? 12 : 28,
+              ),
               child: Center(
                 child: ConstrainedBox(
                   constraints: const BoxConstraints(maxWidth: 360),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      const AuthBrand(),
-                      const SizedBox(height: 24),
+                      AuthBrand(
+                        showTitle: !compact,
+                        iconSize: compact ? 56 : 96,
+                      ),
+                      SizedBox(height: compact ? 12 : 24),
                       Container(
-                        padding: const EdgeInsets.all(18),
+                        padding: EdgeInsets.all(compact ? 14 : 18),
                         decoration: BoxDecoration(
                           color: palette.card,
                           border: Border.all(color: palette.line),
@@ -120,6 +133,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                 diagnostic: diagnostic,
                               ),
                             ],
+                            SizedBox(
+                              height: compact
+                                  ? 12
+                                  : hasStatusPanel
+                                  ? 24
+                                  : 16,
+                            ),
                             TextField(
                               key: const Key('login-email-input'),
                               controller: _emailController,
@@ -142,6 +162,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                   controller.clearFieldError('email'),
                               onSubmitted: (_) => _passwordFocus.requestFocus(),
                             ),
+                            const SizedBox(height: 10),
                             TextField(
                               key: const Key('login-password-input'),
                               controller: _passwordController,

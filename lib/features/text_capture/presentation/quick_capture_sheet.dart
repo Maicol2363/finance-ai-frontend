@@ -8,9 +8,11 @@ import 'text_capture_chat.dart';
 Future<void> showQuickCaptureSheet(
   BuildContext context, {
   bool startWithVoice = false,
+  bool useRootNavigator = false,
 }) {
   return showModalBottomSheet<void>(
     context: context,
+    useRootNavigator: useRootNavigator,
     isScrollControlled: true,
     useSafeArea: true,
     backgroundColor: Colors.transparent,

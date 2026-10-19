@@ -516,10 +516,7 @@ void main() {
 
       expect(byKey('chat-failure'), findsOneWidget);
       expect(find.textContaining('No pude leer tu mensaje'), findsOneWidget);
-      expect(
-        find.text('Código de error: text_capture_unavailable'),
-        findsOneWidget,
-      );
+      expect(find.byKey(const Key('error-diagnostic-code')), findsNothing);
       expect(byKey('copy-error-details-button'), findsOneWidget);
       expect(byKey('chat-manual'), findsOneWidget);
       // The user's own text stays in the conversation, not in the report.
@@ -602,6 +599,13 @@ void main() {
     expect(
       find.text('Puedes reintentar: no se guardará dos veces.'),
       findsOneWidget,
+    );
+    expect(
+      tester.getRect(find.byKey(const Key('proposal-retry-safety-note'))).top -
+          tester
+              .getRect(find.byKey(const Key('proposal-save-error-panel')))
+              .bottom,
+      greaterThanOrEqualTo(8),
     );
     expect(find.text('Reintentar'), findsOneWidget);
 

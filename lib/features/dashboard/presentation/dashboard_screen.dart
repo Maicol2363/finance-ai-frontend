@@ -63,12 +63,16 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         const <Account>[];
     final budgets = ref.watch(budgetsControllerProvider);
     final totalsAsync = ref.watch(monthlyTotalsProvider);
+    // Home always summarizes the current month. The period selector belongs
+    // to Analysis and may retain its selection while navigating back here.
     final currentWindow = currentMonthWindow(now);
     final loadedTotals = totalsAsync.value;
     final totals =
-        loadedTotals != null &&
-            _sameCalendarDay(loadedTotals.monthStart, currentWindow.start) &&
-            _sameCalendarDay(loadedTotals.windowEnd, currentWindow.end)
+        totalsMatchWindow(
+          loadedTotals,
+          DashboardPeriod.thisMonth,
+          currentWindow,
+        )
         ? loadedTotals
         : null;
     final stock = activeAccountBalances(accounts);
@@ -564,11 +568,6 @@ class _WeeklyInsightCard extends StatelessWidget {
     );
   }
 }
-
-bool _sameCalendarDay(DateTime left, DateTime right) =>
-    left.year == right.year &&
-    left.month == right.month &&
-    left.day == right.day;
 
 String _weekdayLabel(int weekday) =>
     const ['lun', 'mar', 'mié', 'jue', 'vie', 'sáb', 'dom'][weekday - 1];

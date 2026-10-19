@@ -98,6 +98,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                                   height: 1.45,
                                 ),
                               ),
+                              const SizedBox(height: 10),
                               TextField(
                                 key: const Key('register-email-input'),
                                 controller: _emailController,
@@ -118,6 +119,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                                 onSubmitted: (_) =>
                                     _passwordFocus.requestFocus(),
                               ),
+                              const SizedBox(height: 10),
                               TextField(
                                 key: const Key('register-password-input'),
                                 controller: _passwordController,
@@ -161,6 +163,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                                 onSubmitted: (_) =>
                                     _confirmationFocus.requestFocus(),
                               ),
+                              const SizedBox(height: 10),
                               TextField(
                                 key: const Key(
                                   'register-password-confirmation-input',
@@ -278,14 +281,18 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     if (!mounted) {
       return;
     }
-    final state = ref.read(registrationControllerProvider);
     if (outcome == RegistrationSubmitOutcome.success) {
-      final message = state.result?.message ?? 'Cuenta creada.';
       _passwordController.clear();
       _confirmationController.clear();
-      context.go('/login', extra: message);
+      // The API message is not presentation copy and may be in another
+      // language. Keep the confirmation localized and independent of it.
+      context.go(
+        '/login',
+        extra: 'Tu cuenta se creó correctamente. Ya puedes iniciar sesión.',
+      );
       return;
     }
+    final state = ref.read(registrationControllerProvider);
     if (outcome == RegistrationSubmitOutcome.invalid ||
         outcome == RegistrationSubmitOutcome.failure) {
       _focusFirstError(state);

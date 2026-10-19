@@ -264,12 +264,35 @@ class _TrendBodyState extends State<_TrendBody> {
                     ),
                   ),
                   const SizedBox(width: 6),
-                  Tooltip(
-                    message: 'La línea continua muestra el gasto acumulado real. En periodos abiertos, la punteada muestra la proyección al cierre. En periodos cerrados, continúa horizontalmente desde el último gasto hasta el total real del cierre.',
-                    triggerMode: TooltipTriggerMode.tap,
-                    child: Icon(
+                  IconButton(
+                    key: const Key('dashboard-trend-info-button'),
+                    tooltip: 'Información sobre la tendencia de gasto',
+                    constraints: const BoxConstraints.tightFor(
+                      width: 48,
+                      height: 48,
+                    ),
+                    padding: EdgeInsets.zero,
+                    onPressed: () => showDialog<void>(
+                      context: context,
+                      builder: (dialogContext) => AlertDialog(
+                        title: const Text('Sobre la tendencia de gasto'),
+                        content: const Text(
+                          'La línea continua muestra el gasto real acumulado. '
+                          'En un periodo abierto, la línea punteada estima el '
+                          'total al cierre según el ritmo observado. En un '
+                          'periodo cerrado solo se muestran los gastos reales.',
+                        ),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.of(dialogContext).pop(),
+                            child: const Text('Entendido'),
+                          ),
+                        ],
+                      ),
+                    ),
+                    icon: Icon(
                       FinanceIcons.infoOutlineRounded,
-                      size: 15,
+                      size: 18,
                       color: palette.muted,
                     ),
                   ),

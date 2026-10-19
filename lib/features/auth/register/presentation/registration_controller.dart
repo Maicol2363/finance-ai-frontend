@@ -36,7 +36,7 @@ class RegistrationController extends Notifier<RegistrationState> {
         fieldErrors: Map.unmodifiable(localErrors),
         diagnostic: _diagnostic(
           code: 'registration_invalid',
-          userMessage: 'Please correct the highlighted fields.',
+          userMessage: 'Por favor, corrige los campos marcados.',
           technicalReason: 'client_validation',
         ),
       );
@@ -60,28 +60,31 @@ class RegistrationController extends Notifier<RegistrationState> {
       );
       return RegistrationSubmitOutcome.success;
     } on RegistrationValidationFailure catch (failure) {
+      final fieldErrors = _safeFieldErrors(failure.fieldErrors);
       state = RegistrationState(
         status: RegistrationStatus.failure,
-        fieldErrors: Map.unmodifiable(failure.fieldErrors),
-        generalError: failure.fieldErrors.isEmpty ? failure.userMessage : null,
+        fieldErrors: Map.unmodifiable(fieldErrors),
+        generalError: fieldErrors.isEmpty
+            ? _safeRegistrationMessage(failure.code)
+            : null,
         diagnostic: _diagnosticForFailure(failure),
       );
     } on RegistrationConflictFailure catch (failure) {
       state = RegistrationState(
         status: RegistrationStatus.failure,
         fieldErrors: {
-          'email': [failure.userMessage],
+          'email': [_safeRegistrationMessage(failure.code)],
         },
         diagnostic: _diagnosticForFailure(failure),
       );
     } on RegistrationFailure catch (failure) {
       state = RegistrationState(
         status: RegistrationStatus.failure,
-        generalError: failure.userMessage,
+        generalError: _safeRegistrationMessage(failure.code),
         diagnostic: _diagnosticForFailure(failure),
       );
     } on Object {
-      const message = 'Registration could not be completed. Please try again.';
+      const message = 'No se pudo completar el registro. Inténtalo de nuevo.';
       state = RegistrationState(
         status: RegistrationStatus.failure,
         generalError: message,
@@ -102,11 +105,40 @@ class RegistrationController extends Notifier<RegistrationState> {
   ErrorDiagnostic _diagnosticForFailure(RegistrationFailure failure) {
     return _diagnostic(
       code: failure.code,
-      userMessage: failure.userMessage,
+      userMessage: _safeRegistrationMessage(failure.code),
       correlationId: failure.correlationId,
       technicalReason: failure.technicalReason,
     );
   }
+
+  Map<String, List<String>> _safeFieldErrors(
+    Map<String, List<String>> fieldErrors,
+  ) {
+    return {
+      for (final entry in fieldErrors.entries)
+        if (_registrationFieldMessage(entry.key) case final message?)
+          entry.key: [message],
+    };
+  }
+
+  String? _registrationFieldMessage(String field) => switch (field) {
+    'email' => 'Ingresa un correo electrónico válido.',
+    'password' => 'La contraseña no cumple los requisitos.',
+    'password_confirmation' => 'Las contraseñas no coinciden.',
+    _ => null,
+  };
+
+  String _safeRegistrationMessage(String code) => switch (code) {
+    'email_already_registered' => 'Este correo ya está registrado.',
+    'registration_invalid' => 'Revisa los campos e inténtalo de nuevo.',
+    'network_unavailable' => 'No se pudo conectar con el servicio. Revisa tu conexión e inténtalo de nuevo.',
+    'service_unavailable' => 'El servicio de registro no está disponible temporalmente. Inténtalo de nuevo más tarde.',
+    'registration_rate_limited' =>
+      'Demasiados intentos. Espera un momento e inténtalo de nuevo.',
+    'unexpected_response' =>
+      'No se pudo completar el registro. Inténtalo de nuevo.',
+    _ => 'No se pudo completar el registro. Inténtalo de nuevo.',
+  };
 
   ErrorDiagnostic _diagnostic({
     required String code,
@@ -130,20 +162,22 @@ class RegistrationController extends Notifier<RegistrationState> {
   }) {
     final errors = <String, List<String>>{};
     if (email.isEmpty) {
-      errors['email'] = ['Email is required.'];
+      errors['email'] = ['El correo electrónico es obligatorio.'];
     } else if (email.length > 320 || !_emailPattern.hasMatch(email)) {
-      errors['email'] = ['Enter a valid email address.'];
+      errors['email'] = ['Ingresa un correo electrónico válido.'];
     }
     final passwordLength = password.runes.length;
     if (passwordLength < 8) {
-      errors['password'] = ['Password must be at least 8 characters.'];
+      errors['password'] = ['La contraseña debe tener al menos 8 caracteres.'];
     } else if (passwordLength > 128) {
-      errors['password'] = ['Password must be 128 characters or fewer.'];
+      errors['password'] = ['La contraseña debe tener 128 caracteres o menos.'];
     }
     if (passwordConfirmation.isEmpty) {
-      errors['password_confirmation'] = ['Password confirmation is required.'];
+      errors['password_confirmation'] = [
+        'La confirmación de la contraseña es obligatoria.',
+      ];
     } else if (password != passwordConfirmation) {
-      errors['password_confirmation'] = ['Passwords do not match.'];
+      errors['password_confirmation'] = ['Las contraseñas no coinciden.'];
     }
     return errors;
   }

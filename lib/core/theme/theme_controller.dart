@@ -35,7 +35,7 @@ class ThemeController extends Notifier<ThemeMode> {
       } else if (stored == 'light') {
         state = ThemeMode.light;
       }
-    } catch (error) {
+    } catch (_) {
       ref
           .read(themeDiagnosticProvider.notifier)
           .set(
@@ -43,7 +43,7 @@ class ThemeController extends Notifier<ThemeMode> {
               code: 'theme_load_failed',
               operation: 'load_theme_mode',
               userMessage: 'No se pudo cargar la preferencia de tema.',
-              technicalReason: error.toString(),
+              technicalReason: 'theme_preference_read_failure',
             ),
           );
     }
@@ -76,7 +76,7 @@ class ThemeController extends Notifier<ThemeMode> {
       }
       ref.read(themeDiagnosticProvider.notifier).clear();
       return true;
-    } catch (error) {
+    } catch (_) {
       state = previous;
       ref
           .read(themeDiagnosticProvider.notifier)
@@ -85,7 +85,7 @@ class ThemeController extends Notifier<ThemeMode> {
               code: 'theme_storage_unavailable',
               operation: 'persist_theme_mode',
               userMessage: 'No se pudo guardar la preferencia de tema.',
-              technicalReason: error.toString(),
+              technicalReason: 'theme_preference_write_failure',
             ),
           );
       return false;

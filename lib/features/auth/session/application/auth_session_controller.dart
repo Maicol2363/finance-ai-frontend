@@ -40,7 +40,7 @@ class AuthSessionController extends Notifier<AuthSessionState> {
         diagnostic: _diagnostic(
           code: 'login_invalid',
           operation: 'login_account',
-          userMessage: 'Please correct the highlighted fields.',
+          userMessage: 'Por favor, corrige los campos marcados.',
           technicalReason: 'client_validation',
         ),
       );
@@ -73,7 +73,7 @@ class AuthSessionController extends Notifier<AuthSessionState> {
         diagnostic: _diagnostic(
           code: 'unexpected_client_error',
           operation: 'login_account',
-          userMessage: 'Login could not be completed. Please try again.',
+          userMessage: 'No se pudo iniciar sesión. Inténtalo de nuevo.',
           technicalReason: 'unclassified_client_failure',
         ),
       );
@@ -164,7 +164,7 @@ class AuthSessionController extends Notifier<AuthSessionState> {
       warning = _diagnostic(
         code: 'logout_unconfirmed',
         operation: 'logout_account',
-        userMessage: 'You are logged out on this device, but server revocation could not be confirmed.',
+        userMessage: 'Se cerró la sesión en este dispositivo, pero no se pudo confirmar en el servidor.',
         technicalReason: 'unclassified_logout_failure',
       );
     }
@@ -174,7 +174,7 @@ class AuthSessionController extends Notifier<AuthSessionState> {
     } on Object {
       warning = _storageDiagnostic(
         operation: 'logout_account',
-        userMessage: 'Logout could not clear secure storage. Close the app and try again.',
+        userMessage: 'No se pudo borrar la sesión segura. Cierra la aplicación e inténtalo de nuevo.',
       );
     }
     state = AuthSessionState(
@@ -256,7 +256,7 @@ class AuthSessionController extends Notifier<AuthSessionState> {
         diagnostic: _diagnostic(
           code: 'unexpected_client_error',
           operation: restoration ? 'restore_session' : 'refresh_session',
-          userMessage: 'Your session could not be restored. Please try again.',
+          userMessage: 'No se pudo restaurar la sesión. Inténtalo de nuevo.',
           technicalReason: 'unclassified_client_failure',
         ),
       );
@@ -308,15 +308,15 @@ class AuthSessionController extends Notifier<AuthSessionState> {
   }) {
     final errors = <String, List<String>>{};
     if (email.isEmpty) {
-      errors['email'] = ['Email is required.'];
+      errors['email'] = ['El correo electrónico es obligatorio.'];
     } else if (email.length > 320 || !_emailPattern.hasMatch(email)) {
-      errors['email'] = ['Enter a valid email address.'];
+      errors['email'] = ['Ingresa un correo electrónico válido.'];
     }
     final length = password.runes.length;
     if (length < 1) {
-      errors['password'] = ['Password is required.'];
+      errors['password'] = ['La contraseña es obligatoria.'];
     } else if (length > 128) {
-      errors['password'] = ['Password must be 128 characters or fewer.'];
+      errors['password'] = ['La contraseña debe tener 128 caracteres o menos.'];
     }
     return errors;
   }
@@ -328,16 +328,28 @@ class AuthSessionController extends Notifier<AuthSessionState> {
     return _diagnostic(
       code: failure.code,
       operation: operation,
-      userMessage: failure.userMessage,
+      userMessage: _safeAuthMessage(failure.code),
       correlationId: failure.correlationId,
       technicalReason: failure.technicalReason,
     );
   }
 
+  String _safeAuthMessage(String code) => switch (code) {
+    'invalid_credentials' =>
+      'El correo electrónico o la contraseña no son correctos.',
+    'session_invalid' => 'La sesión ya no es válida. Inicia sesión de nuevo.',
+    'network_unavailable' => 'No se pudo conectar con el servicio. Revisa tu conexión e inténtalo de nuevo.',
+    'service_unavailable' => 'El servicio no está disponible temporalmente. Inténtalo de nuevo más tarde.',
+    'login_rate_limited' =>
+      'Demasiados intentos. Espera un momento e inténtalo de nuevo.',
+    'unexpected_response' =>
+      'No se pudo completar la operación. Inténtalo de nuevo.',
+    _ => 'No se pudo completar la operación. Inténtalo de nuevo.',
+  };
+
   ErrorDiagnostic _storageDiagnostic({
     required String operation,
-    String userMessage =
-        'Secure session storage is unavailable. Close the app and try again.',
+    String userMessage = 'No se pudo acceder al almacenamiento seguro. Cierra la aplicación e inténtalo de nuevo.',
   }) {
     return _diagnostic(
       code: 'secure_storage_unavailable',

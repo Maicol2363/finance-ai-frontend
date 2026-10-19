@@ -306,6 +306,40 @@ class HistoryItem {
   final String? incomeSource;
   final List<HistoryMovement> movements;
   final HistoryExpense? expense;
+
+  /// Incomes and transfers are encoded by the API at UTC midnight for their
+  /// calendar date. Keep that day stable in the user's local calendar. Expense
+  /// timestamps retain their local-time display behavior.
+  DateTime get displayDate {
+    if (type == TransactionType.expense) return occurredAt.toLocal();
+    final date = occurredAt.toUtc();
+    return DateTime(date.year, date.month, date.day);
+  }
+}
+
+/// Signed net movements in the loaded history, grouped by currency.
+///
+/// Only confirmed transactions affect the balance. All movements participate,
+/// so internal transfers in the same currency cancel naturally. Filtering by
+/// [accountId] is applied before summing; currencies are never converted or
+/// combined.
+Map<String, int> historyBalanceByCurrency(
+  Iterable<HistoryItem> items, {
+  int? accountId,
+}) {
+  final totals = <String, int>{};
+  for (final item in items) {
+    if (item.status != ExpenseStatus.confirmed) continue;
+    for (final movement in item.movements) {
+      if (accountId != null && movement.accountId != accountId) continue;
+      totals.update(
+        movement.currencyCode,
+        (value) => value + movement.amount.minorUnits,
+        ifAbsent: () => movement.amount.minorUnits,
+      );
+    }
+  }
+  return Map.unmodifiable(totals);
 }
 
 class HistoryResult {

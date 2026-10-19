@@ -2,8 +2,12 @@ import 'dart:io';
 
 import 'package:finance_ai/core/api/api_client.dart';
 import 'package:finance_ai/features/auth/session/application/auth_session_controller.dart';
+import 'package:finance_ai/features/budgets/application/budgets_controller.dart';
+import 'package:finance_ai/features/budgets/application/budgets_state.dart';
 import 'package:finance_ai/features/expenses/application/expenses_controller.dart';
 import 'package:finance_ai/features/expenses/application/expenses_state.dart';
+import 'package:finance_ai/features/expenses/application/history_controller.dart';
+import 'package:finance_ai/features/expenses/application/history_state.dart';
 import 'package:finance_ai/features/expenses/domain/expense_models.dart';
 import 'package:finance_ai/features/receipt_capture/application/receipt_capture_notifier.dart';
 import 'package:finance_ai/features/receipt_capture/data/receipt_capture_remote_data_source.dart';
@@ -30,6 +34,30 @@ class _FakeExpensesController extends ExpensesController {
 
   @override
   Future<void> load({int? page, int? pageSize}) async {}
+}
+
+class _FakeHistoryController extends HistoryController {
+  int loadCalls = 0;
+
+  @override
+  HistoryState build() => const HistoryState();
+
+  @override
+  Future<void> load() async {
+    loadCalls += 1;
+  }
+}
+
+class _FakeBudgetsController extends BudgetsController {
+  int loadCalls = 0;
+
+  @override
+  BudgetsState build() => const BudgetsState();
+
+  @override
+  Future<void> load() async {
+    loadCalls += 1;
+  }
 }
 
 class _FakeRemoteDataSource extends ReceiptCaptureRemoteDataSource {
@@ -177,12 +205,16 @@ void main() {
   late _FakeRemoteDataSource fakeRemote;
   late _FakePhotoCacheRepository fakeCache;
   late _FakeImagePicker fakePicker;
+  late _FakeHistoryController fakeHistory;
+  late _FakeBudgetsController fakeBudgets;
   late File sampleFile;
 
   setUp(() {
     fakeRemote = _FakeRemoteDataSource();
     fakeCache = _FakePhotoCacheRepository();
     fakePicker = _FakeImagePicker();
+    fakeHistory = _FakeHistoryController();
+    fakeBudgets = _FakeBudgetsController();
 
     sampleFile = File('${Directory.systemTemp.path}/notifier_test.jpg')
       ..writeAsBytesSync([1, 2, 3, 4, 5]);
@@ -195,6 +227,8 @@ void main() {
         receiptPhotoCacheRepositoryProvider.overrideWithValue(fakeCache),
         imagePickerProvider.overrideWithValue(fakePicker),
         expensesControllerProvider.overrideWith(_FakeExpensesController.new),
+        historyControllerProvider.overrideWith(() => fakeHistory),
+        budgetsControllerProvider.overrideWith(() => fakeBudgets),
       ],
     );
   });
@@ -382,6 +416,8 @@ void main() {
 
         expect(result, isNotNull);
         expect(result!.id, 200);
+        expect(fakeHistory.loadCalls, 1);
+        expect(fakeBudgets.loadCalls, 1);
         expect(fakeCache.stored[200], sampleFile.path);
 
         final state = container.read(receiptCaptureNotifierProvider);

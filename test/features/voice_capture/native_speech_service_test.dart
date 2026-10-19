@@ -58,6 +58,34 @@ void main() {
     await service.dispose();
     await source.close();
   });
+  test('unknown native failure codes map to Spanish generic copy', () async {
+    final source = StreamController<Object?>.broadcast();
+    final service = NativeSpeechService(
+      methods: methods,
+      eventStream: source.stream,
+    );
+    final received = <SpeechEvent>[];
+    final subscription = service.events.listen(received.add);
+    source.add({
+      'session': 8,
+      'type': 'error',
+      'code': 'native-private-error',
+      'message': 'PRIVATE ENGLISH BACKEND DETAIL',
+    });
+    await Future<void>.delayed(Duration.zero);
+    expect(received.single.code, 'speech_provider_error');
+    expect(
+      SpeechFailure(received.single.code).userMessage,
+      'El dictado local no pudo continuar. Conservamos el texto para que lo revises.',
+    );
+    expect(
+      SpeechFailure(received.single.code).userMessage,
+      isNot(contains('PRIVATE ENGLISH BACKEND DETAIL')),
+    );
+    await subscription.cancel();
+    await service.dispose();
+    await source.close();
+  });
   test(
     'both platforms receive the same language and session contract; no audio',
     () async {

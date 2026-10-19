@@ -6,6 +6,8 @@ import 'package:finance_ai/features/accounts/domain/account_models.dart';
 import 'package:finance_ai/features/auth/session/application/auth_session_controller.dart';
 import 'package:finance_ai/features/auth/session/application/auth_session_state.dart';
 import 'package:finance_ai/features/auth/session/domain/session_models.dart';
+import 'package:finance_ai/features/budgets/application/budgets_controller.dart';
+import 'package:finance_ai/features/budgets/application/budgets_state.dart';
 import 'package:finance_ai/features/categories/data/categories_repository.dart';
 import 'package:finance_ai/features/categories/domain/category_models.dart';
 import 'package:finance_ai/features/expenses/data/expenses_repository.dart';
@@ -353,6 +355,7 @@ class FakeIncomeSourcesRepository implements IncomeSourcesRepository {
 /// Counts reloads so a test can see that Accept refreshes the movements.
 class FakeExpensesRepository implements ExpensesRepository {
   int listCalls = 0;
+  int historyCalls = 0;
 
   @override
   Future<ExpenseListResult> list({int page = 1, int pageSize = 50}) async {
@@ -367,24 +370,39 @@ class FakeExpensesRepository implements ExpensesRepository {
   }
 
   @override
-  Future<HistoryResult> history(HistoryFilters filters) async =>
-      const HistoryResult(
-        items: [],
-        total: 0,
-        page: 1,
-        pageSize: 50,
-        hasNext: false,
-      );
+  Future<HistoryResult> history(HistoryFilters filters) async {
+    historyCalls += 1;
+    return const HistoryResult(
+      items: [],
+      total: 0,
+      page: 1,
+      pageSize: 50,
+      hasNext: false,
+    );
+  }
 
   @override
   dynamic noSuchMethod(Invocation invocation) =>
       throw UnimplementedError(invocation.memberName.toString());
 }
 
+class FakeBudgetsController extends BudgetsController {
+  int loadCalls = 0;
+
+  @override
+  BudgetsState build() => const BudgetsState();
+
+  @override
+  Future<void> load() async {
+    loadCalls += 1;
+  }
+}
+
 /// Overrides shared by the controller and widget tests.
 List<Override> baseOverrides({
   required FakeTextCaptureRepository repository,
   FakeAccountsRepository? accountsRepository,
+  FakeBudgetsController? budgetsController,
   FakeExpensesRepository? expensesRepository,
   DateTime Function()? clock,
   int userId = 1,
@@ -397,6 +415,9 @@ List<Override> baseOverrides({
   categoriesRepositoryProvider.overrideWithValue(FakeCategoriesRepository()),
   incomeSourcesRepositoryProvider.overrideWithValue(
     FakeIncomeSourcesRepository(),
+  ),
+  budgetsControllerProvider.overrideWith(
+    () => budgetsController ?? FakeBudgetsController(),
   ),
   expensesRepositoryProvider.overrideWithValue(
     expensesRepository ?? FakeExpensesRepository(),

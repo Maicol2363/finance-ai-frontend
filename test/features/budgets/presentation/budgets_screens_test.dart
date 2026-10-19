@@ -150,6 +150,8 @@ void main() {
         '1234,5',
       );
       await tester.ensureVisible(find.byKey(const Key('budget-save-button')));
+      await tester.drag(find.byType(ListView).last, const Offset(0, -240));
+      await tester.pumpAndSettle();
       await tester.tap(find.byKey(const Key('budget-save-button')));
       await tester.pumpAndSettle();
 
@@ -166,6 +168,24 @@ void main() {
       expect(find.byKey(const Key('budget-card-9')), findsOneWidget);
     },
   );
+
+  testWidgets('budget currency helper wraps instead of truncating', (
+    tester,
+  ) async {
+    final repository = WidgetBudgetsRepository();
+    await pumpBudgetsApp(
+      tester,
+      repository,
+      initialLocation: '/budgets/new',
+      surfaceSize: const Size(390, 900),
+    );
+
+    final currencyField = tester.widget<DropdownButtonFormField<String>>(
+      find.byKey(const Key('budget-currency-field')),
+    );
+    expect(currencyField.decoration.helperMaxLines, 2);
+    expect(tester.takeException(), isNull);
+  });
 
   testWidgets('advanced editor submits custom all-expense recurrence', (
     tester,

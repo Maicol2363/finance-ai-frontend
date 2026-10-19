@@ -43,6 +43,38 @@ void main() {
     );
     expect(find.textContaining('Sin gasto'), findsOneWidget);
   });
+
+  testWidgets('trend explanation stays open until the user dismisses it', (
+    t,
+  ) async {
+    await _pump(
+      t,
+      SpendingTrendCard(
+        days: _days([100, 200]),
+        currency: 'COP',
+        available: true,
+      ),
+    );
+
+    final infoButton = find.byKey(const Key('dashboard-trend-info-button'));
+    expect(t.getSize(infoButton), const Size(48, 48));
+    await t.tap(infoButton);
+    await t.pumpAndSettle();
+
+    expect(find.text('Sobre la tendencia de gasto'), findsOneWidget);
+    expect(
+      find.textContaining(
+        'En un periodo cerrado solo se muestran los gastos reales.',
+      ),
+      findsOneWidget,
+    );
+    await t.pump(const Duration(seconds: 10));
+    expect(find.text('Sobre la tendencia de gasto'), findsOneWidget);
+
+    await t.tap(find.text('Entendido'));
+    await t.pumpAndSettle();
+    expect(find.text('Sobre la tendencia de gasto'), findsNothing);
+  });
   testWidgets('loading shows placeholder total', (t) async {
     await _pump(
       t,
@@ -182,12 +214,7 @@ void main() {
     expect(find.text('Gasto real acumulado'), findsOneWidget);
     expect(find.text('Proyección al cierre'), findsOneWidget);
     expect(
-      find.byWidgetPredicate(
-        (widget) =>
-            widget is Tooltip &&
-            widget.message?.contains('periodos abiertos') == true &&
-            widget.message?.contains('periodos cerrados') == true,
-      ),
+      find.byTooltip('Información sobre la tendencia de gasto'),
       findsOneWidget,
     );
 

@@ -10,7 +10,7 @@ import '../widgets/app_bottom_nav.dart';
 
 /// Shell with bottom navigation, Android back-button pop scope, and
 /// global floating action wheel across all tabs.
-class AppShell extends StatelessWidget {
+class AppShell extends StatefulWidget {
   const AppShell({super.key, required this.navigationShell});
 
   final StatefulNavigationShell navigationShell;
@@ -34,34 +34,54 @@ class AppShell extends StatelessWidget {
   ];
 
   @override
+  State<AppShell> createState() => _AppShellState();
+}
+
+class _AppShellState extends State<AppShell> {
+  final _captureWheelKey = GlobalKey<CaptureWheelState>();
+  bool _captureWheelOpen = false;
+
+  @override
   Widget build(BuildContext context) {
     return PopScope(
-      canPop: navigationShell.currentIndex == 0,
+      canPop: !_captureWheelOpen && widget.navigationShell.currentIndex == 0,
       onPopInvokedWithResult: (didPop, result) {
         if (didPop) return;
-        if (navigationShell.currentIndex != 0) {
-          navigationShell.goBranch(0);
+        if (_captureWheelOpen) {
+          _captureWheelKey.currentState?.close();
+        } else if (widget.navigationShell.currentIndex != 0) {
+          widget.navigationShell.goBranch(0);
         }
       },
       child: Scaffold(
         body: Stack(
           children: [
-            navigationShell,
+            widget.navigationShell,
             CaptureWheel(
+              key: _captureWheelKey,
+              onOpenChanged: (isOpen) {
+                if (_captureWheelOpen != isOpen && mounted) {
+                  setState(() => _captureWheelOpen = isOpen);
+                }
+              },
               onPhoto: () =>
                   startReceiptCapture(context, source: ImageSource.camera),
-              onAi: () => showQuickCaptureSheet(context),
+              onAi: () =>
+                  showQuickCaptureSheet(context, useRootNavigator: true),
               onManual: () => context.push('/expenses/new'),
             ),
           ],
         ),
         bottomNavigationBar: AppBottomNav(
-          destinations: destinations,
-          currentIndex: navigationShell.currentIndex,
-          onSelected: (index) => navigationShell.goBranch(
-            index,
-            initialLocation: index == navigationShell.currentIndex,
-          ),
+          destinations: AppShell.destinations,
+          currentIndex: widget.navigationShell.currentIndex,
+          onSelected: (index) {
+            _captureWheelKey.currentState?.close();
+            widget.navigationShell.goBranch(
+              index,
+              initialLocation: index == widget.navigationShell.currentIndex,
+            );
+          },
         ),
       ),
     );

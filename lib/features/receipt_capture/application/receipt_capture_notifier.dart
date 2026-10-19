@@ -4,7 +4,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../../core/diagnostics/error_diagnostic.dart';
+import '../../budgets/application/budgets_controller.dart';
 import '../../expenses/application/expenses_controller.dart';
+import '../../expenses/application/history_controller.dart';
 import '../../expenses/domain/expense_models.dart';
 import '../data/receipt_capture_remote_data_source.dart';
 import '../data/receipt_photo_cache_repository.dart';
@@ -346,6 +348,8 @@ class ReceiptCaptureNotifier extends Notifier<ReceiptCaptureState> {
       // Refresh expense feed providers
       try {
         ref.read(expensesControllerProvider.notifier).load();
+        ref.read(historyControllerProvider.notifier).load();
+        ref.read(budgetsControllerProvider.notifier).load();
       } catch (_) {}
 
       state = ReceiptCaptureSuccess(

@@ -14,23 +14,27 @@ class CaptureWheel extends StatefulWidget {
     required this.onPhoto,
     required this.onAi,
     required this.onManual,
+    this.onOpenChanged,
   });
 
   final VoidCallback onPhoto;
   final VoidCallback onAi;
   final VoidCallback onManual;
+  final ValueChanged<bool>? onOpenChanged;
 
   @override
-  State<CaptureWheel> createState() => _CaptureWheelState();
+  CaptureWheelState createState() => CaptureWheelState();
 }
 
-class _CaptureWheelState extends State<CaptureWheel>
+class CaptureWheelState extends State<CaptureWheel>
     with SingleTickerProviderStateMixin {
   late final AnimationController _animation = AnimationController(
     vsync: this,
     duration: const Duration(milliseconds: 250),
   );
   bool _isOpen = false;
+
+  bool get isOpen => _isOpen;
 
   @override
   void dispose() {
@@ -40,6 +44,7 @@ class _CaptureWheelState extends State<CaptureWheel>
 
   void _toggle() {
     setState(() => _isOpen = !_isOpen);
+    widget.onOpenChanged?.call(_isOpen);
     if (MediaQuery.disableAnimationsOf(context)) {
       _animation.value = _isOpen ? 1 : 0;
     } else if (_isOpen) {
@@ -52,6 +57,8 @@ class _CaptureWheelState extends State<CaptureWheel>
   void _close() {
     if (_isOpen) _toggle();
   }
+
+  void close() => _close();
 
   void _choose(VoidCallback action) {
     _close();

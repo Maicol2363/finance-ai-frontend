@@ -289,7 +289,7 @@ class _CategoryFormScreenState extends ConsumerState<CategoryFormScreen> {
   }
 
   void _goBack() {
-    if (widget.returnToPrevious && context.canPop()) {
+    if (context.canPop()) {
       context.pop();
       return;
     }
@@ -307,7 +307,7 @@ class _CategoryFormScreenState extends ConsumerState<CategoryFormScreen> {
         );
     if (!mounted) return;
     if (outcome == CategoryMutationOutcome.success) {
-      if (widget.returnToPrevious && context.canPop()) {
+      if (context.canPop()) {
         context.pop();
         return;
       }
@@ -350,7 +350,11 @@ class _CategoryFormScreenState extends ConsumerState<CategoryFormScreen> {
         .read(categoriesControllerProvider.notifier)
         .deleteCategory(category.id);
     if (mounted && outcome == CategoryMutationOutcome.success) {
-      context.go('/categories');
+      if (context.canPop()) {
+        context.pop();
+      } else {
+        context.go('/categories');
+      }
     }
   }
 }

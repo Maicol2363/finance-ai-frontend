@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/diagnostics/error_diagnostic_panel.dart';
+import '../../../../core/formatters/catalog_labels.dart';
 import '../../../../core/formatters/money_formatter.dart';
 import '../../../../core/theme/app_palette.dart';
 import '../../../accounts/application/accounts_controller.dart';
@@ -495,7 +496,9 @@ class _ReceiptReviewScreenState extends ConsumerState<ReceiptReviewScreen> {
                                 ..._availableCategories.map(
                                   (cat) => DropdownMenuItem<int>(
                                     value: cat.id,
-                                    child: Text(cat.name),
+                                    child: Text(
+                                      CatalogLabels.display(cat.name),
+                                    ),
                                   ),
                                 ),
                               ],

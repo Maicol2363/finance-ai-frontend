@@ -20,11 +20,14 @@ android {
 
     defaultConfig {
         applicationId = "com.nullcorvus.finance_ai"
+        val releaseAudit = project.findProperty("financeAiReleaseAudit") == "true"
         val audioTest = project.findProperty("financeAiAudioTest") == "true"
         val voiceVerification = project.findProperty("financeAiVoiceVerification") == "true"
-        if (voiceVerification) applicationId = "com.nullcorvus.finance_ai.voice_verification"
+        if (releaseAudit) applicationId = "com.nullcorvus.finance_ai.release_audit"
+        else if (voiceVerification) applicationId = "com.nullcorvus.finance_ai.voice_verification"
         else if (audioTest) applicationId = "com.nullcorvus.finance_ai.audio_test"
-        manifestPlaceholders["financeAiAppLabel"] = if (voiceVerification) "Finance AI (voice verification)"
+        manifestPlaceholders["financeAiAppLabel"] = if (releaseAudit) "Finance AI (auditoría)"
+            else if (voiceVerification) "Finance AI (voice verification)"
             else if (audioTest) "Finance AI (audio test)" else "Finance AI"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         // You can update the following values to match your application needs.
@@ -41,6 +44,14 @@ android {
 
     buildTypes {
         release {
+            // JNA resolves Pointer.peer by name from native code. R8 otherwise
+            // renames the field (confirmed in the release mapping), breaking
+            // Vosk/JNA initialization on device.
+            isMinifyEnabled = true
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro",
+            )
             // Signs with debug key so release APK can be installed directly on devices without custom keystore
             signingConfig = signingConfigs.getByName("debug")
         }
