@@ -149,7 +149,7 @@ void main() {
   });
 
   test(
-    'amounts beyond the source balance are invalid without API calls',
+    'amounts beyond the cached source balance are submitted to the server',
     () async {
       final repository = FakeTransfersRepository();
       final container = containerWith(repository);
@@ -158,12 +158,8 @@ void main() {
 
       final outcome = await submit(container, sourceAmount: '1000.01');
 
-      expect(outcome, TransferMutationOutcome.invalid);
-      expect(repository.lastCommand, isNull);
-      expect(
-        container.read(transferControllerProvider).fieldErrors,
-        contains('source_amount'),
-      );
+      expect(outcome, TransferMutationOutcome.success);
+      expect(repository.lastCommand?.sourceAmount.toApiString(), '1000.01');
 
       final exact = await submit(container, sourceAmount: '1000.00');
       expect(exact, TransferMutationOutcome.success);

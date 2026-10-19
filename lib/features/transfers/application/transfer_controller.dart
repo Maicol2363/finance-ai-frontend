@@ -170,14 +170,6 @@ class TransferController extends Notifier<TransferState> {
         ];
       }
     }
-    final sourceBalance = _balanceOf(sourceAccountId);
-    if (sourceAmount != null &&
-        sourceBalance != null &&
-        sourceAmount.minorUnits > sourceBalance.minorUnits) {
-      errors['source_amount'] = [
-        'Fondos insuficientes en la cuenta de origen.',
-      ];
-    }
     final crossCurrency = _isCrossCurrency(
       sourceAccountId,
       destinationAccountId,

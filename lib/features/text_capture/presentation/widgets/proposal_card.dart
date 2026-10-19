@@ -173,7 +173,7 @@ class _ProposalCardState extends ConsumerState<ProposalCard> {
       _errors['amount'] = 'El monto es demasiado grande: usa un valor menor.';
     } else if (amount == null) {
       _errors['amount'] = 'Escribe un monto mayor que cero.';
-    } else if (_draft.intent != CaptureIntent.income &&
+    } else if (_draft.intent == CaptureIntent.transfer &&
         _draft.accountId != null) {
       final account = _account(_draft.accountId);
       if (account != null && amount.minorUnits > account.balance.minorUnits) {

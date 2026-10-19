@@ -294,7 +294,7 @@ void main() {
     expect(repository.confirmCalls, isEmpty);
   });
 
-  testWidgets('an amount beyond the account balance is blocked inline', (
+  testWidgets('an expense beyond the account balance can still be recorded', (
     tester,
   ) async {
     final repository = FakeTextCaptureRepository(proposals: [proposal()]);
@@ -309,13 +309,9 @@ void main() {
 
     expect(
       find.textContaining('Fondos insuficientes en Efectivo'),
-      findsOneWidget,
+      findsNothing,
     );
     expect(repository.confirmCalls, isEmpty);
-
-    await tester.enterText(byKey('proposal-amount-field'), '500');
-    await tester.tap(byKey('proposal-save-edit'));
-    await tester.pumpAndSettle();
     await tester.tap(byKey('proposal-confirm'));
     await tester.pumpAndSettle();
     expect(repository.confirmCalls, hasLength(1));
