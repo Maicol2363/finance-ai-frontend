@@ -270,8 +270,8 @@ class _ReceiptReviewScreenState extends ConsumerState<ReceiptReviewScreen> {
                           _buildWarningBanner(
                             palette: palette,
                             icon: FinanceIcons.infoOutline,
-                            color: Colors.orange.shade800,
-                            bgColor: Colors.orange.shade50,
+                            color: palette.warnFg,
+                            bgColor: palette.warnBg,
                             title: 'Extracción automática no disponible',
                             subtitle: 'No se pudieron extraer datos automáticamente. Puedes completar los campos obligatorios para registrar el gasto o descartarlo.',
                           ),
@@ -283,8 +283,8 @@ class _ReceiptReviewScreenState extends ConsumerState<ReceiptReviewScreen> {
                           _buildWarningBanner(
                             palette: palette,
                             icon: FinanceIcons.warningAmberRounded,
-                            color: Colors.amber.shade900,
-                            bgColor: Colors.amber.shade50,
+                            color: palette.warnFg,
+                            bgColor: palette.warnBg,
                             title: 'Posible recibo duplicado',
                             subtitle: state.duplicateWarning ?? 'Ya registraste una compra idéntica en este comercio y fecha.',
                           ),
@@ -296,8 +296,8 @@ class _ReceiptReviewScreenState extends ConsumerState<ReceiptReviewScreen> {
                           _buildWarningBanner(
                             palette: palette,
                             icon: FinanceIcons.infoOutline,
-                            color: Colors.amber.shade900,
-                            bgColor: Colors.amber.shade50,
+                            color: palette.warnFg,
+                            bgColor: palette.warnBg,
                             title: 'Diferencia en la suma de productos',
                             subtitle:
                                 'Suma de items: ${MoneyFormatter.displayMajor(formData.itemsSum, formData.currency)} | Total: ${MoneyFormatter.displayMajor(formData.totalAmount, formData.currency)}.\nEl total confirmado será el monto oficial del gasto.',
@@ -314,13 +314,16 @@ class _ReceiptReviewScreenState extends ConsumerState<ReceiptReviewScreen> {
 
                         // Client-side validation hint
                         if (state.submissionError != null) ...[
-                          _buildWarningBanner(
-                            palette: palette,
-                            icon: FinanceIcons.errorOutline,
-                            color: palette.discard,
-                            bgColor: palette.errorSoft,
-                            title: 'Error al confirmar',
-                            subtitle: state.submissionError!,
+                          Semantics(
+                            liveRegion: true,
+                            child: _buildWarningBanner(
+                              palette: palette,
+                              icon: FinanceIcons.errorOutline,
+                              color: palette.discard,
+                              bgColor: palette.errorSoft,
+                              title: 'Error al confirmar',
+                              subtitle: state.submissionError!,
+                            ),
                           ),
                           const SizedBox(height: 16),
                         ],
@@ -420,6 +423,10 @@ class _ReceiptReviewScreenState extends ConsumerState<ReceiptReviewScreen> {
                             ),
                             const SizedBox(height: 12),
                             DropdownButtonFormField<int>(
+                              isExpanded: true,
+                              isDense:
+                                  MediaQuery.textScalerOf(context).scale(16) <=
+                                  24,
                               initialValue: formData.accountId,
                               decoration: const InputDecoration(
                                 labelText: 'Cuenta de pago *',
@@ -453,6 +460,10 @@ class _ReceiptReviewScreenState extends ConsumerState<ReceiptReviewScreen> {
                             ),
                             const SizedBox(height: 16),
                             DropdownButtonFormField<int>(
+                              isExpanded: true,
+                              isDense:
+                                  MediaQuery.textScalerOf(context).scale(16) <=
+                                  24,
                               initialValue:
                                   formData.categoryId == -1 &&
                                       hasSuggestedOption
@@ -568,6 +579,49 @@ class _ReceiptReviewScreenState extends ConsumerState<ReceiptReviewScreen> {
     ReceiptCaptureNotifier notifier,
     ReceiptCaptureReview state,
   ) {
+    final thumbnail = ClipRRect(
+      borderRadius: BorderRadius.circular(10),
+      child: SizedBox(
+        width: 64,
+        height: 64,
+        child: Image.file(
+          file,
+          fit: BoxFit.cover,
+          errorBuilder: (context, error, stackTrace) =>
+              Container(color: Colors.grey.shade200),
+        ),
+      ),
+    );
+    final summary = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Comprobante analizado',
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            color: palette.text,
+            fontSize: 14,
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          'ID: ${state.proposalId.length > 8 ? '${state.proposalId.substring(0, 8)}...' : state.proposalId}',
+          style: TextStyle(color: palette.muted, fontSize: 12),
+        ),
+      ],
+    );
+    final openPhoto = OutlinedButton.icon(
+      onPressed: () {
+        ReceiptPhotoViewerDialog.show(context, imageFile: file);
+      },
+      icon: const Icon(FinanceIcons.zoomIn, size: 16),
+      label: const Text('Ver foto'),
+      style: OutlinedButton.styleFrom(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        minimumSize: const Size(0, 48),
+      ),
+    );
+    final largeText = MediaQuery.textScalerOf(context).scale(14) > 21;
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -575,55 +629,29 @@ class _ReceiptReviewScreenState extends ConsumerState<ReceiptReviewScreen> {
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: palette.line),
       ),
-      child: Row(
-        children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(10),
-            child: SizedBox(
-              width: 64,
-              height: 64,
-              child: Image.file(
-                file,
-                fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) =>
-                    Container(color: Colors.grey.shade200),
-              ),
-            ),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+      child: largeText
+          ? Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Text(
-                  'Comprobante analizado',
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    color: palette.text,
-                    fontSize: 14,
-                  ),
+                Row(
+                  children: [
+                    thumbnail,
+                    const SizedBox(width: 14),
+                    Expanded(child: summary),
+                  ],
                 ),
-                const SizedBox(height: 2),
-                Text(
-                  'ID: ${state.proposalId.length > 8 ? '${state.proposalId.substring(0, 8)}...' : state.proposalId}',
-                  style: TextStyle(color: palette.muted, fontSize: 12),
-                ),
+                const SizedBox(height: 8),
+                openPhoto,
+              ],
+            )
+          : Row(
+              children: [
+                thumbnail,
+                const SizedBox(width: 14),
+                Expanded(child: summary),
+                openPhoto,
               ],
             ),
-          ),
-          OutlinedButton.icon(
-            onPressed: () {
-              ReceiptPhotoViewerDialog.show(context, imageFile: file);
-            },
-            icon: const Icon(FinanceIcons.zoomIn, size: 16),
-            label: const Text('Ver foto'),
-            style: OutlinedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-              minimumSize: const Size(0, 48),
-            ),
-          ),
-        ],
-      ),
     );
   }
 
@@ -718,8 +746,11 @@ class _ReceiptReviewScreenState extends ConsumerState<ReceiptReviewScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 12,
+            runSpacing: 4,
             children: [
               Text(
                 'Productos / Items (${formData.items.length})',
@@ -788,6 +819,7 @@ class _ReceiptReviewScreenState extends ConsumerState<ReceiptReviewScreen> {
                         ),
                       ),
                       IconButton(
+                        tooltip: 'Editar ${item.name}',
                         icon: const Icon(FinanceIcons.editOutlined, size: 18),
                         onPressed: () => _showItemEditDialog(
                           context,
@@ -797,6 +829,7 @@ class _ReceiptReviewScreenState extends ConsumerState<ReceiptReviewScreen> {
                         ),
                       ),
                       IconButton(
+                        tooltip: 'Eliminar ${item.name}',
                         icon: Icon(
                           FinanceIcons.deleteOutline,
                           size: 18,
@@ -888,12 +921,16 @@ class _ReceiptReviewScreenState extends ConsumerState<ReceiptReviewScreen> {
                 ),
               ),
               child: state.isSubmitting
-                  ? SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: palette.onPrimary,
+                  ? Semantics(
+                      liveRegion: true,
+                      label: 'Guardando gasto',
+                      child: SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: palette.onPrimary,
+                        ),
                       ),
                     )
                   : const Row(
@@ -901,11 +938,13 @@ class _ReceiptReviewScreenState extends ConsumerState<ReceiptReviewScreen> {
                       children: [
                         Icon(FinanceIcons.check, size: 20),
                         SizedBox(width: 6),
-                        Text(
-                          'Confirmar gasto',
-                          style: TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.bold,
+                        Flexible(
+                          child: Text(
+                            'Confirmar gasto',
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                         ),
                       ],

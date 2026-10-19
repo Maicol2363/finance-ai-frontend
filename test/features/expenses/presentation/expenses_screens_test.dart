@@ -29,6 +29,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import '../../../support/accessibility_test_helpers.dart';
+
 const cop = CurrencySummary(
   id: 1,
   code: 'COP',
@@ -227,9 +229,13 @@ class _AuthenticatedWidgetSessionController extends AuthSessionController {
 }
 
 class _WidgetIncomeSourcesRepository implements IncomeSourcesRepository {
+  _WidgetIncomeSourcesRepository([this.sources = const []]);
+
+  final List<IncomeSource> sources;
+
   @override
   Future<List<IncomeSource>> list({required String accessCredential}) async =>
-      const [];
+      sources;
 
   @override
   Future<IncomeSource> create({
@@ -658,6 +664,132 @@ Future<void> pumpExpensesApp(
 }
 
 void main() {
+  testWidgets('amount exposes its name, editing action and announced error', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(800, 2400);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    await pumpExpensesApp(
+      tester,
+      WidgetExpensesRepository(),
+      initialLocation: '/expenses/new',
+    );
+    final field = find.byKey(const Key('expense-create-amount-field'));
+    var node = tester.getSemantics(field);
+    expect(node.label, contains('Monto del gasto'));
+    expect(node.flagsCollection.isTextField, isTrue);
+    expect(node.hasAction(SemanticsAction.setText), isTrue);
+    await tester.ensureVisible(
+      find.byKey(const Key('expense-create-submit-button')),
+    );
+    await tester.tap(find.byKey(const Key('expense-create-submit-button')));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(field);
+    await tester.pumpAndSettle();
+    node = tester.getSemantics(field);
+    expect(node.hint, contains('Ingresa el monto del gasto.'));
+    final error = tester.getSemantics(find.text('Ingresa el monto del gasto.'));
+    expect(error.flagsCollection.isLiveRegion, isTrue);
+    await tester.enterText(field, '25');
+    await tester.pumpAndSettle();
+    expect(find.text('Ingresa el monto del gasto.'), findsNothing);
+    expect(
+      tester.getSemantics(field).hint,
+      isNot(contains('Ingresa el monto del gasto.')),
+    );
+  });
+
+  testWidgets('transaction choices expose selection and semantic activation', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(800, 2400);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    await pumpExpensesApp(
+      tester,
+      WidgetExpensesRepository(),
+      initialLocation: '/expenses/new',
+    );
+    void selected(String key, bool value) {
+      final node = tester.getSemantics(find.byKey(Key(key)));
+      expect(node.flagsCollection.isButton, isTrue);
+      expect(
+        node.flagsCollection.isSelected,
+        value ? Tristate.isTrue : Tristate.isFalse,
+      );
+      expect(node.flagsCollection.isInMutuallyExclusiveGroup, isTrue);
+      expect(node.hasAction(SemanticsAction.tap), isTrue);
+    }
+
+    selected('segment-gasto', true);
+    selected('segment-ingreso', false);
+    selected('expense-account-chip-11', true);
+    selected('expense-category-chip-none', true);
+    selected('expense-category-chip-3', false);
+    final category = tester.getSemantics(
+      find.byKey(const Key('expense-category-chip-3')),
+    );
+    tester.semantics.tap(find.semantics.byLabel(category.label));
+    await tester.pumpAndSettle();
+    selected('expense-category-chip-3', true);
+    selected('expense-category-chip-none', false);
+    tester.semantics.tap(find.semantics.byLabel('Ingreso'));
+    await tester.pumpAndSettle();
+    selected('segment-ingreso', true);
+    selected('segment-gasto', false);
+    final source = find.text('Salario');
+    await tester.ensureVisible(source);
+    await tester.tap(source);
+    await tester.pumpAndSettle();
+    final sourceNode = tester.getSemantics(source);
+    expect(sourceNode.flagsCollection.isSelected, Tristate.isTrue);
+    expect(sourceNode.hasAction(SemanticsAction.tap), isTrue);
+    expect(
+      tester
+          .getSemantics(find.byKey(const Key('expense-create-amount-field')))
+          .label,
+      contains('Monto del ingreso'),
+    );
+  });
+
+  testWidgets('catalog income sources expose and change their selected state', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(800, 2400);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    await pumpExpensesApp(
+      tester,
+      WidgetExpensesRepository(),
+      initialLocation: '/expenses/new',
+      incomeSourcesRepository: _WidgetIncomeSourcesRepository(const [
+        IncomeSource(id: 1, name: 'Nómina'),
+        IncomeSource(id: 2, name: 'Regalos'),
+      ]),
+    );
+    tester.semantics.tap(find.semantics.byLabel('Ingreso'));
+    await tester.pumpAndSettle();
+    expect(
+      tester.getSemantics(find.text('Nómina')).flagsCollection.isSelected,
+      Tristate.isTrue,
+    );
+    expect(
+      tester.getSemantics(find.text('Regalos')).flagsCollection.isSelected,
+      Tristate.isFalse,
+    );
+    tester.semantics.tap(find.semantics.byLabel('Regalos'));
+    await tester.pumpAndSettle();
+    expect(
+      tester.getSemantics(find.text('Nómina')).flagsCollection.isSelected,
+      Tristate.isFalse,
+    );
+    expect(
+      tester.getSemantics(find.text('Regalos')).flagsCollection.isSelected,
+      Tristate.isTrue,
+    );
+  });
+
   testWidgets('manual expense catalog displays canonical labels in Spanish', (
     tester,
   ) async {
@@ -1389,7 +1521,11 @@ void main() {
       await pumpExpensesApp(tester, repository, initialLocation: '/history');
 
       expect(find.byKey(const Key('history-card-8')), findsOneWidget);
-      await tester.tap(find.byKey(const Key('history-card-8')));
+      final movement = tester.getSemantics(
+        find.byKey(const Key('history-card-8')),
+      );
+      expect(movement.hasAction(SemanticsAction.tap), isTrue);
+      tester.semantics.tap(find.semantics.byLabel(movement.label));
       await tester.pumpAndSettle();
 
       expect(find.text('Detalle del gasto'), findsOneWidget);
@@ -1411,7 +1547,11 @@ void main() {
       await pumpExpensesApp(tester, repository, initialLocation: '/history');
 
       expect(find.byKey(const Key('history-card-15')), findsOneWidget);
-      await tester.tap(find.byKey(const Key('history-card-15')));
+      final movement = tester.getSemantics(
+        find.byKey(const Key('history-card-15')),
+      );
+      expect(movement.hasAction(SemanticsAction.tap), isTrue);
+      tester.semantics.tap(find.semantics.byLabel(movement.label));
       await tester.pumpAndSettle();
 
       expect(find.text('Detalle del ingreso'), findsOneWidget);

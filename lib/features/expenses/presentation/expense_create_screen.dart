@@ -423,6 +423,7 @@ class _ExpenseCreateScreenState extends ConsumerState<ExpenseCreateScreen> {
         : '\$';
 
     final isIncome = _type == MovementType.income;
+    final amountError = _firstError(state, 'amount');
     final visibleOptionWarnings = _optionWarnings
         .where(
           (warning) => isIncome || warning.operation != 'load_income_sources',
@@ -462,38 +463,45 @@ class _ExpenseCreateScreenState extends ConsumerState<ExpenseCreateScreen> {
                 child: Row(
                   children: [
                     Expanded(
-                      child: InkWell(
-                        key: const Key('segment-gasto'),
-                        onTap: formEnabled
-                            ? () => setState(() => _type = MovementType.expense)
-                            : null,
-                        borderRadius: BorderRadius.circular(10),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(vertical: 10),
-                          decoration: BoxDecoration(
-                            color: !isIncome
-                                ? palette.card
-                                : Colors.transparent,
-                            borderRadius: BorderRadius.circular(10),
-                            boxShadow: !isIncome
-                                ? const [
-                                    BoxShadow(
-                                      color: Color(0x0A0F172A),
-                                      blurRadius: 4,
-                                      offset: Offset(0, 1),
-                                    ),
-                                  ]
-                                : null,
-                          ),
-                          child: Center(
-                            child: Text(
-                              'Gasto',
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w700,
-                                color: !isIncome
-                                    ? palette.discard
-                                    : palette.muted,
+                      child: Semantics(
+                        button: true,
+                        selected: !isIncome,
+                        enabled: formEnabled,
+                        inMutuallyExclusiveGroup: true,
+                        child: InkWell(
+                          key: const Key('segment-gasto'),
+                          onTap: formEnabled
+                              ? () =>
+                                    setState(() => _type = MovementType.expense)
+                              : null,
+                          borderRadius: BorderRadius.circular(10),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(vertical: 10),
+                            decoration: BoxDecoration(
+                              color: !isIncome
+                                  ? palette.card
+                                  : Colors.transparent,
+                              borderRadius: BorderRadius.circular(10),
+                              boxShadow: !isIncome
+                                  ? const [
+                                      BoxShadow(
+                                        color: Color(0x0A0F172A),
+                                        blurRadius: 4,
+                                        offset: Offset(0, 1),
+                                      ),
+                                    ]
+                                  : null,
+                            ),
+                            child: Center(
+                              child: Text(
+                                'Gasto',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w700,
+                                  color: !isIncome
+                                      ? palette.discard
+                                      : palette.muted,
+                                ),
                               ),
                             ),
                           ),
@@ -501,36 +509,45 @@ class _ExpenseCreateScreenState extends ConsumerState<ExpenseCreateScreen> {
                       ),
                     ),
                     Expanded(
-                      child: InkWell(
-                        key: const Key('segment-ingreso'),
-                        onTap: formEnabled
-                            ? () => setState(() => _type = MovementType.income)
-                            : null,
-                        borderRadius: BorderRadius.circular(10),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(vertical: 10),
-                          decoration: BoxDecoration(
-                            color: isIncome ? palette.card : Colors.transparent,
-                            borderRadius: BorderRadius.circular(10),
-                            boxShadow: isIncome
-                                ? const [
-                                    BoxShadow(
-                                      color: Color(0x0A0F172A),
-                                      blurRadius: 4,
-                                      offset: Offset(0, 1),
-                                    ),
-                                  ]
-                                : null,
-                          ),
-                          child: Center(
-                            child: Text(
-                              'Ingreso',
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w700,
-                                color: isIncome
-                                    ? palette.income
-                                    : palette.muted,
+                      child: Semantics(
+                        button: true,
+                        selected: isIncome,
+                        enabled: formEnabled,
+                        inMutuallyExclusiveGroup: true,
+                        child: InkWell(
+                          key: const Key('segment-ingreso'),
+                          onTap: formEnabled
+                              ? () =>
+                                    setState(() => _type = MovementType.income)
+                              : null,
+                          borderRadius: BorderRadius.circular(10),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(vertical: 10),
+                            decoration: BoxDecoration(
+                              color: isIncome
+                                  ? palette.card
+                                  : Colors.transparent,
+                              borderRadius: BorderRadius.circular(10),
+                              boxShadow: isIncome
+                                  ? const [
+                                      BoxShadow(
+                                        color: Color(0x0A0F172A),
+                                        blurRadius: 4,
+                                        offset: Offset(0, 1),
+                                      ),
+                                    ]
+                                  : null,
+                            ),
+                            child: Center(
+                              child: Text(
+                                'Ingreso',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w700,
+                                  color: isIncome
+                                      ? palette.income
+                                      : palette.muted,
+                                ),
                               ),
                             ),
                           ),
@@ -662,58 +679,70 @@ class _ExpenseCreateScreenState extends ConsumerState<ExpenseCreateScreen> {
                   ),
                   const SizedBox(width: 8),
                   Expanded(
-                    child: TextField(
-                      key: const Key('expense-create-amount-field'),
-                      controller: _amountController,
-                      focusNode: _amountFocus,
-                      autofocus: true,
-                      enabled: formEnabled,
-                      keyboardType: const TextInputType.numberWithOptions(
-                        decimal: true,
-                      ),
-                      inputFormatters: const [
-                        MoneyInputFormatter(allowNegative: false),
-                      ],
-                      textInputAction: TextInputAction.next,
-                      style: TextStyle(
-                        fontSize: 32,
-                        fontWeight: FontWeight.w800,
-                        color: isIncome ? palette.income : palette.discard,
-                      ),
-                      decoration: InputDecoration(
-                        hintText: '0',
-                        hintStyle: TextStyle(
-                          fontSize: 32,
-                          fontWeight: FontWeight.w700,
-                          color: palette.placeholder,
+                    child: MergeSemantics(
+                      child: Semantics(
+                        label: isIncome
+                            ? 'Monto del ingreso'
+                            : 'Monto del gasto',
+                        hint: amountError ?? '',
+                        child: TextField(
+                          key: const Key('expense-create-amount-field'),
+                          controller: _amountController,
+                          focusNode: _amountFocus,
+                          autofocus: true,
+                          enabled: formEnabled,
+                          keyboardType: const TextInputType.numberWithOptions(
+                            decimal: true,
+                          ),
+                          inputFormatters: const [
+                            MoneyInputFormatter(allowNegative: false),
+                          ],
+                          textInputAction: TextInputAction.next,
+                          style: TextStyle(
+                            fontSize: 32,
+                            fontWeight: FontWeight.w800,
+                            color: isIncome ? palette.income : palette.discard,
+                          ),
+                          decoration: InputDecoration(
+                            hintText: '0',
+                            hintStyle: TextStyle(
+                              fontSize: 32,
+                              fontWeight: FontWeight.w700,
+                              color: palette.placeholder,
+                            ),
+                            border: InputBorder.none,
+                            enabledBorder: InputBorder.none,
+                            focusedBorder: InputBorder.none,
+                            errorBorder: InputBorder.none,
+                            focusedErrorBorder: InputBorder.none,
+                            contentPadding: EdgeInsets.zero,
+                            filled: false,
+                          ),
+                          onChanged: (_) {
+                            controller.clearFieldError('amount');
+                            setState(() {
+                              _incomeFieldErrors = Map.from(_incomeFieldErrors)
+                                ..remove('amount');
+                            });
+                          },
                         ),
-                        border: InputBorder.none,
-                        enabledBorder: InputBorder.none,
-                        focusedBorder: InputBorder.none,
-                        errorBorder: InputBorder.none,
-                        focusedErrorBorder: InputBorder.none,
-                        contentPadding: EdgeInsets.zero,
-                        filled: false,
                       ),
-                      onChanged: (_) {
-                        controller.clearFieldError('amount');
-                        setState(() {
-                          _incomeFieldErrors = Map.from(_incomeFieldErrors)
-                            ..remove('amount');
-                        });
-                      },
                     ),
                   ),
                 ],
               ),
             ),
-            if (_firstError(state, 'amount') case final amountError?) ...[
+            if (amountError != null) ...[
               const SizedBox(height: 4),
               Padding(
                 padding: const EdgeInsets.only(left: 4),
-                child: Text(
-                  amountError,
-                  style: TextStyle(color: palette.discard, fontSize: 12),
+                child: Semantics(
+                  container: true,
+                  liveRegion: true,
+                  child: Text(
+                    amountError,
+                    style: TextStyle(color: palette.discard, fontSize: 12),
+                  ),
                 ),
               ),
             ],
@@ -737,59 +766,67 @@ class _ExpenseCreateScreenState extends ConsumerState<ExpenseCreateScreen> {
                 children: [
                   if (_incomeSources.isNotEmpty)
                     for (final source in _incomeSources)
-                      InkWell(
-                        borderRadius: BorderRadius.circular(10),
-                        onTap: formEnabled
-                            ? () {
-                                setState(() {
-                                  _selectedSourceId = source.id;
-                                  _selectedSourceName = source.name;
-                                  _customSourceController.clear();
-                                });
-                              }
-                            : null,
-                        child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 150),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 14,
-                            vertical: 9,
-                          ),
-                          decoration: BoxDecoration(
-                            color: _selectedSourceId == source.id
-                                ? palette.incomeSoft
-                                : palette.card,
-                            borderRadius: BorderRadius.circular(10),
-                            border: Border.all(
-                              color: _selectedSourceId == source.id
-                                  ? palette.income
-                                  : palette.line,
-                              width: _selectedSourceId == source.id ? 1.5 : 1.0,
+                      Semantics(
+                        button: true,
+                        selected: _selectedSourceId == source.id,
+                        enabled: formEnabled,
+                        inMutuallyExclusiveGroup: true,
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(10),
+                          onTap: formEnabled
+                              ? () {
+                                  setState(() {
+                                    _selectedSourceId = source.id;
+                                    _selectedSourceName = source.name;
+                                    _customSourceController.clear();
+                                  });
+                                }
+                              : null,
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 150),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 9,
                             ),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                _incomeSourceIcon(source.name),
-                                size: 15,
+                            decoration: BoxDecoration(
+                              color: _selectedSourceId == source.id
+                                  ? palette.incomeSoft
+                                  : palette.card,
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(
                                 color: _selectedSourceId == source.id
                                     ? palette.income
-                                    : palette.muted,
+                                    : palette.line,
+                                width: _selectedSourceId == source.id
+                                    ? 1.5
+                                    : 1.0,
                               ),
-                              const SizedBox(width: 6),
-                              Text(
-                                CatalogLabels.display(source.name),
-                                style: TextStyle(
-                                  fontSize: 12.5,
-                                  fontWeight: _selectedSourceId == source.id
-                                      ? FontWeight.w700
-                                      : FontWeight.w600,
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  _incomeSourceIcon(source.name),
+                                  size: 15,
                                   color: _selectedSourceId == source.id
                                       ? palette.income
-                                      : palette.text,
+                                      : palette.muted,
                                 ),
-                              ),
-                            ],
+                                const SizedBox(width: 6),
+                                Text(
+                                  CatalogLabels.display(source.name),
+                                  style: TextStyle(
+                                    fontSize: 12.5,
+                                    fontWeight: _selectedSourceId == source.id
+                                        ? FontWeight.w700
+                                        : FontWeight.w600,
+                                    color: _selectedSourceId == source.id
+                                        ? palette.income
+                                        : palette.text,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                       )
@@ -800,61 +837,68 @@ class _ExpenseCreateScreenState extends ConsumerState<ExpenseCreateScreen> {
                       'Transferencia',
                       'Regalo',
                     ])
-                      InkWell(
-                        borderRadius: BorderRadius.circular(10),
-                        onTap: formEnabled
-                            ? () {
-                                setState(() {
-                                  _selectedSourceName = defaultName;
-                                  _selectedSourceId = null;
-                                  _customSourceController.clear();
-                                });
-                              }
-                            : null,
-                        child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 150),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 14,
-                            vertical: 9,
-                          ),
-                          decoration: BoxDecoration(
-                            color: _selectedSourceName == defaultName
-                                ? palette.incomeSoft
-                                : palette.card,
-                            borderRadius: BorderRadius.circular(10),
-                            border: Border.all(
-                              color: _selectedSourceName == defaultName
-                                  ? palette.income
-                                  : palette.line,
-                              width: _selectedSourceName == defaultName
-                                  ? 1.5
-                                  : 1.0,
+                      Semantics(
+                        button: true,
+                        selected: _selectedSourceName == defaultName,
+                        enabled: formEnabled,
+                        inMutuallyExclusiveGroup: true,
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(10),
+                          onTap: formEnabled
+                              ? () {
+                                  setState(() {
+                                    _selectedSourceName = defaultName;
+                                    _selectedSourceId = null;
+                                    _customSourceController.clear();
+                                  });
+                                }
+                              : null,
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 150),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 9,
                             ),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                _incomeSourceIcon(defaultName),
-                                size: 15,
+                            decoration: BoxDecoration(
+                              color: _selectedSourceName == defaultName
+                                  ? palette.incomeSoft
+                                  : palette.card,
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(
                                 color: _selectedSourceName == defaultName
                                     ? palette.income
-                                    : palette.muted,
+                                    : palette.line,
+                                width: _selectedSourceName == defaultName
+                                    ? 1.5
+                                    : 1.0,
                               ),
-                              const SizedBox(width: 6),
-                              Text(
-                                defaultName,
-                                style: TextStyle(
-                                  fontSize: 12.5,
-                                  fontWeight: _selectedSourceName == defaultName
-                                      ? FontWeight.w700
-                                      : FontWeight.w600,
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  _incomeSourceIcon(defaultName),
+                                  size: 15,
                                   color: _selectedSourceName == defaultName
                                       ? palette.income
-                                      : palette.text,
+                                      : palette.muted,
                                 ),
-                              ),
-                            ],
+                                const SizedBox(width: 6),
+                                Text(
+                                  defaultName,
+                                  style: TextStyle(
+                                    fontSize: 12.5,
+                                    fontWeight:
+                                        _selectedSourceName == defaultName
+                                        ? FontWeight.w700
+                                        : FontWeight.w600,
+                                    color: _selectedSourceName == defaultName
+                                        ? palette.income
+                                        : palette.text,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                       ),
@@ -1002,68 +1046,78 @@ class _ExpenseCreateScreenState extends ConsumerState<ExpenseCreateScreen> {
                 runSpacing: 8,
                 children: [
                   for (final account in _accounts)
-                    InkWell(
-                      key: Key('expense-account-chip-${account.id}'),
-                      borderRadius: BorderRadius.circular(10),
-                      onTap: formEnabled
-                          ? () {
-                              setState(() => _selectedAccountId = account.id);
-                              controller.clearFieldError('account_id');
-                              setState(() {
-                                _incomeFieldErrors = Map.from(
-                                  _incomeFieldErrors,
-                                )..remove('account_id');
-                              });
-                            }
-                          : null,
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 150),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 14,
-                          vertical: 9,
-                        ),
-                        decoration: BoxDecoration(
-                          color: _selectedAccountId == account.id
-                              ? (isIncome
-                                    ? palette.incomeSoft
-                                    : palette.errorSoft)
-                              : palette.card,
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(
-                            color: _selectedAccountId == account.id
-                                ? (isIncome ? palette.income : palette.discard)
-                                : palette.line,
-                            width: _selectedAccountId == account.id ? 1.5 : 1.0,
+                    Semantics(
+                      button: true,
+                      selected: _selectedAccountId == account.id,
+                      enabled: formEnabled,
+                      inMutuallyExclusiveGroup: true,
+                      child: InkWell(
+                        key: Key('expense-account-chip-${account.id}'),
+                        borderRadius: BorderRadius.circular(10),
+                        onTap: formEnabled
+                            ? () {
+                                setState(() => _selectedAccountId = account.id);
+                                controller.clearFieldError('account_id');
+                                setState(() {
+                                  _incomeFieldErrors = Map.from(
+                                    _incomeFieldErrors,
+                                  )..remove('account_id');
+                                });
+                              }
+                            : null,
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 150),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 9,
                           ),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              _accountIcon(account.type),
-                              size: 15,
+                          decoration: BoxDecoration(
+                            color: _selectedAccountId == account.id
+                                ? (isIncome
+                                      ? palette.incomeSoft
+                                      : palette.errorSoft)
+                                : palette.card,
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(
                               color: _selectedAccountId == account.id
                                   ? (isIncome
                                         ? palette.income
                                         : palette.discard)
-                                  : palette.muted,
+                                  : palette.line,
+                              width: _selectedAccountId == account.id
+                                  ? 1.5
+                                  : 1.0,
                             ),
-                            const SizedBox(width: 6),
-                            Text(
-                              account.name,
-                              style: TextStyle(
-                                fontSize: 12.5,
-                                fontWeight: _selectedAccountId == account.id
-                                    ? FontWeight.w700
-                                    : FontWeight.w600,
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                _accountIcon(account.type),
+                                size: 15,
                                 color: _selectedAccountId == account.id
                                     ? (isIncome
                                           ? palette.income
                                           : palette.discard)
-                                    : palette.text,
+                                    : palette.muted,
                               ),
-                            ),
-                          ],
+                              const SizedBox(width: 6),
+                              Text(
+                                account.name,
+                                style: TextStyle(
+                                  fontSize: 12.5,
+                                  fontWeight: _selectedAccountId == account.id
+                                      ? FontWeight.w700
+                                      : FontWeight.w600,
+                                  color: _selectedAccountId == account.id
+                                      ? (isIncome
+                                            ? palette.income
+                                            : palette.discard)
+                                      : palette.text,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     ),
@@ -1103,54 +1157,17 @@ class _ExpenseCreateScreenState extends ConsumerState<ExpenseCreateScreen> {
                 spacing: 8,
                 runSpacing: 8,
                 children: [
-                  InkWell(
-                    key: const Key('expense-category-chip-none'),
-                    borderRadius: BorderRadius.circular(10),
-                    onTap: formEnabled
-                        ? () {
-                            setState(() => _selectedCategoryId = null);
-                            controller.clearFieldError('category_id');
-                          }
-                        : null,
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 150),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 9,
-                      ),
-                      decoration: BoxDecoration(
-                        color: _selectedCategoryId == null
-                            ? palette.errorSoft
-                            : palette.card,
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(
-                          color: _selectedCategoryId == null
-                              ? palette.discard
-                              : palette.line,
-                          width: _selectedCategoryId == null ? 1.5 : 1.0,
-                        ),
-                      ),
-                      child: Text(
-                        'Sin categoría',
-                        style: TextStyle(
-                          fontSize: 12.5,
-                          fontWeight: _selectedCategoryId == null
-                              ? FontWeight.w700
-                              : FontWeight.w600,
-                          color: _selectedCategoryId == null
-                              ? palette.discard
-                              : palette.text,
-                        ),
-                      ),
-                    ),
-                  ),
-                  for (final cat in _categories)
-                    InkWell(
-                      key: Key('expense-category-chip-${cat.id}'),
+                  Semantics(
+                    button: true,
+                    selected: _selectedCategoryId == null,
+                    enabled: formEnabled,
+                    inMutuallyExclusiveGroup: true,
+                    child: InkWell(
+                      key: const Key('expense-category-chip-none'),
                       borderRadius: BorderRadius.circular(10),
                       onTap: formEnabled
                           ? () {
-                              setState(() => _selectedCategoryId = cat.id);
+                              setState(() => _selectedCategoryId = null);
                               controller.clearFieldError('category_id');
                             }
                           : null,
@@ -1161,41 +1178,90 @@ class _ExpenseCreateScreenState extends ConsumerState<ExpenseCreateScreen> {
                           vertical: 9,
                         ),
                         decoration: BoxDecoration(
-                          color: _selectedCategoryId == cat.id
+                          color: _selectedCategoryId == null
                               ? palette.errorSoft
                               : palette.card,
                           borderRadius: BorderRadius.circular(10),
                           border: Border.all(
-                            color: _selectedCategoryId == cat.id
+                            color: _selectedCategoryId == null
                                 ? palette.discard
                                 : palette.line,
-                            width: _selectedCategoryId == cat.id ? 1.5 : 1.0,
+                            width: _selectedCategoryId == null ? 1.5 : 1.0,
                           ),
                         ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              cat.icon.value,
-                              size: 15,
+                        child: Text(
+                          'Sin categoría',
+                          style: TextStyle(
+                            fontSize: 12.5,
+                            fontWeight: _selectedCategoryId == null
+                                ? FontWeight.w700
+                                : FontWeight.w600,
+                            color: _selectedCategoryId == null
+                                ? palette.discard
+                                : palette.text,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  for (final cat in _categories)
+                    Semantics(
+                      button: true,
+                      selected: _selectedCategoryId == cat.id,
+                      enabled: formEnabled,
+                      inMutuallyExclusiveGroup: true,
+                      child: InkWell(
+                        key: Key('expense-category-chip-${cat.id}'),
+                        borderRadius: BorderRadius.circular(10),
+                        onTap: formEnabled
+                            ? () {
+                                setState(() => _selectedCategoryId = cat.id);
+                                controller.clearFieldError('category_id');
+                              }
+                            : null,
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 150),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 9,
+                          ),
+                          decoration: BoxDecoration(
+                            color: _selectedCategoryId == cat.id
+                                ? palette.errorSoft
+                                : palette.card,
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(
                               color: _selectedCategoryId == cat.id
                                   ? palette.discard
-                                  : cat.color.value,
+                                  : palette.line,
+                              width: _selectedCategoryId == cat.id ? 1.5 : 1.0,
                             ),
-                            const SizedBox(width: 6),
-                            Text(
-                              CatalogLabels.display(cat.name),
-                              style: TextStyle(
-                                fontSize: 12.5,
-                                fontWeight: _selectedCategoryId == cat.id
-                                    ? FontWeight.w700
-                                    : FontWeight.w600,
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                cat.icon.value,
+                                size: 15,
                                 color: _selectedCategoryId == cat.id
                                     ? palette.discard
-                                    : palette.text,
+                                    : cat.color.value,
                               ),
-                            ),
-                          ],
+                              const SizedBox(width: 6),
+                              Text(
+                                CatalogLabels.display(cat.name),
+                                style: TextStyle(
+                                  fontSize: 12.5,
+                                  fontWeight: _selectedCategoryId == cat.id
+                                      ? FontWeight.w700
+                                      : FontWeight.w600,
+                                  color: _selectedCategoryId == cat.id
+                                      ? palette.discard
+                                      : palette.text,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     ),

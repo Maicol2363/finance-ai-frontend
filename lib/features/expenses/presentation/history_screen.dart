@@ -1312,26 +1312,26 @@ class _HistoryCard extends ConsumerWidget {
       label:
           '$_title, ${transactionTypeLabel(item.type)} $amountText, '
           '$_meta, $_detail',
-      child: ExcludeSemantics(
-        child: Container(
-          decoration: BoxDecoration(
-            color: palette.card,
+      child: Container(
+        decoration: BoxDecoration(
+          color: palette.card,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: palette.line),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x040F172A),
+              blurRadius: 4,
+              offset: Offset(0, 1),
+            ),
+          ],
+        ),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            key: Key('history-card-${item.id}'),
             borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: palette.line),
-            boxShadow: const [
-              BoxShadow(
-                color: Color(0x040F172A),
-                blurRadius: 4,
-                offset: Offset(0, 1),
-              ),
-            ],
-          ),
-          child: Material(
-            color: Colors.transparent,
-            child: InkWell(
-              key: Key('history-card-${item.id}'),
-              borderRadius: BorderRadius.circular(14),
-              onTap: canNavigate ? () => _open(context, ref, expenseId) : null,
+            onTap: canNavigate ? () => _open(context, ref, expenseId) : null,
+            child: ExcludeSemantics(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(14, 12, 10, 12),
                 child: Row(

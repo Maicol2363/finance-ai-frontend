@@ -754,6 +754,9 @@ void main() {
     expect(find.bySemanticsLabel('Foto de un recibo'), findsOneWidget);
     expect(find.bySemanticsLabel('Escribir o dictar'), findsOneWidget);
     expect(find.bySemanticsLabel('Formulario manual'), findsOneWidget);
+    tester.semantics.tap(find.semantics.byLabel('Formulario manual'));
+    await tester.pumpAndSettle();
+    expect(find.text('manual-form'), findsOneWidget);
   });
 
   testWidgets('dark wheel keeps theme paired colors and dark option surfaces', (

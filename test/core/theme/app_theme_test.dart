@@ -57,6 +57,15 @@ void main() {
     expect(container.read(themeDiagnosticProvider), isNull);
   });
 
+  test('selected income text meets AA on the actual segment background', () {
+    for (final palette in [AppPalette.light, AppPalette.dark]) {
+      expect(
+        _contrast(palette.income, palette.card),
+        greaterThanOrEqualTo(4.5),
+      );
+    }
+  });
+
   test(
     'theme controller captures safe diagnostic when storage throws',
     () async {

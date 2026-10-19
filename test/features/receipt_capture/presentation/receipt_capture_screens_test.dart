@@ -14,13 +14,14 @@ import 'package:finance_ai/features/receipt_capture/presentation/receipt_capture
 import 'package:finance_ai/features/receipt_capture/presentation/screens/receipt_camera_screen.dart';
 import 'package:finance_ai/features/receipt_capture/presentation/screens/receipt_pre_check_screen.dart';
 import 'package:finance_ai/features/receipt_capture/presentation/screens/receipt_review_screen.dart';
+import 'package:finance_ai/features/receipt_capture/presentation/widgets/receipt_photo_viewer_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'dart:ui' show Tristate;
+import '../../../support/accessibility_test_helpers.dart';
 
 class _FakeCategoriesRepository extends Fake implements CategoriesRepository {
   @override
@@ -43,6 +44,8 @@ class _TestReceiptCaptureNotifier extends ReceiptCaptureNotifier {
 
   @override
   ReceiptCaptureState build() => _initialState;
+
+  void showReview(ReceiptCaptureReview review) => state = review;
 
   @override
   void rotatePreCheck([int delta = 90]) {
@@ -186,6 +189,38 @@ void main() {
     expect(shutter.flagsCollection.isButton, isTrue);
     expect(shutter.flagsCollection.isEnabled, Tristate.isFalse);
     semantics.dispose();
+  });
+
+  testWidgets('receipt photo has a name and closes through a semantic action', (
+    tester,
+  ) async {
+    final photo = tempImage;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) => Scaffold(
+            body: TextButton(
+              onPressed: () =>
+                  ReceiptPhotoViewerDialog.show(context, imageFile: photo),
+              child: const Text('Abrir foto'),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('Abrir foto'));
+    await tester.pump();
+    await tester.pumpAndSettle();
+    expect(
+      tester.widget<Image>(find.byType(Image)).semanticLabel,
+      'Foto del comprobante',
+    );
+    final close = tester.getSemantics(find.byTooltip('Cerrar comprobante'));
+    tester.semantics.tap(
+      find.semantics.byPredicate((node) => node.id == close.id),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byType(ReceiptPhotoViewerDialog), findsNothing);
   });
 
   group('startReceiptCapture', () {
@@ -513,6 +548,134 @@ void main() {
   });
 
   group('ReceiptReviewScreen', () {
+    for (final theme in [AppTheme.light(), AppTheme.dark()]) {
+      testWidgets(
+        'receipt warning contrast and 2x text in ${theme.brightness.name}',
+        (tester) async {
+          tester.view.physicalSize = const Size(390, 844);
+          tester.view.devicePixelRatio = 1;
+          addTearDown(tester.view.reset);
+          final initial = ReceiptCaptureReview(
+            proposalId: '42',
+            status: 'pending_review',
+            localImagePath: tempImage.path,
+            formData: ReceiptReviewFormData(
+              merchant: 'Carulla',
+              totalAmount: 50,
+              currency: 'COP',
+              occurredAt: DateTime(2026, 3, 15),
+              items: [
+                ReceiptLineItemDraft(
+                  localId: '1',
+                  name: 'Queso',
+                  quantity: 1,
+                  unitPrice: 25,
+                  totalPrice: 25,
+                ),
+              ],
+            ),
+          );
+          await tester.pumpWidget(
+            ProviderScope(
+              overrides: [
+                receiptCaptureNotifierProvider.overrideWith(
+                  () => _TestReceiptCaptureNotifier(initial),
+                ),
+                categoriesRepositoryProvider.overrideWithValue(
+                  _FakeCategoriesRepository(),
+                ),
+              ],
+              child: MaterialApp(
+                theme: theme,
+                builder: (context, child) => MediaQuery(
+                  data: MediaQuery.of(context)
+                      .copyWith(textScaler: const TextScaler.linear(2)),
+                  child: child!,
+                ),
+                home: const ReceiptReviewScreen(),
+              ),
+            ),
+          );
+          await tester.pumpAndSettle();
+          expect(tester.takeException(), isNull);
+          final title = find.text('Diferencia en la suma de productos');
+          await tester.ensureVisible(title);
+          await tester.pumpAndSettle();
+          final warning = tester.widget<Container>(
+            find.ancestor(of: title, matching: find.byType(Container)).first,
+          );
+          final background = (warning.decoration! as BoxDecoration).color!;
+          expectContrastRatio(
+            tester.widget<Text>(title).style!.color!,
+            background,
+          );
+          expectContrastRatio(
+            tester
+                .widget<Text>(find.textContaining('Suma de items:'))
+                .style!
+                .color!,
+            background,
+          );
+        },
+      );
+    }
+
+    testWidgets('saving and validation feedback expose live regions', (
+      tester,
+    ) async {
+      _useRoomyViewport(tester);
+      final initial = ReceiptCaptureReview(
+        proposalId: '42',
+        status: 'pending_review',
+        localImagePath: tempImage.path,
+        formData: ReceiptReviewFormData(
+          merchant: 'Carulla',
+          totalAmount: 25,
+          currency: 'COP',
+          occurredAt: DateTime(2026, 3, 15),
+          items: const [],
+        ),
+      );
+      final notifier = _TestReceiptCaptureNotifier(initial);
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            receiptCaptureNotifierProvider.overrideWith(() => notifier),
+            categoriesRepositoryProvider.overrideWithValue(
+              _FakeCategoriesRepository(),
+            ),
+          ],
+          child: MaterialApp(
+            theme: AppTheme.light(),
+            home: const ReceiptReviewScreen(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      notifier.showReview(initial.copyWith(isSubmitting: true));
+      await tester.pump();
+      expect(
+        tester
+            .getSemantics(find.bySemanticsLabel('Guardando gasto'))
+            .flagsCollection
+            .isLiveRegion,
+        isTrue,
+      );
+      notifier.showReview(
+        initial.copyWith(
+          submissionError: 'Revisa el monto antes de confirmar.',
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        tester
+            .getSemantics(find.text('Revisa el monto antes de confirmar.'))
+            .flagsCollection
+            .isLiveRegion,
+        isTrue,
+      );
+    });
+
     testWidgets('renders discrepancy banner when item sum differs from total', (
       tester,
     ) async {
@@ -561,6 +724,8 @@ void main() {
       expect(find.text('Descartar'), findsOneWidget);
       expect(find.text('Diferencia en la suma de productos'), findsOneWidget);
       expect(find.text('Queso'), findsOneWidget);
+      expect(find.byTooltip('Editar Queso'), findsOneWidget);
+      expect(find.byTooltip('Eliminar Queso'), findsOneWidget);
     });
 
     testWidgets(

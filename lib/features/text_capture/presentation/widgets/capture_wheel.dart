@@ -187,9 +187,11 @@ class _WheelBubble extends StatelessWidget {
               child: Semantics(
                 button: true,
                 label: description,
+                onTap: onTap,
                 excludeSemantics: true,
-                child: GestureDetector(
+                child: InkWell(
                   onTap: onTap,
+                  customBorder: const CircleBorder(),
                   child: Container(
                     width: 52,
                     height: 52,

@@ -48,6 +48,7 @@ class ReceiptPhotoViewerDialog extends StatelessWidget {
                 ),
               ),
               IconButton(
+                tooltip: 'Cerrar comprobante',
                 icon: const Icon(FinanceIcons.close, color: Colors.white),
                 onPressed: () => Navigator.of(context).pop(),
               ),
@@ -65,6 +66,7 @@ class ReceiptPhotoViewerDialog extends StatelessWidget {
                   maxScale: 4.0,
                   child: Image.file(
                     imageFile,
+                    semanticLabel: 'Foto del comprobante',
                     fit: BoxFit.contain,
                     errorBuilder: (context, error, stackTrace) => const Center(
                       child: Padding(
