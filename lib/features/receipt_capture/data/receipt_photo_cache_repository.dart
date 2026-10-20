@@ -138,5 +138,10 @@ class ReceiptPhotoCacheRepository {
     final directory = await _receiptsDirectory();
     final file = File('${directory.path}/$userId/$expenseId.receipt');
     if (await file.exists()) await file.delete();
+
+    // Legacy images had no owner ID. Their expense-ID filename is the only
+    // association available, so a definitive deletion also purges that entry.
+    final legacyFile = File('${directory.path}/legacy/$expenseId.jpg.enc');
+    if (await legacyFile.exists()) await legacyFile.delete();
   }
 }

@@ -109,4 +109,22 @@ void main() {
       );
     },
   );
+
+  test(
+    'deleting an expense also purges its quarantined legacy photo',
+    () async {
+      final receipts = Directory('${documents.path}/receipts');
+      await receipts.create();
+      final legacy = File('${receipts.path}/7.jpg');
+      await legacy.writeAsBytes(List<int>.generate(64, (index) => index));
+
+      await repository.quarantineLegacyPhotos();
+      final quarantined = File('${receipts.path}/legacy/7.jpg.enc');
+      expect(await quarantined.exists(), isTrue);
+
+      await repository.deleteCachedReceiptPhoto(userId: 42, expenseId: 7);
+
+      expect(await quarantined.exists(), isFalse);
+    },
+  );
 }
