@@ -418,9 +418,15 @@ class _ExpenseCreateScreenState extends ConsumerState<ExpenseCreateScreen> {
     final selectedAccount = _accounts
         .where((a) => a.id == _selectedAccountId)
         .firstOrNull;
+    final currencyCode = selectedAccount?.currency.code ?? 'COP';
     final currencySymbol = selectedAccount?.currency.code == 'USD'
         ? '\$'
         : '\$';
+    final amountSemanticsLabel = switch (currencyCode) {
+      'USD' => 'Monto en dólares',
+      'COP' => 'Monto en pesos',
+      final other => 'Monto en $other',
+    };
 
     final isIncome = _type == MovementType.income;
     final visibleOptionWarnings = _optionWarnings
@@ -663,7 +669,7 @@ class _ExpenseCreateScreenState extends ConsumerState<ExpenseCreateScreen> {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Semantics(
-                      label: 'Monto en pesos',
+                      label: amountSemanticsLabel,
                       explicitChildNodes: true,
                       child: TextField(
                         key: const Key('expense-create-amount-field'),

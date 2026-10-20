@@ -64,11 +64,32 @@ void main() {
         ),
       ),
     );
+    // El anillo de foco debe pintarse ENCIMA del fondo opaco: el Ink
+    // queda debajo del fill, así que se exige overlay + borde visible.
     for (final w in t.widgetList<InkWell>(find.byType(InkWell))) {
-      expect(w.focusColor, isNot(equals(Colors.transparent)));
+      expect(w.focusColor, equals(Colors.transparent));
+      expect(w.overlayColor, isNotNull);
+      final focusedOverlay = w.overlayColor!.resolve({WidgetState.focused});
+      expect(focusedOverlay, isNotNull);
+      expect(focusedOverlay, isNot(equals(Colors.transparent)));
     }
     await t.sendKeyEvent(LogicalKeyboardKey.tab);
     await t.pump();
+    final decorations = t
+        .widgetList<AnimatedContainer>(find.byType(AnimatedContainer))
+        .map((c) => c.decoration)
+        .whereType<BoxDecoration>()
+        .toList();
+    final focusedRings = decorations.where((d) {
+      final border = d.border;
+      if (border is! Border) return false;
+      return border.top.width == 2.0 && border.top.color.a == 1.0;
+    }).toList();
+    expect(
+      focusedRings,
+      isNotEmpty,
+      reason: 'Ninguna opción muestra el anillo de foco sobre el fondo.',
+    );
     await t.sendKeyEvent(LogicalKeyboardKey.enter);
     await t.pump();
     expect(v, isNotNull);
@@ -135,6 +156,15 @@ void main() {
     expectMinTouchTarget(t, find.byKey(const Key('chip-0')));
     await t.tap(find.byKey(const Key('chip-0')));
     expect(v, 'all');
+    // El anillo de foco también debe ser visible en los pills: overlay +
+    // borde de 2px sobre el fondo opaco (no solo focusColor heredado).
+    for (final w in t.widgetList<InkWell>(find.byType(InkWell))) {
+      expect(w.focusColor, equals(Colors.transparent));
+      expect(w.overlayColor, isNotNull);
+      final focusedOverlay = w.overlayColor!.resolve({WidgetState.focused});
+      expect(focusedOverlay, isNotNull);
+      expect(focusedOverlay, isNot(equals(Colors.transparent)));
+    }
     await t.pumpWidget(h(chips('all'), d: true));
     for (final c in t.widgetList<AnimatedContainer>(
       find.byType(AnimatedContainer),

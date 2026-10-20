@@ -490,60 +490,10 @@ class SegmentedControl extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final palette = context.palette;
-    final duration = MediaQuery.disableAnimationsOf(context)
-        ? Duration.zero
-        : const Duration(milliseconds: 180);
-    Widget option(int index) {
-      final isSelected = index == selectedIndex;
-      return Semantics(
-        button: true,
-        selected: isSelected,
-        label: labels[index],
-        excludeSemantics: true,
-        onTap: () => onChanged(index),
-        child: Material(
-          color: Colors.transparent,
-          borderRadius: BorderRadius.circular(7),
-          child: InkWell(
-            key: keyPrefix == null ? null : Key('$keyPrefix-$index'),
-            onTap: () => onChanged(index),
-            borderRadius: BorderRadius.circular(7),
-            focusColor: palette.primarySoft,
-            child: AnimatedContainer(
-              duration: duration,
-              constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
-              alignment: Alignment.center,
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-              decoration: BoxDecoration(
-                color: isSelected ? palette.primary : Colors.transparent,
-                borderRadius: BorderRadius.circular(7),
-                border: Border.all(
-                  color: isSelected ? palette.primary : Colors.transparent,
-                  width: 1,
-                ),
-              ),
-              child: Text(
-                labels[index],
-                textAlign: TextAlign.center,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: isSelected ? palette.onPrimary : palette.muted,
-                ),
-              ),
-            ),
-          ),
-        ),
-      );
-    }
-
     return Container(
       padding: const EdgeInsets.all(3),
       decoration: BoxDecoration(
-        color: palette.soft,
+        color: context.palette.soft,
         borderRadius: BorderRadius.circular(8),
       ),
       child: LayoutBuilder(
@@ -554,12 +504,115 @@ class SegmentedControl extends StatelessWidget {
             children: [
               for (var index = 0; index < labels.length; index++)
                 if (fillWidth)
-                  Expanded(child: option(index))
+                  Expanded(
+                    child: _SegmentedOption(
+                      label: labels[index],
+                      isSelected: index == selectedIndex,
+                      onTap: () => onChanged(index),
+                      inkKey: keyPrefix == null
+                          ? null
+                          : Key('$keyPrefix-$index'),
+                    ),
+                  )
                 else
-                  option(index),
+                  _SegmentedOption(
+                    label: labels[index],
+                    isSelected: index == selectedIndex,
+                    onTap: () => onChanged(index),
+                    inkKey: keyPrefix == null ? null : Key('$keyPrefix-$index'),
+                  ),
             ],
           );
         },
+      ),
+    );
+  }
+}
+
+/// Single segment that keeps a visible keyboard-focus ring painted
+/// above its opaque background (Ink splash sits below the fill).
+class _SegmentedOption extends StatefulWidget {
+  const _SegmentedOption({
+    required this.label,
+    required this.isSelected,
+    required this.onTap,
+    this.inkKey,
+  });
+
+  final String label;
+  final bool isSelected;
+  final VoidCallback onTap;
+  final Key? inkKey;
+
+  @override
+  State<_SegmentedOption> createState() => _SegmentedOptionState();
+}
+
+class _SegmentedOptionState extends State<_SegmentedOption> {
+  bool _focused = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+    final duration = MediaQuery.disableAnimationsOf(context)
+        ? Duration.zero
+        : const Duration(milliseconds: 180);
+    return Semantics(
+      button: true,
+      selected: widget.isSelected,
+      label: widget.label,
+      excludeSemantics: true,
+      onTap: widget.onTap,
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(7),
+        child: InkWell(
+          key: widget.inkKey,
+          onTap: widget.onTap,
+          borderRadius: BorderRadius.circular(7),
+          focusColor: Colors.transparent,
+          overlayColor: WidgetStateProperty.resolveWith(
+            (states) => states.contains(WidgetState.focused)
+                ? palette.primarySoft.withValues(alpha: 0.5)
+                : null,
+          ),
+          onFocusChange: (value) {
+            if (mounted && value != _focused) {
+              setState(() => _focused = value);
+            }
+          },
+          child: AnimatedContainer(
+            duration: duration,
+            constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
+            alignment: Alignment.center,
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+            decoration: BoxDecoration(
+              color: widget.isSelected ? palette.primary : Colors.transparent,
+              borderRadius: BorderRadius.circular(7),
+              border: Border.all(
+                color: _focused
+                    ? (widget.isSelected
+                          ? palette.onPrimary
+                          : palette.primaryDark)
+                    : (widget.isSelected
+                          ? palette.primary
+                          : Colors.transparent),
+                width: _focused ? 2 : 1,
+              ),
+            ),
+            child: Text(
+              widget.label,
+              textAlign: TextAlign.center,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: widget.isSelected ? palette.onPrimary : palette.muted,
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -594,70 +647,104 @@ class FilterChipRow<T> extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final palette = context.palette;
-    final duration = MediaQuery.disableAnimationsOf(context)
-        ? Duration.zero
-        : const Duration(milliseconds: 180);
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       child: Row(
         children: [
           for (var index = 0; index < options.length; index++) ...[
             if (index > 0) const SizedBox(width: 6),
-            Builder(
-              builder: (context) {
-                final option = options[index];
-                final isSelected = option.value == selected;
-                return Semantics(
-                  button: true,
-                  selected: isSelected,
-                  label: option.label,
-                  excludeSemantics: true,
-                  onTap: () => onChanged(option.value),
-                  child: Material(
-                    color: Colors.transparent,
-                    borderRadius: BorderRadius.circular(999),
-                    child: InkWell(
-                      key: keyPrefix == null ? null : Key('$keyPrefix-$index'),
-                      onTap: () => onChanged(option.value),
-                      borderRadius: BorderRadius.circular(999),
-                      focusColor: palette.primarySoft,
-                      child: AnimatedContainer(
-                        duration: duration,
-                        constraints: const BoxConstraints(
-                          minWidth: 48,
-                          minHeight: 48,
-                        ),
-                        alignment: Alignment.center,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 13,
-                          vertical: 9,
-                        ),
-                        decoration: BoxDecoration(
-                          color: isSelected ? palette.primary : palette.card,
-                          border: Border.all(
-                            color: isSelected ? palette.primary : palette.line,
-                          ),
-                          borderRadius: BorderRadius.circular(999),
-                        ),
-                        child: Text(
-                          option.label,
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: isSelected
-                                ? palette.onPrimary
-                                : palette.muted,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                );
-              },
+            _FilterChip<T>(
+              option: options[index],
+              isSelected: options[index].value == selected,
+              onTap: () => onChanged(options[index].value),
+              inkKey: keyPrefix == null ? null : Key('$keyPrefix-$index'),
             ),
           ],
         ],
+      ),
+    );
+  }
+}
+
+/// Single pill that keeps a visible keyboard-focus ring painted
+/// above its opaque background (Ink splash sits below the fill).
+class _FilterChip<T> extends StatefulWidget {
+  const _FilterChip({
+    required this.option,
+    required this.isSelected,
+    required this.onTap,
+    this.inkKey,
+  });
+
+  final FilterChipOption<T> option;
+  final bool isSelected;
+  final VoidCallback onTap;
+  final Key? inkKey;
+
+  @override
+  State<_FilterChip<T>> createState() => _FilterChipState<T>();
+}
+
+class _FilterChipState<T> extends State<_FilterChip<T>> {
+  bool _focused = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+    final duration = MediaQuery.disableAnimationsOf(context)
+        ? Duration.zero
+        : const Duration(milliseconds: 180);
+    return Semantics(
+      button: true,
+      selected: widget.isSelected,
+      label: widget.option.label,
+      excludeSemantics: true,
+      onTap: widget.onTap,
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(999),
+        child: InkWell(
+          key: widget.inkKey,
+          onTap: widget.onTap,
+          borderRadius: BorderRadius.circular(999),
+          focusColor: Colors.transparent,
+          overlayColor: WidgetStateProperty.resolveWith(
+            (states) => states.contains(WidgetState.focused)
+                ? palette.primarySoft.withValues(alpha: 0.5)
+                : null,
+          ),
+          onFocusChange: (value) {
+            if (mounted && value != _focused) {
+              setState(() => _focused = value);
+            }
+          },
+          child: AnimatedContainer(
+            duration: duration,
+            constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
+            alignment: Alignment.center,
+            padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 9),
+            decoration: BoxDecoration(
+              color: widget.isSelected ? palette.primary : palette.card,
+              border: Border.all(
+                color: _focused
+                    ? (widget.isSelected
+                          ? palette.onPrimary
+                          : palette.primaryDark)
+                    : (widget.isSelected ? palette.primary : palette.line),
+                width: _focused ? 2 : 1,
+              ),
+              borderRadius: BorderRadius.circular(999),
+            ),
+            child: Text(
+              widget.option.label,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: widget.isSelected ? palette.onPrimary : palette.muted,
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }
