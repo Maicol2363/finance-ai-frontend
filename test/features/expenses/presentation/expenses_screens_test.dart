@@ -1,4 +1,5 @@
-import 'dart:io';
+import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:finance_ai/app.dart';
 import 'package:finance_ai/core/icons/finance_icon_catalog.dart';
@@ -585,20 +586,32 @@ class _TwoCurrencyAccountsRepository implements AccountsRepository {
 /// is holding so a delete can be observed without touching the file system.
 class _FakeReceiptPhotoCacheRepository implements ReceiptPhotoCacheRepository {
   final List<int> deleted = [];
-  File? photo;
+  final List<int> deletedOwners = [];
+  Uint8List? photo;
+
+  @override
+  Future<void> quarantineLegacyPhotos() async {}
 
   @override
   Future<String> saveReceiptPhoto({
+    required int userId,
     required int expenseId,
     required String sourceFilePath,
   }) async => sourceFilePath;
 
   @override
-  Future<File?> getCachedReceiptPhoto(int expenseId) async => photo;
+  Future<Uint8List?> getCachedReceiptPhoto({
+    required int userId,
+    required int expenseId,
+  }) async => photo;
 
   @override
-  Future<void> deleteCachedReceiptPhoto(int expenseId) async {
+  Future<void> deleteCachedReceiptPhoto({
+    required int userId,
+    required int expenseId,
+  }) async {
     deleted.add(expenseId);
+    deletedOwners.add(userId);
     photo = null;
   }
 }
@@ -1005,7 +1018,9 @@ void main() {
     final repository = WidgetExpensesRepository()
       ..expenses = [expense(captureSource: CaptureSource.ai)];
     final photoStore = _FakeReceiptPhotoCacheRepository()
-      ..photo = File('/tmp/cached-receipt-7.jpg');
+      ..photo = base64Decode(
+        'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/KxQAAAAASUVORK5CYII=',
+      );
     await pumpExpensesApp(
       tester,
       repository,
@@ -1021,6 +1036,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(photoStore.deleted, [7]);
+    expect(photoStore.deletedOwners, [42]);
     expect(photoStore.photo, isNull);
     expect(repository.expenses, isEmpty);
     expect(find.text('Recibo eliminado definitivamente.'), findsOneWidget);

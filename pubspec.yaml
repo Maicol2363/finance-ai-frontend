@@ -8,6 +8,7 @@ environment:
 
 dependencies:
   camera: ^0.12.1
+  cryptography: ^2.9.0
   flutter:
     sdk: flutter
   flutter_riverpod: 3.4.2
@@ -30,3 +31,4 @@ flutter:
   uses-material-design: true
   assets:
     - assets/branding/finance-ai-app-icon.png
+    - assets/licenses/lucide-LICENSE.txt

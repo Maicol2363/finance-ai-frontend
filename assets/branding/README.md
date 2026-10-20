@@ -8,7 +8,12 @@ coin retain the team's existing visual direction; the receipt ties it to the
 product's capture flow. No generic AI symbol or university emblem is used.
 
 Android launcher images, the Windows ICO, and web icons are resized from this
-source. Interface icons use Lucide from `lucide_icons_flutter` (MIT license).
+source. Interface icons use `lucide_icons_flutter` (MIT for the Dart wrapper).
+The Lucide glyphs use ISC, with MIT notices for icons derived from Feather.
+The complete [upstream notice](../licenses/lucide-LICENSE.txt) is bundled as a
+Flutter asset in the Android APK. It is copied unchanged from
+[Lucide 1.55.0](https://github.com/lucide-icons/lucide/blob/70562c1ee1c4fdcf736fe97bc893fb8511927934/LICENSE),
+the icon version identified by `lucide_icons_flutter` 3.1.25's README.
 To regenerate platform icons from the `finance-ai-frontend` directory:
 
 ```sh
