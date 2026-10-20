@@ -96,7 +96,11 @@ class _IncomeSourcesScreenState extends ConsumerState<IncomeSourcesScreen> {
 
   Widget _body(IncomeSourcesState state, IncomeSourcesController controller) {
     if (state.status == IncomeSourcesStatus.loading) {
-      return const Center(child: CircularProgressIndicator());
+      return Semantics(
+        label: 'Cargando…',
+        liveRegion: true,
+        child: const Center(child: CircularProgressIndicator()),
+      );
     }
     if (state.status == IncomeSourcesStatus.failure) {
       return Center(
@@ -246,7 +250,6 @@ class _RenameIncomeSourceDialogState extends State<_RenameIncomeSourceDialog> {
       content: TextField(
         key: const Key('income-source-rename-field'),
         controller: _controller,
-        autofocus: true,
         decoration: const InputDecoration(hintText: 'Nuevo nombre'),
       ),
       actions: [

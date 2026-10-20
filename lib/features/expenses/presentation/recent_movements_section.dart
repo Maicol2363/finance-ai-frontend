@@ -118,9 +118,13 @@ class RecentMovementsSection extends ConsumerWidget {
         if (result == null &&
             expensesState.listStatus != ExpensesLoadStatus.loading &&
             expensesState.listDiagnostic == null)
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 40),
-            child: Center(child: CircularProgressIndicator()),
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 40),
+            child: Semantics(
+              label: 'Cargando…',
+              liveRegion: true,
+              child: const Center(child: CircularProgressIndicator()),
+            ),
           ),
         if (result != null && movements.isEmpty)
           MovementsEmptyState(onRegister: () => context.push('/expenses/new')),

@@ -839,7 +839,6 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
             children: [
               TextFormField(
                 controller: nameCtrl,
-                autofocus: true,
                 decoration: const InputDecoration(labelText: 'Nombre *'),
                 validator: (val) =>
                     (val == null || val.trim().isEmpty) ? 'Requerido' : null,

@@ -769,13 +769,13 @@ void main() {
     );
     expect(fab.backgroundColor, palette.primary);
     expect(fab.foregroundColor, palette.onPrimary);
-    final surface = tester.widget<Container>(
+    final surface = tester.widget<Material>(
       find.descendant(
         of: byKey('expenses-wheel-ai'),
-        matching: find.byType(Container),
+        matching: find.byType(Material),
       ),
     );
-    expect((surface.decoration! as BoxDecoration).color, palette.card);
+    expect(surface.color, palette.card);
   });
 
   testWidgets(

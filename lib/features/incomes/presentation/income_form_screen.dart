@@ -239,7 +239,11 @@ class _IncomeFormScreenState extends ConsumerState<IncomeFormScreen> {
       },
     ),
     body: _loading
-        ? const Center(child: CircularProgressIndicator())
+        ? Semantics(
+            label: 'Cargando…',
+            liveRegion: true,
+            child: const Center(child: CircularProgressIndicator()),
+          )
         : ListView(
             padding: EdgeInsets.zero,
             children: [

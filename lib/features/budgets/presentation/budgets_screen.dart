@@ -81,9 +81,13 @@ class _BudgetsScreenState extends ConsumerState<BudgetsScreen> {
                   ],
                   if (budgets == null &&
                       state.loadStatus == BudgetsLoadStatus.loading)
-                    const Padding(
-                      padding: EdgeInsets.only(top: 64),
-                      child: Center(child: CircularProgressIndicator()),
+                    Padding(
+                      padding: const EdgeInsets.only(top: 64),
+                      child: Semantics(
+                        label: 'Cargando…',
+                        liveRegion: true,
+                        child: const Center(child: CircularProgressIndicator()),
+                      ),
                     )
                   else if (budgets?.isEmpty == true)
                     const _EmptyBudgets()

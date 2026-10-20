@@ -56,6 +56,8 @@ class AppPalette extends ThemeExtension<AppPalette> {
     background: Color(0xFFF5F6F8),
     header: Color(0xFFFFFFFF),
     card: Color(0xFFFFFFFF),
+    // P3 a11y: primary 3.82:1 sobre blanco solo para texto grande/componentes
+    // (≥3:1). Textos normales deben usar primaryDark/income (≥4.5:1).
     primary: Color(0xFF6B8E00),
     onPrimary: Color(0xFF101900),
     primarySoft: Color(0xFFE9F2D8),
@@ -74,7 +76,8 @@ class AppPalette extends ThemeExtension<AppPalette> {
     rowLine: Color(0xFFF0F2EC),
     warnBg: Color(0xFFFFF4DA),
     warnFg: Color(0xFF8A6900),
-    placeholder: Color(0xFF737D75),
+    // P3 a11y: placeholder oscurecido a 5.99:1 sobre blanco (≥4.5 texto normal).
+    placeholder: Color(0xFF5B665E),
   );
 
   /// Dark counterpart with accessible olive highlights.
