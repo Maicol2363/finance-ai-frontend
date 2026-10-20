@@ -129,19 +129,32 @@ class ReceiptCaptureRemoteDataSource {
       'receipt_proposal_not_found' =>
         'El borrador de recibo ya no está disponible.',
       'request_invalid' => 'Corrige los datos del recibo e inténtalo de nuevo.',
+      'receipt_unreadable' => 'La imagen del recibo no se pudo leer.',
       'unsupported_media_type' => 'El formato de imagen no es soportado.',
       'payload_too_large' =>
         'La imagen excede el tamaño máximo permitido de 10 MB.',
       'too_many_requests' =>
         'Has alcanzado el límite de intentos. Espera un momento.',
       'conflict' => 'Esta propuesta ya fue confirmada o descartada.',
-      _ => problem.detail,
+      _ => 'No se pudo completar la solicitud del recibo. Inténtalo de nuevo.',
+    };
+
+    final safeCode = switch (problem.code) {
+      'expense_not_found' ||
+      'receipt_proposal_not_found' ||
+      'request_invalid' ||
+      'receipt_unreadable' ||
+      'unsupported_media_type' ||
+      'payload_too_large' ||
+      'too_many_requests' ||
+      'conflict' => problem.code,
+      _ => 'unexpected_response',
     };
 
     return ExpenseFailure(
-      code: problem.code,
+      code: safeCode,
       userMessage: known,
-      fieldErrors: Map.unmodifiable(problem.fieldErrors),
+      fieldErrors: const {},
       correlationId: problem.correlationId,
       technicalReason: 'http_${response.statusCode}',
     );

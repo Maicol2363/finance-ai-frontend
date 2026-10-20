@@ -1,17 +1,18 @@
 import 'package:finance_ai/core/icons/finance_icon_catalog.dart';
 
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 
 class ReceiptPhotoViewerDialog extends StatelessWidget {
   const ReceiptPhotoViewerDialog({
-    required this.imageFile,
+    required this.imageProvider,
     this.title = 'Comprobante',
     super.key,
   });
 
-  final File imageFile;
+  final ImageProvider imageProvider;
   final String title;
 
   static Future<void> show(
@@ -22,8 +23,25 @@ class ReceiptPhotoViewerDialog extends StatelessWidget {
     return showDialog<void>(
       context: context,
       barrierColor: Colors.black87,
-      builder: (context) =>
-          ReceiptPhotoViewerDialog(imageFile: imageFile, title: title),
+      builder: (context) => ReceiptPhotoViewerDialog(
+        imageProvider: FileImage(imageFile),
+        title: title,
+      ),
+    );
+  }
+
+  static Future<void> showBytes(
+    BuildContext context, {
+    required Uint8List imageBytes,
+    String title = 'Comprobante',
+  }) {
+    return showDialog<void>(
+      context: context,
+      barrierColor: Colors.black87,
+      builder: (context) => ReceiptPhotoViewerDialog(
+        imageProvider: MemoryImage(imageBytes),
+        title: title,
+      ),
     );
   }
 
@@ -63,8 +81,8 @@ class ReceiptPhotoViewerDialog extends StatelessWidget {
                   panEnabled: true,
                   minScale: 0.5,
                   maxScale: 4.0,
-                  child: Image.file(
-                    imageFile,
+                  child: Image(
+                    image: imageProvider,
                     fit: BoxFit.contain,
                     errorBuilder: (context, error, stackTrace) => const Center(
                       child: Padding(

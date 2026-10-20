@@ -161,14 +161,18 @@ class HttpIncomeSourcesRepository implements IncomeSourcesRepository {
     switch (problem.code) {
       case 'income_source_invalid':
         return IncomeSourcesValidationFailure(
-          userMessage: problem.detail,
-          fieldErrors: problem.fieldErrors,
+          userMessage: 'Revisa el nombre de la fuente de ingreso.',
+          fieldErrors: problem.fieldErrors.containsKey('name')
+              ? const {
+                  'name': ['Revisa el nombre de la fuente de ingreso.'],
+                }
+              : const {},
           correlationId: problem.correlationId,
           technicalReason: 'http_${response.statusCode}',
         );
       case 'income_source_name_taken':
         return IncomeSourcesConflictFailure(
-          userMessage: problem.detail,
+          userMessage: 'Ya existe una fuente de ingreso con ese nombre.',
           correlationId: problem.correlationId,
           technicalReason: 'http_${response.statusCode}',
         );
@@ -181,8 +185,8 @@ class HttpIncomeSourcesRepository implements IncomeSourcesRepository {
         );
       default:
         return IncomeSourcesRetryableFailure(
-          code: problem.code,
-          userMessage: problem.detail,
+          code: 'unexpected_response',
+          userMessage: 'La operación no se pudo completar. Inténtalo de nuevo.',
           correlationId: problem.correlationId,
           technicalReason: 'http_${response.statusCode}',
         );

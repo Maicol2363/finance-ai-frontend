@@ -57,8 +57,10 @@ reachable API. Offline voice recognition does not remove that requirement. The
 phone test build can use USB forwarding or the computer's reachable Wi-Fi/hotspot
 address. Keep Docker Desktop and the computer running. For a loopback build,
 restore `adb reverse tcp:8000 tcp:8000` after reconnecting the phone. For cable-free
-testing, build with `-ApiBaseUrl http://<computer-wifi-ip>:8000` and check
-`/health/ready` from the phone first; rebuild if that address changes. See the
+testing, build with `-ApiBaseUrl https://<trusted-api-host>` and use a certificate
+trusted by the phone. Remote HTTP endpoints are rejected, including in debug
+builds. Check `/health/ready` from the phone first; rebuild if the endpoint
+changes. See the
 [phone setup instructions](docs/android-voice-ui-handoff.md#cable-free-testing).
 Full offline application operation is outside this checkpoint's scope.
 

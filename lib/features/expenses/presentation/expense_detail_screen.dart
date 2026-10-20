@@ -1,6 +1,6 @@
 import 'package:finance_ai/core/icons/finance_icon_catalog.dart';
 
-import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -10,6 +10,7 @@ import '../../../core/diagnostics/error_diagnostic_panel.dart';
 import '../../../core/formatters/catalog_labels.dart';
 import '../../../core/widgets/app_header.dart';
 import '../../../core/widgets/management_page_scaffold.dart';
+import '../../auth/session/application/auth_session_controller.dart';
 import '../../receipt_capture/data/receipt_photo_cache_repository.dart';
 import '../../receipt_capture/presentation/widgets/receipt_photo_viewer_dialog.dart';
 import '../application/expenses_controller.dart';
@@ -27,7 +28,8 @@ class ExpenseDetailScreen extends ConsumerStatefulWidget {
 }
 
 class _ExpenseDetailScreenState extends ConsumerState<ExpenseDetailScreen> {
-  File? _cachedReceiptPhoto;
+  Uint8List? _cachedReceiptPhoto;
+  int? _photoOwnerId;
 
   @override
   void initState() {
@@ -44,11 +46,20 @@ class _ExpenseDetailScreenState extends ConsumerState<ExpenseDetailScreen> {
 
   Future<void> _checkCachedReceiptPhoto() async {
     try {
+      final expenseId = widget.expenseId;
+      final userId = ref.read(authSessionControllerProvider).user?.id;
+      if (userId == null) return;
       final repo = ref.read(receiptPhotoCacheRepositoryProvider);
-      final photo = await repo.getCachedReceiptPhoto(widget.expenseId);
-      if (mounted) {
+      final photo = await repo.getCachedReceiptPhoto(
+        userId: userId,
+        expenseId: expenseId,
+      );
+      if (mounted &&
+          widget.expenseId == expenseId &&
+          ref.read(authSessionControllerProvider).user?.id == userId) {
         setState(() {
           _cachedReceiptPhoto = photo;
+          _photoOwnerId = userId;
         });
       }
     } catch (_) {}
@@ -59,9 +70,11 @@ class _ExpenseDetailScreenState extends ConsumerState<ExpenseDetailScreen> {
   /// locked file must not break the deletion flow.
   Future<void> _deleteCachedReceiptPhoto(int expenseId) async {
     try {
+      final userId = ref.read(authSessionControllerProvider).user?.id;
+      if (userId == null) return;
       await ref
           .read(receiptPhotoCacheRepositoryProvider)
-          .deleteCachedReceiptPhoto(expenseId);
+          .deleteCachedReceiptPhoto(userId: userId, expenseId: expenseId);
     } catch (_) {}
   }
 
@@ -69,6 +82,8 @@ class _ExpenseDetailScreenState extends ConsumerState<ExpenseDetailScreen> {
   void didUpdateWidget(ExpenseDetailScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.expenseId != widget.expenseId) {
+      _cachedReceiptPhoto = null;
+      _photoOwnerId = null;
       ref
           .read(expensesControllerProvider.notifier)
           .loadDetail(widget.expenseId);
@@ -78,6 +93,7 @@ class _ExpenseDetailScreenState extends ConsumerState<ExpenseDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final userId = ref.watch(authSessionControllerProvider).user?.id;
     final state = ref.watch(expensesControllerProvider);
     final controller = ref.read(expensesControllerProvider.notifier);
     final expense = state.detailExpenseId == widget.expenseId
@@ -125,14 +141,16 @@ class _ExpenseDetailScreenState extends ConsumerState<ExpenseDetailScreen> {
             const SizedBox(height: 20),
           ],
           if (expense != null) _ExpenseDetails(expense: expense),
-          if (expense != null && _cachedReceiptPhoto != null) ...[
+          if (expense != null &&
+              _cachedReceiptPhoto != null &&
+              _photoOwnerId == userId) ...[
             const SizedBox(height: 20),
             _AttachedReceiptCard(
-              photoFile: _cachedReceiptPhoto!,
+              photoBytes: _cachedReceiptPhoto!,
               onTap: () {
-                ReceiptPhotoViewerDialog.show(
+                ReceiptPhotoViewerDialog.showBytes(
                   context,
-                  imageFile: _cachedReceiptPhoto!,
+                  imageBytes: _cachedReceiptPhoto!,
                 );
               },
             ),
@@ -462,9 +480,9 @@ class _DetailRow extends StatelessWidget {
 }
 
 class _AttachedReceiptCard extends StatelessWidget {
-  const _AttachedReceiptCard({required this.photoFile, required this.onTap});
+  const _AttachedReceiptCard({required this.photoBytes, required this.onTap});
 
-  final File photoFile;
+  final Uint8List photoBytes;
   final VoidCallback onTap;
 
   @override
@@ -514,8 +532,8 @@ class _AttachedReceiptCard extends StatelessWidget {
                 child: Stack(
                   alignment: Alignment.center,
                   children: [
-                    Image.file(
-                      photoFile,
+                    Image.memory(
+                      photoBytes,
                       height: 160,
                       width: double.infinity,
                       fit: BoxFit.cover,
