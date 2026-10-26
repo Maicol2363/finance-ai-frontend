@@ -12,11 +12,16 @@ final budgetsControllerProvider =
     NotifierProvider<BudgetsController, BudgetsState>(BudgetsController.new);
 
 class BudgetsController extends Notifier<BudgetsState> {
+  bool _reloadRequested = false;
+
   @override
   BudgetsState build() => const BudgetsState();
 
   Future<void> load() async {
-    if (state.loadStatus == BudgetsLoadStatus.loading) return;
+    if (state.loadStatus == BudgetsLoadStatus.loading) {
+      _reloadRequested = true;
+      return;
+    }
     state = state.copyWith(
       loadStatus: BudgetsLoadStatus.loading,
       clearDiagnostic: true,
@@ -43,6 +48,11 @@ class BudgetsController extends Notifier<BudgetsState> {
         loadStatus: BudgetsLoadStatus.failure,
         diagnostic: _unexpected('load_budgets'),
       );
+    } finally {
+      if (_reloadRequested) {
+        _reloadRequested = false;
+        await load();
+      }
     }
   }
 

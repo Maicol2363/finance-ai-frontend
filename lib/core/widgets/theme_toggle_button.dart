@@ -1,3 +1,4 @@
+import 'package:finance_ai/core/icons/finance_icon_catalog.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -14,7 +15,9 @@ class ThemeToggleButton extends ConsumerWidget {
       key: const Key('theme-toggle-button'),
       tooltip: isDark ? 'Tema claro' : 'Tema oscuro',
       onPressed: () => ref.read(themeControllerProvider.notifier).toggle(),
-      icon: Icon(isDark ? Icons.nightlight_round : Icons.wb_sunny_outlined),
+      icon: Icon(
+        isDark ? FinanceIcons.nightlightRound : FinanceIcons.wbSunnyOutlined,
+      ),
     );
   }
 }

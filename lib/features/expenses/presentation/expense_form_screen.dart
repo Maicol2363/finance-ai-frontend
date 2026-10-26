@@ -1,3 +1,5 @@
+import 'package:finance_ai/core/icons/finance_icon_catalog.dart';
+import 'package:finance_ai/core/formatters/catalog_labels.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -5,6 +7,8 @@ import 'package:go_router/go_router.dart';
 import '../../../core/diagnostics/error_diagnostic_panel.dart';
 import '../../../core/formatters/money_formatter.dart';
 import '../../../core/theme/app_palette.dart';
+import '../../../core/widgets/app_header.dart';
+import '../../../core/widgets/management_page_scaffold.dart';
 import '../../accounts/application/accounts_controller.dart';
 import '../../accounts/application/accounts_state.dart';
 import '../../categories/application/categories_controller.dart';
@@ -99,78 +103,69 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
 
     return PopScope(
       canPop: !state.isSaving,
-      child: Scaffold(
-        appBar: AppBar(
-          leading: IconButton(
-            tooltip: 'Volver al detalle del gasto',
-            onPressed: state.isSaving ? null : _goBack,
-            icon: const Icon(Icons.arrow_back),
-          ),
-          title: Text(isReceiptMode ? 'Editar recibo' : 'Editar gasto'),
+      child: ManagementPageScaffold(
+        title: isReceiptMode ? 'Editar recibo' : 'Editar gasto',
+        leading: HeaderIconButton(
+          icon: FinanceIcons.arrowBack,
+          tooltip: 'Volver al detalle del gasto',
+          onPressed: state.isSaving ? null : _goBack,
         ),
-        body: SafeArea(
-          child: Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 640),
-              child: ListView(
-                padding: const EdgeInsets.fromLTRB(20, 16, 20, 40),
-                children: [
-                  if (waitingForEdit) ...[
-                    Semantics(
-                      liveRegion: true,
-                      label: 'Cargando datos del gasto',
-                      child: const LinearProgressIndicator(),
-                    ),
-                    const SizedBox(height: 20),
-                  ],
-                  if (state.detailDiagnostic case final diagnostic?) ...[
-                    ErrorDiagnosticPanel(diagnostic: diagnostic),
-                    const SizedBox(height: 12),
-                    OutlinedButton.icon(
-                      onPressed: () => controller.loadDetail(widget.expenseId),
-                      icon: const Icon(Icons.refresh),
-                      label: const Text('Reintentar la carga del gasto'),
-                    ),
-                    const SizedBox(height: 20),
-                  ],
-                  if (accountsState.listDiagnostic case final diagnostic?) ...[
-                    ErrorDiagnosticPanel(diagnostic: diagnostic),
-                    const SizedBox(height: 12),
-                    OutlinedButton.icon(
-                      onPressed: () =>
-                          ref.read(accountsControllerProvider.notifier).load(),
-                      icon: const Icon(Icons.refresh),
-                      label: const Text('Reintentar cuentas'),
-                    ),
-                    const SizedBox(height: 20),
-                  ],
-                  if (categoriesState.diagnostic case final diagnostic?) ...[
-                    ErrorDiagnosticPanel(diagnostic: diagnostic),
-                    const SizedBox(height: 12),
-                    OutlinedButton.icon(
-                      onPressed: () => ref
-                          .read(categoriesControllerProvider.notifier)
-                          .load(),
-                      icon: const Icon(Icons.refresh),
-                      label: const Text('Reintentar categorías'),
-                    ),
-                    const SizedBox(height: 20),
-                  ],
-                  if (editExpense != null && canShowForm)
-                    _buildForm(
-                      context,
-                      palette,
-                      state,
-                      editExpense,
-                      controller,
-                      isReceiptMode,
-                      accountsState,
-                      categoriesState,
-                    ),
-                ],
+        contentPadding: const EdgeInsets.fromLTRB(16, 8, 16, 40),
+        body: ListView(
+          padding: EdgeInsets.zero,
+          children: [
+            if (waitingForEdit) ...[
+              Semantics(
+                liveRegion: true,
+                label: 'Cargando datos del gasto',
+                child: const LinearProgressIndicator(),
               ),
-            ),
-          ),
+              const SizedBox(height: 20),
+            ],
+            if (state.detailDiagnostic case final diagnostic?) ...[
+              ErrorDiagnosticPanel(diagnostic: diagnostic),
+              const SizedBox(height: 12),
+              OutlinedButton.icon(
+                onPressed: () => controller.loadDetail(widget.expenseId),
+                icon: const Icon(FinanceIcons.refresh),
+                label: const Text('Reintentar la carga del gasto'),
+              ),
+              const SizedBox(height: 20),
+            ],
+            if (accountsState.listDiagnostic case final diagnostic?) ...[
+              ErrorDiagnosticPanel(diagnostic: diagnostic),
+              const SizedBox(height: 12),
+              OutlinedButton.icon(
+                onPressed: () =>
+                    ref.read(accountsControllerProvider.notifier).load(),
+                icon: const Icon(FinanceIcons.refresh),
+                label: const Text('Reintentar cuentas'),
+              ),
+              const SizedBox(height: 20),
+            ],
+            if (categoriesState.diagnostic case final diagnostic?) ...[
+              ErrorDiagnosticPanel(diagnostic: diagnostic),
+              const SizedBox(height: 12),
+              OutlinedButton.icon(
+                onPressed: () =>
+                    ref.read(categoriesControllerProvider.notifier).load(),
+                icon: const Icon(FinanceIcons.refresh),
+                label: const Text('Reintentar categorías'),
+              ),
+              const SizedBox(height: 20),
+            ],
+            if (editExpense != null && canShowForm)
+              _buildForm(
+                context,
+                palette,
+                state,
+                editExpense,
+                controller,
+                isReceiptMode,
+                accountsState,
+                categoriesState,
+              ),
+          ],
         ),
       ),
     );
@@ -210,7 +205,11 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
             ),
             child: Row(
               children: [
-                const Text('✨', style: TextStyle(fontSize: 22)),
+                Icon(
+                  FinanceIconCatalog.dataFor(FinanceIconKey.aiCapture),
+                  size: 22,
+                  color: palette.primary,
+                ),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Column(
@@ -245,7 +244,7 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
             maxLength: 150,
             decoration: InputDecoration(
               labelText: 'Comercio / Tienda *',
-              prefixIcon: const Icon(Icons.storefront_outlined),
+              prefixIcon: const Icon(FinanceIcons.storefrontOutlined),
               errorText: _firstError(state, 'receipt_name'),
             ),
             onChanged: (val) {
@@ -276,7 +275,7 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
             textInputAction: TextInputAction.next,
             decoration: InputDecoration(
               labelText: 'Monto total (${editExpense.currencyCode}) *',
-              prefixIcon: const Icon(Icons.attach_money),
+              prefixIcon: const Icon(FinanceIcons.attachMoney),
               errorText: _firstError(state, 'amount'),
             ),
             onChanged: (_) => controller.clearFieldError('amount'),
@@ -302,7 +301,7 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
             maxLength: 200,
             decoration: InputDecoration(
               labelText: 'Nombre del gasto *',
-              prefixIcon: const Icon(Icons.edit_note),
+              prefixIcon: const Icon(FinanceIcons.editNote),
               errorText: _firstError(state, 'name'),
             ),
             onChanged: (_) => controller.clearFieldError('name'),
@@ -319,7 +318,7 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
             textInputAction: TextInputAction.next,
             decoration: InputDecoration(
               labelText: 'Monto (${editExpense.currencyCode}) *',
-              prefixIcon: const Icon(Icons.attach_money),
+              prefixIcon: const Icon(FinanceIcons.attachMoney),
               errorText: _firstError(state, 'amount'),
             ),
             onChanged: (_) => controller.clearFieldError('amount'),
@@ -334,7 +333,7 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
             maxLength: 150,
             decoration: InputDecoration(
               labelText: 'Comercio / Lugar (opcional)',
-              prefixIcon: const Icon(Icons.storefront_outlined),
+              prefixIcon: const Icon(FinanceIcons.storefrontOutlined),
               errorText: _firstError(state, 'receipt_name'),
             ),
             onChanged: (_) => controller.clearFieldError('receipt_name'),
@@ -387,7 +386,7 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
               .map(
                 (category) => DropdownMenuItem(
                   value: category.id,
-                  child: Text(category.name),
+                  child: Text(CatalogLabels.display(category.name)),
                 ),
               )
               .toList(growable: false),
@@ -419,7 +418,7 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
           ),
           child: Row(
             children: [
-              const Icon(Icons.calendar_today_outlined, size: 20),
+              const Icon(FinanceIcons.calendarTodayOutlined, size: 20),
               const SizedBox(width: 10),
               Expanded(
                 child: Column(
@@ -461,7 +460,7 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
           maxLines: 2,
           decoration: InputDecoration(
             labelText: 'Nota o comentarios',
-            prefixIcon: const Icon(Icons.sticky_note_2_outlined),
+            prefixIcon: const Icon(FinanceIcons.stickyNote2Outlined),
             errorText: _firstError(state, 'note'),
           ),
           onChanged: (_) => controller.clearFieldError('note'),
@@ -527,7 +526,7 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
           const SizedBox(height: 12),
           OutlinedButton.icon(
             onPressed: controller.resolveUncertainMutation,
-            icon: const Icon(Icons.sync),
+            icon: const Icon(FinanceIcons.sync),
             label: const Text('Actualizar los gastos antes de reintentar'),
           ),
         ],
@@ -712,7 +711,7 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
                 TextButton.icon(
                   key: const Key('expense-add-item-button'),
                   onPressed: () => _showItemEditDialog(context, currencyCode),
-                  icon: const Icon(Icons.add, size: 18),
+                  icon: const Icon(FinanceIcons.add, size: 18),
                   label: const Text('Agregar'),
                   style: TextButton.styleFrom(
                     padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -773,7 +772,7 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
                       ),
                       if (formEnabled) ...[
                         IconButton(
-                          icon: const Icon(Icons.edit_outlined, size: 18),
+                          icon: const Icon(FinanceIcons.editOutlined, size: 18),
                           tooltip: 'Editar producto',
                           onPressed: () => _showItemEditDialog(
                             context,
@@ -784,7 +783,7 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
                         ),
                         IconButton(
                           icon: Icon(
-                            Icons.delete_outline,
+                            FinanceIcons.deleteOutline,
                             size: 18,
                             color: palette.discard,
                           ),
@@ -840,7 +839,6 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
             children: [
               TextFormField(
                 controller: nameCtrl,
-                autofocus: true,
                 decoration: const InputDecoration(labelText: 'Nombre *'),
                 validator: (val) =>
                     (val == null || val.trim().isEmpty) ? 'Requerido' : null,

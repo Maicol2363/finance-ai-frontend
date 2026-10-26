@@ -1,11 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import 'core/router/app_router.dart';
 import 'core/theme/app_theme.dart';
+import 'core/theme/app_palette.dart';
 import 'core/theme/theme_controller.dart';
 import 'features/accounts/application/accounts_controller.dart';
+import 'features/budgets/application/budgets_controller.dart';
+import 'features/dashboard/application/dashboard_summary_provider.dart';
+import 'features/dashboard/application/dashboard_currency_provider.dart';
+import 'features/expenses/application/monthly_totals.dart';
 import 'features/auth/session/application/auth_session_controller.dart';
 import 'features/auth/session/application/auth_session_state.dart';
 import 'features/categories/application/categories_controller.dart';
@@ -38,6 +44,11 @@ class _FinanceAppState extends ConsumerState<FinanceApp> {
 
     void clearUserData() {
       ref.invalidate(accountsControllerProvider);
+      ref.invalidate(budgetsControllerProvider);
+      ref.invalidate(dashboardSummaryProvider);
+      ref.invalidate(dashboardCurrencyProvider);
+      ref.invalidate(monthlyTotalsProvider);
+      ref.invalidate(periodTotalsProvider);
       ref.invalidate(categoriesControllerProvider);
       ref.invalidate(expensesControllerProvider);
       ref.invalidate(historyControllerProvider);
@@ -84,6 +95,22 @@ class _FinanceAppState extends ConsumerState<FinanceApp> {
       darkTheme: AppTheme.dark(),
       themeMode: ref.watch(themeControllerProvider),
       routerConfig: _router,
+      builder: (context, child) {
+        final dark = Theme.of(context).brightness == Brightness.dark;
+        return AnnotatedRegion<SystemUiOverlayStyle>(
+          value: SystemUiOverlayStyle(
+            statusBarColor: Colors.transparent,
+            statusBarIconBrightness: dark ? Brightness.light : Brightness.dark,
+            statusBarBrightness: dark ? Brightness.dark : Brightness.light,
+            systemNavigationBarColor: context.palette.card,
+            systemNavigationBarIconBrightness: dark
+                ? Brightness.light
+                : Brightness.dark,
+            systemNavigationBarContrastEnforced: true,
+          ),
+          child: child ?? const SizedBox.shrink(),
+        );
+      },
     );
   }
 

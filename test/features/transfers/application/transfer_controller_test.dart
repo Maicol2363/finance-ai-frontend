@@ -148,6 +148,24 @@ void main() {
     );
   });
 
+  test(
+    'amounts beyond the cached source balance are submitted to the server',
+    () async {
+      final repository = FakeTransfersRepository();
+      final container = containerWith(repository);
+      addTearDown(container.dispose);
+      seedAccounts(container, [account(), account(id: 12, name: 'Savings')]);
+
+      final outcome = await submit(container, sourceAmount: '1000.01');
+
+      expect(outcome, TransferMutationOutcome.success);
+      expect(repository.lastCommand?.sourceAmount.toApiString(), '1000.01');
+
+      final exact = await submit(container, sourceAmount: '1000.00');
+      expect(exact, TransferMutationOutcome.success);
+    },
+  );
+
   test('same account and bad amounts are invalid without API calls', () async {
     final repository = FakeTransfersRepository();
     final container = containerWith(repository);

@@ -1,10 +1,14 @@
+import 'package:finance_ai/core/icons/finance_icon_catalog.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/diagnostics/error_diagnostic.dart';
+import '../../../core/formatters/catalog_labels.dart';
 import '../../../core/diagnostics/error_diagnostic_panel.dart';
 import '../../../core/formatters/money_formatter.dart';
+import '../../../core/widgets/app_header.dart';
+import '../../../core/widgets/management_page_scaffold.dart';
 import '../../accounts/data/accounts_repository.dart';
 import '../../accounts/domain/account_models.dart';
 import '../../auth/session/application/auth_session_controller.dart';
@@ -216,149 +220,140 @@ class _IncomeFormScreenState extends ConsumerState<IncomeFormScreen> {
   }
 
   @override
-  Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(
-      leading: IconButton(
-        tooltip: 'Volver',
-        onPressed: () {
-          if (context.canPop()) {
-            context.pop();
-          } else {
-            context.go(
-              widget.incomeId == null
-                  ? '/incomes'
-                  : '/incomes/${widget.incomeId}',
-            );
-          }
-        },
-        icon: const Icon(Icons.arrow_back),
-      ),
-      title: Text(widget.incomeId == null ? 'Nuevo ingreso' : 'Editar ingreso'),
+  Widget build(BuildContext context) => ManagementPageScaffold(
+    title: widget.incomeId == null ? 'Nuevo ingreso' : 'Editar ingreso',
+    maxWidth: 680,
+    leading: HeaderIconButton(
+      icon: FinanceIcons.arrowBack,
+      tooltip: 'Volver',
+      onPressed: () {
+        if (context.canPop()) {
+          context.pop();
+        } else {
+          context.go(
+            widget.incomeId == null
+                ? '/incomes'
+                : '/incomes/${widget.incomeId}',
+          );
+        }
+      },
     ),
-    body: SafeArea(
-      child: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 680),
-          child: _loading
-              ? const Center(child: CircularProgressIndicator())
-              : ListView(
-                  padding: const EdgeInsets.all(20),
-                  children: [
-                    if (_diagnostic != null) ...[
-                      ErrorDiagnosticPanel(diagnostic: _diagnostic!),
-                      const SizedBox(height: 16),
-                    ],
-                    if (_accounts.isEmpty)
-                      const Text(
-                        'Crea una cuenta activa antes de registrar ingresos.',
-                      ),
-                    DropdownButtonFormField<int>(
-                      key: const Key('income-account-field'),
-                      initialValue: _accountId,
-                      decoration: InputDecoration(
-                        labelText: 'Cuenta',
-                        errorText: _fieldErrors['account_id']?.firstOrNull,
-                      ),
-                      items: _accounts
-                          .map(
-                            (account) => DropdownMenuItem(
-                              value: account.id,
-                              child: Text(
-                                '${account.name} (${account.currency.code})${account.isActive ? '' : ' · inactiva'}',
-                              ),
-                            ),
-                          )
-                          .toList(),
-                      onChanged: _saving
-                          ? null
-                          : (value) => setState(() => _accountId = value),
-                    ),
-                    const SizedBox(height: 12),
-                    TextField(
-                      key: const Key('income-amount-field'),
-                      controller: _amount,
-                      enabled: !_saving,
-                      keyboardType: const TextInputType.numberWithOptions(
-                        decimal: true,
-                      ),
-                      decoration: InputDecoration(
-                        labelText: 'Monto',
-                        errorText: _fieldErrors['amount']?.firstOrNull,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    TextField(
-                      key: const Key('income-date-field'),
-                      controller: _date,
-                      enabled: !_saving,
-                      decoration: InputDecoration(
-                        labelText: 'Fecha',
-                        hintText: 'AAAA-MM-DD',
-                        errorText: _fieldErrors['date']?.firstOrNull,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    DropdownButtonFormField<int>(
-                      key: const Key('income-source-field'),
-                      initialValue: _sourceId ?? 0,
-                      decoration: InputDecoration(
-                        labelText: 'Fuente (opcional)',
-                        errorText:
-                            _fieldErrors['income_source_id']?.firstOrNull,
-                      ),
-                      items: [
-                        const DropdownMenuItem(
-                          value: 0,
-                          child: Text('Sin fuente'),
-                        ),
-                        ..._sources.map(
-                          (source) => DropdownMenuItem(
-                            value: source.id,
-                            child: Text(source.name),
-                          ),
-                        ),
-                      ],
-                      onChanged: _saving
-                          ? null
-                          : (value) => setState(
-                              () => _sourceId = value == 0 ? null : value,
-                            ),
-                    ),
-                    const SizedBox(height: 12),
-                    TextField(
-                      key: const Key('income-description-field'),
-                      controller: _description,
-                      enabled: !_saving,
-                      maxLines: 3,
-                      decoration: InputDecoration(
-                        labelText: 'Descripción (opcional)',
-                        errorText: _fieldErrors['description']?.firstOrNull,
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-                    FilledButton(
-                      key: const Key('income-save-button'),
-                      onPressed: _saving || _uncertain || _accounts.isEmpty
-                          ? null
-                          : _save,
-                      child: Text(_saving ? 'Guardando…' : 'Guardar ingreso'),
-                    ),
-                    if (_uncertain)
-                      OutlinedButton(
-                        onPressed: () => context.go('/incomes'),
-                        child: const Text(
-                          'Revisar ingresos antes de volver a intentar',
-                        ),
-                      ),
-                    if (_diagnostic != null && !_uncertain)
-                      OutlinedButton(
-                        onPressed: _load,
-                        child: const Text('Actualizar opciones'),
-                      ),
-                  ],
+    body: _loading
+        ? Semantics(
+            label: 'Cargando…',
+            liveRegion: true,
+            child: const Center(child: CircularProgressIndicator()),
+          )
+        : ListView(
+            padding: EdgeInsets.zero,
+            children: [
+              if (_diagnostic != null) ...[
+                ErrorDiagnosticPanel(diagnostic: _diagnostic!),
+                const SizedBox(height: 16),
+              ],
+              if (_accounts.isEmpty)
+                const Text(
+                  'Crea una cuenta activa antes de registrar ingresos.',
                 ),
-        ),
-      ),
-    ),
+              DropdownButtonFormField<int>(
+                key: const Key('income-account-field'),
+                initialValue: _accountId,
+                decoration: InputDecoration(
+                  labelText: 'Cuenta',
+                  errorText: _fieldErrors['account_id']?.firstOrNull,
+                ),
+                items: _accounts
+                    .map(
+                      (account) => DropdownMenuItem(
+                        value: account.id,
+                        child: Text(
+                          '${account.name} (${account.currency.code})${account.isActive ? '' : ' · inactiva'}',
+                        ),
+                      ),
+                    )
+                    .toList(),
+                onChanged: _saving
+                    ? null
+                    : (value) => setState(() => _accountId = value),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                key: const Key('income-amount-field'),
+                controller: _amount,
+                enabled: !_saving,
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
+                decoration: InputDecoration(
+                  labelText: 'Monto',
+                  errorText: _fieldErrors['amount']?.firstOrNull,
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                key: const Key('income-date-field'),
+                controller: _date,
+                enabled: !_saving,
+                decoration: InputDecoration(
+                  labelText: 'Fecha',
+                  hintText: 'AAAA-MM-DD',
+                  errorText: _fieldErrors['date']?.firstOrNull,
+                ),
+              ),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<int>(
+                key: const Key('income-source-field'),
+                initialValue: _sourceId ?? 0,
+                decoration: InputDecoration(
+                  labelText: 'Fuente (opcional)',
+                  errorText: _fieldErrors['income_source_id']?.firstOrNull,
+                ),
+                items: [
+                  const DropdownMenuItem(value: 0, child: Text('Sin fuente')),
+                  ..._sources.map(
+                    (source) => DropdownMenuItem(
+                      value: source.id,
+                      child: Text(CatalogLabels.display(source.name)),
+                    ),
+                  ),
+                ],
+                onChanged: _saving
+                    ? null
+                    : (value) =>
+                          setState(() => _sourceId = value == 0 ? null : value),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                key: const Key('income-description-field'),
+                controller: _description,
+                enabled: !_saving,
+                maxLines: 3,
+                decoration: InputDecoration(
+                  labelText: 'Descripción (opcional)',
+                  errorText: _fieldErrors['description']?.firstOrNull,
+                ),
+              ),
+              const SizedBox(height: 24),
+              FilledButton(
+                key: const Key('income-save-button'),
+                onPressed: _saving || _uncertain || _accounts.isEmpty
+                    ? null
+                    : _save,
+                child: Text(_saving ? 'Guardando…' : 'Guardar ingreso'),
+              ),
+              if (_uncertain)
+                OutlinedButton(
+                  onPressed: () => context.go('/incomes'),
+                  child: const Text(
+                    'Revisar ingresos antes de volver a intentar',
+                  ),
+                ),
+              if (_diagnostic != null && !_uncertain)
+                OutlinedButton(
+                  onPressed: _load,
+                  child: const Text('Actualizar opciones'),
+                ),
+            ],
+          ),
   );
 }

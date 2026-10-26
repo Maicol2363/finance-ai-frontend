@@ -1,9 +1,12 @@
+import 'package:finance_ai/core/icons/finance_icon_catalog.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/diagnostics/error_diagnostic_panel.dart';
+import '../../../../core/formatters/catalog_labels.dart';
 import '../../../../core/widgets/app_header.dart';
+import '../../../../core/widgets/management_page_scaffold.dart';
 import '../../../../core/widgets/manage_widgets.dart';
 import '../../../../core/widgets/theme_toggle_button.dart';
 import '../domain/income_source_models.dart';
@@ -31,50 +34,32 @@ class _IncomeSourcesScreenState extends ConsumerState<IncomeSourcesScreen> {
   Widget build(BuildContext context) {
     final state = ref.watch(incomeSourcesControllerProvider);
     final controller = ref.read(incomeSourcesControllerProvider.notifier);
-    return Scaffold(
-      body: SafeArea(
-        child: Column(
-          children: [
-            AppHeader(
-              title: 'Fuentes de ingreso',
-              subtitle: 'Nombra de dónde viene tu dinero',
-              leading: HeaderIconButton(
-                icon: Icons.arrow_back,
-                tooltip: 'Volver',
-                onPressed: () {
-                  if (context.canPop()) {
-                    context.pop();
-                  } else {
-                    context.go('/home');
-                  }
-                },
-              ),
-              actions: const [ThemeToggleButton()],
-            ),
-            Expanded(
-              child: Center(
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 720),
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        if (state.diagnostic != null) ...[
-                          ErrorDiagnosticPanel(diagnostic: state.diagnostic!),
-                          const SizedBox(height: 12),
-                        ],
-                        _addCard(state, controller),
-                        const SizedBox(height: 16),
-                        Expanded(child: _body(state, controller)),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ),
+    return ManagementPageScaffold(
+      title: 'Fuentes de ingreso',
+      subtitle: 'Nombra de dónde viene tu dinero',
+      leading: HeaderIconButton(
+        icon: FinanceIcons.arrowBack,
+        tooltip: 'Volver',
+        onPressed: () {
+          if (context.canPop()) {
+            context.pop();
+          } else {
+            context.go('/home');
+          }
+        },
+      ),
+      actions: const [ThemeToggleButton()],
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (state.diagnostic != null) ...[
+            ErrorDiagnosticPanel(diagnostic: state.diagnostic!),
+            const SizedBox(height: 16),
           ],
-        ),
+          _addCard(state, controller),
+          const SizedBox(height: 16),
+          Expanded(child: _body(state, controller)),
+        ],
       ),
     );
   }
@@ -83,28 +68,22 @@ class _IncomeSourcesScreenState extends ConsumerState<IncomeSourcesScreen> {
     IncomeSourcesState state,
     IncomeSourcesController controller,
   ) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
-        border: Border.all(color: Theme.of(context).colorScheme.outline),
-        borderRadius: BorderRadius.circular(14),
-      ),
+    return ManagementFormCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const FieldLabel('Nueva fuente', uppercase: false, topSpacing: 0),
           TextField(
             key: const Key('income-source-name-field'),
             controller: _nameController,
             enabled: !state.busy,
             decoration: InputDecoration(
+              labelText: 'Nueva fuente',
               hintText: 'Salario, Freelance, Otros…',
               errorText: state.fieldErrors['name']?.firstOrNull,
             ),
             onSubmitted: (_) => _add(controller),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 16),
           FilledButton(
             key: const Key('income-source-add-button'),
             onPressed: state.busy ? null : () => _add(controller),
@@ -117,7 +96,11 @@ class _IncomeSourcesScreenState extends ConsumerState<IncomeSourcesScreen> {
 
   Widget _body(IncomeSourcesState state, IncomeSourcesController controller) {
     if (state.status == IncomeSourcesStatus.loading) {
-      return const Center(child: CircularProgressIndicator());
+      return Semantics(
+        label: 'Cargando…',
+        liveRegion: true,
+        child: const Center(child: CircularProgressIndicator()),
+      );
     }
     if (state.status == IncomeSourcesStatus.failure) {
       return Center(
@@ -125,7 +108,7 @@ class _IncomeSourcesScreenState extends ConsumerState<IncomeSourcesScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             const Text('Las fuentes de ingreso no están disponibles.'),
-            const SizedBox(height: 12),
+            const SizedBox(height: 16),
             OutlinedButton(
               key: const Key('income-source-retry-button'),
               onPressed: controller.load,
@@ -143,19 +126,19 @@ class _IncomeSourcesScreenState extends ConsumerState<IncomeSourcesScreen> {
     return ListView(
       padding: const EdgeInsets.only(bottom: 24),
       children: [
-        ManageCard(
-          children: [
-            for (final source in state.items)
+        for (final source in state.items)
+          ManageCard(
+            children: [
               ManageRow(
                 rowKey: Key('income-source-tile-${source.id}'),
-                icon: Icons.savings_outlined,
-                title: source.name,
+                icon: FinanceIconCatalog.dataFor(FinanceIconKey.income),
+                title: CatalogLabels.display(source.name),
                 subtitle: 'Fuente de ingreso',
                 trailing: [
                   ManageActionButton(
                     key: Key('income-source-rename-${source.id}'),
                     tooltip: 'Renombrar',
-                    icon: Icons.edit_outlined,
+                    icon: FinanceIcons.editOutlined,
                     onPressed: state.busy
                         ? null
                         : () => _rename(controller, source),
@@ -164,7 +147,7 @@ class _IncomeSourcesScreenState extends ConsumerState<IncomeSourcesScreen> {
                   ManageActionButton(
                     key: Key('income-source-delete-${source.id}'),
                     tooltip: 'Eliminar',
-                    icon: Icons.delete_outline,
+                    icon: FinanceIcons.deleteOutline,
                     destructive: true,
                     onPressed: state.busy
                         ? null
@@ -172,8 +155,8 @@ class _IncomeSourcesScreenState extends ConsumerState<IncomeSourcesScreen> {
                   ),
                 ],
               ),
-          ],
-        ),
+            ],
+          ),
       ],
     );
   }
@@ -219,7 +202,7 @@ class _IncomeSourcesScreenState extends ConsumerState<IncomeSourcesScreen> {
           FilledButton(
             key: const Key('income-source-delete-confirm'),
             style: FilledButton.styleFrom(
-              minimumSize: const Size(0, 40),
+              minimumSize: const Size(0, 48),
               backgroundColor: Theme.of(context).colorScheme.error,
               foregroundColor: Theme.of(context).colorScheme.onError,
             ),
@@ -267,7 +250,6 @@ class _RenameIncomeSourceDialogState extends State<_RenameIncomeSourceDialog> {
       content: TextField(
         key: const Key('income-source-rename-field'),
         controller: _controller,
-        autofocus: true,
         decoration: const InputDecoration(hintText: 'Nuevo nombre'),
       ),
       actions: [

@@ -1,7 +1,11 @@
 import 'package:finance_ai/app.dart';
+import 'package:finance_ai/core/icons/finance_icon_catalog.dart';
 import 'package:finance_ai/core/router/app_router.dart';
 import 'package:finance_ai/features/accounts/data/accounts_repository.dart';
 import 'package:finance_ai/features/accounts/domain/account_models.dart';
+import 'package:finance_ai/features/accounts/presentation/account_detail_screen.dart';
+import 'package:finance_ai/features/accounts/presentation/account_form_screen.dart';
+import 'package:finance_ai/features/accounts/presentation/accounts_screen.dart';
 import 'package:finance_ai/features/incomes/data/incomes_repository.dart';
 import 'package:finance_ai/features/incomes/domain/income_models.dart';
 import 'package:flutter/material.dart';
@@ -194,10 +198,10 @@ void main() {
 
     await tester.tap(find.byKey(const Key('account-card-11')));
     await tester.pumpAndSettle();
-    expect(find.text('Account details'), findsOneWidget);
+    expect(find.text('Detalle de cuenta'), findsOneWidget);
     expect(
       find.text(
-        'Currency is locked because this account has confirmed activity.',
+        'La moneda está bloqueada porque esta cuenta ya tiene movimientos confirmados.',
       ),
       findsOneWidget,
     );
@@ -211,11 +215,16 @@ void main() {
     final repository = WidgetAccountsRepository();
     await pumpAccountsApp(tester, repository, initialLocation: '/accounts/11');
 
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('account-deactivate-button')),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
     await tester.tap(find.byKey(const Key('account-deactivate-button')));
     await tester.pumpAndSettle();
     expect(
       find.text(
-        'This account will remain in your history but will no longer be available for new financial entries.',
+        'La cuenta seguirá en tu historial, pero no estará disponible para registrar nuevos movimientos.',
       ),
       findsOneWidget,
     );
@@ -224,7 +233,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Inactive'), findsOneWidget);
+    expect(find.text('Inactiva'), findsOneWidget);
     expect(find.byKey(const Key('account-reactivate-button')), findsOneWidget);
     expect(repository.current.accountById(11)?.isActive, isFalse);
   });
@@ -234,6 +243,16 @@ void main() {
   ) async {
     final repository = WidgetAccountsRepository();
     await pumpAccountsApp(tester, repository, initialLocation: '/accounts/new');
+
+    final currencyField = tester.widget<DropdownButtonFormField<String>>(
+      find.byKey(const Key('account-currency-field')),
+    );
+    final openingBalanceField = tester.widget<TextField>(
+      find.byKey(const Key('account-opening-balance-field')),
+    );
+    expect(currencyField.decoration.helperMaxLines, 2);
+    expect(openingBalanceField.decoration?.helperMaxLines, 2);
+    expect(find.text('COP · Peso colombiano'), findsOneWidget);
 
     await tester.enterText(
       find.byKey(const Key('account-name-field')),
@@ -251,7 +270,7 @@ void main() {
     expect(repository.createdCommand?.type, AccountType.cash);
     expect(repository.createdCommand?.currencyCode, 'COP');
     expect(repository.createdCommand?.openingBalance.toApiString(), '-1234.50');
-    expect(find.text('Account details'), findsOneWidget);
+    expect(find.text('Detalle de cuenta'), findsOneWidget);
   });
 
   testWidgets('permanent deletion requires confirmation and returns to list', (
@@ -264,17 +283,17 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('account-delete-button')));
     await tester.pumpAndSettle();
-    expect(find.text('Delete this account permanently?'), findsOneWidget);
+    expect(find.text('¿Eliminar esta cuenta definitivamente?'), findsOneWidget);
     expect(
-      find.textContaining('Accounts with activity must be deactivated'),
+      find.textContaining('Si tiene movimientos, debes desactivarla.'),
       findsOneWidget,
     );
     await tester.tap(find.byKey(const Key('account-confirm-delete-button')));
     await tester.pumpAndSettle();
 
-    expect(find.text('Accounts'), findsOneWidget);
+    expect(find.text('Cuentas'), findsOneWidget);
     expect(repository.current.accountById(11), isNull);
-    expect(find.text('Account permanently deleted.'), findsOneWidget);
+    expect(find.text('Cuenta eliminada definitivamente.'), findsOneWidget);
   });
 
   testWidgets('blocked deletion stays on detail with copyable safe failure', (
@@ -313,7 +332,7 @@ void main() {
     await tester.tap(find.byKey(const Key('account-confirm-delete-button')));
     await tester.pumpAndSettle();
 
-    expect(find.text('Error code: account_delete_blocked'), findsOneWidget);
+    expect(find.byKey(const Key('error-diagnostic-code')), findsNothing);
     await tester.drag(find.byType(ListView), const Offset(0, -320));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('copy-error-details-button')));
@@ -336,9 +355,51 @@ void main() {
     );
     expect(currency.onChanged, isNull);
     expect(
-      find.text('Currency is locked after confirmed account activity.'),
+      find.text(
+        'La moneda se bloquea cuando la cuenta ya tiene movimientos confirmados.',
+      ),
       findsOneWidget,
     );
+  });
+
+  testWidgets('saving an edit returns to the existing detail page', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(800, 2400);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final repository = WidgetAccountsRepository();
+    await pumpAccountsApp(tester, repository, initialLocation: '/accounts/11');
+
+    await tester.ensureVisible(find.byKey(const Key('account-edit-button')));
+    await tester.tap(find.byKey(const Key('account-edit-button')));
+    await tester.pumpAndSettle();
+    expect(find.byType(AccountFormScreen), findsOneWidget);
+
+    await tester.enterText(
+      find.byKey(const Key('account-name-field')),
+      'Nequi',
+    );
+    await tester.ensureVisible(find.byKey(const Key('account-save-button')));
+    await tester.tap(find.byKey(const Key('account-save-button')));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(AccountFormScreen), findsNothing);
+    expect(find.byType(AccountDetailScreen), findsOneWidget);
+    expect(repository.current.accountById(11)?.name, 'Nequi');
+
+    await tester.tap(
+      find.descendant(
+        of: find.byType(AccountDetailScreen),
+        matching: find.byIcon(FinanceIcons.arrowBack),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byType(AccountDetailScreen), findsNothing);
+    expect(find.byType(AccountsScreen), findsOneWidget);
   });
 
   testWidgets('copied account failure omits name and amount', (tester) async {
@@ -382,7 +443,7 @@ void main() {
     await tester.ensureVisible(find.byKey(const Key('account-save-button')));
     await tester.tap(find.byKey(const Key('account-save-button')));
     await tester.pumpAndSettle();
-    expect(find.text('Error code: account_name_conflict'), findsOneWidget);
+    expect(find.byKey(const Key('error-diagnostic-code')), findsNothing);
 
     await tester.ensureVisible(
       find.byKey(const Key('copy-error-details-button')),

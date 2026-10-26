@@ -20,13 +20,14 @@ Account optionAccount({
   int id = 11,
   String name = 'Cash',
   CurrencySummary currency = cop,
+  String balance = '1000000.00',
 }) => Account(
   id: id,
   name: name,
   type: AccountType.cash,
   currency: currency,
-  openingBalance: MoneyAmount.parseApi('1000.00'),
-  balance: MoneyAmount.parseApi('1000.00'),
+  openingBalance: MoneyAmount.parseApi(balance),
+  balance: MoneyAmount.parseApi(balance),
   currencyIsLocked: false,
   isActive: true,
   createdAt: DateTime.utc(2026, 9, 8),
@@ -161,6 +162,11 @@ void main() {
   testWidgets('same-currency transfer submits a single amount', (tester) async {
     final transfers = WidgetTransfersRepository();
     await pumpTransferForm(tester, transfers);
+
+    expect(
+      tester.widget<Text>(find.byKey(const Key('transfer-date-value'))).data,
+      matches(RegExp(r'^\d{1,2} de [a-z]+ de \d{4}$')),
+    );
 
     await selectOption(
       tester,

@@ -1,3 +1,4 @@
+import 'package:finance_ai/core/icons/finance_icon_catalog.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -5,7 +6,9 @@ import 'package:go_router/go_router.dart';
 import '../../../core/diagnostics/error_diagnostic_panel.dart';
 import '../../../core/theme/app_palette.dart';
 import '../../../core/widgets/app_header.dart';
+import '../../../core/widgets/management_page_scaffold.dart';
 import '../../../core/widgets/manage_widgets.dart';
+import '../../../core/widgets/theme_toggle_button.dart';
 import '../application/categories_controller.dart';
 import '../application/categories_state.dart';
 import '../domain/category_models.dart';
@@ -68,231 +71,211 @@ class _CategoryFormScreenState extends ConsumerState<CategoryFormScreen> {
         category == null;
     return PopScope(
       canPop: !state.isSaving,
-      child: Scaffold(
-        body: SafeArea(
-          child: Column(
-            children: [
-              AppHeader(
-                title: widget.categoryId == null
-                    ? 'Nueva categoría'
-                    : 'Editar categoría',
-                subtitle: 'Nombre, color e ícono',
-                leading: HeaderIconButton(
-                  icon: Icons.arrow_back,
-                  tooltip: widget.returnToPrevious
-                      ? 'Volver al registro'
-                      : 'Volver a categorías',
-                  onPressed: state.isSaving ? null : _goBack,
-                ),
-                actions: [
-                  if (widget.categoryId != null && category != null)
-                    IconButton(
-                      key: const Key('category-delete-button'),
-                      tooltip: 'Eliminar categoría',
-                      onPressed: state.isSaving
-                          ? null
-                          : () => _confirmDelete(category),
-                      icon: const Icon(Icons.delete_outline),
-                    ),
-                ],
+      child: ManagementPageScaffold(
+        title: widget.categoryId == null
+            ? 'Nueva categoría'
+            : 'Editar categoría',
+        subtitle: 'Nombre, color e ícono',
+        leading: HeaderIconButton(
+          icon: FinanceIcons.arrowBack,
+          tooltip: widget.returnToPrevious
+              ? 'Volver al registro'
+              : 'Volver a categorías',
+          onPressed: state.isSaving ? null : _goBack,
+        ),
+        actions: [
+          if (widget.categoryId != null && category != null)
+            HeaderIconButton(
+              key: const Key('category-delete-button'),
+              tooltip: 'Eliminar categoría',
+              icon: FinanceIcons.deleteOutline,
+              onPressed: state.isSaving ? null : () => _confirmDelete(category),
+            ),
+          const ThemeToggleButton(),
+        ],
+        body: ListView(
+          padding: EdgeInsets.zero,
+          children: [
+            if (state.loadStatus == CategoriesLoadStatus.loading)
+              const LinearProgressIndicator(
+                semanticsLabel: 'Cargando categoría',
               ),
-              Expanded(
-                child: Center(
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 620),
-                    child: ListView(
-                      padding: const EdgeInsets.fromLTRB(16, 4, 16, 40),
-                      children: [
-                        if (state.loadStatus == CategoriesLoadStatus.loading)
-                          const LinearProgressIndicator(
-                            semanticsLabel: 'Cargando categoría',
-                          ),
-                        if (state.diagnostic case final diagnostic?) ...[
-                          ErrorDiagnosticPanel(diagnostic: diagnostic),
-                          const SizedBox(height: 12),
-                          OutlinedButton.icon(
-                            onPressed: ref
-                                .read(categoriesControllerProvider.notifier)
-                                .load,
-                            icon: const Icon(Icons.refresh),
-                            label: const Text('Reintentar'),
-                          ),
-                        ],
-                        if (missing)
-                          const Text('Esta categoría ya no está disponible.')
-                        else if (_initialized)
-                          _form(state, category),
-                      ],
-                    ),
-                  ),
-                ),
+            if (state.diagnostic case final diagnostic?) ...[
+              ErrorDiagnosticPanel(diagnostic: diagnostic),
+              const SizedBox(height: 16),
+              OutlinedButton.icon(
+                onPressed: ref.read(categoriesControllerProvider.notifier).load,
+                icon: const Icon(FinanceIcons.refresh),
+                label: const Text('Reintentar'),
               ),
             ],
-          ),
+            if (missing)
+              const Text('Esta categoría ya no está disponible.')
+            else if (_initialized)
+              _form(state, category),
+          ],
         ),
       ),
     );
   }
 
-  Widget _form(CategoriesState state, Category? category) => Column(
-    crossAxisAlignment: CrossAxisAlignment.stretch,
-    children: [
-      Text(
-        category == null
-            ? 'Crea una categoría que refleje cómo entiendes tus gastos.'
-            : 'Actualiza el nombre y el estilo visual que se usa en la app.',
-        style: TextStyle(
-          fontSize: 12,
-          color: Theme.of(context).colorScheme.onSurfaceVariant,
-          height: 1.45,
+  Widget _form(CategoriesState state, Category? category) => ManagementFormCard(
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (state.mutationDiagnostic case final diagnostic?) ...[
+          ErrorDiagnosticPanel(diagnostic: diagnostic),
+          const SizedBox(height: 18),
+        ],
+        TextField(
+          key: const Key('category-name-field'),
+          controller: _nameController,
+          focusNode: _nameFocus,
+          enabled: !state.isSaving,
+          maxLength: 100,
+          textInputAction: TextInputAction.done,
+          decoration: InputDecoration(
+            labelText: 'Nombre de la categoría',
+            hintText: 'Comida, Transporte, Salud…',
+            errorText: state.fieldErrors['name']?.firstOrNull,
+            counterText: '',
+          ),
+          onChanged: (_) {
+            ref
+                .read(categoriesControllerProvider.notifier)
+                .clearFieldError('name');
+            setState(() {});
+          },
+          onSubmitted: (_) => _submit(),
         ),
-      ),
-      const SizedBox(height: 20),
-      _preview(),
-      const SizedBox(height: 20),
-      if (state.mutationDiagnostic case final diagnostic?) ...[
-        ErrorDiagnosticPanel(diagnostic: diagnostic),
-        const SizedBox(height: 18),
-      ],
-      const FieldLabel('Nombre', uppercase: false, topSpacing: 0),
-      TextField(
-        key: const Key('category-name-field'),
-        controller: _nameController,
-        focusNode: _nameFocus,
-        enabled: !state.isSaving,
-        maxLength: 100,
-        textInputAction: TextInputAction.done,
-        decoration: InputDecoration(
-          hintText: 'Comida, Transporte, Salud…',
-          errorText: state.fieldErrors['name']?.firstOrNull,
-          counterText: '',
-        ),
-        onChanged: (_) {
-          ref
-              .read(categoriesControllerProvider.notifier)
-              .clearFieldError('name');
-          setState(() {});
-        },
-        onSubmitted: (_) => _submit(),
-      ),
-      const FieldLabel('Color', uppercase: false),
-      Wrap(
-        spacing: 10,
-        runSpacing: 10,
-        children: (state.result?.supportedColors ?? CategoryColor.values)
-            .map(
-              (color) => Tooltip(
-                message: color.label,
-                child: Semantics(
-                  selected: color == _color,
-                  button: true,
-                  label: color.label,
-                  child: InkWell(
-                    key: Key('category-color-${color.name}'),
-                    customBorder: const CircleBorder(),
-                    onTap: state.isSaving
-                        ? null
-                        : () => setState(() => _color = color),
-                    child: Container(
-                      width: 34,
-                      height: 34,
-                      decoration: BoxDecoration(
-                        color: color.value,
-                        shape: BoxShape.circle,
-                        border: color == _color
-                            ? Border.all(
-                                color: Theme.of(context).colorScheme.onSurface,
-                                width: 2,
+        const FieldLabel('Color', uppercase: false),
+        Wrap(
+          spacing: 10,
+          runSpacing: 10,
+          children: (state.result?.supportedColors ?? CategoryColor.values)
+              .map(
+                (color) => Tooltip(
+                  message: color.label,
+                  child: Semantics(
+                    selected: color == _color,
+                    button: true,
+                    label: color.label,
+                    child: InkWell(
+                      key: Key('category-color-${color.name}'),
+                      customBorder: const CircleBorder(),
+                      onTap: state.isSaving
+                          ? null
+                          : () => setState(() => _color = color),
+                      child: Container(
+                        width: 34,
+                        height: 34,
+                        decoration: BoxDecoration(
+                          color: color.value,
+                          shape: BoxShape.circle,
+                          border: color == _color
+                              ? Border.all(
+                                  color: Theme.of(context)
+                                      .colorScheme
+                                      .onSurface,
+                                  width: 2,
+                                )
+                              : null,
+                        ),
+                        child: color == _color
+                            ? const Icon(
+                                FinanceIcons.check,
+                                size: 18,
+                                color: Colors.white,
                               )
                             : null,
-                      ),
-                      child: color == _color
-                          ? const Icon(
-                              Icons.check,
-                              size: 18,
-                              color: Colors.white,
-                            )
-                          : null,
-                    ),
-                  ),
-                ),
-              ),
-            )
-            .toList(growable: false),
-      ),
-      const FieldLabel('Ícono', uppercase: false),
-      Wrap(
-        key: const Key('category-icon-field'),
-        spacing: 10,
-        runSpacing: 10,
-        children: (state.result?.supportedIcons ?? CategoryIcon.values)
-            .map(
-              (icon) => Tooltip(
-                message: icon.label,
-                child: Semantics(
-                  selected: icon == _icon,
-                  button: true,
-                  label: icon.label,
-                  child: InkWell(
-                    key: Key('category-icon-${icon.name}'),
-                    borderRadius: BorderRadius.circular(12),
-                    onTap: state.isSaving
-                        ? null
-                        : () => setState(() => _icon = icon),
-                    child: Container(
-                      width: 44,
-                      height: 44,
-                      decoration: BoxDecoration(
-                        color: icon == _icon
-                            ? context.palette.primarySoft
-                            : context.palette.soft,
-                        borderRadius: BorderRadius.circular(12),
-                        border: icon == _icon
-                            ? Border.all(
-                                color: context.palette.primary,
-                                width: 1.6,
-                              )
-                            : null,
-                      ),
-                      child: Icon(
-                        icon.value,
-                        size: 20,
-                        color: icon == _icon
-                            ? context.palette.primary
-                            : context.palette.muted,
                       ),
                     ),
                   ),
                 ),
-              ),
-            )
-            .toList(growable: false),
-      ),
-      const SizedBox(height: 26),
-      FilledButton(
-        key: const Key('category-save-button'),
-        onPressed: state.isSaving ? null : _submit,
-        child: state.isSaving
-            ? const SizedBox.square(
-                dimension: 22,
-                child: CircularProgressIndicator(strokeWidth: 2.5),
               )
-            : Text(category == null ? 'Guardar categoría' : 'Guardar cambios'),
-      ),
-    ],
+              .toList(growable: false),
+        ),
+        const FieldLabel('Ícono', uppercase: false),
+        Wrap(
+          key: const Key('category-icon-field'),
+          spacing: 10,
+          runSpacing: 10,
+          children: (state.result?.supportedIcons ?? CategoryIcon.values)
+              .map(
+                (icon) => Tooltip(
+                  message: icon.label,
+                  child: Semantics(
+                    selected: icon == _icon,
+                    button: true,
+                    label: icon.label,
+                    child: InkWell(
+                      key: Key('category-icon-${icon.name}'),
+                      borderRadius: BorderRadius.circular(12),
+                      onTap: state.isSaving
+                          ? null
+                          : () => setState(() => _icon = icon),
+                      child: Container(
+                        width: 44,
+                        height: 44,
+                        decoration: BoxDecoration(
+                          color: icon == _icon
+                              ? context.palette.primarySoft
+                              : context.palette.soft,
+                          borderRadius: BorderRadius.circular(12),
+                          border: icon == _icon
+                              ? Border.all(
+                                  color: context.palette.primary,
+                                  width: 1.6,
+                                )
+                              : null,
+                        ),
+                        child: Icon(
+                          icon.value,
+                          size: 20,
+                          color: icon == _icon
+                              ? context.palette.primary
+                              : context.palette.muted,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              )
+              .toList(growable: false),
+        ),
+        const SizedBox(height: 16),
+        _preview(),
+        const SizedBox(height: 26),
+        FilledButton(
+          key: const Key('category-save-button'),
+          onPressed: state.isSaving ? null : _submit,
+          child: state.isSaving
+              ? const SizedBox.square(
+                  dimension: 22,
+                  child: CircularProgressIndicator(strokeWidth: 2.5),
+                )
+              : Text(
+                  category == null ? 'Guardar categoría' : 'Guardar cambios',
+                ),
+        ),
+      ],
+    ),
   );
 
-  Widget _preview() => ManageCard(
-    children: [
-      ManageRow(
-        icon: _icon.value,
-        swatchColor: _color.value,
-        title: _nameController.text.trim().isEmpty
-            ? 'Nueva categoría'
-            : _nameController.text.trim(),
-        subtitle: 'Vista previa',
-      ),
-    ],
+  Widget _preview() => Container(
+    decoration: BoxDecoration(
+      color: context.palette.soft,
+      border: Border.all(color: context.palette.line),
+      borderRadius: BorderRadius.circular(12),
+    ),
+    child: ManageRow(
+      icon: _icon.value,
+      swatchColor: _color.value,
+      title: _nameController.text.trim().isEmpty
+          ? 'Nueva categoría'
+          : _nameController.text.trim(),
+      subtitle: 'Vista previa',
+    ),
   );
 
   void _initialize(Category? category) {
@@ -306,7 +289,7 @@ class _CategoryFormScreenState extends ConsumerState<CategoryFormScreen> {
   }
 
   void _goBack() {
-    if (widget.returnToPrevious && context.canPop()) {
+    if (context.canPop()) {
       context.pop();
       return;
     }
@@ -324,7 +307,7 @@ class _CategoryFormScreenState extends ConsumerState<CategoryFormScreen> {
         );
     if (!mounted) return;
     if (outcome == CategoryMutationOutcome.success) {
-      if (widget.returnToPrevious && context.canPop()) {
+      if (context.canPop()) {
         context.pop();
         return;
       }
@@ -350,7 +333,7 @@ class _CategoryFormScreenState extends ConsumerState<CategoryFormScreen> {
           FilledButton(
             key: const Key('category-confirm-delete-button'),
             style: FilledButton.styleFrom(
-              minimumSize: const Size(0, 40),
+              minimumSize: const Size(0, 48),
               backgroundColor: Theme.of(context).colorScheme.error,
               foregroundColor: Theme.of(context).colorScheme.onError,
             ),
@@ -367,7 +350,11 @@ class _CategoryFormScreenState extends ConsumerState<CategoryFormScreen> {
         .read(categoriesControllerProvider.notifier)
         .deleteCategory(category.id);
     if (mounted && outcome == CategoryMutationOutcome.success) {
-      context.go('/categories');
+      if (context.canPop()) {
+        context.pop();
+      } else {
+        context.go('/categories');
+      }
     }
   }
 }

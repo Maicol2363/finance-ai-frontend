@@ -35,10 +35,7 @@ class ErrorDiagnostic {
       platform: (platform ?? defaultTargetPlatform).name,
       apiLocation: _safeApiLocation(apiBaseUrl ?? AppConfig.apiBaseUrl),
       correlationId: _singleLine(correlationId, fallback: 'unavailable'),
-      technicalReason: _singleLine(
-        technicalReason,
-        fallback: 'unclassified_failure',
-      ),
+      technicalReason: _safeTechnicalReason(technicalReason),
     );
   }
 
@@ -67,6 +64,31 @@ class ErrorDiagnostic {
   // Cache compiled RegExp instances to eliminate repeated pattern compilation.
   static final RegExp _trailingSlashPattern = RegExp(r'/$');
   static final RegExp _whitespacePattern = RegExp(r'[\r\n\t]+');
+  static final RegExp _safeReasonPattern = RegExp(r'^[a-z][a-z0-9_]{0,79}$');
+  static final RegExp _httpReasonPattern = RegExp(r'^http_[1-5][0-9]{2}$');
+  static final RegExp _safeVoiceContextPattern = RegExp(
+    r'^(speech_(?:busy|fallback_memory|fallback_model_missing|fallback_unavailable|finalize_timeout|language_unavailable|microphone_busy|model_download_failed|model_download_pending|model_invalid|model_missing|no_match|no_speech|offline_unavailable|permission_denied|permission_required|preparation_timeout|provider_error|session_ended|settings_unavailable|text_too_long)); '
+    r'stage=(?:prepare|start|download); engine=(?:device|integrated); '
+    r'cause=(?:none|native_service_missing|native_service_timeout|native_service_error|native_model_missing)'
+    r'(?:; android_api=(?:[1-9]|[1-9][0-9]))?$',
+  );
+  static final RegExp _sensitiveReasonPattern = RegExp(
+    r'(password|token|secret|email|authorization|bearer|https?://|@|[=/\\])',
+    caseSensitive: false,
+  );
+
+  static String _safeTechnicalReason(String value) {
+    final normalized = _singleLine(value, fallback: 'unclassified_failure');
+    if (_safeVoiceContextPattern.hasMatch(normalized)) {
+      return normalized;
+    }
+    if ((!_safeReasonPattern.hasMatch(normalized) &&
+            !_httpReasonPattern.hasMatch(normalized)) ||
+        _sensitiveReasonPattern.hasMatch(normalized)) {
+      return 'unclassified_failure';
+    }
+    return normalized;
+  }
 
   static String _safeApiLocation(String value) {
     try {

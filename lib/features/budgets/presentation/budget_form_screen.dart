@@ -1,3 +1,4 @@
+import 'package:finance_ai/core/icons/finance_icon_catalog.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
@@ -5,8 +6,11 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/diagnostics/error_diagnostic_panel.dart';
 import '../../../core/formatters/money_formatter.dart';
+import '../../../core/formatters/catalog_labels.dart';
 import '../../../core/widgets/app_header.dart';
+import '../../../core/widgets/management_page_scaffold.dart';
 import '../../../core/widgets/manage_widgets.dart';
+import '../../../core/widgets/theme_toggle_button.dart';
 import '../../categories/presentation/category_visuals.dart';
 import '../application/budgets_controller.dart';
 import '../application/budgets_state.dart';
@@ -80,72 +84,53 @@ class _BudgetFormScreenState extends ConsumerState<BudgetFormScreen> {
 
     return PopScope(
       canPop: !state.isSaving,
-      child: Scaffold(
-        body: SafeArea(
-          child: Column(
-            children: [
-              AppHeader(
-                title: widget.isEditing
-                    ? 'Editar presupuesto'
-                    : 'Nuevo presupuesto',
-                subtitle: 'Alcance, calendario, monto y moneda',
-                leading: HeaderIconButton(
-                  icon: Icons.arrow_back,
-                  tooltip: 'Volver a presupuestos',
-                  onPressed: state.isSaving
-                      ? null
-                      : () => context.go('/budgets'),
-                ),
-                actions: [
-                  if (budget != null)
-                    IconButton(
-                      key: const Key('budget-delete-button'),
-                      tooltip: 'Eliminar presupuesto',
-                      onPressed: state.isSaving
-                          ? null
-                          : () => _confirmDelete(budget),
-                      icon: const Icon(Icons.delete_outline),
-                    ),
-                ],
+      child: ManagementPageScaffold(
+        title: widget.isEditing ? 'Editar presupuesto' : 'Nuevo presupuesto',
+        subtitle: 'Alcance, calendario, monto y moneda',
+        leading: HeaderIconButton(
+          icon: FinanceIcons.arrowBack,
+          tooltip: 'Volver a presupuestos',
+          onPressed: state.isSaving
+              ? null
+              : () => context.canPop() ? context.pop() : context.go('/budgets'),
+        ),
+        actions: [
+          if (budget != null)
+            HeaderIconButton(
+              key: const Key('budget-delete-button'),
+              tooltip: 'Eliminar presupuesto',
+              icon: FinanceIcons.deleteOutline,
+              onPressed: state.isSaving ? null : () => _confirmDelete(budget),
+            ),
+          const ThemeToggleButton(),
+        ],
+        body: ListView(
+          padding: EdgeInsets.zero,
+          children: [
+            if (state.loadStatus == BudgetsLoadStatus.loading)
+              const LinearProgressIndicator(
+                semanticsLabel: 'Cargando formulario de presupuesto',
               ),
-              Expanded(
-                child: Center(
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 620),
-                    child: ListView(
-                      padding: const EdgeInsets.fromLTRB(20, 8, 20, 40),
-                      children: [
-                        if (state.loadStatus == BudgetsLoadStatus.loading)
-                          const LinearProgressIndicator(
-                            semanticsLabel:
-                                'Cargando formulario de presupuesto',
-                          ),
-                        if (state.diagnostic case final diagnostic?) ...[
-                          ErrorDiagnosticPanel(diagnostic: diagnostic),
-                          const SizedBox(height: 12),
-                          OutlinedButton.icon(
-                            onPressed: controller.load,
-                            icon: const Icon(Icons.refresh),
-                            label: const Text('Reintentar'),
-                          ),
-                        ],
-                        if (missing)
-                          const Padding(
-                            padding: EdgeInsets.only(top: 48),
-                            child: Text(
-                              'Este presupuesto ya no está disponible.',
-                              textAlign: TextAlign.center,
-                            ),
-                          )
-                        else if (_initialized && result != null)
-                          _form(state, result),
-                      ],
-                    ),
-                  ),
-                ),
+            if (state.diagnostic case final diagnostic?) ...[
+              ErrorDiagnosticPanel(diagnostic: diagnostic),
+              const SizedBox(height: 16),
+              OutlinedButton.icon(
+                onPressed: controller.load,
+                icon: const Icon(FinanceIcons.refresh),
+                label: const Text('Reintentar'),
               ),
             ],
-          ),
+            if (missing)
+              const Padding(
+                padding: EdgeInsets.only(top: 48),
+                child: Text(
+                  'Este presupuesto ya no está disponible.',
+                  textAlign: TextAlign.center,
+                ),
+              )
+            else if (_initialized && result != null)
+              _form(state, result),
+          ],
         ),
       ),
     );
@@ -153,280 +138,284 @@ class _BudgetFormScreenState extends ConsumerState<BudgetFormScreen> {
 
   Widget _form(BudgetsState state, BudgetListResult result) {
     final controller = ref.read(budgetsControllerProvider.notifier);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        if (state.mutationDiagnostic case final diagnostic?) ...[
-          ErrorDiagnosticPanel(diagnostic: diagnostic),
-          const SizedBox(height: 16),
-        ],
-        TextField(
-          key: const Key('budget-name-field'),
-          controller: _nameController,
-          enabled: !state.isSaving,
-          maxLength: 120,
-          textInputAction: TextInputAction.next,
-          decoration: const InputDecoration(
-            labelText: 'Nombre personalizado (opcional)',
-            hintText: 'Ej. Vacaciones, mercado familiar…',
-            counterText: '',
-          ),
-        ),
-        const SizedBox(height: 20),
-        DropdownButtonFormField<int>(
-          key: const Key('budget-category-field'),
-          isExpanded: true,
-          initialValue: _categoryId,
-          decoration: InputDecoration(
-            labelText: 'Gastos incluidos',
-            helperText: _categoryId == _allExpensesCategoryId
-                ? 'Cuenta todos tus gastos en la moneda elegida.'
-                : 'Cuenta únicamente los gastos de esta categoría.',
-            errorText: _firstError(state, 'category_id'),
-          ),
-          items: [
-            const DropdownMenuItem(
-              value: _allExpensesCategoryId,
-              child: Row(
-                children: [
-                  Icon(Icons.all_inclusive, size: 18),
-                  SizedBox(width: 8),
-                  Text('Todos los gastos'),
-                ],
-              ),
+    return ManagementFormCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (state.mutationDiagnostic case final diagnostic?) ...[
+            ErrorDiagnosticPanel(diagnostic: diagnostic),
+            const SizedBox(height: 16),
+          ],
+          TextField(
+            key: const Key('budget-name-field'),
+            controller: _nameController,
+            enabled: !state.isSaving,
+            maxLength: 120,
+            textInputAction: TextInputAction.next,
+            decoration: const InputDecoration(
+              labelText: 'Nombre personalizado (opcional)',
+              hintText: 'Ej. Vacaciones, mercado familiar…',
+              counterText: '',
             ),
-            ...result.categories.map(
-              (category) => DropdownMenuItem(
-                value: category.id,
+          ),
+          const SizedBox(height: 16),
+          DropdownButtonFormField<int>(
+            key: const Key('budget-category-field'),
+            isExpanded: true,
+            initialValue: _categoryId,
+            decoration: InputDecoration(
+              labelText: 'Gastos incluidos',
+              helperText: _categoryId == _allExpensesCategoryId
+                  ? 'Cuenta todos tus gastos en la moneda elegida.'
+                  : 'Cuenta únicamente los gastos de esta categoría.',
+              errorText: _firstError(state, 'category_id'),
+            ),
+            items: [
+              const DropdownMenuItem(
+                value: _allExpensesCategoryId,
                 child: Row(
                   children: [
-                    Icon(
-                      category.icon.value,
-                      size: 18,
-                      color: category.color.value,
-                    ),
-                    const SizedBox(width: 8),
-                    Flexible(
-                      child: Text(
-                        category.name,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
+                    Icon(FinanceIcons.allInclusive, size: 18),
+                    SizedBox(width: 8),
+                    Text('Todos los gastos'),
                   ],
                 ),
               ),
-            ),
-          ],
-          onChanged: state.isSaving
-              ? null
-              : (value) {
-                  setState(() {
-                    _categoryId = value ?? _allExpensesCategoryId;
-                  });
-                  controller.clearFieldError('category_id');
-                },
-        ),
-        if (result.categories.isEmpty) ...[
-          const SizedBox(height: 8),
-          OutlinedButton.icon(
-            key: const Key('budget-create-category-button'),
-            onPressed: state.isSaving ? null : _createCategory,
-            icon: const Icon(Icons.add),
-            label: const Text('Crear una categoría opcional'),
-          ),
-        ],
-        const FieldLabel('Tipo de calendario', uppercase: false),
-        SegmentedControl(
-          labels: BudgetScheduleType.values.map((item) => item.label).toList(),
-          selectedIndex: BudgetScheduleType.values.indexOf(_scheduleType),
-          keyPrefix: 'budget-schedule-type',
-          onChanged: state.isSaving
-              ? (_) {}
-              : (index) => setState(() {
-                  _scheduleType = BudgetScheduleType.values[index];
-                  if (_scheduleType == BudgetScheduleType.oneTime) {
-                    _endsOn ??= _startsOn;
-                  }
-                }),
-        ),
-        const SizedBox(height: 20),
-        if (_scheduleType == BudgetScheduleType.recurring) ...[
-          DropdownButtonFormField<BudgetRecurrencePreset>(
-            key: const Key('budget-recurrence-field'),
-            initialValue: _preset,
-            isExpanded: true,
-            decoration: InputDecoration(
-              labelText: 'Frecuencia',
-              errorText: _firstError(state, 'schedule'),
-            ),
-            items: BudgetRecurrencePreset.values
-                .map(
-                  (item) =>
-                      DropdownMenuItem(value: item, child: Text(item.label)),
-                )
-                .toList(growable: false),
+              ...result.categories.map(
+                (category) => DropdownMenuItem(
+                  value: category.id,
+                  child: Row(
+                    children: [
+                      Icon(
+                        category.icon.value,
+                        size: 18,
+                        color: category.color.value,
+                      ),
+                      const SizedBox(width: 8),
+                      Flexible(
+                        child: Text(
+                          CatalogLabels.display(category.name),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
             onChanged: state.isSaving
                 ? null
-                : (value) => setState(() {
-                    _preset = value ?? BudgetRecurrencePreset.monthly;
-                    if (_preset != BudgetRecurrencePreset.custom) {
-                      _intervalController.text =
-                          _preset.interval?.toString() ?? '1';
-                      _customUnit = _preset.unit ?? BudgetFrequencyUnit.month;
+                : (value) {
+                    setState(() {
+                      _categoryId = value ?? _allExpensesCategoryId;
+                    });
+                    controller.clearFieldError('category_id');
+                  },
+          ),
+          if (result.categories.isEmpty) ...[
+            const SizedBox(height: 8),
+            OutlinedButton.icon(
+              key: const Key('budget-create-category-button'),
+              onPressed: state.isSaving ? null : _createCategory,
+              icon: const Icon(FinanceIcons.add),
+              label: const Text('Crear una categoría opcional'),
+            ),
+          ],
+          const FieldLabel('Tipo de calendario', uppercase: false),
+          SegmentedControl(
+            labels: BudgetScheduleType.values
+                .map((item) => item.label)
+                .toList(),
+            selectedIndex: BudgetScheduleType.values.indexOf(_scheduleType),
+            keyPrefix: 'budget-schedule-type',
+            onChanged: state.isSaving
+                ? (_) {}
+                : (index) => setState(() {
+                    _scheduleType = BudgetScheduleType.values[index];
+                    if (_scheduleType == BudgetScheduleType.oneTime) {
+                      _endsOn ??= _startsOn;
                     }
                   }),
           ),
-          if (_preset == BudgetRecurrencePreset.custom) ...[
-            const SizedBox(height: 16),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: TextField(
-                    key: const Key('budget-interval-field'),
-                    controller: _intervalController,
-                    enabled: !state.isSaving,
-                    keyboardType: TextInputType.number,
-                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                    decoration: InputDecoration(
-                      labelText: 'Cada',
-                      errorText: _firstError(state, 'frequency_interval'),
+          const SizedBox(height: 16),
+          if (_scheduleType == BudgetScheduleType.recurring) ...[
+            DropdownButtonFormField<BudgetRecurrencePreset>(
+              key: const Key('budget-recurrence-field'),
+              initialValue: _preset,
+              isExpanded: true,
+              decoration: InputDecoration(
+                labelText: 'Frecuencia',
+                errorText: _firstError(state, 'schedule'),
+              ),
+              items: BudgetRecurrencePreset.values
+                  .map(
+                    (item) =>
+                        DropdownMenuItem(value: item, child: Text(item.label)),
+                  )
+                  .toList(growable: false),
+              onChanged: state.isSaving
+                  ? null
+                  : (value) => setState(() {
+                      _preset = value ?? BudgetRecurrencePreset.monthly;
+                      if (_preset != BudgetRecurrencePreset.custom) {
+                        _intervalController.text =
+                            _preset.interval?.toString() ?? '1';
+                        _customUnit = _preset.unit ?? BudgetFrequencyUnit.month;
+                      }
+                    }),
+            ),
+            if (_preset == BudgetRecurrencePreset.custom) ...[
+              const SizedBox(height: 16),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: TextField(
+                      key: const Key('budget-interval-field'),
+                      controller: _intervalController,
+                      enabled: !state.isSaving,
+                      keyboardType: TextInputType.number,
+                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                      decoration: InputDecoration(
+                        labelText: 'Cada',
+                        errorText: _firstError(state, 'frequency_interval'),
+                      ),
+                      onChanged: (_) =>
+                          controller.clearFieldError('frequency_interval'),
                     ),
-                    onChanged: (_) =>
-                        controller.clearFieldError('frequency_interval'),
                   ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  flex: 2,
-                  child: DropdownButtonFormField<BudgetFrequencyUnit>(
-                    key: const Key('budget-frequency-unit-field'),
-                    initialValue: _customUnit,
-                    decoration: const InputDecoration(labelText: 'Unidad'),
-                    items: BudgetFrequencyUnit.values
-                        .map(
-                          (unit) => DropdownMenuItem(
-                            value: unit,
-                            child: Text(unit.plural),
-                          ),
-                        )
-                        .toList(growable: false),
-                    onChanged: state.isSaving
-                        ? null
-                        : (value) => setState(() {
-                            _customUnit = value ?? BudgetFrequencyUnit.month;
-                          }),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    flex: 2,
+                    child: DropdownButtonFormField<BudgetFrequencyUnit>(
+                      key: const Key('budget-frequency-unit-field'),
+                      initialValue: _customUnit,
+                      decoration: const InputDecoration(labelText: 'Unidad'),
+                      items: BudgetFrequencyUnit.values
+                          .map(
+                            (unit) => DropdownMenuItem(
+                              value: unit,
+                              child: Text(unit.plural),
+                            ),
+                          )
+                          .toList(growable: false),
+                      onChanged: state.isSaving
+                          ? null
+                          : (value) => setState(() {
+                              _customUnit = value ?? BudgetFrequencyUnit.month;
+                            }),
+                    ),
                   ),
-                ),
-              ],
-            ),
+                ],
+              ),
+            ],
           ],
-        ],
-        const SizedBox(height: 16),
-        _DatePickerField(
-          key: const Key('budget-start-date-field'),
-          label: _scheduleType == BudgetScheduleType.recurring
-              ? 'Comienza el'
-              : 'Desde',
-          value: _startsOn,
-          enabled: !state.isSaving,
-          onPressed: () => _pickDate(isStart: true),
-        ),
-        const SizedBox(height: 12),
-        if (_scheduleType == BudgetScheduleType.recurring) ...[
-          SwitchListTile.adaptive(
-            key: const Key('budget-end-toggle'),
-            contentPadding: EdgeInsets.zero,
-            title: const Text('Definir fecha de finalización'),
-            subtitle: const Text(
-              'Si se desactiva, el presupuesto se repite indefinidamente.',
-            ),
-            value: _endsOn != null,
-            onChanged: state.isSaving
-                ? null
-                : (enabled) => setState(() {
-                    _endsOn = enabled ? _startsOn : null;
-                  }),
+          const SizedBox(height: 16),
+          _DatePickerField(
+            key: const Key('budget-start-date-field'),
+            label: _scheduleType == BudgetScheduleType.recurring
+                ? 'Comienza el'
+                : 'Desde',
+            value: _startsOn,
+            enabled: !state.isSaving,
+            onPressed: () => _pickDate(isStart: true),
           ),
-          if (_endsOn != null)
+          const SizedBox(height: 16),
+          if (_scheduleType == BudgetScheduleType.recurring) ...[
+            SwitchListTile.adaptive(
+              key: const Key('budget-end-toggle'),
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Definir fecha de finalización'),
+              subtitle: const Text(
+                'Si se desactiva, el presupuesto se repite indefinidamente.',
+              ),
+              value: _endsOn != null,
+              onChanged: state.isSaving
+                  ? null
+                  : (enabled) => setState(() {
+                      _endsOn = enabled ? _startsOn : null;
+                    }),
+            ),
+            if (_endsOn != null)
+              _DatePickerField(
+                key: const Key('budget-end-date-field'),
+                label: 'Finaliza el',
+                value: _endsOn!,
+                enabled: !state.isSaving,
+                errorText: _firstError(state, 'ends_on'),
+                onPressed: () => _pickDate(isStart: false),
+              ),
+          ] else
             _DatePickerField(
               key: const Key('budget-end-date-field'),
-              label: 'Finaliza el',
-              value: _endsOn!,
+              label: 'Hasta',
+              value: _endsOn ?? _startsOn,
               enabled: !state.isSaving,
               errorText: _firstError(state, 'ends_on'),
               onPressed: () => _pickDate(isStart: false),
             ),
-        ] else
-          _DatePickerField(
-            key: const Key('budget-end-date-field'),
-            label: 'Hasta',
-            value: _endsOn ?? _startsOn,
+          const SizedBox(height: 16),
+          TextField(
+            key: const Key('budget-amount-field'),
+            controller: _amountController,
+            focusNode: _amountFocus,
             enabled: !state.isSaving,
-            errorText: _firstError(state, 'ends_on'),
-            onPressed: () => _pickDate(isStart: false),
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            inputFormatters: const [MoneyInputFormatter()],
+            textInputAction: TextInputAction.next,
+            decoration: InputDecoration(
+              labelText: 'Monto objetivo',
+              hintText: '500.000',
+              errorText: _firstError(state, 'amount'),
+            ),
+            onChanged: (_) => controller.clearFieldError('amount'),
           ),
-        const SizedBox(height: 20),
-        TextField(
-          key: const Key('budget-amount-field'),
-          controller: _amountController,
-          focusNode: _amountFocus,
-          enabled: !state.isSaving,
-          keyboardType: const TextInputType.numberWithOptions(decimal: true),
-          inputFormatters: const [MoneyInputFormatter()],
-          textInputAction: TextInputAction.next,
-          decoration: InputDecoration(
-            labelText: 'Monto objetivo',
-            hintText: '500.000',
-            errorText: _firstError(state, 'amount'),
-          ),
-          onChanged: (_) => controller.clearFieldError('amount'),
-        ),
-        const SizedBox(height: 20),
-        DropdownButtonFormField<String>(
-          key: const Key('budget-currency-field'),
-          isExpanded: true,
-          initialValue: _currencyCode,
-          decoration: InputDecoration(
-            labelText: 'Moneda',
-            helperText:
-                'Solo los gastos en la misma moneda cuentan para el progreso.',
-            errorText: _firstError(state, 'currency_code'),
-          ),
-          items: result.supportedCurrencies
-              .map(
-                (currency) => DropdownMenuItem(
-                  value: currency.code,
-                  child: Text(
-                    '${currency.code} · ${currency.name}',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+          const SizedBox(height: 16),
+          DropdownButtonFormField<String>(
+            key: const Key('budget-currency-field'),
+            isExpanded: true,
+            initialValue: _currencyCode,
+            decoration: InputDecoration(
+              labelText: 'Moneda',
+              helperText: 'Solo los gastos en la misma moneda cuentan para el progreso.',
+              helperMaxLines: 2,
+              errorText: _firstError(state, 'currency_code'),
+            ),
+            items: result.supportedCurrencies
+                .map(
+                  (currency) => DropdownMenuItem(
+                    value: currency.code,
+                    child: Text(
+                      '${currency.code} · ${CatalogLabels.display(currency.name)}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
-                ),
-              )
-              .toList(growable: false),
-          onChanged: state.isSaving
-              ? null
-              : (value) {
-                  setState(() => _currencyCode = value);
-                  controller.clearFieldError('currency_code');
-                },
-        ),
-        const SizedBox(height: 28),
-        FilledButton(
-          key: const Key('budget-save-button'),
-          onPressed: state.isSaving ? null : _submit,
-          child: state.isSaving
-              ? const SizedBox.square(
-                  dimension: 22,
-                  child: CircularProgressIndicator(strokeWidth: 2.5),
                 )
-              : Text(
-                  widget.isEditing ? 'Guardar cambios' : 'Crear presupuesto',
-                ),
-        ),
-      ],
+                .toList(growable: false),
+            onChanged: state.isSaving
+                ? null
+                : (value) {
+                    setState(() => _currencyCode = value);
+                    controller.clearFieldError('currency_code');
+                  },
+          ),
+          const SizedBox(height: 28),
+          FilledButton(
+            key: const Key('budget-save-button'),
+            onPressed: state.isSaving ? null : _submit,
+            child: state.isSaving
+                ? const SizedBox.square(
+                    dimension: 22,
+                    child: CircularProgressIndicator(strokeWidth: 2.5),
+                  )
+                : Text(
+                    widget.isEditing ? 'Guardar cambios' : 'Crear presupuesto',
+                  ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -501,7 +490,11 @@ class _BudgetFormScreenState extends ConsumerState<BudgetFormScreen> {
         );
     if (!mounted) return;
     if (outcome == BudgetMutationOutcome.success) {
-      context.go('/budgets');
+      if (context.canPop()) {
+        context.pop();
+      } else {
+        context.go('/budgets');
+      }
     } else if (outcome == BudgetMutationOutcome.invalid) {
       _amountFocus.requestFocus();
     }
@@ -533,7 +526,11 @@ class _BudgetFormScreenState extends ConsumerState<BudgetFormScreen> {
         .read(budgetsControllerProvider.notifier)
         .deleteBudget(budget.id);
     if (mounted && outcome == BudgetMutationOutcome.success) {
-      context.go('/budgets');
+      if (context.canPop()) {
+        context.pop();
+      } else {
+        context.go('/budgets');
+      }
     }
   }
 
@@ -618,7 +615,7 @@ class _DatePickerField extends StatelessWidget {
       decoration: InputDecoration(
         labelText: label,
         errorText: errorText,
-        suffixIcon: const Icon(Icons.calendar_month_outlined),
+        suffixIcon: const Icon(FinanceIcons.calendarMonthOutlined),
       ),
       child: Text(
         '${value.day.toString().padLeft(2, '0')}/${value.month.toString().padLeft(2, '0')}/${value.year}',

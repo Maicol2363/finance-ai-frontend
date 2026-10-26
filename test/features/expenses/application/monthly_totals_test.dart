@@ -22,10 +22,11 @@ HistoryItem expenseItem({
   required String amount,
   String occurredAt = '2026-09-17T12:30:00Z',
   String currencyCode = 'COP',
+  ExpenseStatus status = ExpenseStatus.confirmed,
 }) => HistoryItem(
   id: id,
   type: TransactionType.expense,
-  status: ExpenseStatus.confirmed,
+  status: status,
   occurredAt: DateTime.parse(occurredAt),
   description: 'Purchase at Market',
   captureSource: CaptureSource.manual,
@@ -149,6 +150,85 @@ class _FixedPeriod extends DashboardPeriodController {
 }
 
 void main() {
+  test(
+    'voided expenses stay out of both totals and comparison histories',
+    () async {
+      final expenses = _FakeExpensesRepository(
+        pages: {
+          1: [
+            expenseItem(id: 1, amount: '-25.00'),
+            expenseItem(id: 2, amount: '-100.00', status: ExpenseStatus.voided),
+          ],
+        },
+      );
+      final totals = await _container(expenses: expenses)
+          .read(monthlyTotalsProvider.future);
+      expect(totals.forCurrency('COP').expenses, 2500);
+      expect(totals.previousExpensesByCurrency['COP'], 2500);
+      expect(totals.expenseItems.map((item) => item.id), [1]);
+      expect(totals.previousExpenseItems.map((item) => item.id), [1]);
+      expect(totals.historyComplete, isTrue);
+      expect(totals.previousHistoryComplete, isTrue);
+    },
+  );
+  test(
+    'fails instead of returning totals when pagination exceeds safety cap',
+    () async {
+      final expenses = _FakeExpensesRepository(
+        pages: {
+          for (var page = 1; page <= 101; page++)
+            page: [expenseItem(id: page, amount: '-1.00')],
+        },
+      );
+      final container = _container(expenses: expenses, incomes: []);
+      await expectLater(
+        container.read(monthlyTotalsProvider.future),
+        throwsA(
+          isA<StateError>().having(
+            (error) => error.message,
+            'message',
+            'history_page_limit_reached',
+          ),
+        ),
+      );
+      expect(expenses.seenFilters, hasLength(100));
+      expect(expenses.seenFilters.last.page, 100);
+    },
+  );
+
+  test('matches cached totals only to their exact period window', () {
+    final totals = MonthlyTotals(
+      monthStart: DateTime.utc(2026, 9, 1),
+      windowEnd: DateTime.utc(2026, 9, 30),
+      period: DashboardPeriod.thisMonth,
+      byCurrency: {},
+      expenseItems: [],
+    );
+    final september = (
+      start: DateTime.utc(2026, 9, 1),
+      end: DateTime.utc(2026, 9, 30),
+    );
+    expect(
+      totalsMatchWindow(totals, DashboardPeriod.thisMonth, september),
+      isTrue,
+    );
+    expect(
+      totalsMatchWindow(totals, DashboardPeriod.lastMonth, september),
+      isFalse,
+    );
+    expect(
+      totalsMatchWindow(totals, DashboardPeriod.thisMonth, (
+        start: DateTime.utc(2026, 9, 2),
+        end: DateTime.utc(2026, 9, 30),
+      )),
+      isFalse,
+    );
+    expect(
+      totalsMatchWindow(null, DashboardPeriod.thisMonth, september),
+      isFalse,
+    );
+  });
+
   test('sums the month expenses per currency and asks for the month', () async {
     final expenses = _FakeExpensesRepository(
       pages: {
@@ -194,7 +274,14 @@ void main() {
 
       expect(totals.byCurrency['COP']!.expenses, 6000);
       expect(totals.expenseItems, hasLength(3));
-      expect(expenses.seenFilters.map((filters) => filters.page), [1, 2, 3, 1]);
+      expect(expenses.seenFilters.map((filters) => filters.page), [
+        1,
+        2,
+        3,
+        1,
+        2,
+        3,
+      ]);
     },
   );
 
@@ -254,10 +341,22 @@ void main() {
       start: DateTime.utc(2026),
       end: DateTime.utc(2026, 12, 31),
     ));
+    final custom = (
+      start: DateTime.utc(2026, 9, 15),
+      end: DateTime.utc(2026, 10, 5),
+    );
+    expect(
+      periodWindow(DashboardPeriod.custom, now, customRange: custom),
+      custom,
+    );
     expect(periodLabel(DashboardPeriod.thisMonth, now), 'octubre');
     expect(periodLabel(DashboardPeriod.lastMonth, now), 'septiembre');
     expect(periodLabel(DashboardPeriod.last3Months, now), 'ago – oct');
     expect(periodLabel(DashboardPeriod.thisYear, now), '2026');
+    expect(
+      periodLabel(DashboardPeriod.custom, now, customRange: custom),
+      '15 sep – 5 oct',
+    );
   });
 
   test('last month preset asks for august only', () async {

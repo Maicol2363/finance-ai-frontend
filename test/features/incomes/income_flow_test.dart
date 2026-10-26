@@ -152,7 +152,7 @@ void main() {
           incomeFormOptionsProvider.overrideWithValue(
             () async => IncomeFormOptions(
               accounts: [sampleAccount()],
-              sources: const [IncomeSource(id: 4, name: 'Salario')],
+              sources: const [IncomeSource(id: 4, name: 'Salary')],
             ),
           ),
         ],
@@ -161,10 +161,15 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('income-account-field')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('income-source-field')));
+    await tester.pumpAndSettle();
+    expect(find.text('Salario').last, findsOneWidget);
+    await tester.tap(find.text('Salario').last);
+    await tester.pumpAndSettle();
     await tester.enterText(find.byKey(const Key('income-amount-field')), '-1');
     await tester.tap(find.byKey(const Key('income-save-button')));
     await tester.pumpAndSettle();
-    expect(find.text('Error code: income_invalid'), findsOneWidget);
+    expect(find.byKey(const Key('error-diagnostic-code')), findsNothing);
     expect(repository.savedCommand, isNull);
     await tester.enterText(
       find.byKey(const Key('income-amount-field')),
@@ -173,6 +178,11 @@ void main() {
     await tester.enterText(
       find.byKey(const Key('income-date-field')),
       '2026-09-18',
+    );
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('income-description-field')),
+      300,
+      scrollable: find.byType(Scrollable).first,
     );
     await tester.enterText(
       find.byKey(const Key('income-description-field')),
@@ -187,6 +197,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(repository.savedCommand?.amount.toApiString(), '25.50');
     expect(repository.savedCommand?.description, '  Pago  ');
+    expect(repository.savedCommand?.incomeSourceId, 4);
     expect(find.byKey(const Key('income-delete-button')), findsOneWidget);
   });
 
@@ -222,6 +233,6 @@ void main() {
     expect(find.text('25,50'), findsOneWidget);
     await tester.tap(find.byKey(const Key('income-save-button')));
     await tester.pumpAndSettle();
-    expect(find.text('Error code: income_account_unavailable'), findsOneWidget);
+    expect(find.byKey(const Key('error-diagnostic-code')), findsNothing);
   });
 }

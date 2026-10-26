@@ -16,15 +16,37 @@ class AppConfig {
   static String resolveApiBaseUrl({
     required TargetPlatform platform,
     String configuredValue = '',
+    bool allowInsecureHttp = kDebugMode,
   }) {
     final configured = configuredValue.trim();
-    if (configured.isNotEmpty) {
-      return configured;
-    }
-    return platform == TargetPlatform.android
+    final baseUrl = configured.isNotEmpty
+        ? configured
+        : platform == TargetPlatform.android
         ? 'http://10.0.2.2:8000'
         : 'http://127.0.0.1:8000';
+    final uri = Uri.tryParse(baseUrl);
+    if (uri == null ||
+        !uri.hasAuthority ||
+        uri.host.isEmpty ||
+        (uri.scheme != 'http' && uri.scheme != 'https')) {
+      throw const FormatException(
+        'API base URL must be an absolute HTTP or HTTPS URL.',
+      );
+    }
+    if (uri.scheme == 'http' &&
+        (!allowInsecureHttp || !_isLocalDevelopmentHost(uri.host))) {
+      throw const FormatException(
+        'HTTP is allowed only for local development endpoints in debug builds.',
+      );
+    }
+    return baseUrl;
   }
+
+  static bool _isLocalDevelopmentHost(String host) =>
+      host == 'localhost' ||
+      host == '127.0.0.1' ||
+      host == '::1' ||
+      host == '10.0.2.2';
 
   static const requestTimeout = Duration(seconds: 30);
   static const aiRequestTimeout = Duration(seconds: 60);

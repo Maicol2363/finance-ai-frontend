@@ -1,8 +1,10 @@
+import 'package:finance_ai/core/icons/finance_icon_catalog.dart';
 import 'package:flutter/material.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/diagnostics/error_diagnostic_panel.dart';
+import '../../../../core/formatters/catalog_labels.dart';
 import '../../../../core/formatters/date_labels.dart';
 import '../../../../core/formatters/money_formatter.dart';
 import '../../../../core/theme/app_palette.dart';
@@ -72,7 +74,26 @@ class ProposalDraft {
     final parsed = MoneyAmount.tryParseUserInput(cleaned);
     return parsed == null || parsed.minorUnits <= 0 ? null : parsed;
   }
+
+  /// How a typed amount reads, so the user gets told why it cannot be used.
+  static AmountShape moneyShape(String text) {
+    final cleaned = MoneyFormatter.clean(text);
+    if (cleaned.isEmpty) return AmountShape.empty;
+    final match = RegExp(r'^(\d+)(?:[\.,](\d{0,2}))?$').firstMatch(cleaned);
+    if (match == null) return AmountShape.unreadable;
+    final fraction = (match.group(2) ?? '').padRight(2, '0');
+    final digits = '${match.group(1)}$fraction';
+    if (digits.length > 18) return AmountShape.oversized;
+    final magnitude = int.tryParse(digits);
+    if (magnitude == null) return AmountShape.oversized;
+    if (magnitude <= 0) return AmountShape.empty;
+    if (magnitude > MoneyAmount.maximumMinorUnits) return AmountShape.oversized;
+    return AmountShape.valid;
+  }
 }
+
+/// Why a typed amount cannot be used as written.
+enum AmountShape { empty, unreadable, oversized, valid }
 
 /// Review card for a proposal: compact by default, editable in place.
 ///
@@ -147,8 +168,20 @@ class _ProposalCardState extends ConsumerState<ProposalCard> {
   bool _validate() {
     _syncDraftFromFields();
     _errors.clear();
-    if (ProposalDraft.parseMoney(_draft.amountText) == null) {
+    final shape = ProposalDraft.moneyShape(_draft.amountText);
+    final amount = ProposalDraft.parseMoney(_draft.amountText);
+    if (shape == AmountShape.oversized) {
+      _errors['amount'] = 'El monto es demasiado grande: usa un valor menor.';
+    } else if (amount == null) {
       _errors['amount'] = 'Escribe un monto mayor que cero.';
+    } else if (_draft.intent == CaptureIntent.transfer &&
+        _draft.accountId != null) {
+      final account = _account(_draft.accountId);
+      if (account != null && amount.minorUnits > account.balance.minorUnits) {
+        _errors['amount'] =
+            'Fondos insuficientes en ${account.name} (disponible '
+            '${account.balance.formatWithCurrency(account.currency.code)}).';
+      }
     }
     if (_draft.accountId == null) {
       _errors['account'] = 'Elige una cuenta.';
@@ -158,9 +191,19 @@ class _ProposalCardState extends ConsumerState<ProposalCard> {
         _errors['destination'] = 'Elige la cuenta de destino.';
       } else if (_draft.destinationId == _draft.accountId) {
         _errors['destination'] = 'Elige una cuenta distinta al origen.';
-      } else if (_needsDestinationAmount &&
-          ProposalDraft.parseMoney(_draft.destinationAmountText) == null) {
-        _errors['destinationAmount'] = 'Indica cuánto llegó.';
+      } else if (_needsDestinationAmount) {
+        final destinationShape = ProposalDraft.moneyShape(
+          _draft.destinationAmountText,
+        );
+        final destinationAmount = ProposalDraft.parseMoney(
+          _draft.destinationAmountText,
+        );
+        if (destinationShape == AmountShape.oversized) {
+          _errors['destinationAmount'] =
+              'El monto que llega es demasiado grande: usa un valor menor.';
+        } else if (destinationAmount == null) {
+          _errors['destinationAmount'] = 'Indica cuánto llegó.';
+        }
       }
     }
     return _errors.isEmpty;
@@ -284,9 +327,13 @@ class _ProposalCardState extends ConsumerState<ProposalCard> {
               for (final note in _proposal.notes) _note(note, palette),
               if (entry.failure case final failure?) ...[
                 const SizedBox(height: 10),
-                ErrorDiagnosticPanel(diagnostic: failure),
-                const SizedBox(height: 4),
+                ErrorDiagnosticPanel(
+                  key: const Key('proposal-save-error-panel'),
+                  diagnostic: failure,
+                ),
+                const SizedBox(height: 8),
                 Text(
+                  key: const Key('proposal-retry-safety-note'),
                   'Puedes reintentar: no se guardará dos veces.',
                   style: TextStyle(fontSize: 11.5, color: palette.muted),
                 ),
@@ -323,14 +370,26 @@ class _ProposalCardState extends ConsumerState<ProposalCard> {
       spacing: 8,
       runSpacing: 4,
       children: [
-        Text(
-          '✨ IA · Entendí $noun',
-          style: TextStyle(
-            fontSize: 11.5,
-            fontWeight: FontWeight.w700,
-            letterSpacing: 0.4,
-            color: accent,
-          ),
+        Wrap(
+          crossAxisAlignment: WrapCrossAlignment.center,
+          spacing: 4,
+          children: [
+            Icon(
+              FinanceIconCatalog.dataFor(FinanceIconKey.aiCapture),
+              size: 14,
+              color: accent,
+            ),
+            Text(
+              'IA · Entendí $noun',
+              softWrap: true,
+              style: TextStyle(
+                fontSize: 11.5,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.4,
+                color: accent,
+              ),
+            ),
+          ],
         ),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
@@ -357,7 +416,7 @@ class _ProposalCardState extends ConsumerState<ProposalCard> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(Icons.info_outline, size: 15, color: palette.warnFg),
+          Icon(FinanceIcons.infoOutline, size: 15, color: palette.warnFg),
           const SizedBox(width: 6),
           Expanded(
             child: Text(
@@ -453,17 +512,17 @@ class _ProposalCardState extends ConsumerState<ProposalCard> {
     final categories =
         ref.read(categoriesControllerProvider).result?.categories ?? const [];
     for (final category in categories) {
-      if (category.id == id) return category.name;
+      if (category.id == id) return CatalogLabels.display(category.name);
     }
-    return fallback?.id == id ? fallback?.name : null;
+    return fallback?.id == id ? CatalogLabels.display(fallback!.name) : null;
   }
 
   String? _sourceName(int? id, CatalogRef? fallback) {
     if (id == null) return null;
     for (final source in ref.read(incomeSourcesControllerProvider).items) {
-      if (source.id == id) return source.name;
+      if (source.id == id) return CatalogLabels.display(source.name);
     }
-    return fallback?.id == id ? fallback?.name : null;
+    return fallback?.id == id ? CatalogLabels.display(fallback!.name) : null;
   }
 
   // ------------------------------------------------------------ editing
@@ -632,7 +691,7 @@ class _ProposalCardState extends ConsumerState<ProposalCard> {
               for (final category in categories)
                 DropdownMenuItem<int?>(
                   value: category.id,
-                  child: Text(category.name),
+                  child: Text(CatalogLabels.display(category.name)),
                 ),
             ],
             onChanged: (value) => setState(() => _draft.categoryId = value),
@@ -658,7 +717,7 @@ class _ProposalCardState extends ConsumerState<ProposalCard> {
               for (final source in sources)
                 DropdownMenuItem<int?>(
                   value: source.id,
-                  child: Text(source.name),
+                  child: Text(CatalogLabels.display(source.name)),
                 ),
             ],
             onChanged: (value) => setState(() => _draft.incomeSourceId = value),
@@ -673,7 +732,7 @@ class _ProposalCardState extends ConsumerState<ProposalCard> {
         child: InputDecorator(
           decoration: const InputDecoration(
             labelText: 'Fecha',
-            suffixIcon: Icon(Icons.calendar_today_outlined, size: 18),
+            suffixIcon: Icon(FinanceIcons.calendarTodayOutlined, size: 18),
           ),
           child: Text(
             DateLabels.relativeDay(_draft.date, now: ref.read(clockProvider)()),
@@ -689,8 +748,8 @@ class _ProposalCardState extends ConsumerState<ProposalCard> {
     final confirm = FilledButton(
       key: const Key('proposal-confirm'),
       style: FilledButton.styleFrom(
-        backgroundColor: palette.confirm,
-        foregroundColor: Colors.white,
+        backgroundColor: palette.primary,
+        foregroundColor: palette.onPrimary,
         minimumSize: const Size(0, 48),
       ),
       onPressed: _confirm,
@@ -796,35 +855,61 @@ class _SummaryRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
+    final stacked = MediaQuery.textScalerOf(context).scale(1) > 1.25;
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 7),
       decoration: BoxDecoration(
         border: last ? null : Border(bottom: BorderSide(color: palette.line)),
       ),
       child: MergeSemantics(
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            SizedBox(
-              width: 112,
-              child: Text(
-                label,
-                style: TextStyle(fontSize: 12, color: palette.muted),
+        child: stacked
+            ? Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    label,
+                    style: TextStyle(fontSize: 12, color: palette.muted),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    value,
+                    style: TextStyle(
+                      fontSize: emphasized ? 16 : 13.5,
+                      fontWeight: emphasized
+                          ? FontWeight.w800
+                          : FontWeight.w600,
+                      color: palette.text,
+                    ),
+                  ),
+                ],
+              )
+            : Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Flexible(
+                    flex: 2,
+                    child: Text(
+                      label,
+                      style: TextStyle(fontSize: 12, color: palette.muted),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    flex: 3,
+                    child: Text(
+                      value,
+                      textAlign: TextAlign.end,
+                      style: TextStyle(
+                        fontSize: emphasized ? 16 : 13.5,
+                        fontWeight: emphasized
+                            ? FontWeight.w800
+                            : FontWeight.w600,
+                        color: palette.text,
+                      ),
+                    ),
+                  ),
+                ],
               ),
-            ),
-            Expanded(
-              child: Text(
-                value,
-                textAlign: TextAlign.end,
-                style: TextStyle(
-                  fontSize: emphasized ? 16 : 13.5,
-                  fontWeight: emphasized ? FontWeight.w800 : FontWeight.w600,
-                  color: palette.text,
-                ),
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }

@@ -1,13 +1,20 @@
+import 'dart:async';
+
+import 'package:finance_ai/core/icons/finance_icon_catalog.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/diagnostics/error_diagnostic.dart';
 import '../../../core/diagnostics/error_diagnostic_panel.dart';
+import '../../../core/formatters/catalog_labels.dart';
 import '../../../core/formatters/money_formatter.dart';
 import '../../../core/theme/app_palette.dart';
+import '../../../core/widgets/app_header.dart';
+import '../../../core/widgets/management_page_scaffold.dart';
 import '../../accounts/data/accounts_repository.dart';
 import '../../accounts/domain/account_models.dart';
+import '../../budgets/application/budgets_controller.dart';
 import '../../auth/session/application/auth_session_controller.dart';
 import '../../auth/session/domain/session_models.dart';
 import '../../categories/data/categories_repository.dart';
@@ -19,6 +26,7 @@ import '../../incomes/data/incomes_repository.dart';
 import '../../incomes/domain/income_models.dart';
 import '../application/expenses_controller.dart';
 import '../application/expenses_state.dart';
+import '../application/history_controller.dart';
 
 enum MovementType { expense, income }
 
@@ -27,11 +35,13 @@ class ExpenseCreateOptions {
     required this.accounts,
     required this.categories,
     required this.incomeSources,
+    this.warnings = const [],
   });
 
   final List<Account> accounts;
   final List<Category> categories;
   final List<IncomeSource> incomeSources;
+  final List<ErrorDiagnostic> warnings;
 }
 
 final expenseCreateOptionsProvider =
@@ -40,34 +50,69 @@ final expenseCreateOptionsProvider =
         final accountsFuture = ref
             .read(accountsRepositoryProvider)
             .list(includeInactive: false);
-        final categoriesFuture = ref.read(categoriesRepositoryProvider).list();
-
-        final accountsResult = await accountsFuture;
-        CategoryListResult? categoriesResult;
-        try {
-          categoriesResult = await categoriesFuture;
-        } catch (e) {
-          debugPrint('Warning: Failed to load categories: $e');
-        }
-
-        List<IncomeSource> sources = const [];
-        try {
-          sources = await ref
+        final categoriesFuture = _loadOptionalCategories(
+          () => ref.read(categoriesRepositoryProvider).list(),
+        );
+        final sourcesFuture = _loadOptionalIncomeSources(
+          () => ref
               .read(authSessionControllerProvider.notifier)
               .runProtected(
                 (access) => ref
                     .read(incomeSourcesRepositoryProvider)
                     .list(accessCredential: access),
-              );
-        } catch (_) {}
+              ),
+        );
+
+        final accountsResult = await accountsFuture;
+        final categories = await categoriesFuture;
+        final sources = await sourcesFuture;
 
         return ExpenseCreateOptions(
           accounts: accountsResult.accounts,
-          categories: categoriesResult?.categories ?? const [],
-          incomeSources: sources,
+          categories: categories.values,
+          incomeSources: sources.values,
+          warnings: [?categories.warning, ?sources.warning],
         );
       };
     });
+
+Future<({List<Category> values, ErrorDiagnostic? warning})>
+_loadOptionalCategories(Future<CategoryListResult> Function() load) async {
+  try {
+    return (values: (await load()).categories, warning: null);
+  } on InvalidSessionFailure {
+    rethrow;
+  } on Object {
+    return (
+      values: const <Category>[],
+      warning: ErrorDiagnostic.capture(
+        code: 'expense_categories_unavailable',
+        operation: 'load_expense_categories',
+        userMessage: 'No pudimos cargar las categorías. Puedes continuar y reintentar después.',
+        technicalReason: 'category_catalog_load_failure',
+      ),
+    );
+  }
+}
+
+Future<({List<IncomeSource> values, ErrorDiagnostic? warning})>
+_loadOptionalIncomeSources(Future<List<IncomeSource>> Function() load) async {
+  try {
+    return (values: await load(), warning: null);
+  } on InvalidSessionFailure {
+    rethrow;
+  } on Object {
+    return (
+      values: const <IncomeSource>[],
+      warning: ErrorDiagnostic.capture(
+        code: 'income_sources_unavailable',
+        operation: 'load_income_sources',
+        userMessage: 'No pudimos cargar las fuentes de ingreso. Puedes continuar y reintentar después.',
+        technicalReason: 'income_source_catalog_load_failure',
+      ),
+    );
+  }
+}
 
 class ExpenseCreateScreen extends ConsumerStatefulWidget {
   const ExpenseCreateScreen({super.key});
@@ -90,6 +135,7 @@ class _ExpenseCreateScreenState extends ConsumerState<ExpenseCreateScreen> {
   List<Account> _accounts = const [];
   List<Category> _categories = const [];
   List<IncomeSource> _incomeSources = const [];
+  List<ErrorDiagnostic> _optionWarnings = const [];
   int? _selectedAccountId;
   int? _selectedCategoryId;
   int? _selectedSourceId;
@@ -109,7 +155,7 @@ class _ExpenseCreateScreenState extends ConsumerState<ExpenseCreateScreen> {
     Future<void>.microtask(() {
       if (!mounted) return;
       ref.read(expensesControllerProvider.notifier).clearMutationFeedback();
-      _loadOptions();
+      _loadOptions(focusAmount: true);
     });
   }
 
@@ -124,7 +170,7 @@ class _ExpenseCreateScreenState extends ConsumerState<ExpenseCreateScreen> {
     super.dispose();
   }
 
-  Future<void> _loadOptions() async {
+  Future<void> _loadOptions({bool focusAmount = false}) async {
     setState(() {
       _loadingOptions = true;
       _loadDiagnostic = null;
@@ -136,6 +182,7 @@ class _ExpenseCreateScreenState extends ConsumerState<ExpenseCreateScreen> {
         _accounts = options.accounts;
         _categories = options.categories;
         _incomeSources = options.incomeSources;
+        _optionWarnings = options.warnings;
         if (_selectedAccountId == null ||
             !_accounts.any((a) => a.id == _selectedAccountId)) {
           _selectedAccountId = options.accounts
@@ -143,19 +190,23 @@ class _ExpenseCreateScreenState extends ConsumerState<ExpenseCreateScreen> {
               .firstOrNull
               ?.id;
         }
-        if (_selectedSourceId == null && options.incomeSources.isNotEmpty) {
+        if (_selectedSourceId == null &&
+            _selectedSourceName == null &&
+            _customSourceController.text.trim().isEmpty &&
+            options.incomeSources.isNotEmpty) {
           _selectedSourceId = options.incomeSources.first.id;
           _selectedSourceName = options.incomeSources.first.name;
         }
         _loadingOptions = false;
       });
-      Future<void>.microtask(() {
-        if (mounted) {
-          _amountFocus.requestFocus();
-        }
-      });
-    } on Object catch (e, stack) {
-      debugPrint('Error loading expense create options: $e\n$stack');
+      if (focusAmount) {
+        Future<void>.microtask(() {
+          if (mounted) {
+            _amountFocus.requestFocus();
+          }
+        });
+      }
+    } on Object catch (e) {
       if (!mounted) return;
       final (code, message, correlationId, reason) = switch (e) {
         AccountFailure f => (
@@ -180,7 +231,7 @@ class _ExpenseCreateScreenState extends ConsumerState<ExpenseCreateScreen> {
           'expense_options_unavailable',
           'No pudimos cargar tus cuentas y catálogos. Inténtalo de nuevo.',
           'unavailable',
-          e.toString(),
+          'options_load_failure',
         ),
       };
       setState(() {
@@ -238,6 +289,8 @@ class _ExpenseCreateScreenState extends ConsumerState<ExpenseCreateScreen> {
     );
     if (!mounted) return;
     if (outcome == ExpenseMutationOutcome.success) {
+      unawaited(ref.read(historyControllerProvider.notifier).load());
+      unawaited(ref.read(budgetsControllerProvider.notifier).load());
       if (context.canPop()) {
         context.pop();
       } else {
@@ -297,6 +350,7 @@ class _ExpenseCreateScreenState extends ConsumerState<ExpenseCreateScreen> {
       await repository.create(command);
       if (!mounted) return;
       ref.read(incomeRevisionProvider.notifier).changed();
+      unawaited(ref.read(historyControllerProvider.notifier).load());
       if (context.canPop()) {
         context.pop();
       } else {
@@ -305,7 +359,7 @@ class _ExpenseCreateScreenState extends ConsumerState<ExpenseCreateScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Ingreso registrado exitosamente.')),
       );
-    } catch (e) {
+    } catch (_) {
       if (!mounted) return;
       setState(() {
         _isSavingIncome = false;
@@ -313,7 +367,7 @@ class _ExpenseCreateScreenState extends ConsumerState<ExpenseCreateScreen> {
           code: 'income_save_failed',
           operation: 'save_income',
           userMessage: 'No pudimos guardar el ingreso. Inténtalo de nuevo.',
-          technicalReason: e.toString(),
+          technicalReason: 'income_save_failure',
         );
       });
     }
@@ -326,21 +380,27 @@ class _ExpenseCreateScreenState extends ConsumerState<ExpenseCreateScreen> {
     return state.fieldErrors[field]?.firstOrNull;
   }
 
-  String _accountIcon(AccountType type) {
-    switch (type) {
-      case AccountType.cash:
-        return '💵';
-      case AccountType.bank:
-        return '🏦';
-      case AccountType.digitalWallet:
-        return '🟣';
-      case AccountType.savings:
-        return '💰';
-      case AccountType.creditCard:
-        return '💳';
-      case AccountType.other:
-        return '◈';
+  IconData _accountIcon(AccountType type) => switch (type) {
+    AccountType.cash => FinanceIcons.paymentsOutlined,
+    AccountType.bank => FinanceIcons.accountBalanceOutlined,
+    AccountType.digitalWallet => FinanceIcons.accountBalanceWalletOutlined,
+    AccountType.savings => FinanceIcons.savingsOutlined,
+    AccountType.creditCard => FinanceIcons.creditCardOutlined,
+    AccountType.other => FinanceIconCatalog.dataFor(FinanceIconKey.account),
+  };
+
+  IconData _incomeSourceIcon(String name) {
+    final normalized = name.toLowerCase();
+    if (normalized.contains('freelance')) {
+      return FinanceIcons.workOutlineRounded;
     }
+    if (normalized.contains('transfer')) {
+      return FinanceIconCatalog.dataFor(FinanceIconKey.transfer);
+    }
+    if (normalized.contains('regalo')) {
+      return FinanceIconCatalog.dataFor(FinanceIconKey.gift);
+    }
+    return FinanceIconCatalog.dataFor(FinanceIconKey.income);
   }
 
   @override
@@ -350,858 +410,927 @@ class _ExpenseCreateScreenState extends ConsumerState<ExpenseCreateScreen> {
     final controller = ref.read(expensesControllerProvider.notifier);
     final isSaving = state.isSaving || _isSavingIncome;
     final formEnabled =
-        !isSaving && !state.requiresMutationReview && !_loadingOptions;
+        !isSaving &&
+        !state.requiresMutationReview &&
+        !_loadingOptions &&
+        _loadDiagnostic == null;
 
     final selectedAccount = _accounts
         .where((a) => a.id == _selectedAccountId)
         .firstOrNull;
+    final currencyCode = selectedAccount?.currency.code ?? 'COP';
     final currencySymbol = selectedAccount?.currency.code == 'USD'
         ? '\$'
         : '\$';
+    final amountSemanticsLabel = switch (currencyCode) {
+      'USD' => 'Monto en dólares',
+      'COP' => 'Monto en pesos',
+      final other => 'Monto en $other',
+    };
 
     final isIncome = _type == MovementType.income;
+    final visibleOptionWarnings = _optionWarnings
+        .where(
+          (warning) => isIncome || warning.operation != 'load_income_sources',
+        )
+        .toList(growable: false);
 
     return PopScope(
       canPop: !isSaving,
-      child: Scaffold(
-        appBar: AppBar(
-          leading: IconButton(
-            tooltip: context.canPop() ? 'Volver' : 'Volver al inicio',
-            onPressed: isSaving
-                ? null
-                : () {
-                    if (context.canPop()) {
-                      context.pop();
-                    } else {
-                      context.go('/home');
-                    }
-                  },
-            icon: const Icon(Icons.arrow_back),
-          ),
-          title: Text(isIncome ? 'Registrar ingreso' : 'Registrar gasto'),
+      child: ManagementPageScaffold(
+        title: isIncome ? 'Registrar ingreso' : 'Registrar gasto',
+        leading: HeaderIconButton(
+          icon: FinanceIcons.arrowBack,
+          tooltip: context.canPop() ? 'Volver' : 'Volver al inicio',
+          onPressed: isSaving
+              ? null
+              : () {
+                  if (context.canPop()) {
+                    context.pop();
+                  } else {
+                    context.go('/home');
+                  }
+                },
         ),
-        body: SafeArea(
-          child: Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 620),
-              child: ListView(
-                padding: const EdgeInsets.fromLTRB(20, 12, 20, 40),
-                children: [
-                  // =================== SEGMENTED TOGGLE (GASTO / INGRESO) ===================
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 16),
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: palette.soft,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      padding: const EdgeInsets.all(3),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: InkWell(
-                              key: const Key('segment-gasto'),
-                              onTap: formEnabled
-                                  ? () => setState(
-                                      () => _type = MovementType.expense,
-                                    )
-                                  : null,
-                              borderRadius: BorderRadius.circular(10),
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 10,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: !isIncome
-                                      ? palette.card
-                                      : Colors.transparent,
-                                  borderRadius: BorderRadius.circular(10),
-                                  boxShadow: !isIncome
-                                      ? const [
-                                          BoxShadow(
-                                            color: Color(0x0A0F172A),
-                                            blurRadius: 4,
-                                            offset: Offset(0, 1),
-                                          ),
-                                        ]
-                                      : null,
-                                ),
-                                child: Center(
-                                  child: Text(
-                                    'Gasto',
-                                    style: TextStyle(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w700,
-                                      color: !isIncome
-                                          ? palette.discard
-                                          : palette.muted,
+        contentPadding: const EdgeInsets.fromLTRB(16, 8, 16, 40),
+        body: ListView(
+          padding: EdgeInsets.zero,
+          children: [
+            // =================== SEGMENTED TOGGLE (GASTO / INGRESO) ===================
+            Padding(
+              padding: const EdgeInsets.only(bottom: 16),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: palette.soft,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                padding: const EdgeInsets.all(3),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: InkWell(
+                        key: const Key('segment-gasto'),
+                        onTap: formEnabled
+                            ? () => setState(() => _type = MovementType.expense)
+                            : null,
+                        borderRadius: BorderRadius.circular(10),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          decoration: BoxDecoration(
+                            color: !isIncome
+                                ? palette.card
+                                : Colors.transparent,
+                            borderRadius: BorderRadius.circular(10),
+                            boxShadow: !isIncome
+                                ? const [
+                                    BoxShadow(
+                                      color: Color(0x0A0F172A),
+                                      blurRadius: 4,
+                                      offset: Offset(0, 1),
                                     ),
-                                  ),
-                                ),
-                              ),
-                            ),
+                                  ]
+                                : null,
                           ),
-                          Expanded(
-                            child: InkWell(
-                              key: const Key('segment-ingreso'),
-                              onTap: formEnabled
-                                  ? () => setState(
-                                      () => _type = MovementType.income,
-                                    )
-                                  : null,
-                              borderRadius: BorderRadius.circular(10),
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 10,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: isIncome
-                                      ? palette.card
-                                      : Colors.transparent,
-                                  borderRadius: BorderRadius.circular(10),
-                                  boxShadow: isIncome
-                                      ? const [
-                                          BoxShadow(
-                                            color: Color(0x0A0F172A),
-                                            blurRadius: 4,
-                                            offset: Offset(0, 1),
-                                          ),
-                                        ]
-                                      : null,
-                                ),
-                                child: Center(
-                                  child: Text(
-                                    'Ingreso',
-                                    style: TextStyle(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w700,
-                                      color: isIncome
-                                          ? palette.income
-                                          : palette.muted,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-
-                  if (_loadingOptions || isSaving) ...[
-                    Semantics(
-                      liveRegion: true,
-                      label: _loadingOptions
-                          ? 'Cargando opciones'
-                          : (isIncome
-                                ? 'Registrando ingreso'
-                                : 'Registrando gasto'),
-                      child: const LinearProgressIndicator(),
-                    ),
-                    const SizedBox(height: 16),
-                  ],
-                  if (_loadDiagnostic case final diagnostic?) ...[
-                    ErrorDiagnosticPanel(diagnostic: diagnostic),
-                    const SizedBox(height: 12),
-                    OutlinedButton.icon(
-                      onPressed: _loadOptions,
-                      icon: const Icon(Icons.refresh),
-                      label: const Text('Reintentar carga de cuentas'),
-                    ),
-                    const SizedBox(height: 16),
-                  ],
-                  if (state.mutationDiagnostic case final diagnostic?) ...[
-                    ErrorDiagnosticPanel(diagnostic: diagnostic),
-                    const SizedBox(height: 16),
-                  ],
-                  if (_incomeDiagnostic case final diagnostic?) ...[
-                    ErrorDiagnosticPanel(diagnostic: diagnostic),
-                    const SizedBox(height: 16),
-                  ],
-
-                  // =================== HERO AMOUNT BOX ===================
-                  Container(
-                    decoration: BoxDecoration(
-                      color: palette.card,
-                      borderRadius: BorderRadius.circular(18),
-                      border: Border.all(
-                        color: _firstError(state, 'amount') != null
-                            ? palette.discard
-                            : (isIncome
-                                  ? palette.income.withValues(alpha: 0.3)
-                                  : palette.discard.withValues(alpha: 0.3)),
-                        width: 1.5,
-                      ),
-                      boxShadow: const [
-                        BoxShadow(
-                          color: Color(0x080F172A),
-                          blurRadius: 8,
-                          offset: Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 20,
-                      vertical: 14,
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        Text(
-                          isIncome ? '+ $currencySymbol' : '- $currencySymbol',
-                          style: TextStyle(
-                            fontSize: 28,
-                            fontWeight: FontWeight.w800,
-                            color: isIncome ? palette.income : palette.discard,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: TextField(
-                            key: const Key('expense-create-amount-field'),
-                            controller: _amountController,
-                            focusNode: _amountFocus,
-                            autofocus: true,
-                            enabled: formEnabled,
-                            keyboardType: const TextInputType.numberWithOptions(
-                              decimal: true,
-                            ),
-                            inputFormatters: const [
-                              MoneyInputFormatter(allowNegative: false),
-                            ],
-                            textInputAction: TextInputAction.next,
-                            style: TextStyle(
-                              fontSize: 32,
-                              fontWeight: FontWeight.w800,
-                              color: isIncome
-                                  ? palette.income
-                                  : palette.discard,
-                            ),
-                            decoration: InputDecoration(
-                              hintText: '0',
-                              hintStyle: TextStyle(
-                                fontSize: 32,
+                          child: Center(
+                            child: Text(
+                              'Gasto',
+                              style: TextStyle(
+                                fontSize: 14,
                                 fontWeight: FontWeight.w700,
-                                color: palette.placeholder,
+                                color: !isIncome
+                                    ? palette.discard
+                                    : palette.muted,
                               ),
-                              border: InputBorder.none,
-                              enabledBorder: InputBorder.none,
-                              focusedBorder: InputBorder.none,
-                              errorBorder: InputBorder.none,
-                              focusedErrorBorder: InputBorder.none,
-                              contentPadding: EdgeInsets.zero,
-                              filled: false,
                             ),
-                            onChanged: (_) {
-                              controller.clearFieldError('amount');
-                              setState(() {
-                                _incomeFieldErrors = Map.from(
-                                  _incomeFieldErrors,
-                                )..remove('amount');
-                              });
-                            },
                           ),
                         ),
-                      ],
-                    ),
-                  ),
-                  if (_firstError(state, 'amount') case final amountError?) ...[
-                    const SizedBox(height: 4),
-                    Padding(
-                      padding: const EdgeInsets.only(left: 4),
-                      child: Text(
-                        amountError,
-                        style: TextStyle(color: palette.discard, fontSize: 12),
                       ),
                     ),
-                  ],
-                  const SizedBox(height: 14),
-
-                  // =================== CONCEPTO O FUENTE DE INGRESO ===================
-                  if (isIncome) ...[
-                    Text(
-                      'FUENTE DE INGRESO',
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 0.4,
-                        color: palette.muted,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: [
-                        if (_incomeSources.isNotEmpty)
-                          for (final source in _incomeSources)
-                            InkWell(
-                              borderRadius: BorderRadius.circular(10),
-                              onTap: formEnabled
-                                  ? () {
-                                      setState(() {
-                                        _selectedSourceId = source.id;
-                                        _selectedSourceName = source.name;
-                                        _customSourceController.clear();
-                                      });
-                                    }
-                                  : null,
-                              child: AnimatedContainer(
-                                duration: const Duration(milliseconds: 150),
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 14,
-                                  vertical: 9,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: _selectedSourceId == source.id
-                                      ? palette.incomeSoft
-                                      : palette.card,
-                                  borderRadius: BorderRadius.circular(10),
-                                  border: Border.all(
-                                    color: _selectedSourceId == source.id
-                                        ? palette.income
-                                        : palette.line,
-                                    width: _selectedSourceId == source.id
-                                        ? 1.5
-                                        : 1.0,
-                                  ),
-                                ),
-                                child: Text(
-                                  '💼 ${source.name}',
-                                  style: TextStyle(
-                                    fontSize: 12.5,
-                                    fontWeight: _selectedSourceId == source.id
-                                        ? FontWeight.w700
-                                        : FontWeight.w600,
-                                    color: _selectedSourceId == source.id
-                                        ? palette.income
-                                        : palette.text,
-                                  ),
-                                ),
-                              ),
-                            )
-                        else ...[
-                          for (final defaultName in [
-                            'Salario',
-                            'Freelance',
-                            'Transferencia',
-                            'Regalo',
-                          ])
-                            InkWell(
-                              borderRadius: BorderRadius.circular(10),
-                              onTap: formEnabled
-                                  ? () {
-                                      setState(() {
-                                        _selectedSourceName = defaultName;
-                                        _selectedSourceId = null;
-                                        _customSourceController.clear();
-                                      });
-                                    }
-                                  : null,
-                              child: AnimatedContainer(
-                                duration: const Duration(milliseconds: 150),
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 14,
-                                  vertical: 9,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: _selectedSourceName == defaultName
-                                      ? palette.incomeSoft
-                                      : palette.card,
-                                  borderRadius: BorderRadius.circular(10),
-                                  border: Border.all(
-                                    color: _selectedSourceName == defaultName
-                                        ? palette.income
-                                        : palette.line,
-                                    width: _selectedSourceName == defaultName
-                                        ? 1.5
-                                        : 1.0,
-                                  ),
-                                ),
-                                child: Text(
-                                  defaultName == 'Salario'
-                                      ? '💼 Salario'
-                                      : (defaultName == 'Freelance'
-                                            ? '💻 Freelance'
-                                            : (defaultName == 'Transferencia'
-                                                  ? '🔄 Transferencia'
-                                                  : '🎁 Regalo')),
-                                  style: TextStyle(
-                                    fontSize: 12.5,
-                                    fontWeight:
-                                        _selectedSourceName == defaultName
-                                        ? FontWeight.w700
-                                        : FontWeight.w600,
-                                    color: _selectedSourceName == defaultName
-                                        ? palette.income
-                                        : palette.text,
-                                  ),
-                                ),
+                    Expanded(
+                      child: InkWell(
+                        key: const Key('segment-ingreso'),
+                        onTap: formEnabled
+                            ? () => setState(() => _type = MovementType.income)
+                            : null,
+                        borderRadius: BorderRadius.circular(10),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          decoration: BoxDecoration(
+                            color: isIncome ? palette.card : Colors.transparent,
+                            borderRadius: BorderRadius.circular(10),
+                            boxShadow: isIncome
+                                ? const [
+                                    BoxShadow(
+                                      color: Color(0x0A0F172A),
+                                      blurRadius: 4,
+                                      offset: Offset(0, 1),
+                                    ),
+                                  ]
+                                : null,
+                          ),
+                          child: Center(
+                            child: Text(
+                              'Ingreso',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w700,
+                                color: isIncome
+                                    ? palette.income
+                                    : palette.muted,
                               ),
                             ),
-                        ],
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    TextField(
-                      controller: _customSourceController,
-                      enabled: formEnabled,
-                      decoration: const InputDecoration(
-                        hintText: 'O escribe otra fuente de ingreso...',
-                      ),
-                      onChanged: (text) {
-                        if (text.isNotEmpty) {
-                          setState(() {
-                            _selectedSourceId = null;
-                            _selectedSourceName = text;
-                          });
-                        }
-                      },
-                    ),
-                  ] else ...[
-                    Text(
-                      '¿EN QUÉ GASTASTE? / COMERCIO',
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 0.4,
-                        color: palette.muted,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    TextField(
-                      key: const Key('expense-create-merchant-field'),
-                      controller: _merchantController,
-                      focusNode: _merchantFocus,
-                      enabled: formEnabled,
-                      textInputAction: TextInputAction.next,
-                      maxLength: 150,
-                      decoration: InputDecoration(
-                        hintText: 'ej. Almuerzo, D1, Taxi, Café...',
-                        errorText: _firstError(state, 'merchant'),
-                      ),
-                      onChanged: (_) => controller.clearFieldError('merchant'),
-                    ),
-                  ],
-                  const SizedBox(height: 12),
-
-                  // =================== CUENTA DE PAGO / DESTINO ===================
-                  Text(
-                    isIncome ? 'CUENTA DE DESTINO' : 'CUENTA DE PAGO',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 0.4,
-                      color: palette.muted,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  if (_firstError(state, 'account_id')
-                      case final accError?) ...[
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 6),
-                      child: Text(
-                        accError,
-                        style: TextStyle(color: palette.discard, fontSize: 12),
+                          ),
+                        ),
                       ),
                     ),
                   ],
+                ),
+              ),
+            ),
 
-                  // Si no hay cuentas (y ya terminamos de cargar), mostramos un card con el botón para crearla directamente
-                  if (!_loadingOptions && _accounts.isEmpty) ...[
-                    Container(
+            if (_loadingOptions || isSaving) ...[
+              Semantics(
+                liveRegion: true,
+                label: _loadingOptions
+                    ? 'Cargando opciones'
+                    : (isIncome ? 'Registrando ingreso' : 'Registrando gasto'),
+                child: const LinearProgressIndicator(),
+              ),
+              const SizedBox(height: 16),
+            ],
+            if (_loadDiagnostic case final diagnostic?) ...[
+              ErrorDiagnosticPanel(diagnostic: diagnostic),
+              const SizedBox(height: 12),
+              OutlinedButton.icon(
+                onPressed: () => _loadOptions(focusAmount: false),
+                icon: const Icon(FinanceIcons.refresh),
+                label: const Text('Reintentar carga de cuentas'),
+              ),
+              const SizedBox(height: 16),
+            ],
+            if (visibleOptionWarnings.isNotEmpty) ...[
+              for (final warning in visibleOptionWarnings) ...[
+                if (warning.operation == 'load_income_sources')
+                  Semantics(
+                    liveRegion: true,
+                    child: Container(
                       padding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 12,
+                        horizontal: 12,
+                        vertical: 8,
                       ),
                       decoration: BoxDecoration(
-                        color: palette.soft,
+                        color: palette.warnBg,
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: palette.line),
                       ),
                       child: Row(
                         children: [
                           Icon(
-                            Icons.account_balance_wallet_outlined,
-                            size: 22,
-                            color: isIncome ? palette.income : palette.discard,
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'No tienes cuentas registradas',
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w700,
-                                    color: palette.text,
-                                  ),
-                                ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  'Crea una cuenta (Efectivo, Bancolombia, etc.) para registrar movimientos.',
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    color: palette.muted,
-                                  ),
-                                ),
-                              ],
-                            ),
+                            FinanceIcons.infoOutline,
+                            color: palette.warnFg,
+                            size: 20,
                           ),
                           const SizedBox(width: 8),
-                          FilledButton.tonal(
-                            key: const Key('expense-create-account-button'),
-                            style: FilledButton.styleFrom(
-                              minimumSize: const Size(60, 36),
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 8,
-                              ),
-                            ),
-                            onPressed: () async {
-                              final createdId = await context.push<int>(
-                                '/quick-add/account',
-                              );
-                              await _loadOptions();
-                              if (!mounted || createdId == null) {
-                                return;
-                              }
-                              setState(() => _selectedAccountId = createdId);
-                            },
-                            child: const Text('＋ Crear'),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ] else if (!_loadingOptions) ...[
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: [
-                        for (final account in _accounts)
-                          InkWell(
-                            key: Key('expense-account-chip-${account.id}'),
-                            borderRadius: BorderRadius.circular(10),
-                            onTap: formEnabled
-                                ? () {
-                                    setState(
-                                      () => _selectedAccountId = account.id,
-                                    );
-                                    controller.clearFieldError('account_id');
-                                    setState(() {
-                                      _incomeFieldErrors = Map.from(
-                                        _incomeFieldErrors,
-                                      )..remove('account_id');
-                                    });
-                                  }
-                                : null,
-                            child: AnimatedContainer(
-                              duration: const Duration(milliseconds: 150),
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 14,
-                                vertical: 9,
-                              ),
-                              decoration: BoxDecoration(
-                                color: _selectedAccountId == account.id
-                                    ? (isIncome
-                                          ? palette.incomeSoft
-                                          : palette.errorSoft)
-                                    : palette.card,
-                                borderRadius: BorderRadius.circular(10),
-                                border: Border.all(
-                                  color: _selectedAccountId == account.id
-                                      ? (isIncome
-                                            ? palette.income
-                                            : palette.discard)
-                                      : palette.line,
-                                  width: _selectedAccountId == account.id
-                                      ? 1.5
-                                      : 1.0,
-                                ),
-                              ),
-                              child: Text(
-                                '${_accountIcon(account.type)} ${account.name}',
-                                style: TextStyle(
-                                  fontSize: 12.5,
-                                  fontWeight: _selectedAccountId == account.id
-                                      ? FontWeight.w700
-                                      : FontWeight.w600,
-                                  color: _selectedAccountId == account.id
-                                      ? (isIncome
-                                            ? palette.income
-                                            : palette.discard)
-                                      : palette.text,
-                                ),
-                              ),
-                            ),
-                          ),
-                        // Chip para agregar otra cuenta rápidamente
-                        ActionChip(
-                          key: const Key('expense-create-new-account-chip'),
-                          avatar: const Icon(Icons.add, size: 16),
-                          label: const Text('Nueva cuenta'),
-                          onPressed: formEnabled
-                              ? () async {
-                                  final createdId = await context.push<int>(
-                                    '/quick-add/account',
-                                  );
-                                  await _loadOptions();
-                                  if (!mounted || createdId == null) {
-                                    return;
-                                  }
-                                  setState(
-                                    () => _selectedAccountId = createdId,
-                                  );
-                                }
-                              : null,
-                        ),
-                      ],
-                    ),
-                  ],
-                  if (!isIncome) ...[
-                    const SizedBox(height: 16),
-                    Text(
-                      'Categoría',
-                      style: TextStyle(
-                        fontSize: 12.5,
-                        fontWeight: FontWeight.w700,
-                        color: palette.muted,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: [
-                        InkWell(
-                          key: const Key('expense-category-chip-none'),
-                          borderRadius: BorderRadius.circular(10),
-                          onTap: formEnabled
-                              ? () {
-                                  setState(() => _selectedCategoryId = null);
-                                  controller.clearFieldError('category_id');
-                                }
-                              : null,
-                          child: AnimatedContainer(
-                            duration: const Duration(milliseconds: 150),
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 14,
-                              vertical: 9,
-                            ),
-                            decoration: BoxDecoration(
-                              color: _selectedCategoryId == null
-                                  ? palette.errorSoft
-                                  : palette.card,
-                              borderRadius: BorderRadius.circular(10),
-                              border: Border.all(
-                                color: _selectedCategoryId == null
-                                    ? palette.discard
-                                    : palette.line,
-                                width: _selectedCategoryId == null ? 1.5 : 1.0,
-                              ),
-                            ),
+                          Expanded(
                             child: Text(
-                              'Sin categoría',
+                              'No se cargaron las fuentes. Puedes elegir una sugerida o escribirla.',
                               style: TextStyle(
-                                fontSize: 12.5,
-                                fontWeight: _selectedCategoryId == null
-                                    ? FontWeight.w700
-                                    : FontWeight.w600,
-                                color: _selectedCategoryId == null
-                                    ? palette.discard
-                                    : palette.text,
+                                color: palette.warnFg,
+                                fontSize: 12,
                               ),
                             ),
                           ),
-                        ),
-                        for (final cat in _categories)
-                          InkWell(
-                            key: Key('expense-category-chip-${cat.id}'),
-                            borderRadius: BorderRadius.circular(10),
-                            onTap: formEnabled
-                                ? () {
-                                    setState(
-                                      () => _selectedCategoryId = cat.id,
-                                    );
-                                    controller.clearFieldError('category_id');
-                                  }
-                                : null,
-                            child: AnimatedContainer(
-                              duration: const Duration(milliseconds: 150),
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 14,
-                                vertical: 9,
-                              ),
-                              decoration: BoxDecoration(
-                                color: _selectedCategoryId == cat.id
-                                    ? palette.errorSoft
-                                    : palette.card,
-                                borderRadius: BorderRadius.circular(10),
-                                border: Border.all(
-                                  color: _selectedCategoryId == cat.id
-                                      ? palette.discard
-                                      : palette.line,
-                                  width: _selectedCategoryId == cat.id
-                                      ? 1.5
-                                      : 1.0,
-                                ),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(
-                                    cat.icon.value,
-                                    size: 15,
-                                    color: _selectedCategoryId == cat.id
-                                        ? palette.discard
-                                        : cat.color.value,
-                                  ),
-                                  const SizedBox(width: 6),
-                                  Text(
-                                    cat.name,
-                                    style: TextStyle(
-                                      fontSize: 12.5,
-                                      fontWeight: _selectedCategoryId == cat.id
-                                          ? FontWeight.w700
-                                          : FontWeight.w600,
-                                      color: _selectedCategoryId == cat.id
-                                          ? palette.discard
-                                          : palette.text,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ActionChip(
-                          key: const Key('expense-create-new-category-chip'),
-                          avatar: const Icon(Icons.add, size: 16),
-                          label: const Text('Nueva categoría'),
-                          onPressed: formEnabled
-                              ? () async {
-                                  await context.push('/quick-add/category');
-                                  _loadOptions();
-                                }
-                              : null,
-                        ),
-                      ],
-                    ),
-                  ],
-                  const SizedBox(height: 16),
-
-                  // =================== DETALLES OPCIONALES COLAPSADOS ===================
-                  InkWell(
-                    key: const Key('expense-create-optional-toggle'),
-                    borderRadius: BorderRadius.circular(8),
-                    onTap: () {
-                      setState(() {
-                        _showOptionalDetails = !_showOptionalDetails;
-                      });
-                    },
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 8),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            'Detalles opcionales (fecha, nota)',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w700,
-                              color: palette.muted,
-                            ),
-                          ),
-                          Icon(
-                            _showOptionalDetails
-                                ? Icons.keyboard_arrow_up
-                                : Icons.keyboard_arrow_down,
-                            size: 18,
-                            color: palette.muted,
+                          TextButton(
+                            onPressed: _loadingOptions
+                                ? null
+                                : () => _loadOptions(focusAmount: false),
+                            child: const Text('Reintentar'),
                           ),
                         ],
                       ),
+                    ),
+                  )
+                else ...[
+                  ErrorDiagnosticPanel(diagnostic: warning),
+                  const SizedBox(height: 8),
+                  OutlinedButton.icon(
+                    onPressed: _loadingOptions
+                        ? null
+                        : () => _loadOptions(focusAmount: false),
+                    icon: const Icon(FinanceIcons.refresh),
+                    label: const Text('Reintentar carga de catálogos'),
+                  ),
+                ],
+                const SizedBox(height: 12),
+              ],
+            ],
+            if (state.mutationDiagnostic case final diagnostic?) ...[
+              ErrorDiagnosticPanel(diagnostic: diagnostic),
+              const SizedBox(height: 16),
+            ],
+            if (_incomeDiagnostic case final diagnostic?) ...[
+              ErrorDiagnosticPanel(diagnostic: diagnostic),
+              const SizedBox(height: 16),
+            ],
+
+            // =================== HERO AMOUNT BOX ===================
+            Container(
+              decoration: BoxDecoration(
+                color: palette.card,
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(
+                  color: _firstError(state, 'amount') != null
+                      ? palette.discard
+                      : (isIncome
+                            ? palette.income.withValues(alpha: 0.3)
+                            : palette.discard.withValues(alpha: 0.3)),
+                  width: 1.5,
+                ),
+                boxShadow: const [
+                  BoxShadow(
+                    color: Color(0x080F172A),
+                    blurRadius: 8,
+                    offset: Offset(0, 2),
+                  ),
+                ],
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Text(
+                    isIncome ? '+ $currencySymbol' : '- $currencySymbol',
+                    style: TextStyle(
+                      fontSize: 28,
+                      fontWeight: FontWeight.w800,
+                      color: isIncome ? palette.income : palette.discard,
                     ),
                   ),
-                  if (_showOptionalDetails) ...[
-                    Material(
-                      color: palette.soft2,
-                      borderRadius: BorderRadius.circular(14),
-                      child: Padding(
-                        padding: const EdgeInsets.all(14),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            InkWell(
-                              key: const Key('expense-create-date-field'),
-                              onTap: formEnabled ? _pickDate : null,
-                              borderRadius: BorderRadius.circular(8),
-                              child: InputDecorator(
-                                decoration: const InputDecoration(
-                                  labelText: 'Fecha',
-                                  suffixIcon: Icon(
-                                    Icons.calendar_today_outlined,
-                                  ),
-                                ),
-                                child: Text(
-                                  '${_occurredAt.year}-${_occurredAt.month.toString().padLeft(2, '0')}-${_occurredAt.day.toString().padLeft(2, '0')}',
-                                  style: TextStyle(color: palette.text),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: 12),
-                            TextField(
-                              key: const Key('expense-create-note-field'),
-                              controller: _noteController,
-                              enabled: formEnabled,
-                              maxLength: 5000,
-                              maxLines: 2,
-                              decoration: const InputDecoration(
-                                labelText: 'Nota (opcional)',
-                                hintText: 'Observación o motivo...',
-                              ),
-                            ),
-                          ],
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Semantics(
+                      label: amountSemanticsLabel,
+                      explicitChildNodes: true,
+                      child: TextField(
+                        key: const Key('expense-create-amount-field'),
+                        controller: _amountController,
+                        focusNode: _amountFocus,
+                        enabled: formEnabled,
+                        keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true,
                         ),
-                      ),
-                    ),
-                    const SizedBox(height: 14),
-                  ],
-
-                  const SizedBox(height: 20),
-
-                  // =================== BOTÓN DE GUARDAR ===================
-                  FilledButton.icon(
-                    key: isIncome
-                        ? const Key('income-create-submit-button')
-                        : const Key('expense-create-submit-button'),
-                    onPressed: formEnabled ? _save : null,
-                    style: FilledButton.styleFrom(
-                      backgroundColor: isIncome
-                          ? palette.income
-                          : palette.discard,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    icon: const Icon(Icons.check, size: 20),
-                    label: Text(
-                      isIncome ? 'Registrar ingreso' : 'Registrar gasto',
-                      style: const TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w700,
+                        inputFormatters: const [
+                          MoneyInputFormatter(allowNegative: false),
+                        ],
+                        textInputAction: TextInputAction.next,
+                        style: TextStyle(
+                          fontSize: 32,
+                          fontWeight: FontWeight.w800,
+                          color: isIncome ? palette.income : palette.discard,
+                        ),
+                        decoration: InputDecoration(
+                          labelText: 'Monto',
+                          hintText: '0',
+                          hintStyle: TextStyle(
+                            fontSize: 32,
+                            fontWeight: FontWeight.w700,
+                            color: palette.placeholder,
+                          ),
+                          border: InputBorder.none,
+                          enabledBorder: InputBorder.none,
+                          focusedBorder: InputBorder.none,
+                          errorBorder: InputBorder.none,
+                          focusedErrorBorder: InputBorder.none,
+                          contentPadding: EdgeInsets.zero,
+                          filled: false,
+                        ),
+                        onChanged: (_) {
+                          controller.clearFieldError('amount');
+                          setState(() {
+                            _incomeFieldErrors = Map.from(_incomeFieldErrors)
+                              ..remove('amount');
+                          });
+                        },
                       ),
                     ),
                   ),
                 ],
               ),
             ),
-          ),
+            if (_firstError(state, 'amount') case final amountError?) ...[
+              const SizedBox(height: 4),
+              Padding(
+                padding: const EdgeInsets.only(left: 4),
+                child: Text(
+                  amountError,
+                  style: TextStyle(color: palette.discard, fontSize: 12),
+                ),
+              ),
+            ],
+            const SizedBox(height: 14),
+
+            // =================== CONCEPTO O FUENTE DE INGRESO ===================
+            if (isIncome) ...[
+              Text(
+                'FUENTE DE INGRESO',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.4,
+                  color: palette.muted,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  if (_incomeSources.isNotEmpty)
+                    for (final source in _incomeSources)
+                      InkWell(
+                        borderRadius: BorderRadius.circular(10),
+                        onTap: formEnabled
+                            ? () {
+                                setState(() {
+                                  _selectedSourceId = source.id;
+                                  _selectedSourceName = source.name;
+                                  _customSourceController.clear();
+                                });
+                              }
+                            : null,
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 150),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 9,
+                          ),
+                          decoration: BoxDecoration(
+                            color: _selectedSourceId == source.id
+                                ? palette.incomeSoft
+                                : palette.card,
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(
+                              color: _selectedSourceId == source.id
+                                  ? palette.income
+                                  : palette.line,
+                              width: _selectedSourceId == source.id ? 1.5 : 1.0,
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                _incomeSourceIcon(source.name),
+                                size: 15,
+                                color: _selectedSourceId == source.id
+                                    ? palette.income
+                                    : palette.muted,
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                CatalogLabels.display(source.name),
+                                style: TextStyle(
+                                  fontSize: 12.5,
+                                  fontWeight: _selectedSourceId == source.id
+                                      ? FontWeight.w700
+                                      : FontWeight.w600,
+                                  color: _selectedSourceId == source.id
+                                      ? palette.income
+                                      : palette.text,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      )
+                  else ...[
+                    for (final defaultName in [
+                      'Salario',
+                      'Freelance',
+                      'Transferencia',
+                      'Regalo',
+                    ])
+                      InkWell(
+                        borderRadius: BorderRadius.circular(10),
+                        onTap: formEnabled
+                            ? () {
+                                setState(() {
+                                  _selectedSourceName = defaultName;
+                                  _selectedSourceId = null;
+                                  _customSourceController.clear();
+                                });
+                              }
+                            : null,
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 150),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 9,
+                          ),
+                          decoration: BoxDecoration(
+                            color: _selectedSourceName == defaultName
+                                ? palette.incomeSoft
+                                : palette.card,
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(
+                              color: _selectedSourceName == defaultName
+                                  ? palette.income
+                                  : palette.line,
+                              width: _selectedSourceName == defaultName
+                                  ? 1.5
+                                  : 1.0,
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                _incomeSourceIcon(defaultName),
+                                size: 15,
+                                color: _selectedSourceName == defaultName
+                                    ? palette.income
+                                    : palette.muted,
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                defaultName,
+                                style: TextStyle(
+                                  fontSize: 12.5,
+                                  fontWeight: _selectedSourceName == defaultName
+                                      ? FontWeight.w700
+                                      : FontWeight.w600,
+                                  color: _selectedSourceName == defaultName
+                                      ? palette.income
+                                      : palette.text,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                  ],
+                ],
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                key: const Key('income-create-source-custom-field'),
+                controller: _customSourceController,
+                enabled: formEnabled,
+                decoration: const InputDecoration(
+                  labelText: 'Otra fuente de ingreso',
+                  hintText: 'O escribe otra fuente de ingreso...',
+                ),
+                onChanged: (text) {
+                  if (text.isNotEmpty) {
+                    setState(() {
+                      _selectedSourceId = null;
+                      _selectedSourceName = text;
+                    });
+                  }
+                },
+              ),
+            ] else ...[
+              Text(
+                '¿EN QUÉ GASTASTE? / COMERCIO',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.4,
+                  color: palette.muted,
+                ),
+              ),
+              const SizedBox(height: 6),
+              TextField(
+                key: const Key('expense-create-merchant-field'),
+                controller: _merchantController,
+                focusNode: _merchantFocus,
+                enabled: formEnabled,
+                textInputAction: TextInputAction.next,
+                maxLength: 150,
+                decoration: InputDecoration(
+                  labelText: 'Concepto o comercio',
+                  hintText: 'ej. Almuerzo, D1, Taxi, Café...',
+                  errorText: _firstError(state, 'merchant'),
+                ),
+                onChanged: (_) => controller.clearFieldError('merchant'),
+              ),
+            ],
+            const SizedBox(height: 12),
+
+            // =================== CUENTA DE PAGO / DESTINO ===================
+            Text(
+              isIncome ? 'CUENTA DE DESTINO' : 'CUENTA DE PAGO',
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.4,
+                color: palette.muted,
+              ),
+            ),
+            const SizedBox(height: 6),
+            if (_firstError(state, 'account_id') case final accError?) ...[
+              Padding(
+                padding: const EdgeInsets.only(bottom: 6),
+                child: Text(
+                  accError,
+                  style: TextStyle(color: palette.discard, fontSize: 12),
+                ),
+              ),
+            ],
+
+            // Si no hay cuentas (y ya terminamos de cargar), mostramos un card con el botón para crearla directamente
+            if (!_loadingOptions &&
+                _loadDiagnostic == null &&
+                _accounts.isEmpty) ...[
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 12,
+                ),
+                decoration: BoxDecoration(
+                  color: palette.soft,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: palette.line),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      FinanceIcons.accountBalanceWalletOutlined,
+                      size: 22,
+                      color: isIncome ? palette.income : palette.discard,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'No tienes cuentas registradas',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              color: palette.text,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            'Crea una cuenta (Efectivo, Bancolombia, etc.) para registrar movimientos.',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: palette.muted,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    FilledButton.tonal(
+                      key: const Key('expense-create-account-button'),
+                      style: FilledButton.styleFrom(
+                        minimumSize: const Size(60, 48),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 8,
+                        ),
+                      ),
+                      onPressed: () async {
+                        final createdId = await context.push<int>(
+                          '/quick-add/account',
+                        );
+                        await _loadOptions();
+                        if (!mounted || createdId == null) {
+                          return;
+                        }
+                        setState(() => _selectedAccountId = createdId);
+                      },
+                      child: const Text('＋ Crear'),
+                    ),
+                  ],
+                ),
+              ),
+            ] else if (!_loadingOptions) ...[
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (final account in _accounts)
+                    InkWell(
+                      key: Key('expense-account-chip-${account.id}'),
+                      borderRadius: BorderRadius.circular(10),
+                      onTap: formEnabled
+                          ? () {
+                              setState(() => _selectedAccountId = account.id);
+                              controller.clearFieldError('account_id');
+                              setState(() {
+                                _incomeFieldErrors = Map.from(
+                                  _incomeFieldErrors,
+                                )..remove('account_id');
+                              });
+                            }
+                          : null,
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 150),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 9,
+                        ),
+                        decoration: BoxDecoration(
+                          color: _selectedAccountId == account.id
+                              ? (isIncome
+                                    ? palette.incomeSoft
+                                    : palette.errorSoft)
+                              : palette.card,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(
+                            color: _selectedAccountId == account.id
+                                ? (isIncome ? palette.income : palette.discard)
+                                : palette.line,
+                            width: _selectedAccountId == account.id ? 1.5 : 1.0,
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              _accountIcon(account.type),
+                              size: 15,
+                              color: _selectedAccountId == account.id
+                                  ? (isIncome
+                                        ? palette.income
+                                        : palette.discard)
+                                  : palette.muted,
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              account.name,
+                              style: TextStyle(
+                                fontSize: 12.5,
+                                fontWeight: _selectedAccountId == account.id
+                                    ? FontWeight.w700
+                                    : FontWeight.w600,
+                                color: _selectedAccountId == account.id
+                                    ? (isIncome
+                                          ? palette.income
+                                          : palette.discard)
+                                    : palette.text,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  // Chip para agregar otra cuenta rápidamente
+                  ActionChip(
+                    key: const Key('expense-create-new-account-chip'),
+                    avatar: const Icon(FinanceIcons.add, size: 16),
+                    label: const Text('Nueva cuenta'),
+                    onPressed: formEnabled
+                        ? () async {
+                            final createdId = await context.push<int>(
+                              '/quick-add/account',
+                            );
+                            await _loadOptions();
+                            if (!mounted || createdId == null) {
+                              return;
+                            }
+                            setState(() => _selectedAccountId = createdId);
+                          }
+                        : null,
+                  ),
+                ],
+              ),
+            ],
+            if (!isIncome) ...[
+              const SizedBox(height: 16),
+              Text(
+                'Categoría',
+                style: TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w700,
+                  color: palette.muted,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  InkWell(
+                    key: const Key('expense-category-chip-none'),
+                    borderRadius: BorderRadius.circular(10),
+                    onTap: formEnabled
+                        ? () {
+                            setState(() => _selectedCategoryId = null);
+                            controller.clearFieldError('category_id');
+                          }
+                        : null,
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 150),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 9,
+                      ),
+                      decoration: BoxDecoration(
+                        color: _selectedCategoryId == null
+                            ? palette.errorSoft
+                            : palette.card,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                          color: _selectedCategoryId == null
+                              ? palette.discard
+                              : palette.line,
+                          width: _selectedCategoryId == null ? 1.5 : 1.0,
+                        ),
+                      ),
+                      child: Text(
+                        'Sin categoría',
+                        style: TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: _selectedCategoryId == null
+                              ? FontWeight.w700
+                              : FontWeight.w600,
+                          color: _selectedCategoryId == null
+                              ? palette.discard
+                              : palette.text,
+                        ),
+                      ),
+                    ),
+                  ),
+                  for (final cat in _categories)
+                    InkWell(
+                      key: Key('expense-category-chip-${cat.id}'),
+                      borderRadius: BorderRadius.circular(10),
+                      onTap: formEnabled
+                          ? () {
+                              setState(() => _selectedCategoryId = cat.id);
+                              controller.clearFieldError('category_id');
+                            }
+                          : null,
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 150),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 9,
+                        ),
+                        decoration: BoxDecoration(
+                          color: _selectedCategoryId == cat.id
+                              ? palette.errorSoft
+                              : palette.card,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(
+                            color: _selectedCategoryId == cat.id
+                                ? palette.discard
+                                : palette.line,
+                            width: _selectedCategoryId == cat.id ? 1.5 : 1.0,
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              cat.icon.value,
+                              size: 15,
+                              color: _selectedCategoryId == cat.id
+                                  ? palette.discard
+                                  : cat.color.value,
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              CatalogLabels.display(cat.name),
+                              style: TextStyle(
+                                fontSize: 12.5,
+                                fontWeight: _selectedCategoryId == cat.id
+                                    ? FontWeight.w700
+                                    : FontWeight.w600,
+                                color: _selectedCategoryId == cat.id
+                                    ? palette.discard
+                                    : palette.text,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ActionChip(
+                    key: const Key('expense-create-new-category-chip'),
+                    avatar: const Icon(FinanceIcons.add, size: 16),
+                    label: const Text('Nueva categoría'),
+                    onPressed: formEnabled
+                        ? () async {
+                            await context.push('/quick-add/category');
+                            _loadOptions();
+                          }
+                        : null,
+                  ),
+                ],
+              ),
+            ],
+            const SizedBox(height: 16),
+
+            // =================== DETALLES OPCIONALES COLAPSADOS ===================
+            InkWell(
+              key: const Key('expense-create-optional-toggle'),
+              borderRadius: BorderRadius.circular(8),
+              onTap: () {
+                setState(() {
+                  _showOptionalDetails = !_showOptionalDetails;
+                });
+              },
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Detalles opcionales (fecha, nota)',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: palette.muted,
+                      ),
+                    ),
+                    Icon(
+                      _showOptionalDetails
+                          ? FinanceIcons.keyboardArrowUp
+                          : FinanceIcons.keyboardArrowDown,
+                      size: 18,
+                      color: palette.muted,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            if (_showOptionalDetails) ...[
+              Material(
+                color: palette.soft2,
+                borderRadius: BorderRadius.circular(14),
+                child: Padding(
+                  padding: const EdgeInsets.all(14),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      InkWell(
+                        key: const Key('expense-create-date-field'),
+                        onTap: formEnabled ? _pickDate : null,
+                        borderRadius: BorderRadius.circular(8),
+                        child: InputDecorator(
+                          decoration: const InputDecoration(
+                            labelText: 'Fecha',
+                            suffixIcon: Icon(
+                              FinanceIcons.calendarTodayOutlined,
+                            ),
+                          ),
+                          child: Text(
+                            '${_occurredAt.year}-${_occurredAt.month.toString().padLeft(2, '0')}-${_occurredAt.day.toString().padLeft(2, '0')}',
+                            style: TextStyle(color: palette.text),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      TextField(
+                        key: const Key('expense-create-note-field'),
+                        controller: _noteController,
+                        enabled: formEnabled,
+                        maxLength: 5000,
+                        maxLines: 2,
+                        decoration: const InputDecoration(
+                          labelText: 'Nota (opcional)',
+                          hintText: 'Observación o motivo...',
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 14),
+            ],
+
+            const SizedBox(height: 20),
+
+            // =================== BOTÓN DE GUARDAR ===================
+            FilledButton.icon(
+              key: isIncome
+                  ? const Key('income-create-submit-button')
+                  : const Key('expense-create-submit-button'),
+              onPressed: formEnabled ? _save : null,
+              style: FilledButton.styleFrom(
+                backgroundColor: isIncome ? palette.income : palette.discard,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              icon: const Icon(FinanceIcons.check, size: 20),
+              label: Text(
+                isIncome ? 'Registrar ingreso' : 'Registrar gasto',
+                style: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );

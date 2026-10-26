@@ -71,6 +71,7 @@ void main() {
   testWidgets('renders the stable automation controls and accessible toggles', (
     tester,
   ) async {
+    final semantics = tester.ensureSemantics();
     final router = await pumpRegistration(tester, WidgetTestRepository());
     addTearDown(router.dispose);
 
@@ -81,6 +82,12 @@ void main() {
       findsOneWidget,
     );
     expect(find.byKey(const Key('register-submit-button')), findsOneWidget);
+    expect(find.text('Correo electrónico'), findsOneWidget);
+    expect(find.text('Contraseña'), findsOneWidget);
+    expect(find.text('Confirmar contraseña'), findsOneWidget);
+    expect(find.bySemanticsLabel('Correo electrónico'), findsOneWidget);
+    expect(find.bySemanticsLabel('Contraseña'), findsOneWidget);
+    expect(find.bySemanticsLabel('Confirmar contraseña'), findsOneWidget);
     expect(find.byTooltip('Mostrar contraseña'), findsOneWidget);
     expect(find.byTooltip('Mostrar confirmación'), findsOneWidget);
 
@@ -97,6 +104,7 @@ void main() {
     );
     expect(passwordField.obscureText, isFalse);
     expect(find.byTooltip('Ocultar contraseña'), findsOneWidget);
+    semantics.dispose();
   });
 
   testWidgets('shows all local guidance without sending a request', (
@@ -109,9 +117,9 @@ void main() {
     await tester.tap(find.byKey(const Key('register-submit-button')));
     await tester.pump();
 
-    expect(find.text('Email is required.'), findsOneWidget);
+    expect(find.text('El correo electrónico es obligatorio.'), findsOneWidget);
     expect(
-      find.text('Password must be at least 8 characters.'),
+      find.text('La contraseña debe tener al menos 8 caracteres.'),
       findsOneWidget,
     );
     await tester.scrollUntilVisible(
@@ -120,7 +128,10 @@ void main() {
       scrollable: find.byType(Scrollable).first,
     );
     await tester.pumpAndSettle();
-    expect(find.text('Password confirmation is required.'), findsOneWidget);
+    expect(
+      find.text('La confirmación de la contraseña es obligatoria.'),
+      findsOneWidget,
+    );
     expect(repository.requests, isEmpty);
   });
 
@@ -179,7 +190,15 @@ void main() {
     await tester.tap(find.byKey(const Key('register-submit-button')));
     await tester.pumpAndSettle();
 
-    expect(find.text('Choose a safer password.'), findsOneWidget);
+    expect(
+      find.text('La contraseña no cumple los requisitos.'),
+      findsOneWidget,
+    );
+    expect(find.text('Choose a safer password.'), findsNothing);
+    expect(
+      find.textContaining('Correct the highlighted fields.'),
+      findsNothing,
+    );
     final emailField = tester.widget<TextField>(
       find.byKey(const Key('register-email-input')),
     );
@@ -200,7 +219,11 @@ void main() {
     await tester.tap(find.byKey(const Key('register-submit-button')));
     await tester.pumpAndSettle();
 
-    expect(find.text('This email is already registered.'), findsWidgets);
+    expect(find.text('Este correo ya está registrado.'), findsWidgets);
+    expect(
+      find.textContaining('This email is already registered.'),
+      findsNothing,
+    );
     final emailField = tester.widget<TextField>(
       find.byKey(const Key('register-email-input')),
     );
@@ -237,8 +260,14 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byKey(const Key('register-error-banner')), findsOneWidget);
-    expect(find.textContaining('temporarily unavailable'), findsOneWidget);
-    expect(find.text('Error code: service_unavailable'), findsOneWidget);
+    expect(
+      find.text(
+        'El servicio de registro no está disponible temporalmente. Inténtalo de nuevo más tarde.',
+      ),
+      findsOneWidget,
+    );
+    expect(find.textContaining('temporarily unavailable'), findsNothing);
+    expect(find.byKey(const Key('error-diagnostic-code')), findsNothing);
     expect(find.byKey(const Key('copy-error-details-button')), findsOneWidget);
     final emailField = tester.widget<TextField>(
       find.byKey(const Key('register-email-input')),
@@ -253,12 +282,41 @@ void main() {
     );
     final copied =
         (clipboardCall.arguments as Map<Object?, Object?>)['text']! as String;
-    expect(copied, contains('Error code: service_unavailable'));
-    expect(copied, contains('Request/correlation ID: safe-server-correlation'));
-    expect(copied, contains('Technical reason: http_503'));
+    expect(copied, contains('Código de error: service_unavailable'));
+    expect(
+      copied,
+      contains('ID de solicitud/correlación: safe-server-correlation'),
+    );
+    expect(copied, contains('Motivo técnico: http_503'));
     expect(copied, isNot(contains('person@example.com')));
     expect(copied, isNot(contains('valid password')));
-    expect(find.text('Safe error details copied.'), findsOneWidget);
+    expect(
+      find.text('Se copiaron los detalles seguros del error.'),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('network registration failure never exposes backend text', (
+    tester,
+  ) async {
+    final repository = WidgetTestRepository(
+      failure: const RegistrationRetryableFailure(
+        code: 'network_unavailable',
+        userMessage: 'Connection refused: private endpoint detail',
+      ),
+    );
+    final router = await pumpRegistration(tester, repository);
+    addTearDown(router.dispose);
+    await enterValidRegistration(tester);
+    await tester.tap(find.byKey(const Key('register-submit-button')));
+    await tester.pumpAndSettle();
+    expect(
+      find.text(
+        'No se pudo conectar con el servicio. Revisa tu conexión e inténtalo de nuevo.',
+      ),
+      findsOneWidget,
+    );
+    expect(find.textContaining('private endpoint detail'), findsNothing);
   });
 
   testWidgets('success clears the form route and navigates once to Login', (
@@ -274,7 +332,11 @@ void main() {
 
     expect(find.text('Iniciar sesión'), findsOneWidget);
     expect(find.byKey(const Key('register-success-message')), findsOneWidget);
-    expect(find.textContaining('Accede para ver'), findsOneWidget);
+    expect(
+      find.text('Tu cuenta se creó correctamente. Ya puedes iniciar sesión.'),
+      findsOneWidget,
+    );
+    expect(find.textContaining('Account created successfully'), findsNothing);
     expect(find.byKey(const Key('register-password-input')), findsNothing);
     expect(repository.requests, hasLength(1));
   });

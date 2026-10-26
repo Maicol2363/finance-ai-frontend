@@ -149,7 +149,7 @@ void main() {
         validationContainer
             .read(registrationControllerProvider)
             .fieldErrors['password'],
-        ['Choose a safer password.'],
+        ['La contraseña no cumple los requisitos.'],
       );
 
       final conflictRepository = FakeAuthRepository(
@@ -171,7 +171,7 @@ void main() {
         conflictContainer
             .read(registrationControllerProvider)
             .fieldErrors['email'],
-        ['This email is already registered.'],
+        ['Este correo ya está registrado.'],
       );
     },
   );
@@ -198,7 +198,10 @@ void main() {
     final state = container.read(registrationControllerProvider);
     expect(outcome, RegistrationSubmitOutcome.failure);
     expect(state.isSubmitting, isFalse);
-    expect(state.generalError, contains('temporarily unavailable'));
+    expect(
+      state.generalError,
+      'El servicio de registro no está disponible temporalmente. Inténtalo de nuevo más tarde.',
+    );
     expect(state.diagnostic?.code, 'service_unavailable');
     expect(state.diagnostic?.operation, 'register_account');
     expect(

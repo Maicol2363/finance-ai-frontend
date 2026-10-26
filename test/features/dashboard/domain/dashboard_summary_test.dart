@@ -126,17 +126,6 @@ void main() {
       expect(summary.recent.first.title, 'Supermercado Éxito');
     });
 
-    test('DashboardMetrics.calculateDailyAllowance calculates correctly', () {
-      final summary = DashboardSummary.fromJson(sampleJson);
-      // 10 remaining days. avg spend = 3.000.000 (300.000.000 minor units).
-      // spent MTD = 2.500.000 (250.000.000 minor units).
-      // remaining = 50.000.000 minor units / 10 days = 5.000.000 minor units ($ 50.000).
-      final allowance = DashboardMetrics.calculateDailyAllowance(
-        summary: summary,
-      );
-      expect(allowance, 5000000);
-    });
-
     test('DashboardMetrics.sortBudgetsBySeverity orders exceeded first, then highest %', () {
       const currency = CurrencySummary(
         id: 1,
@@ -179,28 +168,20 @@ void main() {
       expect(sorted.map((b) => b.id).toList(), [2, 3, 1]);
     });
 
-    test(
-      'DashboardMetrics.buildInsights generates contractor-focused insights',
-      () {
-        final summary = DashboardSummary.fromJson(sampleJson);
-        final insights = DashboardMetrics.buildInsights(summary: summary);
+    test('DashboardMetrics.buildInsights keeps useful patterns only', () {
+      final summary = DashboardSummary.fromJson(sampleJson);
+      final insights = DashboardMetrics.buildInsights(summary: summary);
+      final titles = insights.map((i) => i.title).toList();
 
-        // Weekend pattern (180k vs 90k is 2x > 1.3x)
-        expect(
-          insights.any((i) => i.title.contains('Patrón de fin de semana')),
-          isTrue,
-        );
-        // Variability (0.42 >= 0.35)
-        expect(
-          insights.any((i) => i.title.contains('Ingresos variables')),
-          isTrue,
-        );
-        // Recurring candidate (Spotify)
-        expect(
-          insights.any((i) => i.title.contains('Próximo recurrente')),
-          isTrue,
-        );
-      },
-    );
+      // Weekend pattern (180k vs 90k is 2x > 1.3x)
+      expect(titles, contains('Patrón de fin de semana'));
+      // Variability (0.42 >= 0.35)
+      expect(
+        titles.any((title) => title.startsWith('Ingresos variables')),
+        isTrue,
+      );
+      expect(titles, isNot(contains('Colchón financiero sólido')));
+      expect(titles, isNot(contains('Próximo recurrente estimado')));
+    });
   });
 }

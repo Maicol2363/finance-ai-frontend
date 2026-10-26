@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/formatters/catalog_labels.dart';
 import '../../../../core/formatters/money_formatter.dart';
 import '../../../../core/theme/app_palette.dart';
 import '../../domain/dashboard_summary.dart';
@@ -106,7 +107,7 @@ class _CategoryProgressRow extends StatelessWidget {
               children: [
                 Expanded(
                   child: Text(
-                    item.name,
+                    CatalogLabels.display(item.name),
                     style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
@@ -140,7 +141,9 @@ class _CategoryProgressRow extends StatelessWidget {
                 value: shareFraction,
                 backgroundColor: palette.soft,
                 valueColor: AlwaysStoppedAnimation<Color>(
-                  item.name == 'Otras' ? palette.muted : palette.primary,
+                  const {'Otras', 'Other', 'Otros'}.contains(item.name)
+                      ? palette.muted
+                      : palette.primary,
                 ),
                 minHeight: 6,
               ),

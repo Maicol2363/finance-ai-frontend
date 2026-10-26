@@ -4,7 +4,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../../core/diagnostics/error_diagnostic.dart';
+import '../../auth/session/application/auth_session_controller.dart';
+import '../../budgets/application/budgets_controller.dart';
 import '../../expenses/application/expenses_controller.dart';
+import '../../expenses/application/history_controller.dart';
 import '../../expenses/domain/expense_models.dart';
 import '../data/receipt_capture_remote_data_source.dart';
 import '../data/receipt_photo_cache_repository.dart';
@@ -335,10 +338,14 @@ class ReceiptCaptureNotifier extends Notifier<ReceiptCaptureState> {
       // Save local photo in cache for offline viewing (Model B)
       String? savedCachePath;
       try {
-        savedCachePath = await _photoCacheRepository.saveReceiptPhoto(
-          expenseId: confirmedExpense.id,
-          sourceFilePath: current.localImagePath,
-        );
+        final userId = ref.read(authSessionControllerProvider).user?.id;
+        if (userId != null) {
+          savedCachePath = await _photoCacheRepository.saveReceiptPhoto(
+            userId: userId,
+            expenseId: confirmedExpense.id,
+            sourceFilePath: current.localImagePath,
+          );
+        }
       } catch (_) {
         // Cache persistence failure is non-blocking
       }
@@ -346,6 +353,8 @@ class ReceiptCaptureNotifier extends Notifier<ReceiptCaptureState> {
       // Refresh expense feed providers
       try {
         ref.read(expensesControllerProvider.notifier).load();
+        ref.read(historyControllerProvider.notifier).load();
+        ref.read(budgetsControllerProvider.notifier).load();
       } catch (_) {}
 
       state = ReceiptCaptureSuccess(

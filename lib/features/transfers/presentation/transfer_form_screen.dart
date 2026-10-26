@@ -1,11 +1,20 @@
+import 'dart:async';
+
+import 'package:finance_ai/core/icons/finance_icon_catalog.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/diagnostics/error_diagnostic_panel.dart';
+import '../../../core/formatters/date_labels.dart';
+import '../../../core/widgets/app_header.dart';
+import '../../../core/widgets/management_page_scaffold.dart';
+import '../../../core/widgets/manage_widgets.dart';
+import '../../../core/widgets/theme_toggle_button.dart';
 import '../../accounts/application/accounts_controller.dart';
 import '../../accounts/application/accounts_state.dart';
 import '../../accounts/domain/account_models.dart';
+import '../../expenses/application/history_controller.dart';
 import '../application/transfer_controller.dart';
 import '../application/transfer_state.dart';
 
@@ -54,7 +63,10 @@ class _TransferFormScreenState extends ConsumerState<TransferFormScreen> {
     final state = ref.watch(transferControllerProvider);
     final controller = ref.read(transferControllerProvider.notifier);
     final accountsState = ref.watch(accountsControllerProvider);
-    final accounts = accountsState.result?.accounts ?? const [];
+    final List<Account> accounts = [
+      for (final account in accountsState.result?.accounts ?? const <Account>[])
+        if (account.isActive) account,
+    ];
     final formEnabled = !state.isSaving && !state.requiresMutationReview;
     final optionsFailed = accountsState.listDiagnostic != null;
     final sourceCurrency = _currencyOf(accounts, _sourceAccountId);
@@ -66,21 +78,29 @@ class _TransferFormScreenState extends ConsumerState<TransferFormScreen> {
 
     return PopScope(
       canPop: !state.isSaving,
-      child: Scaffold(
-        appBar: AppBar(
-          leading: IconButton(
-            tooltip: 'Volver a cuentas',
-            onPressed: state.isSaving ? null : () => context.go('/accounts'),
-            icon: const Icon(Icons.arrow_back),
-          ),
-          title: const Text('Transferir entre cuentas'),
+      child: ManagementPageScaffold(
+        title: 'Transferir entre cuentas',
+        subtitle: 'Origen, destino y monto',
+        leading: HeaderIconButton(
+          icon: FinanceIcons.arrowBack,
+          tooltip: 'Volver a cuentas',
+          onPressed: state.isSaving
+              ? null
+              : () {
+                  if (context.canPop()) {
+                    context.pop();
+                  } else {
+                    context.go('/accounts');
+                  }
+                },
         ),
-        body: SafeArea(
-          child: Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 620),
-              child: ListView(
-                padding: const EdgeInsets.fromLTRB(24, 20, 24, 40),
+        actions: const [ThemeToggleButton()],
+        body: ListView(
+          padding: EdgeInsets.zero,
+          children: [
+            ManagementFormCard(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Text(
                     'Mueve dinero entre tus cuentas. En la misma moneda viaja el mismo monto; con monedas distintas indica cuánto sale y cuánto llega.',
@@ -89,20 +109,20 @@ class _TransferFormScreenState extends ConsumerState<TransferFormScreen> {
                   const SizedBox(height: 24),
                   if (state.mutationDiagnostic case final diagnostic?) ...[
                     ErrorDiagnosticPanel(diagnostic: diagnostic),
-                    const SizedBox(height: 20),
+                    const SizedBox(height: 16),
                   ],
                   if (optionsFailed) ...[
                     ErrorDiagnosticPanel(
                       diagnostic: accountsState.listDiagnostic!,
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 16),
                     OutlinedButton.icon(
                       onPressed: () =>
                           ref.read(accountsControllerProvider.notifier).load(),
-                      icon: const Icon(Icons.refresh),
+                      icon: const Icon(FinanceIcons.refresh),
                       label: const Text('Reintentar cuentas'),
                     ),
-                    const SizedBox(height: 20),
+                    const SizedBox(height: 16),
                   ],
                   DropdownButtonFormField<int>(
                     key: const Key('transfer-source-field'),
@@ -125,15 +145,19 @@ class _TransferFormScreenState extends ConsumerState<TransferFormScreen> {
                     ],
                     onChanged: formEnabled && !optionsFailed
                         ? (value) {
-                            setState(() => _sourceAccountId = value);
+                            setState(() {
+                              _sourceAccountId = value;
+                              _dropStaleDestinationAmount(accounts);
+                            });
                             controller.clearFieldError('source_account_id');
                             controller.clearFieldError(
                               'destination_account_id',
                             );
+                            controller.clearFieldError('source_amount');
                           }
                         : null,
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 16),
                   DropdownButtonFormField<int>(
                     key: const Key('transfer-destination-field'),
                     initialValue: _containedOrNull([
@@ -155,14 +179,17 @@ class _TransferFormScreenState extends ConsumerState<TransferFormScreen> {
                     ],
                     onChanged: formEnabled && !optionsFailed
                         ? (value) {
-                            setState(() => _destinationAccountId = value);
+                            setState(() {
+                              _destinationAccountId = value;
+                              _dropStaleDestinationAmount(accounts);
+                            });
                             controller.clearFieldError(
                               'destination_account_id',
                             );
                           }
                         : null,
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 16),
                   TextField(
                     key: const Key('transfer-source-amount-field'),
                     controller: _sourceAmountController,
@@ -175,14 +202,14 @@ class _TransferFormScreenState extends ConsumerState<TransferFormScreen> {
                     decoration: InputDecoration(
                       labelText:
                           'Monto que sale${sourceCurrency == null ? '' : ' ($sourceCurrency)'}',
-                      helperText: 'Monto positivo con hasta dos decimales.',
+                      helperText: _availableBalanceHint(accounts),
                       errorText: _firstError(state, 'source_amount'),
                     ),
                     onChanged: (_) =>
                         controller.clearFieldError('source_amount'),
                   ),
                   if (crossCurrency) ...[
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 16),
                     TextField(
                       key: const Key('transfer-destination-amount-field'),
                       controller: _destinationAmountController,
@@ -200,7 +227,7 @@ class _TransferFormScreenState extends ConsumerState<TransferFormScreen> {
                           controller.clearFieldError('destination_amount'),
                     ),
                   ],
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 16),
                   TextField(
                     key: const Key('transfer-description-field'),
                     controller: _descriptionController,
@@ -209,7 +236,7 @@ class _TransferFormScreenState extends ConsumerState<TransferFormScreen> {
                     maxLines: 2,
                     decoration: const InputDecoration(labelText: 'Descripción'),
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 16),
                   const Text('Fecha'),
                   const SizedBox(height: 4),
                   Text(
@@ -220,7 +247,7 @@ class _TransferFormScreenState extends ConsumerState<TransferFormScreen> {
                   OutlinedButton.icon(
                     key: const Key('transfer-date-button'),
                     onPressed: formEnabled && !optionsFailed ? _pickDate : null,
-                    icon: const Icon(Icons.calendar_today_outlined),
+                    icon: const Icon(FinanceIcons.calendarTodayOutlined),
                     label: const Text('Cambiar fecha'),
                   ),
                   if (_firstError(state, 'date') case final error?) ...[
@@ -251,10 +278,10 @@ class _TransferFormScreenState extends ConsumerState<TransferFormScreen> {
                         : const Text('Transferir'),
                   ),
                   if (state.requiresMutationReview) ...[
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 16),
                     OutlinedButton.icon(
                       onPressed: controller.resolveUncertainMutation,
-                      icon: const Icon(Icons.sync),
+                      icon: const Icon(FinanceIcons.sync),
                       label: const Text(
                         'Actualizar cuentas antes de reintentar',
                       ),
@@ -263,7 +290,7 @@ class _TransferFormScreenState extends ConsumerState<TransferFormScreen> {
                 ],
               ),
             ),
-          ),
+          ],
         ),
       ),
     );
@@ -284,10 +311,7 @@ class _TransferFormScreenState extends ConsumerState<TransferFormScreen> {
   }
 
   String _formatDate(DateTime value) {
-    final date = value.toUtc();
-    return '${date.year.toString().padLeft(4, '0')}-'
-        '${date.month.toString().padLeft(2, '0')}-'
-        '${date.day.toString().padLeft(2, '0')}';
+    return DateLabels.calendarDate(value);
   }
 
   String? _currencyOf(List<Account> accounts, int? accountId) {
@@ -304,6 +328,30 @@ class _TransferFormScreenState extends ConsumerState<TransferFormScreen> {
 
   int? _containedOrNull(List<int> ids, int? selected) =>
       selected != null && ids.contains(selected) ? selected : null;
+
+  /// Discards a typed destination amount when the picked pair stops being
+  /// cross-currency, so a hidden stale value can never be submitted.
+  void _dropStaleDestinationAmount(List<Account> accounts) {
+    final sourceCurrency = _currencyOf(accounts, _sourceAccountId);
+    final destinationCurrency = _currencyOf(accounts, _destinationAccountId);
+    if (sourceCurrency == null ||
+        destinationCurrency == null ||
+        sourceCurrency == destinationCurrency) {
+      _destinationAmountController.clear();
+    }
+  }
+
+  String _availableBalanceHint(List<Account> accounts) {
+    for (final account in accounts) {
+      if (account.id == _sourceAccountId) {
+        final available = account.balance.formatWithCurrency(
+          account.currency.code,
+        );
+        return 'Disponible: $available. Monto positivo con hasta dos decimales.';
+      }
+    }
+    return 'Monto positivo con hasta dos decimales.';
+  }
 
   String? _firstError(TransferState state, String field) {
     final errors = state.fieldErrors[field];
@@ -327,11 +375,16 @@ class _TransferFormScreenState extends ConsumerState<TransferFormScreen> {
       return;
     }
     if (outcome == TransferMutationOutcome.success) {
+      unawaited(ref.read(historyControllerProvider.notifier).load());
       await ref.read(accountsControllerProvider.notifier).load();
       if (!mounted) {
         return;
       }
-      context.go('/accounts');
+      if (context.canPop()) {
+        context.pop();
+      } else {
+        context.go('/accounts');
+      }
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text('Transferencia guardada.')));

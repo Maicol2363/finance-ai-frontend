@@ -288,6 +288,41 @@ void main() {
       },
     );
 
+    test('unknown errors cannot copy server detail into the failure', () async {
+      final mock = MockClient(
+        (_) async => _jsonResponse({
+          'status': 500,
+          'code': 'private-internal-code',
+          'detail': 'token=private-value',
+          'field_errors': {
+            'merchant': ['private-merchant-name'],
+          },
+        }, 500),
+      );
+      final dataSource = ReceiptCaptureRemoteDataSource(
+        _createApiClient(mock),
+        fakeSession,
+      );
+
+      await expectLater(
+        dataSource.uploadProposal(filePath: testImageFile.path),
+        throwsA(
+          isA<ExpenseFailure>()
+              .having((failure) => failure.code, 'code', 'unexpected_response')
+              .having(
+                (failure) => failure.userMessage,
+                'message',
+                isNot(contains('private-value')),
+              )
+              .having(
+                (failure) => failure.fieldErrors,
+                'field errors',
+                isEmpty,
+              ),
+        ),
+      );
+    });
+
     test('ReceiptProposalResponseDto.fromJson handles flat FastAPI backend response', () {
       final flatJson = {
         'proposal_id': 'be61a84a-b99f-4098-895b-ed7e2e44fdf4',

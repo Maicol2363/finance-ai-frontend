@@ -1,3 +1,4 @@
+import 'package:finance_ai/core/icons/finance_icon_catalog.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -41,22 +42,35 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     final palette = context.palette;
     final state = ref.watch(authSessionControllerProvider);
     final controller = ref.read(authSessionControllerProvider.notifier);
+    final compact = MediaQuery.sizeOf(context).height < 500;
+    final hasStatusPanel =
+        widget.registrationConfirmation != null ||
+        state.logoutWarning != null ||
+        state.diagnostic != null;
     return Scaffold(
       body: SafeArea(
         child: Stack(
           children: [
             SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(22, 20, 22, 28),
+              padding: EdgeInsets.fromLTRB(
+                22,
+                compact ? 8 : 20,
+                22,
+                compact ? 12 : 28,
+              ),
               child: Center(
                 child: ConstrainedBox(
                   constraints: const BoxConstraints(maxWidth: 360),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      const AuthBrand(),
-                      const SizedBox(height: 24),
+                      AuthBrand(
+                        showTitle: !compact,
+                        iconSize: compact ? 56 : 96,
+                      ),
+                      SizedBox(height: compact ? 12 : 24),
                       Container(
-                        padding: const EdgeInsets.all(18),
+                        padding: EdgeInsets.all(compact ? 14 : 18),
                         decoration: BoxDecoration(
                           color: palette.card,
                           border: Border.all(color: palette.line),
@@ -119,9 +133,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                 diagnostic: diagnostic,
                               ),
                             ],
-                            const FieldLabel(
-                              'Correo electrónico',
-                              uppercase: false,
+                            SizedBox(
+                              height: compact
+                                  ? 12
+                                  : hasStatusPanel
+                                  ? 24
+                                  : 16,
                             ),
                             TextField(
                               key: const Key('login-email-input'),
@@ -133,8 +150,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                               decoration: pillInputDecoration(
                                 context,
                                 hint: 'tu@correo.com',
+                                labelText: 'Correo electrónico',
                                 prefixIcon: Icon(
-                                  Icons.mail_outline,
+                                  FinanceIcons.mailOutline,
                                   size: 18,
                                   color: palette.muted,
                                 ),
@@ -144,7 +162,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                   controller.clearFieldError('email'),
                               onSubmitted: (_) => _passwordFocus.requestFocus(),
                             ),
-                            const FieldLabel('Contraseña', uppercase: false),
+                            const SizedBox(height: 10),
                             TextField(
                               key: const Key('login-password-input'),
                               controller: _passwordController,
@@ -158,8 +176,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                               decoration: pillInputDecoration(
                                 context,
                                 hint: 'Tu contraseña',
+                                labelText: 'Contraseña',
                                 prefixIcon: Icon(
-                                  Icons.lock_outline,
+                                  FinanceIcons.lockOutline,
                                   size: 18,
                                   color: palette.muted,
                                 ),
@@ -178,8 +197,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                         ),
                                   icon: Icon(
                                     _showPassword
-                                        ? Icons.visibility_off
-                                        : Icons.visibility,
+                                        ? FinanceIcons.visibilityOff
+                                        : FinanceIcons.visibility,
                                     size: 18,
                                   ),
                                 ),

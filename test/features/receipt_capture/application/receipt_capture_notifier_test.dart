@@ -1,9 +1,16 @@
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:finance_ai/core/api/api_client.dart';
 import 'package:finance_ai/features/auth/session/application/auth_session_controller.dart';
+import 'package:finance_ai/features/auth/session/application/auth_session_state.dart';
+import 'package:finance_ai/features/auth/session/domain/session_models.dart';
+import 'package:finance_ai/features/budgets/application/budgets_controller.dart';
+import 'package:finance_ai/features/budgets/application/budgets_state.dart';
 import 'package:finance_ai/features/expenses/application/expenses_controller.dart';
 import 'package:finance_ai/features/expenses/application/expenses_state.dart';
+import 'package:finance_ai/features/expenses/application/history_controller.dart';
+import 'package:finance_ai/features/expenses/application/history_state.dart';
 import 'package:finance_ai/features/expenses/domain/expense_models.dart';
 import 'package:finance_ai/features/receipt_capture/application/receipt_capture_notifier.dart';
 import 'package:finance_ai/features/receipt_capture/data/receipt_capture_remote_data_source.dart';
@@ -19,6 +26,16 @@ import 'package:image_picker/image_picker.dart';
 
 class _FakeAuthSessionController extends AuthSessionController {
   @override
+  AuthSessionState build() => const AuthSessionState(
+    status: AuthSessionStatus.authenticated,
+    user: AuthenticatedUser(
+      id: 7,
+      email: 'test@example.com',
+      preferredCurrency: 'COP',
+    ),
+  );
+
+  @override
   Future<T> runProtected<T>(
     Future<T> Function(String accessCredential) request,
   ) => request('test-token');
@@ -30,6 +47,30 @@ class _FakeExpensesController extends ExpensesController {
 
   @override
   Future<void> load({int? page, int? pageSize}) async {}
+}
+
+class _FakeHistoryController extends HistoryController {
+  int loadCalls = 0;
+
+  @override
+  HistoryState build() => const HistoryState();
+
+  @override
+  Future<void> load() async {
+    loadCalls += 1;
+  }
+}
+
+class _FakeBudgetsController extends BudgetsController {
+  int loadCalls = 0;
+
+  @override
+  BudgetsState build() => const BudgetsState();
+
+  @override
+  Future<void> load() async {
+    loadCalls += 1;
+  }
 }
 
 class _FakeRemoteDataSource extends ReceiptCaptureRemoteDataSource {
@@ -134,24 +175,29 @@ class _FakePhotoCacheRepository implements ReceiptPhotoCacheRepository {
   final Map<int, String> stored = {};
 
   @override
+  Future<void> quarantineLegacyPhotos() async {}
+
+  @override
   Future<String> saveReceiptPhoto({
+    required int userId,
     required int expenseId,
     required String sourceFilePath,
   }) async {
     stored[expenseId] = sourceFilePath;
-    return '/cache/receipts/$expenseId.jpg';
+    return '/cache/receipts/$userId/$expenseId.receipt';
   }
 
   @override
-  Future<File?> getCachedReceiptPhoto(int expenseId) async {
-    if (stored.containsKey(expenseId)) {
-      return File(stored[expenseId]!);
-    }
-    return null;
-  }
+  Future<Uint8List?> getCachedReceiptPhoto({
+    required int userId,
+    required int expenseId,
+  }) async => null;
 
   @override
-  Future<void> deleteCachedReceiptPhoto(int expenseId) async {
+  Future<void> deleteCachedReceiptPhoto({
+    required int userId,
+    required int expenseId,
+  }) async {
     stored.remove(expenseId);
   }
 }
@@ -177,12 +223,16 @@ void main() {
   late _FakeRemoteDataSource fakeRemote;
   late _FakePhotoCacheRepository fakeCache;
   late _FakeImagePicker fakePicker;
+  late _FakeHistoryController fakeHistory;
+  late _FakeBudgetsController fakeBudgets;
   late File sampleFile;
 
   setUp(() {
     fakeRemote = _FakeRemoteDataSource();
     fakeCache = _FakePhotoCacheRepository();
     fakePicker = _FakeImagePicker();
+    fakeHistory = _FakeHistoryController();
+    fakeBudgets = _FakeBudgetsController();
 
     sampleFile = File('${Directory.systemTemp.path}/notifier_test.jpg')
       ..writeAsBytesSync([1, 2, 3, 4, 5]);
@@ -191,10 +241,15 @@ void main() {
 
     container = ProviderContainer(
       overrides: [
+        authSessionControllerProvider.overrideWith(
+          _FakeAuthSessionController.new,
+        ),
         receiptCaptureRemoteDataSourceProvider.overrideWithValue(fakeRemote),
         receiptPhotoCacheRepositoryProvider.overrideWithValue(fakeCache),
         imagePickerProvider.overrideWithValue(fakePicker),
         expensesControllerProvider.overrideWith(_FakeExpensesController.new),
+        historyControllerProvider.overrideWith(() => fakeHistory),
+        budgetsControllerProvider.overrideWith(() => fakeBudgets),
       ],
     );
   });
@@ -382,13 +437,15 @@ void main() {
 
         expect(result, isNotNull);
         expect(result!.id, 200);
+        expect(fakeHistory.loadCalls, 1);
+        expect(fakeBudgets.loadCalls, 1);
         expect(fakeCache.stored[200], sampleFile.path);
 
         final state = container.read(receiptCaptureNotifierProvider);
         expect(state, isA<ReceiptCaptureSuccess>());
         final success = state as ReceiptCaptureSuccess;
         expect(success.expenseId, 200);
-        expect(success.localSavedImagePath, '/cache/receipts/200.jpg');
+        expect(success.localSavedImagePath, '/cache/receipts/7/200.receipt');
       },
     );
 

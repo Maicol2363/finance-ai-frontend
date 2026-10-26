@@ -122,7 +122,7 @@ void main() {
     await pumpCategories(tester, repository, '/categories');
 
     expect(find.byKey(const Key('categories-list')), findsOneWidget);
-    expect(find.text('Needs'), findsOneWidget);
+    expect(find.text('Necesidades'), findsOneWidget);
     expect(find.text('Posición 1'), findsOneWidget);
     await tester.tap(find.byKey(const Key('category-down-1')));
     await tester.pumpAndSettle();
@@ -168,7 +168,7 @@ void main() {
     await tester.tap(saveButton);
     await tester.pumpAndSettle();
 
-    expect(find.text('Error code: category_invalid'), findsOneWidget);
+    expect(find.byKey(const Key('error-diagnostic-code')), findsNothing);
     expect(find.byKey(const Key('copy-error-details-button')), findsOneWidget);
     expect(
       find.text('El nombre de la categoría es obligatorio.'),

@@ -37,17 +37,20 @@ class AppBottomNav extends StatelessWidget {
         border: Border(top: BorderSide(color: palette.line)),
       ),
       padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
-      child: Row(
-        children: [
-          for (var index = 0; index < destinations.length; index++)
-            Expanded(
-              child: _NavTab(
-                destination: destinations[index],
-                selected: index == currentIndex,
-                onTap: () => onSelected(index),
+      child: SafeArea(
+        top: false,
+        child: Row(
+          children: [
+            for (var index = 0; index < destinations.length; index++)
+              Expanded(
+                child: _NavTab(
+                  destination: destinations[index],
+                  selected: index == currentIndex,
+                  onTap: () => onSelected(index),
+                ),
               ),
-            ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -72,45 +75,48 @@ class _NavTab extends StatelessWidget {
       selected: selected,
       button: true,
       label: destination.label,
-      child: InkWell(
-        key: Key('bottom-nav-${destination.id}'),
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
-        child: Padding(
-          padding: const EdgeInsets.only(top: 4, bottom: 2),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              AnimatedContainer(
-                duration: const Duration(milliseconds: 250),
-                width: 58,
-                height: 30,
-                decoration: BoxDecoration(
-                  color: selected ? palette.primarySoft : Colors.transparent,
-                  borderRadius: BorderRadius.circular(999),
+      onTap: onTap,
+      child: ExcludeSemantics(
+        child: InkWell(
+          key: Key('bottom-nav-${destination.id}'),
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(16),
+          child: Padding(
+            padding: const EdgeInsets.only(top: 4, bottom: 2),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 250),
+                  width: 58,
+                  height: 30,
+                  decoration: BoxDecoration(
+                    color: selected ? palette.primarySoft : Colors.transparent,
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Icon(destination.icon, size: 22, color: color),
                 ),
-                child: Icon(destination.icon, size: 22, color: color),
-              ),
-              const SizedBox(height: 3),
-              Text(
-                destination.label,
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                  color: color,
+                const SizedBox(height: 3),
+                Text(
+                  destination.label,
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: selected ? palette.primaryDark : color,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 2),
-              AnimatedContainer(
-                duration: const Duration(milliseconds: 250),
-                width: 4,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: selected ? palette.primary : Colors.transparent,
-                  shape: BoxShape.circle,
+                const SizedBox(height: 2),
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 250),
+                  width: 4,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: selected ? palette.primary : Colors.transparent,
+                    shape: BoxShape.circle,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

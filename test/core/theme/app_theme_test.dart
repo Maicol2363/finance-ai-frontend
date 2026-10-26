@@ -9,25 +9,36 @@ import 'package:shared_preferences/shared_preferences.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  test('light and dark palettes match the mockup design tokens', () {
+  test('light and dark palettes match accessible olive brand tokens', () {
     final light = AppTheme.light().extension<AppPalette>()!;
     expect(light.background, const Color(0xFFF5F6F8));
+    expect(light.header, const Color(0xFFFFFFFF));
     expect(light.card, const Color(0xFFFFFFFF));
     expect(light.primary, const Color(0xFF6B8E00));
-    expect(light.text, const Color(0xFF1F2933));
-    expect(light.income, const Color(0xFF0E9F6E));
-    expect(light.discard, const Color(0xFFDC2626));
+    expect(light.primaryDark, const Color(0xFF546E00));
+    expect(light.primarySoft, const Color(0xFFE9F2D8));
+    expect(light.onPrimary, const Color(0xFF101900));
+    expect(light.text, const Color(0xFF202B28));
+    expect(light.income, const Color(0xFF426D18));
+    expect(light.discard, const Color(0xFFB3261E));
 
     final dark = AppTheme.dark().extension<AppPalette>()!;
-    expect(dark.background, const Color(0xFF101318));
-    expect(dark.card, const Color(0xFF1A2027));
+    expect(dark.background, const Color(0xFF171D22));
+    expect(dark.header, const Color(0xFF222B31));
+    expect(dark.card, const Color(0xFF20282E));
     expect(dark.primary, const Color(0xFF8FB42C));
-    expect(dark.text, const Color(0xFFE8EBF0));
-    expect(dark.income, const Color(0xFF2DB886));
+    expect(dark.text, const Color(0xFFF0F3F2));
+    expect(dark.income, const Color(0xFF9CC66B));
 
     expect(AppTheme.light().brightness, Brightness.light);
     expect(AppTheme.dark().brightness, Brightness.dark);
     expect(AppTheme.light().scaffoldBackgroundColor, const Color(0xFFF5F6F8));
+    expect(
+      _contrast(light.primary, light.onPrimary),
+      greaterThanOrEqualTo(4.5),
+    );
+    expect(_contrast(light.card, light.text), greaterThanOrEqualTo(4.5));
+    expect(_contrast(light.card, light.muted), greaterThanOrEqualTo(4.5));
   });
 
   test('theme controller loads and persists the choice', () async {
@@ -60,4 +71,9 @@ void main() {
       expect(container.read(themeDiagnosticProvider), isNull);
     },
   );
+}
+
+double _contrast(Color a, Color b) {
+  final luminances = [a.computeLuminance(), b.computeLuminance()]..sort();
+  return (luminances[1] + 0.05) / (luminances[0] + 0.05);
 }

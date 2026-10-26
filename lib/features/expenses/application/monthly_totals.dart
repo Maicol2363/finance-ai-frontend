@@ -5,6 +5,7 @@ import '../../../core/money/currency_totals.dart';
 import '../../../core/time/clock_provider.dart';
 import '../../incomes/data/incomes_repository.dart';
 import '../data/expenses_repository.dart';
+import '../domain/expense_models.dart';
 import '../domain/history_models.dart';
 import 'expenses_controller.dart';
 
@@ -12,7 +13,7 @@ import 'expenses_controller.dart';
 ///
 /// The stock balance card is always all-time; only the flow figures
 /// (chips, tendency, category breakdown) follow this selection.
-enum DashboardPeriod { thisMonth, lastMonth, last3Months, thisYear }
+enum DashboardPeriod { thisMonth, lastMonth, last3Months, thisYear, custom }
 
 /// Currently selected Dashboard window. Changing it re-runs
 /// [periodTotalsProvider] with the new dates.
@@ -30,12 +31,33 @@ class DashboardPeriodController extends Notifier<DashboardPeriod> {
   }
 }
 
+/// Selected custom date range when [DashboardPeriod.custom] is chosen.
+final dashboardCustomRangeProvider =
+    NotifierProvider<
+      DashboardCustomRangeController,
+      ({DateTime start, DateTime end})?
+    >(DashboardCustomRangeController.new);
+
+class DashboardCustomRangeController
+    extends Notifier<({DateTime start, DateTime end})?> {
+  @override
+  ({DateTime start, DateTime end})? build() => null;
+
+  void setRange(DateTime start, DateTime end) {
+    state = (
+      start: DateTime.utc(start.year, start.month, start.day),
+      end: DateTime.utc(end.year, end.month, end.day),
+    );
+  }
+}
+
 /// Start/end of [period] as UTC-midnight calendar dates for the API
 /// (`yyyy-MM-dd`) and the month check for incomes.
 ({DateTime start, DateTime end}) periodWindow(
   DashboardPeriod period,
-  DateTime now,
-) {
+  DateTime now, {
+  ({DateTime start, DateTime end})? customRange,
+}) {
   final local = now.toLocal();
   final monthStart = DateTime.utc(local.year, local.month);
   switch (period) {
@@ -58,6 +80,9 @@ class DashboardPeriodController extends Notifier<DashboardPeriod> {
         start: DateTime.utc(local.year),
         end: DateTime.utc(local.year, 12, 31),
       );
+    case DashboardPeriod.custom:
+      if (customRange != null) return customRange;
+      return (start: monthStart, end: _monthEnd(local.year, local.month));
   }
 }
 
@@ -85,7 +110,11 @@ bool isInPeriodWindow(DateTime date, ({DateTime start, DateTime end}) window) {
 
 /// Human label for the selected window (`octubre`, `septiembre`,
 /// `jul – oct`, `2026`).
-String periodLabel(DashboardPeriod period, DateTime now) {
+String periodLabel(
+  DashboardPeriod period,
+  DateTime now, {
+  ({DateTime start, DateTime end})? customRange,
+}) {
   const short = [
     'ene',
     'feb',
@@ -126,6 +155,13 @@ String periodLabel(DashboardPeriod period, DateTime now) {
       return '${short[from.month - 1]} – ${short[local.month - 1]}';
     case DashboardPeriod.thisYear:
       return '${local.year}';
+    case DashboardPeriod.custom:
+      if (customRange != null) {
+        final s = customRange.start;
+        final e = customRange.end;
+        return '${s.day} ${short[s.month - 1]} – ${e.day} ${short[e.month - 1]}';
+      }
+      return 'personalizado';
   }
 }
 
@@ -141,6 +177,9 @@ class MonthlyTotals {
     this.period = DashboardPeriod.thisMonth,
     DateTime? windowEnd,
     this.previousExpensesByCurrency = const {},
+    this.historyComplete = true,
+    this.previousHistoryComplete = true,
+    this.previousExpenseItems = const [],
   }) : windowEnd = windowEnd ?? monthStart;
 
   /// First day of the reported window (UTC midnight, for display helpers).
@@ -163,10 +202,27 @@ class MonthlyTotals {
   /// The month's expense entries across all pages, for the category breakdown.
   final List<HistoryItem> expenseItems;
 
+  final bool historyComplete;
+  final bool previousHistoryComplete;
+  final List<HistoryItem> previousExpenseItems;
+
   CurrencyTotals forCurrency(String? currencyCode) => currencyCode == null
       ? const CurrencyTotals()
       : byCurrency[currencyCode] ?? const CurrencyTotals();
 }
+
+/// Whether a cached async total belongs to the currently selected date window.
+/// Riverpod may expose the previous value while recomputing after a period
+/// change; consumers must hide it until all three scope fields match.
+bool totalsMatchWindow(
+  MonthlyTotals? totals,
+  DashboardPeriod period,
+  ({DateTime start, DateTime end}) window,
+) =>
+    totals != null &&
+    totals.period == period &&
+    totals.monthStart == window.start &&
+    totals.windowEnd == window.end;
 
 /// Income/expense totals per currency for a Dashboard window.
 ///
@@ -185,9 +241,10 @@ Future<MonthlyTotals> loadPeriodTotals(
 }) async {
   ref.watch(expensesControllerProvider.select((state) => state.result));
   final now = ref.watch(clockProvider)();
+  final customRange = ref.watch(dashboardCustomRangeProvider);
   final window = period == DashboardPeriod.thisMonth
       ? currentMonthWindow(now)
-      : periodWindow(period, now);
+      : periodWindow(period, now, customRange: customRange);
   final builder = CurrencyTotalsBuilder();
 
   final incomes = await ref.watch(incomesListProvider.future);
@@ -203,6 +260,7 @@ Future<MonthlyTotals> loadPeriodTotals(
 
   final repository = ref.watch(expensesRepositoryProvider);
   final expenseItems = <HistoryItem>[];
+  var currentHasNext = false;
   for (var page = 1; page <= _maxPages; page++) {
     final result = await repository.history(
       HistoryFilters(
@@ -213,8 +271,9 @@ Future<MonthlyTotals> loadPeriodTotals(
         pageSize: _pageSize,
       ),
     );
-    expenseItems.addAll(result.items);
+    expenseItems.addAll(result.items.where(_isCountableExpense));
     for (final item in result.items) {
+      if (!_isCountableExpense(item)) continue;
       for (final movement in item.movements) {
         final minorUnits = movement.amount.minorUnits;
         if (minorUnits < 0) {
@@ -222,35 +281,42 @@ Future<MonthlyTotals> loadPeriodTotals(
         }
       }
     }
-    if (!result.hasNext) {
-      break;
-    }
+    currentHasNext = result.hasNext;
+    if (!currentHasNext) break;
   }
+  if (currentHasNext) throw StateError('history_page_limit_reached');
 
-  // Previous equivalent window: one extra first-page read, expenses only.
-  // Incomes are not compared (only spend gets a tendency). When the previous
-  // window is busier than one page the badge still compares first-page sums;
-  // acceptable: the badge is a hint, totals stay exact.
+  // Compare complete equivalent windows; never compare a full total with
+  // only the first page of the prior window.
   final prev = previousWindow(window);
   final prevExpenses = <String, int>{};
-  final prevResult = await repository.history(
-    HistoryFilters(
-      type: TransactionType.expense,
-      startDate: prev.start,
-      endDate: prev.end,
-      page: 1,
-      pageSize: _pageSize,
-    ),
-  );
-  for (final item in prevResult.items) {
-    for (final movement in item.movements) {
-      final minorUnits = movement.amount.minorUnits;
-      if (minorUnits < 0) {
-        prevExpenses[movement.currencyCode] =
-            (prevExpenses[movement.currencyCode] ?? 0) - minorUnits;
+  var previousHasNext = false;
+  final previousExpenseItems = <HistoryItem>[];
+  for (var page = 1; page <= _maxPages; page++) {
+    final result = await repository.history(
+      HistoryFilters(
+        type: TransactionType.expense,
+        startDate: prev.start,
+        endDate: prev.end,
+        page: page,
+        pageSize: _pageSize,
+      ),
+    );
+    previousExpenseItems.addAll(result.items.where(_isCountableExpense));
+    for (final item in result.items) {
+      if (!_isCountableExpense(item)) continue;
+      for (final movement in item.movements) {
+        final units = movement.amount.minorUnits;
+        if (units < 0) {
+          prevExpenses[movement.currencyCode] =
+              (prevExpenses[movement.currencyCode] ?? 0) - units;
+        }
       }
     }
+    previousHasNext = result.hasNext;
+    if (!previousHasNext) break;
   }
+  if (previousHasNext) throw StateError('history_page_limit_reached');
 
   return MonthlyTotals(
     monthStart: window.start,
@@ -258,6 +324,9 @@ Future<MonthlyTotals> loadPeriodTotals(
     period: period,
     byCurrency: builder.build(),
     expenseItems: List.unmodifiable(expenseItems),
+    historyComplete: true,
+    previousHistoryComplete: true,
+    previousExpenseItems: List.unmodifiable(previousExpenseItems),
     previousExpensesByCurrency: Map.unmodifiable(prevExpenses),
   );
 }
@@ -273,6 +342,10 @@ final periodTotalsProvider = FutureProvider<MonthlyTotals>((ref) async {
   return loadPeriodTotals(ref, period: period);
 });
 
-/// A month never needs an unbounded walk: 5 pages of 100 cover 500 movements.
+/// Bound requests while covering up to 10,000 entries per window. If the API
+/// still reports another page, fail instead of returning a partial total.
 const _pageSize = 100;
-const _maxPages = 5;
+const _maxPages = 100;
+
+bool _isCountableExpense(HistoryItem item) =>
+    item.type == TransactionType.expense && item.status != ExpenseStatus.voided;
