@@ -84,7 +84,7 @@ Expense expense({
   store: 'Market',
   description: 'Purchase at Market',
   occurredAt: DateTime.utc(2026, 9, 17, 12, 30),
-  status: ExpenseStatus.confirmed,
+  status: status,
   captureSource: captureSource,
   accountId: 11,
   accountName: 'Cash',
