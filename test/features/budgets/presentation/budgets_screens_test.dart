@@ -2,6 +2,7 @@ import 'package:finance_ai/app.dart';
 import 'package:finance_ai/core/router/app_router.dart';
 import 'package:finance_ai/core/theme/app_theme.dart';
 import 'package:finance_ai/features/budgets/application/budgets_state.dart';
+import 'package:finance_ai/features/budgets/application/budgets_controller.dart';
 import 'package:finance_ai/features/budgets/data/budgets_repository.dart';
 import 'package:finance_ai/features/budgets/domain/budget_models.dart';
 import 'package:finance_ai/features/budgets/presentation/budget_dashboard_section.dart';
@@ -185,6 +186,86 @@ void main() {
     );
     expect(currencyField.decoration.helperMaxLines, 2);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('new budget amount example is clearly a placeholder', (
+    tester,
+  ) async {
+    await pumpBudgetsApp(
+      tester,
+      WidgetBudgetsRepository(),
+      initialLocation: '/budgets/new',
+      surfaceSize: const Size(390, 900),
+    );
+
+    final amount = tester.widget<TextField>(
+      find.byKey(const Key('budget-amount-field')),
+    );
+    expect(amount.controller?.text, isEmpty);
+    expect(amount.decoration?.hintText, 'Ej. 500.000');
+    expect(find.byKey(const Key('theme-toggle-button')), findsNothing);
+    expect(
+      amount.decoration?.helperText,
+      contains('Ejemplo: 500.000. No se guarda'),
+    );
+  });
+
+  testWidgets('editing a budget omits the creation-only amount example', (
+    tester,
+  ) async {
+    await pumpBudgetsApp(
+      tester,
+      WidgetBudgetsRepository(),
+      initialLocation: '/budgets/7/edit',
+      surfaceSize: const Size(390, 900),
+    );
+
+    final amount = tester.widget<TextField>(
+      find.byKey(const Key('budget-amount-field')),
+    );
+    expect(amount.controller?.text, '500.000');
+    expect(amount.decoration?.helperText, isNull);
+    expect(find.byKey(const Key('theme-toggle-button')), findsNothing);
+  });
+
+  testWidgets('budget amount error clears when a valid amount is entered', (
+    tester,
+  ) async {
+    final repository = WidgetBudgetsRepository();
+    await tester.binding.setSurfaceSize(const Size(390, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final container = ProviderContainer(
+      overrides: [budgetsRepositoryProvider.overrideWithValue(repository)],
+    );
+    addTearDown(container.dispose);
+    final router = createAppRouter(initialLocation: '/budgets/new');
+    addTearDown(router.dispose);
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: FinanceApp(router: router),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final field = find.byKey(const Key('budget-amount-field'));
+    await container
+        .read(budgetsControllerProvider.notifier)
+        .save(
+          categoryId: null,
+          amountInput: '',
+          currencyCode: 'COP',
+          period: BudgetPeriod.monthly,
+        );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Ingresa un monto mayor que cero.'), findsOneWidget);
+    expect(repository.createdCommand, isNull);
+
+    await tester.ensureVisible(field);
+    await tester.enterText(field, '900');
+    await tester.pumpAndSettle();
+    expect(container.read(budgetsControllerProvider).fieldErrors, isEmpty);
+    expect(find.text('Ingresa un monto mayor que cero.'), findsNothing);
   });
 
   testWidgets('advanced editor submits custom all-expense recurrence', (

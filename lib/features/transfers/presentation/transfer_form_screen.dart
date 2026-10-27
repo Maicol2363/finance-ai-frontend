@@ -10,7 +10,6 @@ import '../../../core/formatters/date_labels.dart';
 import '../../../core/widgets/app_header.dart';
 import '../../../core/widgets/management_page_scaffold.dart';
 import '../../../core/widgets/manage_widgets.dart';
-import '../../../core/widgets/theme_toggle_button.dart';
 import '../../accounts/application/accounts_controller.dart';
 import '../../accounts/application/accounts_state.dart';
 import '../../accounts/domain/account_models.dart';
@@ -94,7 +93,6 @@ class _TransferFormScreenState extends ConsumerState<TransferFormScreen> {
                   }
                 },
         ),
-        actions: const [ThemeToggleButton()],
         body: ListView(
           padding: EdgeInsets.zero,
           children: [

@@ -10,7 +10,6 @@ import '../../../core/formatters/catalog_labels.dart';
 import '../../../core/widgets/app_header.dart';
 import '../../../core/widgets/management_page_scaffold.dart';
 import '../../../core/widgets/manage_widgets.dart';
-import '../../../core/widgets/theme_toggle_button.dart';
 import '../../categories/presentation/category_visuals.dart';
 import '../application/budgets_controller.dart';
 import '../application/budgets_state.dart';
@@ -102,7 +101,6 @@ class _BudgetFormScreenState extends ConsumerState<BudgetFormScreen> {
               icon: FinanceIcons.deleteOutline,
               onPressed: state.isSaving ? null : () => _confirmDelete(budget),
             ),
-          const ThemeToggleButton(),
         ],
         body: ListView(
           padding: EdgeInsets.zero,
@@ -366,7 +364,10 @@ class _BudgetFormScreenState extends ConsumerState<BudgetFormScreen> {
             textInputAction: TextInputAction.next,
             decoration: InputDecoration(
               labelText: 'Monto objetivo',
-              hintText: '500.000',
+              hintText: 'Ej. 500.000',
+              helperText: widget.isEditing
+                  ? null
+                  : 'Ejemplo: 500.000. No se guarda hasta que lo ingreses.',
               errorText: _firstError(state, 'amount'),
             ),
             onChanged: (_) => controller.clearFieldError('amount'),

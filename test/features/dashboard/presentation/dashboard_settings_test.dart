@@ -3,7 +3,8 @@ import 'dart:io';
 
 import 'package:finance_ai/app.dart';
 import 'package:finance_ai/core/router/app_router.dart';
-import 'package:finance_ai/core/theme/app_palette.dart';
+import 'package:finance_ai/core/theme/app_theme.dart';
+import 'package:finance_ai/core/theme/theme_controller.dart';
 import 'package:finance_ai/core/formatters/money_formatter.dart';
 import 'package:finance_ai/core/money/currency_totals.dart';
 import 'package:finance_ai/core/time/clock_provider.dart';
@@ -17,6 +18,7 @@ import 'package:finance_ai/features/dashboard/application/dashboard_summary_prov
 import 'package:finance_ai/features/dashboard/domain/dashboard_summary.dart';
 import 'package:finance_ai/features/dashboard/presentation/dashboard_screen.dart';
 import 'package:finance_ai/features/dashboard/presentation/spending_trend_card.dart';
+import 'package:finance_ai/features/settings/presentation/settings_screen.dart';
 import 'package:finance_ai/features/expenses/data/expenses_repository.dart';
 import 'package:finance_ai/features/expenses/domain/expense_models.dart';
 import 'package:finance_ai/features/expenses/domain/history_models.dart';
@@ -31,6 +33,7 @@ import 'package:flutter/services.dart';
 import 'package:finance_ai/features/expenses/application/monthly_totals.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../support/accessibility_test_helpers.dart';
 
@@ -559,20 +562,47 @@ void main() {
     );
   });
 
-  testWidgets(
-    'dark dashboard uses accessible olive tokens and light surfaces',
-    (tester) async {
-      await _pumpAt(tester, '/dashboard');
-      await tester.tap(find.byKey(const Key('theme-toggle-button')));
-      await tester.pumpAndSettle();
+  testWidgets('theme remains switchable from Settings', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final router = GoRouter(
+      routes: [
+        GoRoute(path: '/', builder: (context, state) => const SettingsScreen()),
+      ],
+    );
+    addTearDown(router.dispose);
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          accountsRepositoryProvider.overrideWithValue(
+            _FakeAccountsRepository(),
+          ),
+          categoriesRepositoryProvider.overrideWithValue(
+            _FakeCategoriesRepository(),
+          ),
+          incomeSourcesRepositoryProvider.overrideWithValue(
+            _FakeIncomeSourcesRepository(),
+          ),
+        ],
+        child: Consumer(
+          builder: (context, ref, child) => MaterialApp.router(
+            theme: AppTheme.light(),
+            darkTheme: AppTheme.dark(),
+            themeMode: ref.watch(themeControllerProvider),
+            routerConfig: router,
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final darkOption = find.byKey(const Key('theme-mode-1'));
+    await tester.tap(darkOption);
+    await tester.pumpAndSettle();
 
-      final theme = Theme.of(tester.element(find.text('Saldo en cuentas')));
-      final palette = theme.extension<AppPalette>()!;
-      expect(palette.primary, const Color(0xFF8FB42C));
-      expect(palette.header, const Color(0xFF222B31));
-      expect(find.byKey(const Key('dashboard-hero')), findsNothing);
-    },
-  );
+    final container = ProviderScope.containerOf(tester.element(darkOption));
+    expect(container.read(themeControllerProvider), ThemeMode.dark);
+    expect(Theme.of(tester.element(darkOption)).brightness, Brightness.dark);
+    expect(find.byKey(const Key('theme-toggle-button')), findsNothing);
+  });
 
   testWidgets('dashboard renders compact summary and destinations', (
     tester,
@@ -1031,6 +1061,7 @@ void main() {
       find.byKey(const Key('settings-income-sources-row')),
       findsOneWidget,
     );
+    expect(find.byKey(const Key('theme-toggle-button')), findsNothing);
     await tester.scrollUntilVisible(
       find.byKey(const Key('logout-button')),
       200,
