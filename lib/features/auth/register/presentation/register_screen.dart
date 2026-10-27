@@ -8,7 +8,6 @@ import '../../../../core/theme/app_palette.dart';
 import '../../../../core/widgets/app_header.dart';
 import '../../../../core/widgets/auth_brand.dart';
 import '../../../../core/widgets/manage_widgets.dart';
-import '../../../../core/widgets/theme_toggle_button.dart';
 import 'registration_controller.dart';
 import 'registration_state.dart';
 
@@ -60,7 +59,6 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                     ? null
                     : () => context.go('/login'),
               ),
-              actions: const [ThemeToggleButton()],
             ),
             Expanded(
               child: SingleChildScrollView(

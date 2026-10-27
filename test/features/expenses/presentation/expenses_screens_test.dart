@@ -6,6 +6,7 @@ import 'package:finance_ai/app.dart';
 import 'package:finance_ai/core/icons/finance_icon_catalog.dart';
 import 'package:finance_ai/core/router/app_router.dart';
 import 'package:finance_ai/core/time/clock_provider.dart';
+import 'package:finance_ai/core/widgets/app_header.dart';
 import 'package:finance_ai/features/accounts/data/accounts_repository.dart';
 import 'package:finance_ai/features/accounts/domain/account_models.dart';
 import 'package:finance_ai/features/accounts/presentation/account_form_screen.dart';
@@ -65,6 +66,7 @@ Expense expense({
   int id = 7,
   String name = 'Groceries',
   CaptureSource captureSource = CaptureSource.manual,
+  ExpenseStatus status = ExpenseStatus.confirmed,
   List<ExpenseItem> items = const [],
 }) => Expense(
   id: id,
@@ -329,6 +331,34 @@ HistoryItem incomeHistoryItem({int id = 15}) => HistoryItem(
   ],
   expense: null,
 );
+
+HistoryItem transferHistoryItem({int id = 44, bool crossCurrency = false}) =>
+    HistoryItem(
+      id: id,
+      type: TransactionType.transfer,
+      status: ExpenseStatus.confirmed,
+      occurredAt: DateTime.utc(2026, 9, 17),
+      description: 'Ahorro',
+      captureSource: CaptureSource.manual,
+      incomeSource: null,
+      movements: [
+        HistoryMovement(
+          accountId: 11,
+          accountName: 'Cash',
+          amount: MoneyAmount.parseApi('-25.00'),
+          currency: cop,
+          currencyCode: 'COP',
+        ),
+        HistoryMovement(
+          accountId: 12,
+          accountName: 'Bank',
+          amount: MoneyAmount.parseApi('25.00'),
+          currency: crossCurrency ? usd : cop,
+          currencyCode: crossCurrency ? 'USD' : 'COP',
+        ),
+      ],
+      expense: null,
+    );
 
 class WidgetExpensesRepository implements ExpensesRepository {
   WidgetExpensesRepository()
@@ -935,11 +965,94 @@ void main() {
 
     expect(find.text('Detalle del gasto'), findsOneWidget);
     expect(find.text('Groceries'), findsOneWidget);
-    await tester.scrollUntilVisible(
-      find.byKey(const Key('expense-edit-button')),
-      200,
+    final edit = find.byKey(const Key('expense-edit-button'));
+    final delete = find.byKey(const Key('expense-delete-button'));
+    expect(edit, findsOneWidget);
+    expect(delete, findsOneWidget);
+    expect(find.byTooltip('Editar gasto'), findsOneWidget);
+    expect(find.byTooltip('Eliminar gasto'), findsOneWidget);
+    expect(find.bySemanticsLabel('Editar gasto'), findsOneWidget);
+    expect(find.bySemanticsLabel('Eliminar gasto'), findsOneWidget);
+    expect(tester.getSize(edit), const Size(48, 48));
+    expect(tester.getSize(delete), tester.getSize(edit));
+    expect(tester.getTopLeft(edit).dy, tester.getTopLeft(delete).dy);
+    expect(tester.getTopRight(edit).dx, tester.getTopLeft(delete).dx);
+    expect(tester.getTopLeft(edit).dy, lessThan(100));
+    expect(
+      tester
+          .widget<Icon>(
+            find.descendant(
+              of: delete,
+              matching: find.byIcon(FinanceIcons.deleteOutline),
+            ),
+          )
+          .color,
+      Theme.of(tester.element(delete)).colorScheme.error,
     );
-    expect(find.byKey(const Key('expense-edit-button')), findsOneWidget);
+    expect(find.text('Eliminar gasto definitivamente'), findsNothing);
+    expect(find.byType(FilledButton), findsNothing);
+    expect(find.byKey(const Key('theme-toggle-button')), findsNothing);
+  });
+
+  testWidgets('expense header edit action opens the expense form', (
+    tester,
+  ) async {
+    await pumpExpensesApp(
+      tester,
+      WidgetExpensesRepository(),
+      initialLocation: '/expenses/7',
+    );
+
+    await tester.tap(find.byKey(const Key('expense-edit-button')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Editar gasto'), findsWidgets);
+    expect(find.byKey(const Key('expense-name-field')), findsOneWidget);
+  });
+
+  testWidgets('saved receipt uses adjacent edit and delete header actions', (
+    tester,
+  ) async {
+    final repository = WidgetExpensesRepository()
+      ..expenses = [expense(captureSource: CaptureSource.ai)];
+    await pumpExpensesApp(tester, repository, initialLocation: '/expenses/7');
+
+    expect(find.text('Detalle del recibo'), findsOneWidget);
+    final edit = find.byKey(const Key('expense-edit-button'));
+    final delete = find.byKey(const Key('expense-delete-button'));
+    expect(edit, findsOneWidget);
+    expect(delete, findsOneWidget);
+    expect(find.byTooltip('Editar recibo'), findsOneWidget);
+    expect(find.byTooltip('Eliminar recibo'), findsOneWidget);
+    expect(find.bySemanticsLabel('Editar recibo'), findsOneWidget);
+    expect(find.bySemanticsLabel('Eliminar recibo'), findsOneWidget);
+    expect(tester.getSize(delete), tester.getSize(edit));
+    expect(tester.getTopLeft(edit).dy, tester.getTopLeft(delete).dy);
+    expect(tester.getTopRight(edit).dx, tester.getTopLeft(delete).dx);
+    expect(find.text('Eliminar recibo'), findsNothing);
+    expect(find.byType(FilledButton), findsNothing);
+
+    await tester.tap(edit);
+    await tester.pumpAndSettle();
+    expect(find.text('Editar recibo'), findsWidgets);
+    expect(find.byKey(const Key('expense-receipt-name-field')), findsOneWidget);
+  });
+
+  testWidgets('non-editable expense keeps both header actions disabled', (
+    tester,
+  ) async {
+    final repository = WidgetExpensesRepository()
+      ..expenses = [expense(status: ExpenseStatus.pending)];
+    await pumpExpensesApp(tester, repository, initialLocation: '/expenses/7');
+
+    for (final key in [
+      const Key('expense-edit-button'),
+      const Key('expense-delete-button'),
+    ]) {
+      final button = tester.widget<HeaderIconButton>(find.byKey(key));
+      expect(button.onPressed, isNull);
+      expect(tester.getSize(find.byKey(key)), const Size(48, 48));
+    }
   });
 
   testWidgets('FAB navigates to create expense form and creates expense', (
@@ -1048,9 +1161,9 @@ void main() {
     final repository = WidgetExpensesRepository();
     await pumpExpensesApp(tester, repository, initialLocation: '/expenses/7');
 
-    await tester.drag(find.byType(ListView), const Offset(0, -500));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('expense-delete-button')));
+    final deleteButton = find.byKey(const Key('expense-delete-button'));
+    await tester.ensureVisible(deleteButton);
+    await tester.tap(deleteButton);
     await tester.pumpAndSettle();
     expect(find.text('¿Eliminar este gasto definitivamente?'), findsOneWidget);
 

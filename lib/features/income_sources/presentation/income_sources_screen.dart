@@ -8,7 +8,6 @@ import '../../../../core/formatters/catalog_labels.dart';
 import '../../../../core/widgets/app_header.dart';
 import '../../../../core/widgets/management_page_scaffold.dart';
 import '../../../../core/widgets/manage_widgets.dart';
-import '../../../../core/widgets/theme_toggle_button.dart';
 import '../domain/income_source_models.dart';
 import 'income_sources_controller.dart';
 import 'income_sources_state.dart';
@@ -48,7 +47,6 @@ class _IncomeSourcesScreenState extends ConsumerState<IncomeSourcesScreen> {
           }
         },
       ),
-      actions: const [ThemeToggleButton()],
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [

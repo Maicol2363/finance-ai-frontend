@@ -404,7 +404,7 @@ void main() {
     },
   );
   testWidgets(
-    'login lays out at the mockup phone size in light and dark without overflow',
+    'login lays out at the mockup phone size without a theme toggle',
     (tester) async {
       tester.view.physicalSize = const Size(390, 844);
       tester.view.devicePixelRatio = 1.0;
@@ -418,6 +418,7 @@ void main() {
       expect(find.text('Finance AI'), findsOneWidget);
       expect(find.text('Tu dinero, más claro.'), findsOneWidget);
       expect(find.byKey(const Key('login-submit-button')), findsOneWidget);
+      expect(find.byKey(const Key('theme-toggle-button')), findsNothing);
       final introBottom = tester
           .getRect(find.text('Accede para ver tus gastos, ingresos y cuentas.'))
           .bottom;
@@ -425,9 +426,6 @@ void main() {
           .getRect(find.byKey(const Key('login-email-input')))
           .top;
       expect(emailFieldTop - introBottom, greaterThanOrEqualTo(12));
-
-      await tester.tap(find.byKey(const Key('theme-toggle-button')));
-      await tester.pumpAndSettle();
 
       expect(tester.takeException(), isNull);
       expect(find.text('Tu dinero, más claro.'), findsOneWidget);

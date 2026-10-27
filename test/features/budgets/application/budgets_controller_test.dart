@@ -170,6 +170,31 @@ void main() {
     expect(repository.createCalls, 0);
   });
 
+  test('empty, zero, and negative budget amounts are rejected', () async {
+    for (final value in ['', '0', '-1']) {
+      final repository = FakeBudgetsRepository();
+      final container = containerFor(repository);
+      final controller = container.read(budgetsControllerProvider.notifier);
+      await controller.load();
+
+      final outcome = await controller.save(
+        categoryId: 4,
+        amountInput: value,
+        currencyCode: 'COP',
+        period: BudgetPeriod.monthly,
+      );
+
+      expect(outcome, BudgetMutationOutcome.invalid, reason: 'amount=$value');
+      expect(
+        container.read(budgetsControllerProvider).fieldErrors,
+        contains('amount'),
+        reason: 'amount=$value',
+      );
+      expect(repository.createCalls, 0, reason: 'amount=$value');
+      container.dispose();
+    }
+  });
+
   test(
     'repeated create is ignored and exact result enters local list',
     () async {
