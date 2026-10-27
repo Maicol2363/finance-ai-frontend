@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 
@@ -410,6 +411,14 @@ class _WidgetBudgetsController extends BudgetsController {
   Future<void> load() async => onLoad?.call();
 }
 
+class _DelayedAccountsRepository extends FakeAccountsRepository {
+  final result = Completer<AccountListResult>();
+
+  @override
+  Future<AccountListResult> list({bool includeInactive = false}) =>
+      result.future;
+}
+
 class FakeAccountsRepository implements AccountsRepository {
   @override
   Future<AccountListResult> list({bool includeInactive = false}) async {
@@ -628,6 +637,7 @@ Future<void> pumpExpensesApp(
   DateTime Function()? clock,
   void Function()? onBudgetsLoad,
   bool authenticatedSession = true,
+  bool settle = true,
 }) async {
   final router = createAppRouter(initialLocation: initialLocation);
   addTearDown(router.dispose);
@@ -667,10 +677,49 @@ Future<void> pumpExpensesApp(
       child: FinanceApp(router: router),
     ),
   );
-  await tester.pumpAndSettle();
+  if (settle) await tester.pumpAndSettle();
 }
 
 void main() {
+  testWidgets('manual amount opens keyboard after delayed options enable it', (
+    tester,
+  ) async {
+    final accounts = _DelayedAccountsRepository();
+    await pumpExpensesApp(
+      tester,
+      WidgetExpensesRepository(),
+      initialLocation: '/expenses/new',
+      accountsRepository: accounts,
+      settle: false,
+    );
+    await tester.pump();
+    final amount = find.byKey(const Key('expense-create-amount-field'));
+    expect(tester.widget<TextField>(amount).enabled, isFalse);
+    expect(tester.testTextInput.isVisible, isFalse);
+    accounts.result.complete(await FakeAccountsRepository().list());
+    await tester.pumpAndSettle();
+    expect(tester.widget<TextField>(amount).focusNode!.hasFocus, isTrue);
+    expect(tester.testTextInput.isVisible, isTrue);
+    await tester.tap(find.byKey(const Key('expense-create-merchant-field')));
+    await tester.pumpAndSettle();
+    expect(tester.widget<TextField>(amount).focusNode!.hasFocus, isFalse);
+  });
+
+  testWidgets('Manual wheel entry opens keyboard every time', (tester) async {
+    await pumpExpensesApp(tester, WidgetExpensesRepository());
+    for (var attempt = 0; attempt < 2; attempt++) {
+      await tester.tap(find.byKey(const Key('expenses-create-fab')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('expenses-wheel-manual')));
+      await tester.pumpAndSettle();
+      final amount = find.byKey(const Key('expense-create-amount-field'));
+      expect(tester.widget<TextField>(amount).focusNode!.hasFocus, isTrue);
+      expect(tester.testTextInput.isVisible, isTrue);
+      await tester.tap(find.byTooltip('Volver'));
+      await tester.pumpAndSettle();
+    }
+  });
+
   testWidgets('manual expense catalog displays canonical labels in Spanish', (
     tester,
   ) async {

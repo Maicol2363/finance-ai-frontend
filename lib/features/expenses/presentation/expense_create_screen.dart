@@ -200,8 +200,13 @@ class _ExpenseCreateScreenState extends ConsumerState<ExpenseCreateScreen> {
         _loadingOptions = false;
       });
       if (focusAmount) {
-        Future<void>.microtask(() {
-          if (mounted) {
+        // The loading frame still has a disabled TextField. Wait until the
+        // enabled field is attached before requesting its input connection.
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted &&
+              !_loadingOptions &&
+              _loadDiagnostic == null &&
+              ModalRoute.of(context)?.isCurrent == true) {
             _amountFocus.requestFocus();
           }
         });
