@@ -515,6 +515,11 @@ class _BudgetFormScreenState extends ConsumerState<BudgetFormScreen> {
           ),
           FilledButton(
             key: const Key('budget-confirm-delete-button'),
+            style: FilledButton.styleFrom(
+              minimumSize: const Size(0, 48),
+              backgroundColor: Theme.of(context).colorScheme.error,
+              foregroundColor: Theme.of(context).colorScheme.onError,
+            ),
             onPressed: () => Navigator.pop(context, true),
             child: const Text('Eliminar'),
           ),

@@ -240,6 +240,15 @@ void main() {
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
     expect(find.text('¿Eliminar presupuesto?'), findsOneWidget);
+    final deleteButton = find.byKey(const Key('budget-confirm-delete-button'));
+    final button = tester.widget<FilledButton>(deleteButton);
+    final colors = Theme.of(tester.element(deleteButton)).colorScheme;
+    expect(button.style!.backgroundColor!.resolve({}), colors.error);
+    expect(button.style!.foregroundColor!.resolve({}), colors.onError);
+    expect(
+      tester.getSize(deleteButton).width,
+      lessThan(tester.getSize(find.byType(AlertDialog)).width / 2),
+    );
     expect(find.textContaining('Tus gastos no cambiarán'), findsOneWidget);
     await tester.tap(find.byKey(const Key('budget-confirm-delete-button')));
     await tester.pumpAndSettle();
