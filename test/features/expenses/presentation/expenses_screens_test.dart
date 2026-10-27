@@ -38,6 +38,7 @@ const cop = CurrencySummary(
   name: 'Colombian Peso',
   decimals: 2,
 );
+const usd = CurrencySummary(id: 2, code: 'USD', name: 'US Dollar', decimals: 2);
 
 final testAccount = Account(
   id: 11,
