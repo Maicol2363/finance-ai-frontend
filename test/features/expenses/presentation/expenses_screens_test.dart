@@ -66,6 +66,8 @@ final testCategory = Category(
 Expense expense({
   int id = 7,
   String name = 'Groceries',
+  String? note = 'Weekly food',
+  String? receiptNote = 'Household purchase',
   CaptureSource captureSource = CaptureSource.manual,
   ExpenseStatus status = ExpenseStatus.confirmed,
   List<ExpenseItem> items = const [],
@@ -77,10 +79,10 @@ Expense expense({
   amount: MoneyAmount.parseApi('25.00'),
   quantity: '1.000',
   unitPrice: MoneyAmount.parseApi('25.00'),
-  note: 'Weekly food',
+  note: note,
   category: const ExpenseCategory(id: 3, name: 'Food'),
   receiptName: 'Market',
-  receiptNote: 'Household purchase',
+  receiptNote: receiptNote,
   store: 'Market',
   description: 'Purchase at Market',
   occurredAt: DateTime.utc(2026, 9, 17, 12, 30),
@@ -398,9 +400,12 @@ class WidgetExpensesRepository implements ExpensesRepository {
   Future<Expense> update(int expenseId, ExpenseUpdateCommand command) async {
     lastCommand = command;
     final index = expenses.indexWhere((item) => item.id == expenseId);
+    final previous = expenses[index];
     final updated = expense(
       id: expenseId,
       name: command.name ?? expenses[index].name,
+      note: command.clearNote ? null : command.note ?? previous.note,
+      receiptNote: command.receiptNote ?? previous.receiptNote,
     );
     expenses = [
       for (final item in expenses)
@@ -1037,6 +1042,45 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Editar recibo'), findsWidgets);
     expect(find.byKey(const Key('expense-receipt-name-field')), findsOneWidget);
+  });
+
+  testWidgets('receipt edit hides receipt note and preserves it on save', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(800, 2400);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    final repository = WidgetExpensesRepository()
+      ..expenses = [expense(captureSource: CaptureSource.ai)];
+    await pumpExpensesApp(
+      tester,
+      repository,
+      initialLocation: '/expenses/7/edit',
+      accountsRepository: WidgetOptionsAccountsRepository(),
+      categoriesRepository: WidgetOptionsCategoriesRepository(),
+    );
+
+    expect(find.text('Editar recibo'), findsOneWidget);
+    expect(find.byKey(const Key('expense-note-field')), findsOneWidget);
+    expect(find.text('Nota o comentarios'), findsOneWidget);
+    expect(find.byKey(const Key('expense-clear-note')), findsOneWidget);
+    expect(find.text('Quitar la nota'), findsOneWidget);
+    expect(find.byKey(const Key('expense-receipt-note-field')), findsNothing);
+    expect(find.text('Nota del recibo'), findsNothing);
+
+    await tester.enterText(
+      find.byKey(const Key('expense-note-field')),
+      'Updated comment',
+    );
+    await tester.tap(find.byKey(const Key('expense-save-button')));
+    await tester.pumpAndSettle();
+
+    final command = repository.lastCommand!;
+    expect(command.note, 'Updated comment');
+    expect(command.receiptNote, isNull);
+    expect(command.toJson()['note'], 'Updated comment');
+    expect(command.toJson().containsKey('receipt_note'), isFalse);
+    expect(repository.expenses.single.receiptNote, 'Household purchase');
   });
 
   testWidgets('non-editable expense keeps both header actions disabled', (
