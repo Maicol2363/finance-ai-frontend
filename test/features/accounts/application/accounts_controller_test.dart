@@ -4,6 +4,7 @@ import 'package:finance_ai/features/accounts/application/accounts_controller.dar
 import 'package:finance_ai/features/accounts/application/accounts_state.dart';
 import 'package:finance_ai/features/accounts/data/accounts_repository.dart';
 import 'package:finance_ai/features/accounts/domain/account_models.dart';
+import 'package:finance_ai/core/state/financial_data_revision.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -19,13 +20,14 @@ Account account({
   String name = 'Daily cash',
   bool isActive = true,
   bool currencyIsLocked = false,
+  MoneyAmount? balance,
 }) => Account(
   id: id,
   name: name,
   type: AccountType.cash,
   currency: cop,
   openingBalance: MoneyAmount.parseApi('100.00'),
-  balance: MoneyAmount.parseApi('75.00'),
+  balance: balance ?? MoneyAmount.parseApi('75.00'),
   currencyIsLocked: currencyIsLocked,
   isActive: isActive,
   createdAt: DateTime.utc(2026, 9, 8),
@@ -44,10 +46,12 @@ class FakeAccountsRepository implements AccountsRepository {
   Object? listFailure;
   Object? createFailure;
   Object? deleteFailure;
+  Completer<AccountListResult>? pendingList;
   Completer<Account>? pendingCreate;
   Completer<void>? pendingDelete;
   bool deleteRemovesBeforeFailure = false;
   int listCalls = 0;
+  int getCalls = 0;
   int createCalls = 0;
   int deleteCalls = 0;
   final includeInactiveValues = <bool>[];
@@ -59,12 +63,18 @@ class FakeAccountsRepository implements AccountsRepository {
     if (listFailure case final failure?) {
       throw failure;
     }
+    if (pendingList case final pending?) {
+      pendingList = null;
+      return pending.future;
+    }
     return listResult;
   }
 
   @override
-  Future<Account> get(int accountId) async =>
-      listResult.accountById(accountId) ?? account(id: accountId);
+  Future<Account> get(int accountId) async {
+    getCalls += 1;
+    return listResult.accountById(accountId) ?? account(id: accountId);
+  }
 
   @override
   Future<Account> create(AccountCreateCommand command) async {
@@ -144,6 +154,106 @@ void main() {
     expect(repository.includeInactiveValues, [false, true]);
     expect(state.includeInactive, isTrue);
   });
+
+  test('movement revision reloads the shared account list', () async {
+    final repository = FakeAccountsRepository();
+    final container = containerFor(repository);
+    addTearDown(container.dispose);
+    final controller = container.read(accountsControllerProvider.notifier);
+    await controller.load();
+
+    final refreshed = Completer<void>();
+    final subscription = container.listen(accountsControllerProvider, (
+      _,
+      next,
+    ) {
+      if (next.result?.accounts.single.balance.minorUnits == 12500 &&
+          !refreshed.isCompleted) {
+        refreshed.complete();
+      }
+    });
+    addTearDown(subscription.close);
+    repository.listResult = result([
+      account(balance: MoneyAmount.parseApi('125.00')),
+    ]);
+    container.read(financialMovementRevisionProvider.notifier).changed();
+
+    await refreshed.future.timeout(const Duration(seconds: 2));
+    expect(repository.listCalls, 2);
+    expect(
+      container
+          .read(accountsControllerProvider)
+          .result
+          ?.accounts
+          .single
+          .balance
+          .minorUnits,
+      12500,
+    );
+  });
+
+  test(
+    'movement refresh updates loaded detail from the account list response',
+    () async {
+      final repository = FakeAccountsRepository();
+      final container = containerFor(repository);
+      addTearDown(container.dispose);
+      final controller = container.read(accountsControllerProvider.notifier);
+      await controller.load();
+      await controller.loadDetail(11);
+
+      final refreshed = Completer<void>();
+      final subscription = container.listen(accountsControllerProvider, (
+        _,
+        next,
+      ) {
+        if (next.detailAccount?.balance.minorUnits == 12500 &&
+            !refreshed.isCompleted) {
+          refreshed.complete();
+        }
+      });
+      addTearDown(subscription.close);
+      repository.listResult = result([
+        account(balance: MoneyAmount.parseApi('125.00')),
+      ]);
+      container.read(financialMovementRevisionProvider.notifier).changed();
+
+      await refreshed.future.timeout(const Duration(seconds: 2));
+      expect(repository.listCalls, 2);
+      expect(repository.getCalls, 1);
+    },
+  );
+
+  test(
+    'a list refresh requested during loading runs after that request',
+    () async {
+      final pending = Completer<AccountListResult>();
+      final repository = FakeAccountsRepository()..pendingList = pending;
+      final container = containerFor(repository);
+      addTearDown(container.dispose);
+      final controller = container.read(accountsControllerProvider.notifier);
+
+      final firstLoad = controller.load();
+      await controller.load();
+      repository.listResult = result([
+        account(balance: MoneyAmount.parseApi('125.00')),
+      ]);
+      pending.complete(result([account()]));
+      await firstLoad;
+
+      expect(repository.listCalls, 2);
+      expect(
+        container
+            .read(accountsControllerProvider)
+            .result
+            ?.accounts
+            .single
+            .balance
+            .minorUnits,
+        12500,
+      );
+    },
+  );
 
   test('client validation is exact and diagnostics omit form values', () async {
     final repository = FakeAccountsRepository();

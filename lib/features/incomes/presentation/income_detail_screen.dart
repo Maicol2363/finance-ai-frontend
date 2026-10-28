@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/diagnostics/error_diagnostic.dart';
 import '../../../core/diagnostics/error_diagnostic_panel.dart';
+import '../../../core/state/financial_data_revision.dart';
 import '../../../core/widgets/app_header.dart';
 import '../../../core/widgets/manage_widgets.dart';
 import '../../../core/widgets/management_page_scaffold.dart';
@@ -75,10 +76,15 @@ class _IncomeDetailScreenState extends ConsumerState<IncomeDetailScreen> {
       _deleting = true;
       _diagnostic = null;
     });
+    final repository = ref.read(incomesRepositoryProvider);
+    final providerContainer = ProviderScope.containerOf(context, listen: false);
     try {
-      await ref.read(incomesRepositoryProvider).delete(widget.incomeId);
+      await repository.delete(widget.incomeId);
+      providerContainer.read(incomeRevisionProvider.notifier).changed();
+      providerContainer
+          .read(financialMovementRevisionProvider.notifier)
+          .changed();
       if (!mounted) return;
-      ref.read(incomeRevisionProvider.notifier).changed();
       if (context.canPop()) {
         context.pop();
       } else {

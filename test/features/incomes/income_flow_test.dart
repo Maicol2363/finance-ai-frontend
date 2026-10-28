@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:finance_ai/core/router/app_router.dart';
 import 'package:finance_ai/core/icons/finance_icon_catalog.dart';
+import 'package:finance_ai/core/state/financial_data_revision.dart';
 import 'package:finance_ai/core/widgets/app_header.dart';
 import 'package:finance_ai/features/accounts/domain/account_models.dart';
 import 'package:finance_ai/features/incomes/data/incomes_repository.dart';
@@ -27,6 +28,8 @@ Income sampleIncome() => Income(
 class FakeIncomesRepository implements IncomesRepository {
   final items = <Income>[sampleIncome()];
   int deletes = 0;
+  int creates = 0;
+  int updates = 0;
   Completer<void>? deleteCompletion;
   IncomeWriteCommand? savedCommand;
   IncomeFailure? saveFailure;
@@ -43,6 +46,7 @@ class FakeIncomesRepository implements IncomesRepository {
 
   @override
   Future<Income> create(IncomeWriteCommand command) async {
+    creates++;
     if (saveFailure case final failure?) throw failure;
     savedCommand = command;
     items.add(sampleIncome());
@@ -51,6 +55,7 @@ class FakeIncomesRepository implements IncomesRepository {
 
   @override
   Future<Income> update(int incomeId, IncomeWriteCommand command) async {
+    updates++;
     if (saveFailure case final failure?) throw failure;
     savedCommand = command;
     return sampleIncome();
@@ -125,6 +130,9 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
+    final container = ProviderScope.containerOf(
+      tester.element(find.byKey(const Key('income-row-7'))),
+    );
     expect(find.byKey(const Key('income-row-7')), findsOneWidget);
     expect(find.text(r'$ 25,50 COP'), findsOneWidget);
     await tester.tap(find.byKey(const Key('income-row-7')));
@@ -141,6 +149,7 @@ void main() {
     await tester.tap(find.byKey(const Key('income-confirm-delete-button')));
     await tester.pumpAndSettle();
     expect(repository.deletes, 1);
+    expect(container.read(financialMovementRevisionProvider), 1);
     expect(find.text('Aún no tienes ingresos registrados.'), findsOneWidget);
   });
 
@@ -256,6 +265,9 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('income-account-field')), findsOneWidget);
+    final container = ProviderScope.containerOf(
+      tester.element(find.byKey(const Key('income-save-button'))),
+    );
     await tester.tap(find.byKey(const Key('income-source-field')));
     await tester.pumpAndSettle();
     expect(find.text('Salario').last, findsOneWidget);
@@ -293,6 +305,9 @@ void main() {
     expect(repository.savedCommand?.amount.toApiString(), '25.50');
     expect(repository.savedCommand?.description, '  Pago  ');
     expect(repository.savedCommand?.incomeSourceId, 4);
+    expect(repository.creates, 1);
+    expect(container.read(financialMovementRevisionProvider), 1);
+    expect(container.read(incomeRevisionProvider), 1);
     expect(find.byKey(const Key('income-delete-button')), findsOneWidget);
   });
 
