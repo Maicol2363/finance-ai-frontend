@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 
@@ -5,6 +6,7 @@ import 'package:finance_ai/app.dart';
 import 'package:finance_ai/core/icons/finance_icon_catalog.dart';
 import 'package:finance_ai/core/router/app_router.dart';
 import 'package:finance_ai/core/time/clock_provider.dart';
+import 'package:finance_ai/core/widgets/app_header.dart';
 import 'package:finance_ai/features/accounts/data/accounts_repository.dart';
 import 'package:finance_ai/features/accounts/domain/account_models.dart';
 import 'package:finance_ai/features/accounts/presentation/account_form_screen.dart';
@@ -36,6 +38,7 @@ const cop = CurrencySummary(
   name: 'Colombian Peso',
   decimals: 2,
 );
+const usd = CurrencySummary(id: 2, code: 'USD', name: 'US Dollar', decimals: 2);
 
 final testAccount = Account(
   id: 11,
@@ -63,7 +66,10 @@ final testCategory = Category(
 Expense expense({
   int id = 7,
   String name = 'Groceries',
+  String? note = 'Weekly food',
+  String? receiptNote = 'Household purchase',
   CaptureSource captureSource = CaptureSource.manual,
+  ExpenseStatus status = ExpenseStatus.confirmed,
   List<ExpenseItem> items = const [],
 }) => Expense(
   id: id,
@@ -73,14 +79,14 @@ Expense expense({
   amount: MoneyAmount.parseApi('25.00'),
   quantity: '1.000',
   unitPrice: MoneyAmount.parseApi('25.00'),
-  note: 'Weekly food',
+  note: note,
   category: const ExpenseCategory(id: 3, name: 'Food'),
   receiptName: 'Market',
-  receiptNote: 'Household purchase',
+  receiptNote: receiptNote,
   store: 'Market',
   description: 'Purchase at Market',
   occurredAt: DateTime.utc(2026, 9, 17, 12, 30),
-  status: ExpenseStatus.confirmed,
+  status: status,
   captureSource: captureSource,
   accountId: 11,
   accountName: 'Cash',
@@ -329,6 +335,34 @@ HistoryItem incomeHistoryItem({int id = 15}) => HistoryItem(
   expense: null,
 );
 
+HistoryItem transferHistoryItem({int id = 44, bool crossCurrency = false}) =>
+    HistoryItem(
+      id: id,
+      type: TransactionType.transfer,
+      status: ExpenseStatus.confirmed,
+      occurredAt: DateTime.utc(2026, 9, 17),
+      description: 'Ahorro',
+      captureSource: CaptureSource.manual,
+      incomeSource: null,
+      movements: [
+        HistoryMovement(
+          accountId: 11,
+          accountName: 'Cash',
+          amount: MoneyAmount.parseApi('-25.00'),
+          currency: cop,
+          currencyCode: 'COP',
+        ),
+        HistoryMovement(
+          accountId: 12,
+          accountName: 'Bank',
+          amount: MoneyAmount.parseApi('25.00'),
+          currency: crossCurrency ? usd : cop,
+          currencyCode: crossCurrency ? 'USD' : 'COP',
+        ),
+      ],
+      expense: null,
+    );
+
 class WidgetExpensesRepository implements ExpensesRepository {
   WidgetExpensesRepository()
     : expenses = [expense()],
@@ -366,9 +400,12 @@ class WidgetExpensesRepository implements ExpensesRepository {
   Future<Expense> update(int expenseId, ExpenseUpdateCommand command) async {
     lastCommand = command;
     final index = expenses.indexWhere((item) => item.id == expenseId);
+    final previous = expenses[index];
     final updated = expense(
       id: expenseId,
       name: command.name ?? expenses[index].name,
+      note: command.clearNote ? null : command.note ?? previous.note,
+      receiptNote: command.receiptNote ?? previous.receiptNote,
     );
     expenses = [
       for (final item in expenses)
@@ -408,6 +445,14 @@ class _WidgetBudgetsController extends BudgetsController {
 
   @override
   Future<void> load() async => onLoad?.call();
+}
+
+class _DelayedAccountsRepository extends FakeAccountsRepository {
+  final result = Completer<AccountListResult>();
+
+  @override
+  Future<AccountListResult> list({bool includeInactive = false}) =>
+      result.future;
 }
 
 class FakeAccountsRepository implements AccountsRepository {
@@ -628,6 +673,7 @@ Future<void> pumpExpensesApp(
   DateTime Function()? clock,
   void Function()? onBudgetsLoad,
   bool authenticatedSession = true,
+  bool settle = true,
 }) async {
   final router = createAppRouter(initialLocation: initialLocation);
   addTearDown(router.dispose);
@@ -667,10 +713,49 @@ Future<void> pumpExpensesApp(
       child: FinanceApp(router: router),
     ),
   );
-  await tester.pumpAndSettle();
+  if (settle) await tester.pumpAndSettle();
 }
 
 void main() {
+  testWidgets('manual amount opens keyboard after delayed options enable it', (
+    tester,
+  ) async {
+    final accounts = _DelayedAccountsRepository();
+    await pumpExpensesApp(
+      tester,
+      WidgetExpensesRepository(),
+      initialLocation: '/expenses/new',
+      accountsRepository: accounts,
+      settle: false,
+    );
+    await tester.pump();
+    final amount = find.byKey(const Key('expense-create-amount-field'));
+    expect(tester.widget<TextField>(amount).enabled, isFalse);
+    expect(tester.testTextInput.isVisible, isFalse);
+    accounts.result.complete(await FakeAccountsRepository().list());
+    await tester.pumpAndSettle();
+    expect(tester.widget<TextField>(amount).focusNode!.hasFocus, isTrue);
+    expect(tester.testTextInput.isVisible, isTrue);
+    await tester.tap(find.byKey(const Key('expense-create-merchant-field')));
+    await tester.pumpAndSettle();
+    expect(tester.widget<TextField>(amount).focusNode!.hasFocus, isFalse);
+  });
+
+  testWidgets('Manual wheel entry opens keyboard every time', (tester) async {
+    await pumpExpensesApp(tester, WidgetExpensesRepository());
+    for (var attempt = 0; attempt < 2; attempt++) {
+      await tester.tap(find.byKey(const Key('expenses-create-fab')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('expenses-wheel-manual')));
+      await tester.pumpAndSettle();
+      final amount = find.byKey(const Key('expense-create-amount-field'));
+      expect(tester.widget<TextField>(amount).focusNode!.hasFocus, isTrue);
+      expect(tester.testTextInput.isVisible, isTrue);
+      await tester.tap(find.byTooltip('Volver'));
+      await tester.pumpAndSettle();
+    }
+  });
+
   testWidgets('manual expense catalog displays canonical labels in Spanish', (
     tester,
   ) async {
@@ -886,11 +971,133 @@ void main() {
 
     expect(find.text('Detalle del gasto'), findsOneWidget);
     expect(find.text('Groceries'), findsOneWidget);
-    await tester.scrollUntilVisible(
-      find.byKey(const Key('expense-edit-button')),
-      200,
+    final edit = find.byKey(const Key('expense-edit-button'));
+    final delete = find.byKey(const Key('expense-delete-button'));
+    expect(edit, findsOneWidget);
+    expect(delete, findsOneWidget);
+    expect(find.byTooltip('Editar gasto'), findsOneWidget);
+    expect(find.byTooltip('Eliminar gasto'), findsOneWidget);
+    expect(find.bySemanticsLabel('Editar gasto'), findsOneWidget);
+    expect(find.bySemanticsLabel('Eliminar gasto'), findsOneWidget);
+    expect(tester.getSize(edit), const Size(48, 48));
+    expect(tester.getSize(delete), tester.getSize(edit));
+    expect(tester.getTopLeft(edit).dy, tester.getTopLeft(delete).dy);
+    expect(tester.getTopRight(edit).dx, tester.getTopLeft(delete).dx);
+    expect(tester.getTopLeft(edit).dy, lessThan(100));
+    expect(
+      tester
+          .widget<Icon>(
+            find.descendant(
+              of: delete,
+              matching: find.byIcon(FinanceIcons.deleteOutline),
+            ),
+          )
+          .color,
+      Theme.of(tester.element(delete)).colorScheme.error,
     );
-    expect(find.byKey(const Key('expense-edit-button')), findsOneWidget);
+    expect(find.text('Eliminar gasto definitivamente'), findsNothing);
+    expect(find.byType(FilledButton), findsNothing);
+    expect(find.byKey(const Key('theme-toggle-button')), findsNothing);
+  });
+
+  testWidgets('expense header edit action opens the expense form', (
+    tester,
+  ) async {
+    await pumpExpensesApp(
+      tester,
+      WidgetExpensesRepository(),
+      initialLocation: '/expenses/7',
+    );
+
+    await tester.tap(find.byKey(const Key('expense-edit-button')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Editar gasto'), findsWidgets);
+    expect(find.byKey(const Key('expense-name-field')), findsOneWidget);
+  });
+
+  testWidgets('saved receipt uses adjacent edit and delete header actions', (
+    tester,
+  ) async {
+    final repository = WidgetExpensesRepository()
+      ..expenses = [expense(captureSource: CaptureSource.ai)];
+    await pumpExpensesApp(tester, repository, initialLocation: '/expenses/7');
+
+    expect(find.text('Detalle del recibo'), findsOneWidget);
+    final edit = find.byKey(const Key('expense-edit-button'));
+    final delete = find.byKey(const Key('expense-delete-button'));
+    expect(edit, findsOneWidget);
+    expect(delete, findsOneWidget);
+    expect(find.byTooltip('Editar recibo'), findsOneWidget);
+    expect(find.byTooltip('Eliminar recibo'), findsOneWidget);
+    expect(find.bySemanticsLabel('Editar recibo'), findsOneWidget);
+    expect(find.bySemanticsLabel('Eliminar recibo'), findsOneWidget);
+    expect(tester.getSize(delete), tester.getSize(edit));
+    expect(tester.getTopLeft(edit).dy, tester.getTopLeft(delete).dy);
+    expect(tester.getTopRight(edit).dx, tester.getTopLeft(delete).dx);
+    expect(find.text('Eliminar recibo'), findsNothing);
+    expect(find.byType(FilledButton), findsNothing);
+
+    await tester.tap(edit);
+    await tester.pumpAndSettle();
+    expect(find.text('Editar recibo'), findsWidgets);
+    expect(find.byKey(const Key('expense-receipt-name-field')), findsOneWidget);
+  });
+
+  testWidgets('receipt edit hides receipt note and preserves it on save', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(800, 2400);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    final repository = WidgetExpensesRepository()
+      ..expenses = [expense(captureSource: CaptureSource.ai)];
+    await pumpExpensesApp(
+      tester,
+      repository,
+      initialLocation: '/expenses/7/edit',
+      accountsRepository: WidgetOptionsAccountsRepository(),
+      categoriesRepository: WidgetOptionsCategoriesRepository(),
+    );
+
+    expect(find.text('Editar recibo'), findsOneWidget);
+    expect(find.byKey(const Key('expense-note-field')), findsOneWidget);
+    expect(find.text('Nota o comentarios'), findsOneWidget);
+    expect(find.byKey(const Key('expense-clear-note')), findsOneWidget);
+    expect(find.text('Quitar la nota'), findsOneWidget);
+    expect(find.byKey(const Key('expense-receipt-note-field')), findsNothing);
+    expect(find.text('Nota del recibo'), findsNothing);
+
+    await tester.enterText(
+      find.byKey(const Key('expense-note-field')),
+      'Updated comment',
+    );
+    await tester.tap(find.byKey(const Key('expense-save-button')));
+    await tester.pumpAndSettle();
+
+    final command = repository.lastCommand!;
+    expect(command.note, 'Updated comment');
+    expect(command.receiptNote, isNull);
+    expect(command.toJson()['note'], 'Updated comment');
+    expect(command.toJson().containsKey('receipt_note'), isFalse);
+    expect(repository.expenses.single.receiptNote, 'Household purchase');
+  });
+
+  testWidgets('non-editable expense keeps both header actions disabled', (
+    tester,
+  ) async {
+    final repository = WidgetExpensesRepository()
+      ..expenses = [expense(status: ExpenseStatus.pending)];
+    await pumpExpensesApp(tester, repository, initialLocation: '/expenses/7');
+
+    for (final key in [
+      const Key('expense-edit-button'),
+      const Key('expense-delete-button'),
+    ]) {
+      final button = tester.widget<HeaderIconButton>(find.byKey(key));
+      expect(button.onPressed, isNull);
+      expect(tester.getSize(find.byKey(key)), const Size(48, 48));
+    }
   });
 
   testWidgets('FAB navigates to create expense form and creates expense', (
@@ -999,9 +1206,9 @@ void main() {
     final repository = WidgetExpensesRepository();
     await pumpExpensesApp(tester, repository, initialLocation: '/expenses/7');
 
-    await tester.drag(find.byType(ListView), const Offset(0, -500));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('expense-delete-button')));
+    final deleteButton = find.byKey(const Key('expense-delete-button'));
+    await tester.ensureVisible(deleteButton);
+    await tester.tap(deleteButton);
     await tester.pumpAndSettle();
     expect(find.text('¿Eliminar este gasto definitivamente?'), findsOneWidget);
 

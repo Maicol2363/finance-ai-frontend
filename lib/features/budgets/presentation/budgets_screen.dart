@@ -6,7 +6,6 @@ import 'package:go_router/go_router.dart';
 import '../../../core/diagnostics/error_diagnostic_panel.dart';
 import '../../../core/widgets/app_header.dart';
 import '../../../core/widgets/management_page_scaffold.dart';
-import '../../../core/widgets/theme_toggle_button.dart';
 import '../application/budgets_controller.dart';
 import '../application/budgets_state.dart';
 import 'budget_widgets.dart';
@@ -41,7 +40,6 @@ class _BudgetsScreenState extends ConsumerState<BudgetsScreen> {
         onPressed: () =>
             context.canPop() ? context.pop() : context.go('/settings'),
       ),
-      actions: const [ThemeToggleButton()],
       body: Column(
         children: [
           if (state.loadStatus == BudgetsLoadStatus.loading)

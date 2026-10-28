@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:finance_ai/core/icons/finance_icon_catalog.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -10,11 +8,9 @@ import '../../../core/formatters/date_labels.dart';
 import '../../../core/widgets/app_header.dart';
 import '../../../core/widgets/management_page_scaffold.dart';
 import '../../../core/widgets/manage_widgets.dart';
-import '../../../core/widgets/theme_toggle_button.dart';
 import '../../accounts/application/accounts_controller.dart';
 import '../../accounts/application/accounts_state.dart';
 import '../../accounts/domain/account_models.dart';
-import '../../expenses/application/history_controller.dart';
 import '../application/transfer_controller.dart';
 import '../application/transfer_state.dart';
 
@@ -94,7 +90,6 @@ class _TransferFormScreenState extends ConsumerState<TransferFormScreen> {
                   }
                 },
         ),
-        actions: const [ThemeToggleButton()],
         body: ListView(
           padding: EdgeInsets.zero,
           children: [
@@ -375,11 +370,6 @@ class _TransferFormScreenState extends ConsumerState<TransferFormScreen> {
       return;
     }
     if (outcome == TransferMutationOutcome.success) {
-      unawaited(ref.read(historyControllerProvider.notifier).load());
-      await ref.read(accountsControllerProvider.notifier).load();
-      if (!mounted) {
-        return;
-      }
       if (context.canPop()) {
         context.pop();
       } else {

@@ -1413,3 +1413,604 @@ otra vez el mismo error
 **Context**: Corrección del reporte de catálogo, revisión de seguridad del flujo de guardado, pruebas y nueva instalación física no destructiva.
 
 ---
+
+## Workspace Detection — Cross-screen synchronization audit
+**Timestamp**: 2026-10-28T15:27:00Z
+**User Input**: Verbatim request from the user-provided attachment `Pasted text.txt` follows.
+
+````markdown
+# FinanciAI — Fix Stale UI State and Audit Cross-Screen Data Synchronization
+
+## ROLE
+
+You are GPT-6 Luna, acting as a senior Flutter/Riverpod engineer specializing in state management, financial consistency, and regression testing.
+
+Your objective is to **investigate and fix stale data across FinanciAI after create, update, delete and confirm operations**.
+
+This task is not limited to the currently reported income issue.
+
+Investigate whether the same synchronization problem affects other screens and financial operations, then correct confirmed problems using the smallest maintainable changes.
+
+Do not blindly refactor the entire application.
+
+## 1. CONFIRMED PROBLEM
+
+The Android QA audit on October 28, 2026 reproduced a synchronization inconsistency.
+
+An income of 4,321 COP was created for the Efectivo account.
+
+### Observed immediately after saving
+
+- The transaction appeared in History.
+- Dashboard monthly income increased from 5,600,500 to 5,604,821 COP.
+- Dashboard monthly net balance increased from 3,055,300 to 3,059,621 COP.
+- Dashboard "Saldo en cuentas" remained at 14,053,100 COP.
+- The Efectivo account still displayed 485,500 COP.
+
+### Expected values
+
+- Efectivo: 489,821 COP.
+- Total account balances: 14,057,421 COP.
+- The income affects its destination account exactly once.
+
+### Important additional observation
+
+**The updated balances become visible after manually refreshing or navigating/reloading the affected screens.**
+
+This strongly suggests stale frontend state, outdated providers, cached queries, missed invalidation, or missing synchronization between screens.
+
+However, do not assume the root cause without tracing the actual implementation.
+
+The goal is to make affected information refresh automatically after successful mutations.
+
+**Users should not need to manually refresh a screen to see changes they just made.**
+
+### Existing evidence
+
+- `qa/audits/2026-10-28-final-ui-ux/screenshots/27-dashboard-income-mismatch.png`
+- `qa/audits/2026-10-28-final-ui-ux/screenshots/28-account-balance-after-income.png`
+- `qa/audits/2026-10-28-final-ui-ux/06-bug-report.md`
+- `qa/audits/2026-10-28-final-ui-ux/05-functional-regression.md`
+
+The synthetic income has already been deleted and the original test baseline restored.
+
+---
+
+## 2. SOURCE BASELINE AND SAFETY
+
+Work only with these existing local `develop` snapshots:
+
+Frontend:
+
+`/home/d3ad/codigos/finance-ai/finance-ai-frontend/finance-ai-frontend-develop-current-20261028`
+
+Commit:
+
+`ae1065d3585197a9df071d38b419bd49366c64de`
+
+Backend:
+
+`/home/d3ad/codigos/finance-ai/finance-ai-backend`
+
+Commit:
+
+`37de6dc61a7e4c5215febe7ed3ecca1a3b97e098`
+
+Read the applicable `AGENTS.md` files first.
+
+Inspect existing worktree changes and preserve all pre-existing modifications.
+
+If isolation is necessary, create a separate worktree from the provided local baseline without fetching or changing the originals.
+
+Do not:
+
+- Fetch external changes.
+- Change branches in existing checkouts.
+- Overwrite uncommitted modifications.
+- Modify unrelated screens.
+- Push, merge or deploy.
+- Modify the installed APK.
+- Modify Cloud Run or its database.
+
+Frontend changes are authorized.
+
+Backend changes should only be considered if investigation proves that persisted values or API behavior are incorrect. Do not modify the backend merely because the UI displays stale information.
+
+---
+
+## 3. PHASE A — ROOT CAUSE INVESTIGATION
+
+Trace the complete flow for creating an income:
+
+1. Income creation form.
+2. Flutter controller/state notifier.
+3. Repository and HTTP request.
+4. Backend mutation and response.
+5. Account balance data source.
+6. Dashboard data source.
+7. History data source.
+8. Riverpod provider lifecycle and cache invalidation.
+9. Navigation after saving.
+10. UI rebuilding and state refresh.
+
+Determine exactly why some components reflect the new income while others retain previous values.
+
+Investigate whether:
+
+- Different screens use different provider instances.
+- Mutations invalidate only some dependent providers.
+- Some providers retain outdated cached responses.
+- Navigation does not trigger necessary refreshes.
+- State is refreshed before the mutation finishes.
+- Asynchronous requests overwrite newer state with older responses.
+- Widgets use stale snapshots.
+- Shared data is duplicated across unrelated controllers.
+- Providers are incorrectly retained or disposed.
+- Local optimistic updates conflict with server state.
+- The backend returns stale values after mutation.
+
+Use Flutter/Dart MCP and relevant Flutter skills.
+
+**Confirm the root cause with code paths and a focused failing regression test before implementing a fix where practical.**
+
+---
+
+## 4. PHASE B — APPLICATION-WIDE SYNCHRONIZATION AUDIT
+
+Do not stop after correcting income creation.
+
+Inspect other CRUD and confirmation flows for the same class of problem.
+
+### 4.1 Expenses
+
+After creating, editing or deleting an expense, verify automatic synchronization of:
+
+- Transaction history
+- Destination account balance
+- Account list
+- Dashboard account totals
+- Monthly expenses
+- Net balance
+- Applicable budget progress
+- Expense detail and list state
+
+### 4.2 Income
+
+After creating, editing or deleting income, verify:
+
+- Account balance
+- Account list
+- Dashboard account totals
+- Monthly income
+- Net balance
+- History
+- Income detail and list state
+
+### 4.3 Transfers
+
+After a successful transfer, verify:
+
+- Source account balance
+- Destination account balance
+- Account list
+- Dashboard account totals
+- History
+- Transfer detail, where supported
+
+Ensure transfers do not incorrectly increase income or spending totals.
+
+Do not implement unsupported transfer editing functionality.
+
+### 4.4 Accounts
+
+After creating, editing, activating or deactivating accounts, check:
+
+- Account list
+- Account selectors in forms
+- Dashboard account totals
+- Relevant movement filters
+- Account details
+
+### 4.5 Categories
+
+After creating, editing, reordering or deleting categories, check:
+
+- Category lists
+- Expense form selectors
+- Filters
+- Budget category references
+- Relevant dashboard breakdowns
+
+### 4.6 Income sources
+
+After creating, editing or deleting income sources, check:
+
+- Income-source list
+- Income forms
+- Relevant selectors
+- Updated labels in related views
+
+### 4.7 Budgets
+
+After creating, editing or deleting budgets, check:
+
+- Budget list
+- Budget detail
+- Dashboard budget indicators
+- Progress calculations
+- Relevant category associations
+
+### 4.8 AI-assisted capture
+
+When a user confirms an AI-generated expense, income or transfer, verify that the resulting mutation updates the same dependent screens as the equivalent manual operation.
+
+Confirm that discarding a proposal does not mutate financial state.
+
+Avoid implementing separate refresh logic for AI and manual operations when they can share the same mechanism.
+
+### Scope rule
+
+Only require data updates when the mutation genuinely affects that screen's underlying information.
+
+Do not refresh unrelated providers indiscriminately.
+
+---
+
+## 5. PHASE C — DESIGN A CONSISTENT STATE SYNCHRONIZATION STRATEGY
+
+Inspect how Riverpod currently manages:
+
+- Query providers
+- Mutation controllers
+- Provider dependencies
+- Cache invalidation
+- Async loading and refresh states
+- Navigation and lifecycle
+- Shared repository data
+
+Prefer a centralized and maintainable approach using existing Riverpod patterns.
+
+### Requirements
+
+1. A successful mutation must invalidate or refresh every relevant dependent data source.
+2. Invalidations must happen after the server confirms successful persistence.
+3. Related screens should display fresh values without manual refresh.
+4. Avoid unnecessary full-screen reloads or unrelated API requests.
+5. Avoid refresh loops, duplicate requests and race conditions.
+6. Preserve existing loading, error and retry behavior.
+7. Do not fabricate updated financial values locally when the backend is the source of truth.
+8. Avoid permanently duplicating financial state between independent controllers.
+9. Preserve the existing optimistic-update strategy where correct; otherwise use the authoritative server response.
+10. Ensure failed mutations do not leave the UI displaying values that were never persisted.
+11. Preserve currency-specific calculations and account ownership rules.
+12. Ensure repeated saves/retries do not double-apply financial effects.
+
+**Do not fix this by adding arbitrary delays, forcing all screens to rebuild globally, or requiring users to navigate away and return.**
+
+Fix the actual provider dependency or refresh mechanism.
+
+---
+
+## 6. PHASE D — IMPLEMENT CONFIRMED FIXES
+
+For each confirmed synchronization issue:
+
+1. Identify the mutation that causes stale state.
+2. Identify the affected providers and screens.
+3. Add a failing targeted test where practical.
+4. Implement the smallest correct fix.
+5. Reuse existing abstractions.
+6. Avoid duplicated invalidation code.
+7. Verify that the affected UI reflects the authoritative data.
+8. Confirm no unrelated provider behavior regressed.
+
+If several bugs share one underlying cause, prefer correcting the shared mechanism rather than independently patching every screen.
+
+Do not introduce a large architectural rewrite unless the current implementation makes a smaller correct solution impossible.
+
+---
+
+## 7. PHASE E — REGRESSION TESTS
+
+Use Flutter/Dart MCP and the available Flutter skills.
+
+Test with a controlled API fixture or isolated backend environment.
+
+Do not rely on Cloud Run for automated mutation tests.
+
+### Mandatory scenario: Income creation
+
+Initial state:
+
+- Efectivo: 485,500 COP
+- Total accounts: 14,053,100 COP
+
+Create an income of 4,321 COP for Efectivo.
+
+Expected:
+
+- Efectivo: 489,821 COP
+- Total accounts: 14,057,421 COP
+- Monthly income increases by 4,321 COP.
+- Monthly net balance increases by 4,321 COP.
+- History contains exactly one new income transaction.
+
+**All affected visible screens must update without a manual refresh.**
+
+### Income edit
+
+Change the same income from 4,321 COP to 6,000 COP.
+
+Expected:
+
+- Only the 1,679 COP difference is applied.
+- No duplicate income is created.
+- Account balances and dashboard values remain synchronized.
+
+### Income deletion
+
+Delete the synthetic income.
+
+Expected:
+
+- The full income effect is reversed.
+- Related screens return to baseline.
+- No stale detail, account balance or dashboard value remains.
+
+### Other regression scenarios
+
+Add focused tests for:
+
+- Expense creation, editing and deletion.
+- Transfer creation and both account balances.
+- Budget progress after expense changes.
+- Account selector synchronization.
+- Category and income-source selector synchronization.
+- Confirmation of AI-generated financial records.
+- Failed mutation behavior.
+- Rapid repeated submissions where relevant.
+- Navigation between tabs after mutations.
+- Returning to an already instantiated screen.
+- Reopening a detail screen after editing.
+- Concurrent refresh requests and out-of-order responses.
+
+Test both data correctness and UI synchronization.
+
+A provider returning the correct value is not sufficient if the visible widget does not update.
+
+---
+
+## 8. PHASE F — VISUAL REFRESH VERIFICATION
+
+For each relevant mutation, test these states:
+
+**A. Immediately after saving**
+
+Verify the affected information updates while the application remains in its normal post-save navigation state.
+
+**B. Switching tabs or screens**
+
+Verify previously opened screens show current information without manual refresh.
+
+**C. Returning through Android Back**
+
+Verify that the previous screen does not display stale data.
+
+**D. Reopening a detail view**
+
+Verify values match the saved record.
+
+**E. Explicit refresh**
+
+Confirm the manual refresh still works, but is not required to see the user's own successful changes.
+
+**F. Failed requests**
+
+Verify the UI does not falsely display a successful financial mutation.
+
+Distinguish automatic synchronization after the user's own actions from background polling of changes made by other devices. Do not implement background polling unless already required by the application.
+
+---
+
+## 9. VERIFICATION AND ENVIRONMENT LIMITS
+
+Run:
+
+- Targeted unit tests.
+- Relevant Riverpod/provider tests.
+- Widget tests for affected screens.
+- `flutter analyze`.
+- Additional focused regression checks as necessary.
+
+If local Android testing of changed code is possible without replacing the installed app, use an isolated development setup.
+
+**Do not replace the existing APK or deploy backend changes without authorization.**
+
+The connected physical phone currently uses a Cloud Run backend and an existing authenticated test account.
+
+Maestro MCP may be used to inspect the existing reproducible behavior, but do not claim that modified code has been verified on Android unless an updated build was actually installed and exercised.
+
+If real-device verification of the fix is blocked by the no-installation constraint, document this honestly and provide the exact pending verification steps.
+
+Do not mutate production or shared Cloud Run data for automated regression tests.
+
+---
+
+## 10. DELIVERABLES
+
+Provide:
+
+### Root cause report
+
+Explain:
+
+- Why monthly income updated immediately.
+- Why account balances remained stale.
+- Which providers or caches were responsible.
+- Whether the backend returned correct values.
+- Why navigation or manual refresh previously resolved the issue.
+
+Distinguish confirmed facts from hypotheses.
+
+### Application-wide synchronization matrix
+
+| Mutation | Dependent screens | Existing problem | Fix | Tests |
+|---|---|---|---|---|
+
+Include all investigated major features.
+
+### Implementation report
+
+- Modified files
+- Changes to provider dependencies and invalidation
+- Reused shared mechanisms
+- Tests added
+- Test results
+- Remaining issues
+- Verification limitations
+
+### Safety constraints
+
+- No push.
+- No merge.
+- No deployment.
+- No changes to Cloud Run.
+- No automatic replacement of the installed APK.
+- No unrelated UI redesign.
+- No modifications to unrelated backend functionality.
+- Preserve all existing worktrees and user changes.
+
+## FINAL ACCEPTANCE CRITERIA
+
+1. Confirm and correct the root cause of stale account balances.
+2. Account balances update automatically after successful income operations.
+3. Dashboard, Accounts and History remain synchronized.
+4. The same class of stale-state issues is investigated across all major financial workflows.
+5. Confirmed related defects are fixed, not merely documented.
+6. Riverpod state management remains maintainable and avoids unnecessary refreshes.
+7. Focused regression tests verify both financial correctness and visible UI updates.
+8. No financial mutation is applied twice.
+9. No existing user data or deployed environment is modified.
+10. Any unverified Android behavior is reported transparently.
+
+**START NOW: Trace the income mutation and its dependent Riverpod providers, reproduce the stale-state behavior in a focused test, fix the confirmed cause, then audit the other financial mutations for the same problem.**
+
+Do not stop after fixing the single income example if equivalent synchronization defects remain elsewhere.
+````
+**AI Response**: Began the requested investigation using an isolated worktree created at the specified frontend baseline commit. The source snapshot and backend were inspected without altering them; no backend, Cloud Run, database, or installed APK changes were made.
+**Context**: Workspace detection and source-baseline safety.
+
+---
+
+## User Input — Continue and install Flutter/Dart tools
+**Timestamp**: 2026-10-28T15:29:00Z
+**User Input**: "Continue without limitations\nFlutter/Dart MCP tools install that then \"
+**AI Response**: Continuing the frontend synchronization audit and checking the supported plugin catalog for the explicitly requested Flutter/Dart MCP tools.
+**Context**: User authorized tool installation; existing explicit project safety constraints remain applicable.
+
+---
+
+## User Input Correction — MCP setup authorization
+**Timestamp**: 2026-10-28T15:35:26Z
+**User Input**: """Continue without limitations
+Flutter/Dart MCP tools install that then"""
+**AI Response**: Confirmed the official Dart Tooling MCP server 1.2.2 is present in the Dart SDK and the Codex CLI already reports an enabled `dart-mcp-server` entry. Verified direct stdio initialization and tool discovery; used the server directly for subsequent project analysis. No extra plugin or package installation was necessary.
+**Context**: User asked to continue and install Flutter/Dart MCP tooling; previous audit entry had escaped line breaks and an unintended trailing quote, corrected here.
+
+---
+
+## Workspace Detection Findings — Cross-screen synchronization audit
+**Timestamp**: 2026-10-28T15:35:26Z
+**User Input**: "<see verbatim user request attached above>"
+**AI Response**: Brownfield Flutter/Dart application. The exact frontend baseline commit `ae1065d3585197a9df071d38b419bd49366c64de` was clean and detached before work; a separate branch/worktree `codex/fix-stale-ui-state-20261028` at `/home/d3ad/codigos/finance-ai-frontend-sync-fix-20261028` now contains the only task edits. The specified QA reports and screenshots are present in the umbrella workspace and were read without modification. The backend snapshot is at requested commit `37de6dc61a7e4c5215febe7ed3ecca1a3b97e098` and contains pre-existing untracked user files; it remains untouched. The frontend snapshot contains an existing `aidlc-docs/aidlc-state.md`, but the expected `aidlc-docs/inception/reverse-engineering/` artifacts are absent; the requested focused code-flow analysis will supply the needed reverse-engineering evidence. Flutter and Dart SDK files are present; the official Dart MCP server works by direct SDK invocation.
+**Context**: Workspace root is the isolated frontend worktree; application code is in `lib/`, documentation in `aidlc-docs/`. Existing user changes and external environments are preserved.
+
+---
+
+## User Input Correction — Continue and MCP tools
+**Timestamp**: 2026-10-28T15:36:37Z
+**User Input**:
+Continue without limitations
+Flutter/Dart MCP tools install that then
+**AI Response**: Confirmed the official Dart Tooling MCP server is already available in the installed Dart SDK and the Codex MCP configuration reports it enabled; initialized it directly and verified tool discovery. Continuing with that server and the requested audit. No further plugin/package installation was needed.
+**Context**: Correct verbatim record of the user's continuation and tooling request. The prior entry's quote marks were formatting artifacts.
+
+---
+
+## Requirements and Workflow Planning — Cross-screen Financial Sync
+**Timestamp**: 2026-10-28T15:45:08Z
+**User Input**: ```
+Continue without limitations
+Flutter/Dart MCP tools install that then
+```
+**AI Response**: Verified the configured Dart Tooling MCP server in the Dart SDK and Codex MCP registry. Added requirements, focused financial-state flow analysis, user story, and implementation workflow artifacts in the isolated worktree. Source review confirms income writes produce account movements transactionally and account projections include confirmed movements; no deployed API response was captured.
+**Context**: Requirements analysis, focused brownfield reverse engineering, and workflow planning; proceeding under the user's continuation authorization. Earlier Workspace Detection Findings contains a placeholder rather than repeating the full attachment input; the exact request remains verbatim in the first audit entry.
+
+---
+
+
+## User Input — Final video deliverable
+**Timestamp**: 2026-10-28T16:58:25Z
+**User Input**: "ok in the end give a video of the workflow fixed and with everything uptating"
+**AI Response**: Completed a final 30-command Maestro flow on the rebuilt audit APK, then selected the valid 44.27-second workflow recording for delivery. It shows the income creation and synchronized Dashboard, History, and Account detail values.
+**Context**: Final deliverable request for a phone workflow recording.
+
+---
+
+## User Input — Continue
+**Timestamp**: 2026-10-28T16:58:25Z
+**User Input**: "continue"
+**AI Response**: Continued the authorized isolated-device validation, recording, documentation, and cleanup work.
+**Context**: User asked to continue the active workflow after an interrupted command.
+
+---
+
+## Cross-screen synchronization — Final implementation and verification
+**Timestamp**: 2026-10-28T16:58:25Z
+**User Input**: "ok in the end give a video of the workflow fixed and with everything uptating"
+**AI Response**: Final frontend changes are on the isolated worktree branch. The 85 focused tests pass, Dart MCP analysis reports no errors for changed files, and the final debug audit package passed a 30-command Maestro workflow on the connected Xiaomi against the local synthetic service. The account balance moved 485,500 → 489,821 COP; income/net totals updated; the movement appeared once in History; account detail reflected the updated balance. The synthetic income was deleted afterward and the baseline restored. Delivered video artifact is `artifacts/financeai-cross-screen-sync-fixed.mp4`, 44.27 seconds, H.264 720×1280; it is from the earlier successful device capture before final non-visual refinements, which were separately rebuilt and verified. A later attempt to export a fresh recording did not yield a file. No production/backend/main-package state was changed. Markdown and diff checks passed; Mermaid render attempt was blocked by missing Puppeteer Chrome Headless Shell.
+**Context**: Construction, focused build/test, device verification, and requested video artifact.
+
+---
+
+
+## Cross-screen synchronization — Isolated test cleanup
+**Timestamp**: 2026-10-28T16:59:24Z
+**User Input**: "continue"
+**AI Response**: After recording and validation, uninstalled only `com.nullcorvus.finance_ai.release_audit`, removed ADB reverse tcp:18000, stopped and removed only the task-specific Compose API/database/network/volume, and deleted its temporary override. The original `com.nullcorvus.finance_ai` package remains installed. The valid 44.27-second MP4 remains in the worktree `artifacts/` directory.
+**Context**: Reversible local test cleanup after the requested device workflow was verified; no original app data or production state was touched.
+
+---
+
+
+## User Input — PR to develop
+**Timestamp**: 2026-10-28T17:09:23Z
+**User Input**: "Ok haz el pull request a develop"
+**AI Response**: Preparing the isolated branch for a pull request targeting the freshly fetched `develop`; no existing PR was found for the branch.
+**Context**: User authorized publishing this branch and opening a pull request. Merge is not included.
+
+---
+
+## User Input — Release APK and Drive update
+**Timestamp**: 2026-10-28T17:09:23Z
+**User Input**: "genera la apk actulzia la apk en modo release y subela al drive que teniamos la vercion actulizada"
+**AI Response**: Located the existing Drive APK `Finance-AI-0.8.0-release-2026-10-27.apk`. Confirmed Cloud Run readiness returned HTTP 200 and that the project's release build uses the Android debug signing key. Incrementing the build number to 9 so the APK can update the existing build, then building release against the same Cloud Run endpoint and replacing that Drive file in place while preserving its ID and sharing state.
+**Context**: User authorized a new release-mode APK and an update to the existing Drive artifact. No phone installation or backend deployment is planned.
+
+---
+
+## Release APK and Drive update — completion
+**Timestamp**: 2026-10-28T17:18:35Z
+**User Input**: "genera la apk actulzia la apk en modo release y subela al drive que teniamos la vercion actulizada"
+**AI Response**: Built and verified the ARM64 release APK for `com.nullcorvus.finance_ai` version 0.8.0, version code 2009, size 34,046,223 bytes, SHA-256 `2bc45fc1a51279933052f7cccd34b2e5b1f58378d3cb58e49dcc4045ec160985`. Updated existing Drive file `1z__jJblXcb8MC2PZvE1tJzy3Kkh2GFgs` in place and verified its new name, matching size, modification time, and unchanged parent folder. Release signing still uses the project's Android debug key; no phone installation was performed.
+**Context**: Build/test delivery. Cloud Run readiness returned HTTP 200; package metadata, APK v2 signature, ZIP integrity, and Drive metadata were checked.
+
+---
+
+## Pull request to develop — completion
+**Timestamp**: 2026-10-28T17:19:55Z
+**User Input**: "Ok haz el pull request a develop"
+**AI Response**: Committed as `df1699f847781a958c8fe2c291cab2848dfd1142`, pushed branch `codex/fix-stale-ui-state-20261028`, and opened [PR #47](https://github.com/Maicol2363/finance-ai-frontend/pull/47) targeting `develop`. Verified it is open, non-draft, mergeable, and not merged; attached it to this task. GitHub returned no CI statuses at the time of inspection.
+**Context**: User authorized the branch publication and PR creation. No merge was performed.
+
+---
