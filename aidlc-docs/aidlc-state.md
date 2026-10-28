@@ -1,6 +1,6 @@
 # AI-DLC State
 
-Current stage: Cross-screen financial synchronization completed; ARM64 release APK built and the existing Drive artifact updated. Pull request to develop is being prepared from the isolated worktree.
+Current stage: Cross-screen financial synchronization completed; ARM64 release APK built and the existing Drive artifact updated. PR #47 is open against develop; no merge was performed.
 
 ## Extension Configuration
 | Extension | Enabled |
@@ -101,4 +101,4 @@ The release audit API/PostgreSQL service, previously stopped at the end of the f
 - [x] Existing Drive APK replaced in place; the same file ID and parent folder were retained.
 - [x] Local release APK SHA-256 and Drive-reported size recorded in `construction/build-and-test/build-and-test-summary.md`.
 - [x] User requested internal Drive delivery; no device install or production signing-key change was requested.
-- [ ] Open pull request from `codex/fix-stale-ui-state-20261028` to `develop`; do not merge.
+- [x] Open [PR #47](https://github.com/Maicol2363/finance-ai-frontend/pull/47) from `codex/fix-stale-ui-state-20261028` to `develop`; verified open, mergeable, and unmerged.
