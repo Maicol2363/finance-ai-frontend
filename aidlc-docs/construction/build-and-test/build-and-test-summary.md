@@ -69,3 +69,46 @@ Final source correction: dcab32043a499d81e0f7e18c56b5fd7c22157139. Both installe
 - 41e5787e6c26d8283c99893dc94b829dc3e2571cc5cba9241c144a9ff996407a — verification-delivery.apk
 
 Physical USD Análisis now displays 151.42, agreeing with Inicio and its visible 63.50 / 13 × 31 formula. Earlier probe assertions were taken before the navigation frame settled; a fresh UI dump and inspected screenshot verified the final screen.
+
+
+## Cross-screen financial synchronization — 2026-10-28
+
+### Synchronization matrix
+
+| Successful action | Dashboard and account balances | History | Monthly totals | Budgets and expense feed |
+|---|---|---|---|---|
+| Manual or quick income create, edit, or delete | Reload loaded account state from the existing repository | Reload loaded history | Income revision refreshes income totals | No expense or budget refresh |
+| Expense create, edit, or delete | Reload loaded account state | Reload loaded history | Expense list refreshes expense totals | Expense and budget state refresh through the expense controller |
+| Text-capture or receipt-confirmed expense | Reload loaded account state | Reload loaded history | Expense totals refresh | Separate expense-feed revision refreshes expense lists and budgets |
+| Text-capture income | Reload loaded account state | Reload loaded history | Income revision refreshes income totals | No expense-feed refresh |
+| Transfer | Reload both account balances | Reload loaded history | Income and expense totals remain unchanged | Unchanged |
+| Account, category, income-source, or budget management | Existing resource controller/provider owns its own updates | No financial movement unless a separate transaction is confirmed | Unchanged unless a movement is confirmed | Budget changes stay within budget state |
+
+The fix adds shared movement and external-expense revision signals. Loaded Accounts and History controllers reload canonical server state on a movement signal and coalesce requests received while loading. Mutation screens publish only after success or authoritative reconciliation; refreshes never replay financial writes. Transfers also wait for account and history refresh completion before releasing an uncertain-mutation retry guard.
+
+### Verification results
+
+- 85 focused Flutter tests passed after the final source refinements.
+- Dart Tooling MCP analysis reported no errors for the changed Dart files; `git diff --check` passed.
+- A debug audit APK built and was installed under `com.nullcorvus.finance_ai.release_audit`. The original `com.nullcorvus.finance_ai` package was not replaced.
+- The final audit build passed a 30-command Maestro flow on Xiaomi 23021RAAEG against the isolated local test API. A synthetic 4,321 COP income changed the account balance from 485,500 to 489,821 COP, updated income and net totals, appeared once in History, and was reflected in account detail. The synthetic entry was deleted and the baseline balance restored.
+- Video artifact: `artifacts/financeai-cross-screen-sync-fixed.mp4` (44.27 seconds, H.264, 720×1280). It captures the same income-to-dashboard/history/account workflow from the earlier successful device pass, before the final non-visual transfer-reconciliation and duplicate-refresh refinements. The final build was separately validated by Maestro; a later recording export did not produce a file.
+- Pandoc parsed the Markdown documents and `git diff --check` passed. Mermaid CLI rendering could not start because the configured Puppeteer Chrome Headless Shell is absent; the existing diagram was not changed in this final pass.
+- No backend source, deployed API, Cloud Run service, main APK, or production financial data was changed.
+
+### Extension compliance
+
+- Security Baseline (enabled): Compliant for this scope. Refresh signals contain no financial payload or credentials, use existing repositories, and were exercised with a synthetic profile on an isolated local API.
+- Resiliency Baseline (disabled): N/A; no new retry or polling system was introduced.
+- Property-Based Testing (partial): N/A to this focused controller/UI synchronization change; deterministic regression and mutation-coverage tests were run instead.
+
+
+## Release APK and Drive update — 2026-10-28
+
+- Built an Android ARM64 APK in Flutter release mode for `com.nullcorvus.finance_ai`, version `0.8.0`, version code `2009`, targeting the production Cloud Run API over HTTPS.
+- APK size: 34,046,223 bytes. SHA-256: `2bc45fc1a51279933052f7cccd34b2e5b1f58378d3cb58e49dcc4045ec160985`.
+- `aapt` confirmed the package/version/ABI metadata, `apksigner verify` passed with APK Signature Scheme v2, and `unzip -tq` found no archive errors.
+- Updated the existing Drive APK in place: [Finance-AI-0.8.0+2009-arm64-release-2026-10-28.apk](https://drive.google.com/file/d/1z__jJblXcb8MC2PZvE1tJzy3Kkh2GFgs/view). The file ID and parent folder stayed the same; Drive reports 34,046,223 bytes and modification time 2026-10-28T17:16:24Z.
+- The project release build configuration signs with the Android debug key. This artifact is suitable for QA/internal distribution; it is not signed with a production Play Store key.
+- The APK was not installed on the phone. The existing app package and its data were left untouched.
+- The source tree's `integration_test` development dependency prevents its generated Android registrant from compiling in a direct release build. The release was built from a temporary copy with only that dev-only dependency omitted; the tracked dependency and application sources remain unchanged.

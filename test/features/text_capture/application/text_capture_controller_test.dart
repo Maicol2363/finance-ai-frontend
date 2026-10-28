@@ -1,6 +1,8 @@
 import 'dart:async';
 
+import 'package:finance_ai/core/state/financial_data_revision.dart';
 import 'package:finance_ai/features/auth/session/domain/session_models.dart';
+import 'package:finance_ai/features/incomes/data/incomes_repository.dart';
 import 'package:finance_ai/features/text_capture/application/text_capture_controller.dart';
 import 'package:finance_ai/features/text_capture/application/text_capture_state.dart';
 import 'package:finance_ai/features/text_capture/domain/text_capture_models.dart';
@@ -37,8 +39,10 @@ TextCaptureChatState stateOf(ProviderContainer container) =>
 
 const taskText = 'Almorcé en Subway 15900 con efectivo';
 
-TextProposalConfirmCommand command() => TextProposalConfirmCommand(
-  intent: CaptureIntent.expense,
+TextProposalConfirmCommand command({
+  CaptureIntent intent = CaptureIntent.expense,
+}) => TextProposalConfirmCommand(
+  intent: intent,
   amount: '15900.00',
   date: DateTime(2026, 10, 2),
   accountId: 1,
@@ -272,7 +276,7 @@ void main() {
   });
 
   test(
-    'accepting records the operation and refreshes balances and movements',
+    'confirmed expense publishes shared and expense-feed revisions once',
     () async {
       final repository = FakeTextCaptureRepository(proposals: [proposal()]);
       final expenses = FakeExpensesRepository();
@@ -308,10 +312,36 @@ void main() {
         701,
       );
       expect(stateOf(container).activeProposalId, isNull);
-      expect(expenses.listCalls, greaterThanOrEqualTo(1));
-      expect(expenses.historyCalls, greaterThanOrEqualTo(1));
-      expect(accountsRepository.listCalls, greaterThanOrEqualTo(1));
+      expect(repository.confirmCalls, hasLength(1));
+      expect(expenses.listCalls, 0);
+      expect(expenses.historyCalls, 0);
+      expect(accountsRepository.listCalls, 0);
+      expect(container.read(financialMovementRevisionProvider), 1);
+      expect(container.read(externalExpenseRevisionProvider), 1);
+      expect(container.read(incomeRevisionProvider), 0);
       expect(budgetsController.loadCalls, 1);
+    },
+  );
+
+  test(
+    'text-captured income invalidates income totals but not expense feed',
+    () async {
+      final repository = FakeTextCaptureRepository(
+        proposals: [proposal(intent: 'income')],
+      )..confirmQueue.add(confirmation(intent: CaptureIntent.income));
+      final container = containerFor(repository);
+      await controllerOf(container).send(taskText);
+      final entry = stateOf(container).entries
+          .whereType<ProposalEntry>()
+          .single;
+
+      await controllerOf(container)
+          .confirm(entry, command(intent: CaptureIntent.income));
+
+      expect(repository.confirmCalls, hasLength(1));
+      expect(container.read(financialMovementRevisionProvider), 1);
+      expect(container.read(incomeRevisionProvider), 1);
+      expect(container.read(externalExpenseRevisionProvider), 0);
     },
   );
 

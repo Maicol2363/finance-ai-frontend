@@ -1,9 +1,13 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/diagnostics/error_diagnostic.dart';
+import '../../../core/state/financial_data_revision.dart';
 import '../../accounts/application/accounts_controller.dart';
+import '../../accounts/application/accounts_state.dart';
 import '../../accounts/domain/account_models.dart';
 import '../../auth/session/domain/session_models.dart';
+import '../../expenses/application/history_controller.dart';
+import '../../expenses/application/history_state.dart';
 import '../data/transfers_repository.dart';
 import '../domain/transfer_models.dart';
 import 'transfer_state.dart';
@@ -53,6 +57,7 @@ class TransferController extends Notifier<TransferState> {
         fieldErrors: const {},
         clearMutationDiagnostic: true,
       );
+      ref.read(financialMovementRevisionProvider.notifier).changed();
       return TransferMutationOutcome.success;
     } on InvalidSessionFailure catch (failure) {
       state = state.copyWith(
@@ -107,6 +112,15 @@ class TransferController extends Notifier<TransferState> {
     state = state.copyWith(mutationStatus: TransferMutationStatus.saving);
     try {
       await ref.read(accountsControllerProvider.notifier).load();
+      await ref.read(historyControllerProvider.notifier).load();
+      final accountsReady =
+          ref.read(accountsControllerProvider).listStatus ==
+          AccountsLoadStatus.ready;
+      final historyReady =
+          ref.read(historyControllerProvider).status == HistoryLoadStatus.ready;
+      if (!accountsReady || !historyReady) {
+        throw StateError('Canonical movement refresh failed.');
+      }
       state = state.copyWith(
         mutationStatus: TransferMutationStatus.idle,
         clearMutationDiagnostic: true,
