@@ -125,6 +125,39 @@ class _IncomeDetailScreenState extends ConsumerState<IncomeDetailScreen> {
     return ManagementPageScaffold(
       title: 'Detalle del ingreso',
       maxWidth: 680,
+      actions: [
+        FutureBuilder<Income>(
+          future: _incomeFuture,
+          builder: (context, snapshot) {
+            final income = snapshot.data;
+            if (income == null) return const SizedBox.shrink();
+            final enabled = !_deleting && !_uncertain;
+            return Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                HeaderIconButton(
+                  key: const Key('income-edit-button'),
+                  tooltip: 'Editar ingreso',
+                  icon: FinanceIcons.editOutlined,
+                  onPressed: enabled
+                      ? () async {
+                          await context.push('/incomes/${income.id}/edit');
+                          if (context.mounted) setState(_reload);
+                        }
+                      : null,
+                ),
+                HeaderIconButton(
+                  key: const Key('income-delete-button'),
+                  tooltip: 'Eliminar ingreso',
+                  icon: FinanceIcons.deleteOutline,
+                  iconColor: Theme.of(context).colorScheme.error,
+                  onPressed: enabled ? _confirmDelete : null,
+                ),
+              ],
+            );
+          },
+        ),
+      ],
       leading: HeaderIconButton(
         icon: FinanceIcons.arrowBack,
         tooltip: context.canPop() ? 'Volver' : 'Volver a ingresos',
@@ -202,26 +235,6 @@ class _IncomeDetailScreenState extends ConsumerState<IncomeDetailScreen> {
                 ],
               ),
               const SizedBox(height: 20),
-              FilledButton.icon(
-                key: const Key('income-edit-button'),
-                onPressed: _deleting || _uncertain
-                    ? null
-                    : () async {
-                        await context.push('/incomes/${income.id}/edit');
-                        if (context.mounted) {
-                          setState(_reload);
-                        }
-                      },
-                icon: const Icon(FinanceIcons.editOutlined),
-                label: const Text('Editar ingreso'),
-              ),
-              const SizedBox(height: 12),
-              OutlinedButton.icon(
-                key: const Key('income-delete-button'),
-                onPressed: _deleting || _uncertain ? null : _confirmDelete,
-                icon: const Icon(FinanceIcons.deleteOutline),
-                label: const Text('Eliminar ingreso'),
-              ),
               if (_deleting) const LinearProgressIndicator(),
               if (_diagnostic != null) ...[
                 const SizedBox(height: 16),
