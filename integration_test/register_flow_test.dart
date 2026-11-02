@@ -1,28 +1,14 @@
 import 'package:finance_ai/app.dart';
 import 'package:finance_ai/features/auth/session/data/secure_credential_store.dart';
+import 'package:go_router/go_router.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 
+import 'support/real_api_helpers.dart';
+
 const runRealAuthFlow = bool.fromEnvironment('RUN_REAL_AUTH_FLOW_TEST');
-
-class _MemoryStore implements SecureCredentialStore {
-  String? value;
-
-  @override
-  Future<String?> read() async => value;
-
-  @override
-  Future<void> replace(String renewableCredential) async {
-    value = renewableCredential;
-  }
-
-  @override
-  Future<void> delete() async {
-    value = null;
-  }
-}
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
@@ -30,7 +16,7 @@ void main() {
   testWidgets('registers logs in restores and logs out through the real API', (
     tester,
   ) async {
-    final store = _MemoryStore();
+    final store = IntegrationMemoryCredentialStore();
     await tester.pumpWidget(
       ProviderScope(
         overrides: [secureCredentialStoreProvider.overrideWithValue(store)],
@@ -90,5 +76,11 @@ void main() {
     expect(find.text('Welcome back'), findsOneWidget);
     expect(find.byKey(const Key('home-title')), findsNothing);
     expect(store.value, isNull);
+
+    GoRouter.of(tester.element(find.byKey(const Key('login-email-input'))))
+        .go('/accounts');
+    await tester.pumpAndSettle();
+    expect(find.text('Welcome back'), findsOneWidget);
+    expect(find.byKey(const Key('accounts-list')), findsNothing);
   }, skip: !runRealAuthFlow);
 }

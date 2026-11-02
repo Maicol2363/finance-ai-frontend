@@ -102,3 +102,23 @@ The release audit API/PostgreSQL service, previously stopped at the end of the f
 - [x] Local release APK SHA-256 and Drive-reported size recorded in `construction/build-and-test/build-and-test-summary.md`.
 - [x] User requested internal Drive delivery; no device install or production signing-key change was requested.
 - [x] Open [PR #47](https://github.com/Maicol2363/finance-ai-frontend/pull/47) from `codex/fix-stale-ui-state-20261028` to `develop`; verified open, mergeable, and unmerged.
+
+## Frontend CI and Android release testing — 2026-11-02
+
+- **Worktree**: `/home/d3ad/codigos/finance-ai/finance-ai-frontend/finance-ai-frontend-ci-improvements`, branch `codex/frontend-ci-android-integration-20261102`, based on `develop`.
+- [x] Requirements and workflow plan recorded; existing frontend unit/widget and Android integration tests and backend API integration tests were inspected before extending coverage.
+- [x] Everyday PR workflow targets `develop`/`main` and runs only quality/tests/coverage; a later user clarification removed the routine APK build and artifact because the team builds/installs during hands-on story testing.
+- [x] Release emulator workflow is separate, gated to same-repository `develop` → `main` PRs or manual dispatch; backend `main` resolves at run time and its SHA is logged.
+- [x] Reused the authentication test and added protected-route denial after logout; added real UI manual-expense and transfer journeys against the disposable local API/database.
+- [x] Validation: formatter, analyzer (no issues), 635 Flutter tests passed with 1 skipped, coverage 86.06%, local debug APK build passed, YAML/trigger assertions and `git diff --check` passed. The APK build is not part of CI.
+- [x] Local emulator availability checked: no Android emulator/AVD source, only Linux device. Android UI journeys were not run locally. `actionlint` is not installed; PyYAML parsing and custom workflow assertions were used instead.
+- **Backend review**: existing API/integration tests cover account and expense persistence, transfer persistence and transfer replay/idempotency. These lower-level retry tests are reused by relying on the backend suite; frontend UI does not test retry behavior.
+- **Scope**: No backend files, production deployment triggers/credentials, Cloud Run/Neon, branch protection, rulesets, commits, pushes, merges or deployments were modified.
+
+### Extension compliance — frontend CI and release testing
+
+| Extension | Status | Rationale |
+|---|---|---|
+| Security Baseline (enabled) | Compliant for scope | Release workflow uses read-only checkout permissions, isolated disposable PostgreSQL, blank model-provider keys and a local emulator API URL; no production credentials or endpoints are introduced. |
+| Resiliency Baseline (disabled) | N/A | No application retry/polling or production resilience behavior changed. |
+| Property-Based Testing (partial) | N/A | This adds a few deterministic UI journeys; existing API replay/idempotency coverage remains in backend integration tests. |
