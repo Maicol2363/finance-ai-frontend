@@ -125,6 +125,10 @@ The fix adds shared movement and external-expense revision signals. Loaded Accou
 - `actionlint` is not installed. No Android emulator/AVD is available (`flutter emulators` reports no emulator sources; only Linux is connected), so Android integration journeys were not run locally and remain to be executed on the release workflow or a configured emulator.
 - No backend source or production deployment workflow, secrets, Cloud Run/Neon resources, GitHub rules, commits, pushes, merges or deployments were changed.
 
+### Auth release-gate review follow-up
+
+The auth journey now asserts the current dashboard, restores session from Android `FlutterSecureStorage`, navigates to Settings, confirms logout, and verifies protected-route denial. The emulator script runs the auth and financial test commands independently, then fails the job if either command fails, so an auth failure does not hide financial journey results. The auth integration itself cannot be executed on this local host because no emulator is installed; `flutter analyze` and the existing auth widget tests pass.
+
 ### Follow-up scope correction — APK CI artifact removed
 
 The user clarified that the team builds/installs the app during manual user-story testing and does not need a debug APK artifact on each PR. Routine frontend CI therefore has one quality/test/coverage job only; it does not compile or upload an APK. A local APK build remains available when hands-on QA needs it.

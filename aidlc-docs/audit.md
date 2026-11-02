@@ -2244,3 +2244,11 @@ but first wehere did yo make the changes in the pr or the actions ??
 **Context**: User authorized a commit and push of the current task worktree. Do not create a PR; the user will test with one.
 
 ---
+
+## User Input — Fix auth emulator release test
+**Timestamp**: 2026-11-02T22:07:52Z
+**User Input**: "Ok lets fix that for now , but i am doubting if i should add that to the test"
+**AI Response**: Updated the auth integration journey for the actual Dashboard and Settings logout/confirmation flow. Kept it in the release emulator suite because it exercises real API authentication and Android native secure credential persistence that the mocked widget tests do not. The emulator script now executes the financial suite even if auth fails and reports the job as failed if either suite fails. `flutter analyze`, all 8 auth/router widget tests, formatting, YAML parsing and bash syntax checks passed. Android integration remains unrun locally because no emulator/AVD is available.
+**Context**: Addressing the P1 review on PR #48. Changes are local follow-up edits to the already-pushed branch and still require a commit/push; no PR merge occurred.
+
+---

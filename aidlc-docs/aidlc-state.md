@@ -122,3 +122,12 @@ The release audit API/PostgreSQL service, previously stopped at the end of the f
 | Security Baseline (enabled) | Compliant for scope | Release workflow uses read-only checkout permissions, isolated disposable PostgreSQL, blank model-provider keys and a local emulator API URL; no production credentials or endpoints are introduced. |
 | Resiliency Baseline (disabled) | N/A | No application retry/polling or production resilience behavior changed. |
 | Property-Based Testing (partial) | N/A | This adds a few deterministic UI journeys; existing API replay/idempotency coverage remains in backend integration tests. |
+
+## Release auth journey review follow-up — 2026-11-02
+
+- [x] Replaced obsolete `home-title` expectations with the Dashboard balance key after login and session restore.
+- [x] Updated logout interaction to go through Ajustes/Settings and explicitly confirm logout; protected `/accounts` route remains denied after logout.
+- [x] Changed the auth journey to use the Android platform secure credential store instead of an in-memory override, so remounting the app exercises native credential persistence and real API session restore.
+- [x] Changed emulator script to run financial journeys even when the auth test fails; the final step returns failure if either test command fails.
+- [x] `flutter analyze` passed; all 8 existing auth/router widget tests passed; formatter and workflow YAML/shell validation passed.
+- **Not run locally**: Android integration test, because there is no local emulator/AVD. Test result must be observed in GitHub Actions.

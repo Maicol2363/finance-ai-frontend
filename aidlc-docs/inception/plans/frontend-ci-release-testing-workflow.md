@@ -24,3 +24,4 @@
 - No GitHub branch protection, merge, push, or deployment action is performed.
 - Existing API transfer retry/idempotency tests remain the lower-level validation for replay behavior.
 - [x] After user clarification, removed the routine PR APK build/artifact job; APK build/install is reserved for user-story hands-on QA.
+- [x] Addressed auth release-test review: assert the dashboard, log out through Settings and confirmation, use Android secure storage for session restoration, and keep financial journey execution independent of auth test success while still failing the job if either command fails.
