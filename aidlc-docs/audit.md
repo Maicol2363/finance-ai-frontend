@@ -2014,3 +2014,241 @@ Flutter/Dart MCP tools install that then
 **Context**: User authorized the branch publication and PR creation. No merge was performed.
 
 ---
+
+## User Input — Optimize Android CI and release testing
+**Timestamp**: 2026-11-02T21:33:43Z
+**User Input**:
+~~~text
+# FinanciAI — Optimize Android CI and release testing
+
+Continue working in the existing `finance-ai-frontend-ci-improvements` worktree, based on `develop`.
+
+## Objective
+
+Keep everyday CI fast while using Android emulator integration tests to validate critical financial workflows before releasing FinanciAI.
+
+Do not rebuild the CI pipeline from scratch. Review and reuse the changes already implemented.
+
+## 1. CI execution strategy
+
+**Every PR targeting `develop` or `main`:**
+
+- Run Flutter formatting and static analysis.
+- Run existing unit and widget tests.
+- Enforce the existing 80% coverage threshold.
+- Build and upload the debug APK as a seven-day GitHub Actions artifact.
+- Keep APK building independent of test failures without concealing those failures.
+
+**Android emulator tests:**
+
+- Do NOT run them on every feature PR.
+- Run them only on release PRs from `develop` into `main`.
+- Optionally support manual execution through `workflow_dispatch` if it can be implemented cleanly.
+- Keep emulator tests in a separate job or workflow.
+- Do not alter backend production deployment triggers.
+
+## 2. Implement three meaningful Android user journeys
+
+Use the existing Flutter `integration_test` framework and the disposable local FastAPI + PostgreSQL environment.
+
+### Test A — Authentication
+
+Reuse the existing test where possible:
+
+- Register a user.
+- Log in.
+- Restart the application.
+- Verify session restoration.
+- Log out.
+- Verify that protected screens are inaccessible afterward.
+
+### Test B — Expenses and account balance
+
+- Create an account with a known balance of 100,000 COP.
+- Create a manual expense of 20,000 COP.
+- Verify the expense appears in transaction history.
+- Verify the account balance becomes 80,000 COP.
+- Navigate between the dashboard and accounts screen.
+- Verify both display consistent values.
+
+This should detect regressions involving stale balances or inconsistent state.
+
+### Test C — Transfers
+
+- Create two accounts with known balances.
+- Transfer 30,000 COP from one account to another.
+- Verify both account balances change correctly.
+- Verify the transfer appears in history.
+- Verify navigation does not produce duplicate transfers or inconsistent balances.
+
+Test retry/idempotency separately at the API level unless there is a reliable way to reproduce the behavior through the Android UI.
+
+## 3. Test design requirements
+
+Before writing new tests, inspect the existing unit, widget, backend integration and Android tests to avoid duplicating coverage.
+
+- Use real Flutter UI interactions and a real disposable backend.
+- Use isolated, deterministic test data.
+- Never connect to production databases or APIs.
+- Do not make real AI provider calls.
+- Reuse existing test helpers and accessible widget keys.
+- Keep tests focused on observable user behavior rather than implementation details.
+- Make tests reliable and maintainable.
+- Ensure the backend revision used for release tests corresponds to the backend version intended for release. Do not silently test against an outdated fixed commit.
+- If an important scenario is already covered adequately, reuse it rather than creating redundant tests.
+
+Avoid building a comprehensive emulator suite covering every user story. The goal is a small, high-value regression suite.
+
+## 4. Validate everything
+
+- Review the actual workflow configuration and the current diff.
+- Validate GitHub Actions YAML using `actionlint`, if available.
+- Run formatting, static analysis and existing Flutter tests.
+- Build the Android APK.
+- Run Android integration tests locally if an emulator is available.
+- If the emulator is unavailable, report that explicitly and do not claim the tests passed.
+- Verify that the emulator workflow is triggered only for the intended release PRs.
+- Verify that normal PRs do not launch the emulator.
+- Check for accidental production dependencies, secrets or deployment changes.
+
+Do not modify or bypass unrelated existing failing checks.
+
+## 5. Constraints
+
+- No GitHub admin access is available.
+- Do not modify branch protection, rulesets or auto-merge settings.
+- Do not modify Cloud Run, Neon or production credentials.
+- Do not introduce paid services.
+- Do not push, merge or deploy automatically.
+- Preserve existing working functionality and tests.
+- Keep the implementation proportional to a three-developer Android project.
+
+## 6. Deliverables
+
+Implement the feasible improvements and provide:
+
+1. Files changed.
+2. Final CI execution matrix: feature PR, release PR, `develop`, `main`.
+3. Exact behaviors covered by each Android integration test.
+4. Validation commands and results.
+5. Tests that could not be executed and why.
+6. Remaining risks or limitations.
+7. Any recommendations for the next iteration.
+
+Prioritize correctness and simplicity. If a proposed test requires disproportionate setup or is already sufficiently covered at a lower testing level, explain why and avoid unnecessary implementation.
+~~~
+**AI Response**: Reviewing the existing frontend CI, unit/widget coverage, Android test flows, and backend API integration coverage; splitting daily CI from release-only emulator testing and using a runtime-resolved backend release branch.
+**Context**: Requirements analysis and implementation for fast PR checks plus focused release validation. No external repository, branch protection, production credential, deployment, or deployment-trigger changes are authorized.
+
+---
+
+## Frontend CI and Android release testing — implementation and validation
+**Timestamp**: 2026-11-02T21:37:38Z
+**User Input**: See verbatim `User Input — Optimize Android CI and release testing` entry above.
+**AI Response**: Updated regular frontend CI so every PR to `develop`/`main` runs format, analysis, Flutter tests and the existing 80% coverage gate, while a separate job builds and uploads the debug APK for seven days regardless of the quality job result. Removed emulator execution from everyday CI and added a dedicated workflow gated to same-repository `develop` → `main` release PRs, with optional manual dispatch. Release checks resolve backend `main` at run time and print its SHA; the manual input accepts a branch, tag, or SHA. Reused the real authentication flow and added protected-route denial after logout, plus manual-expense and transfer UI journeys against the disposable local API/PostgreSQL. Added requirements, plan, state and build/test notes.
+**Validation**: `dart format --output=none --set-exit-if-changed lib test integration_test` passed (220 files unchanged); `flutter analyze` passed with no issues; `flutter test --coverage` passed 635 tests and 1 skipped test; line coverage was 86.06%; the 80% gate passed; `flutter build apk --debug` passed (205 MB local artifact); PyYAML parsed both workflow files and trigger/job assertions passed; `git diff --check` passed. `actionlint` is unavailable. The host has no Android emulator/AVD source (only Linux device), so the real-API Android integration journeys were not run locally and are not claimed as passed.
+**Context**: Construction and build/test complete for the available environment. No backend source, backend production deploy workflow, production credentials, Cloud Run/Neon, GitHub rules, pushes, merges or deployments were changed. Security Baseline: compliant for this isolated local test setup; Resiliency Baseline disabled/N/A; Property-Based Testing partial/N/A for these deterministic UI flows, with replay/idempotency left to existing backend tests.
+
+---
+
+## User Input — CI checks, test types, APK CI value and PR failures
+**Timestamp**: 2026-11-02T21:41:00Z
+**User Input**:
+~~~text
+**`dart format --output=none --set-exit-if-changed lib test integration_test`**\
+Checks whether Dart files follow the formatter’s layout rules. It reports a failure if formatting changes would be needed; `--output=none` means it checks without rewriting files. The 220 files were already formatted.
+
+
+
+
+
+give an example 
+
+
+
+
+
+what is the difference betwen unit and widget ?? what each one does ??|
+
+
+
+**PyYAML parsing and workflow assertions**\
+Parses the two GitHub Actions workflow files and checks expected configuration: which PR branches trigger checks, that APK building is independent of the test job, seven-day artifact retention, and that emulator tests are gated to release PRs or manual runs. This checks the files and selected conditions; it does **not** execute the workflows on GitHub.
+
+
+
+i think we should remove the apk think really i dont think is useful anyway I will test that when i am doing the US so I dont see the use really 
+
+
+
+**Checks that could not be run**\
+**`actionlint`** was unavailable, so its specialized GitHub Actions validation was not performed. No Android emulator or AVD is available locally, so the new registration, expense, and transfer UI journeys were **not executed locally**. They still need to run in the release workflow or on a configured emulator.
+
+
+
+but its working ?? 
+
+
+
+also sometimes pr fails even when its seems right like in this example qwhat is failling exactly ??I checked PR #32 at head `37de6dc`. Both failed checks are the same `quality` workflow running for the push and the PR. The workflow reaches its final dependency audit and fails there: `pip-audit` finds two vulnerable locked packages.
+
+- `dnspython 2.8.0` — fix listed as `2.9.0`
+- `msgpack 1.2.2` — fix listed as `1.2.3`
+
+The test suite passed (**440 tests**) and the package build succeeded. The affected packages come in transitively: `email-validator` brings in `dnspython`, while `pip-audit` brings in `msgpack` through `cachecontrol`. The “finance-ai-backend not found on PyPI” line is just a skip notice; the two vulnerabilities are what make the command exit with code 1.
+
+The PR’s changed files don’t include `pyproject.toml` or `uv.lock`, so this is separate from the expense change. To clear the CI failure, update those lockfile entries—for example, with `uv lock --upgrade-package dnspython --upgrade-package msgpack`—then commit the lockfile update.
+
+The Codex review’s `unit_price` storage-limit finding is a separate issue; it did **not** cause these CI failures.
+
+[PR #32](https://github.com/Maicol2363/finance-ai-backend/pull/32) · [PR check log](https://github.com/Maicol2363/finance-ai-backend/actions/runs/40593044723/job/122501887174) · [Push check log](https://github.com/Maicol2363/finance-ai-backend/actions/runs/40593013055/job/122501776494)
+
+
+
+and on this one :
+
+
+
+PR #45’s failing check is **one Flutter widget test**, not the money formatter review finding.
+
+At head `a9bc013`, the shared quality job reports **634 passed, 1 failed, 1 skipped**. The [Windows tests and build pass](https://github.com/Maicol2363/finance-ai-frontend/actions/runs/40739939443/job/122998495785). The failure is [`text_capture_chat_test.dart:165`](https://github.com/Maicol2363/finance-ai-frontend/blob/a9bc013c4148275c8c4733077c3bd436286c57a5/test/features/text_capture/presentation/text_capture_chat_test.dart#L165): after confirming an expense, it expects `expenses.listCalls >= 1`, but gets `0`.
+
+This looks like a test setup/expectation mismatch. The chat controller signals an external expense change; the expenses controller reloads in response only if its list was already loaded. The test loads accounts, but doesn’t initialize the expenses list before confirming. See the [refresh logic](https://github.com/Maicol2363/finance-ai-frontend/blob/a9bc013c4148275c8c4733077c3bd436286c57a5/lib/features/text_capture/application/text_capture_controller.dart#L323-L335) and [conditional reload](https://github.com/Maicol2363/finance-ai-frontend/blob/a9bc013c4148275c8c4733077c3bd436286c57a5/lib/features/expenses/application/expenses_controller.dart#L21-L29).
+
+To test that refresh behavior, load the expenses controller before confirming, then assert its call count increases. The earlier decimal-composition comment is a separate review concern; it isn’t what made this check fail.
+
+[Failing CI log](https://github.com/Maicol2363/finance-ai-frontend/actions/runs/40739939443/job/122998496378)
+~~~
+**AI Response**: Explained a formatter example and unit/widget/integration test differences. Removed the routine Android APK build/artifact from the PR CI after the user clarified it duplicates hands-on user-story testing; the local APK build remains an available manual QA step. Clarified that successful local checks and workflow-file assertions do not constitute a GitHub Actions run; the new release workflow has not run remotely because the changes remain local, and Android emulator journeys are still unexecuted. Explained the exact failures described for backend PR #32 and frontend PR #45.
+**Context**: User steered the active CI implementation to omit routine APK artifact generation and asked for educational context on checks and prior PR failures.
+
+---
+
+## User Input — Fix recurring false test failures
+**Timestamp**: 2026-11-02T21:52:53Z
+**User Input**: "what about that we should fix that right ?? because i got a lo of times those of errors of test but my code was alright"
+**AI Response**: Confirmed the right repair is to align the test setup with the refresh contract, not change app behavior without a requirement. The local test already loads the expense list before confirming; reran the exact focused test `flutter test test/features/text_capture/presentation/text_capture_chat_test.dart --plain-name "a message shows a compact review and accepting takes one tap"` and it passed. No push or merge was made.
+**Context**: Focused regression validation for the setup mismatch identified in PR #45.
+
+---
+
+## User Input — Publish CI and release test changes
+**Timestamp**: 2026-11-02T21:54:31Z
+**User Input**:
+~~~text
+ok push everything I think is alright and i am going to test that with a pr
+
+but first wehere did yo make the changes in the pr or the actions ??
+~~~
+**AI Response**: Clarified that all changes are currently in the local worktree branch, not an existing PR or GitHub Actions run. User authorized publishing the branch so they can open and test it in a PR. Verified the target branch does not already exist on `origin` and confirmed the changed files are scoped to the frontend CI/release testing work.
+**Context**: User authorized a commit and push of the current task worktree. Do not create a PR; the user will test with one.
+
+---
+
+## User Input — Fix auth emulator release test
+**Timestamp**: 2026-11-02T22:07:52Z
+**User Input**: "Ok lets fix that for now , but i am doubting if i should add that to the test"
+**AI Response**: Updated the auth integration journey for the actual Dashboard and Settings logout/confirmation flow. Kept it in the release emulator suite because it exercises real API authentication and Android native secure credential persistence that the mocked widget tests do not. The emulator script now executes the financial suite even if auth fails and reports the job as failed if either suite fails. `flutter analyze`, all 8 auth/router widget tests, formatting, YAML parsing and bash syntax checks passed. Android integration remains unrun locally because no emulator/AVD is available.
+**Context**: Addressing the P1 review on PR #48. Changes are local follow-up edits to the already-pushed branch and still require a commit/push; no PR merge occurred.
+
+---

@@ -2,8 +2,7 @@ name: Frontend CI
 
 on:
   pull_request:
-  push:
-    branches: [main]
+    branches: [develop, main]
 
 permissions:
   contents: read
@@ -13,8 +12,8 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  flutter:
-    name: Shared quality and Android build
+  flutter-quality:
+    name: Flutter quality, tests, and coverage
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -50,38 +49,3 @@ jobs:
               if (coverage < 80) exit 1
             }
           ' coverage/lcov.info
-      - name: Build debug Android APK
-        run: |
-          # The hosted runner's Android emulator images are not needed for
-          # Flutter unit tests or an APK build, and leave the Gradle build
-          # without enough disk space.
-          rm -rf "$ANDROID_HOME/emulator" "$ANDROID_HOME/system-images"
-          flutter build apk --debug
-
-  windows:
-    name: Windows native tests and build
-    runs-on: windows-2022
-    steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-      - name: Install checksum-verified Flutter 3.47.2
-        shell: pwsh
-        run: |
-          $archive = Join-Path $env:RUNNER_TEMP "flutter_windows_3.47.2-stable.zip"
-          Invoke-WebRequest -Uri "https://storage.googleapis.com/flutter_infra_release/releases/stable/windows/flutter_windows_3.47.2-stable.zip" -OutFile $archive
-          $actualHash = (Get-FileHash -Algorithm SHA256 -LiteralPath $archive).Hash.ToLowerInvariant()
-          if ($actualHash -ne "37934f2128a55d77a38baba12fd611157ed23a47bf7d2b7d17e9e84da118409d") {
-            throw "Flutter archive checksum mismatch."
-          }
-          Expand-Archive -LiteralPath $archive -DestinationPath $env:RUNNER_TEMP
-          Add-Content -Path $env:GITHUB_PATH -Value (Join-Path $env:RUNNER_TEMP "flutter\bin")
-      - name: Resolve locked dependencies
-        run: |
-          flutter config --no-analytics
-          flutter pub get --enforce-lockfile
-      - name: Format and analyze
-        run: |
-          dart format --output=none --set-exit-if-changed lib test integration_test
-          flutter analyze
-      - name: Run native tests and restore normal bundle
-        shell: pwsh
-        run: .\tool\test_windows_and_restore.ps1

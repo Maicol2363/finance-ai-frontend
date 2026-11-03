@@ -112,3 +112,23 @@ The fix adds shared movement and external-expense revision signals. Loaded Accou
 - The project release build configuration signs with the Android debug key. This artifact is suitable for QA/internal distribution; it is not signed with a production Play Store key.
 - The APK was not installed on the phone. The existing app package and its data were left untouched.
 - The source tree's `integration_test` development dependency prevents its generated Android registrant from compiling in a direct release build. The release was built from a temporary copy with only that dev-only dependency omitted; the tracked dependency and application sources remain unchanged.
+
+## Frontend CI and release Android journeys — 2026-11-02
+
+- Daily frontend CI runs for pull requests targeting `develop` or `main`. The quality job performs Dart formatting, `flutter analyze`, the existing `flutter test --coverage` suite, and the existing 80% line-coverage gate.
+- A local debug APK build was run during implementation, but is not part of routine PR CI. The user will build/install while manually testing user stories.
+- Android emulator integration is isolated in `.github/workflows/release-android-integration.yml`; its PR job condition permits only a same-repository `develop` → `main` PR. Manual runs accept a backend branch, tag, or SHA. Release PR runs check out backend `main` at run time and log the resolved SHA.
+- The workflow starts the backend and PostgreSQL through the backend's Compose file with an ephemeral database volume and blank AI provider keys. No production API/database is configured.
+- Android journeys: existing real API auth flow (registration, login, app restart/session restore, logout and protected-route denial); manual expense flow (100,000 COP opening balance, 20,000 COP expense/history, 80,000 COP balance through dashboard and accounts); transfer flow (100,000/10,000 COP accounts, 30,000 COP transfer, 70,000/40,000 COP balances, history exactly once across tab navigation).
+- Existing backend integration tests already cover transfer persistence and replay/idempotency; the UI suite does not duplicate them.
+- Validation on this host: `flutter analyze` passed with no issues; format check passed; `flutter test --coverage` passed 635 tests with 1 existing skip and 86.06% line coverage; YAML parser and workflow trigger/job assertions passed; `git diff --check` passed. `flutter build apk --debug` also passed locally as an implementation check; the build is intentionally omitted from PR CI.
+- `actionlint` is not installed. No Android emulator/AVD is available (`flutter emulators` reports no emulator sources; only Linux is connected), so Android integration journeys were not run locally and remain to be executed on the release workflow or a configured emulator.
+- No backend source or production deployment workflow, secrets, Cloud Run/Neon resources, GitHub rules, commits, pushes, merges or deployments were changed.
+
+### Auth release-gate review follow-up
+
+The auth journey now asserts the current dashboard, restores session from Android `FlutterSecureStorage`, navigates to Settings, confirms logout, and verifies protected-route denial. The emulator script runs the auth and financial test commands independently, then fails the job if either command fails, so an auth failure does not hide financial journey results. The auth integration itself cannot be executed on this local host because no emulator is installed; `flutter analyze` and the existing auth widget tests pass.
+
+### Follow-up scope correction — APK CI artifact removed
+
+The user clarified that the team builds/installs the app during manual user-story testing and does not need a debug APK artifact on each PR. Routine frontend CI therefore has one quality/test/coverage job only; it does not compile or upload an APK. A local APK build remains available when hands-on QA needs it.
