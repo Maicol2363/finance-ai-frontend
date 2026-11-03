@@ -81,19 +81,7 @@ jobs:
           arch: x86_64
           profile: pixel_6
           disable-animations: true
-          script: |
-            set +e
-            flutter test integration_test/register_flow_test.dart \
-              --dart-define=RUN_REAL_AUTH_FLOW_TEST=true \
-              --dart-define=FINANCE_AI_API_BASE_URL=http://10.0.2.2:8000
-            auth_status=$?
-            flutter test integration_test/release_financial_journeys_test.dart \
-              --dart-define=RUN_REAL_FINANCIAL_JOURNEYS=true \
-              --dart-define=FINANCE_AI_API_BASE_URL=http://10.0.2.2:8000
-            financial_status=$?
-            if [ "$auth_status" -ne 0 ] || [ "$financial_status" -ne 0 ]; then
-              exit 1
-            fi
+          script: bash .github/scripts/run-release-android-journeys.sh
 
       - name: Stop disposable backend and remove database volume
         if: always()
