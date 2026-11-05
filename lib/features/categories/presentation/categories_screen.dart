@@ -8,7 +8,6 @@ import '../../../core/diagnostics/error_diagnostic_panel.dart';
 import '../../../core/widgets/app_header.dart';
 import '../../../core/widgets/management_page_scaffold.dart';
 import '../../../core/widgets/manage_widgets.dart';
-import '../../../core/widgets/theme_toggle_button.dart';
 import '../application/categories_controller.dart';
 import '../application/categories_state.dart';
 import '../domain/category_models.dart';
@@ -51,7 +50,6 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
           }
         },
       ),
-      actions: const [ThemeToggleButton()],
       body: Column(
         children: [
           if (state.loadStatus == CategoriesLoadStatus.loading)

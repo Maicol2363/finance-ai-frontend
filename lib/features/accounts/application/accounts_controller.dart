@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/diagnostics/error_diagnostic.dart';
+import '../../../core/state/financial_data_revision.dart';
 import '../../auth/session/domain/session_models.dart';
 import '../data/accounts_repository.dart';
 import '../domain/account_models.dart';
@@ -10,13 +13,26 @@ final accountsControllerProvider =
     NotifierProvider<AccountsController, AccountsState>(AccountsController.new);
 
 class AccountsController extends Notifier<AccountsState> {
+  bool _listReloadRequested = false;
+  int? _detailReloadRequestedFor;
+
   @override
-  AccountsState build() => const AccountsState();
+  AccountsState build() {
+    ref.listen(financialMovementRevisionProvider, (_, _) {
+      if (state.listStatus != AccountsLoadStatus.initial) {
+        unawaited(load());
+      }
+    });
+    return const AccountsState();
+  }
 
   Future<void> load({bool? includeInactive}) async {
     final targetFilter = includeInactive ?? state.includeInactive;
-    if (state.listStatus == AccountsLoadStatus.loading &&
-        targetFilter == state.includeInactive) {
+    if (state.listStatus == AccountsLoadStatus.loading) {
+      _listReloadRequested = true;
+      if (targetFilter != state.includeInactive) {
+        state = state.copyWith(includeInactive: targetFilter);
+      }
       return;
     }
     state = state.copyWith(
@@ -33,6 +49,17 @@ class AccountsController extends Notifier<AccountsState> {
         result: result,
         clearListDiagnostic: true,
       );
+      final detailId = state.detailAccountId;
+      final refreshedDetail = detailId == null
+          ? null
+          : result.accountById(detailId);
+      if (refreshedDetail != null) {
+        state = state.copyWith(
+          detailStatus: AccountDetailStatus.ready,
+          detailAccount: refreshedDetail,
+          clearDetailDiagnostic: true,
+        );
+      }
     } on InvalidSessionFailure catch (failure) {
       state = state.copyWith(
         listStatus: AccountsLoadStatus.failure,
@@ -48,12 +75,22 @@ class AccountsController extends Notifier<AccountsState> {
         listStatus: AccountsLoadStatus.failure,
         listDiagnostic: _unexpected(operation: 'load_accounts'),
       );
+    } finally {
+      if (_listReloadRequested) {
+        _listReloadRequested = false;
+        await load(includeInactive: state.includeInactive);
+      }
     }
   }
 
   Future<void> setIncludeInactive(bool value) => load(includeInactive: value);
 
   Future<void> loadDetail(int accountId) async {
+    if (state.detailStatus == AccountDetailStatus.loading &&
+        state.detailAccountId == accountId) {
+      _detailReloadRequestedFor = accountId;
+      return;
+    }
     final cached = state.result?.accountById(accountId);
     state = state.copyWith(
       detailStatus: AccountDetailStatus.loading,
@@ -99,6 +136,13 @@ class AccountsController extends Notifier<AccountsState> {
           detailStatus: AccountDetailStatus.failure,
           detailDiagnostic: _unexpected(operation: 'load_account_detail'),
         );
+      }
+    } finally {
+      if (_detailReloadRequestedFor == accountId) {
+        _detailReloadRequestedFor = null;
+        if (state.detailAccountId == accountId) {
+          await loadDetail(accountId);
+        }
       }
     }
   }

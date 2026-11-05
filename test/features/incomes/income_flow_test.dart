@@ -1,4 +1,9 @@
+import 'dart:async';
+
 import 'package:finance_ai/core/router/app_router.dart';
+import 'package:finance_ai/core/icons/finance_icon_catalog.dart';
+import 'package:finance_ai/core/state/financial_data_revision.dart';
+import 'package:finance_ai/core/widgets/app_header.dart';
 import 'package:finance_ai/features/accounts/domain/account_models.dart';
 import 'package:finance_ai/features/incomes/data/incomes_repository.dart';
 import 'package:finance_ai/features/incomes/domain/income_models.dart';
@@ -23,6 +28,9 @@ Income sampleIncome() => Income(
 class FakeIncomesRepository implements IncomesRepository {
   final items = <Income>[sampleIncome()];
   int deletes = 0;
+  int creates = 0;
+  int updates = 0;
+  Completer<void>? deleteCompletion;
   IncomeWriteCommand? savedCommand;
   IncomeFailure? saveFailure;
 
@@ -38,6 +46,7 @@ class FakeIncomesRepository implements IncomesRepository {
 
   @override
   Future<Income> create(IncomeWriteCommand command) async {
+    creates++;
     if (saveFailure case final failure?) throw failure;
     savedCommand = command;
     items.add(sampleIncome());
@@ -46,6 +55,7 @@ class FakeIncomesRepository implements IncomesRepository {
 
   @override
   Future<Income> update(int incomeId, IncomeWriteCommand command) async {
+    updates++;
     if (saveFailure case final failure?) throw failure;
     savedCommand = command;
     return sampleIncome();
@@ -54,6 +64,7 @@ class FakeIncomesRepository implements IncomesRepository {
   @override
   Future<void> delete(int incomeId) async {
     deletes++;
+    await deleteCompletion?.future;
     items.removeWhere((item) => item.id == incomeId);
   }
 }
@@ -119,6 +130,9 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
+    final container = ProviderScope.containerOf(
+      tester.element(find.byKey(const Key('income-row-7'))),
+    );
     expect(find.byKey(const Key('income-row-7')), findsOneWidget);
     expect(find.text(r'$ 25,50 COP'), findsOneWidget);
     await tester.tap(find.byKey(const Key('income-row-7')));
@@ -135,7 +149,97 @@ void main() {
     await tester.tap(find.byKey(const Key('income-confirm-delete-button')));
     await tester.pumpAndSettle();
     expect(repository.deletes, 1);
+    expect(container.read(financialMovementRevisionProvider), 1);
     expect(find.text('Aún no tienes ingresos registrados.'), findsOneWidget);
+  });
+
+  testWidgets('income detail actions use accessible header icon buttons', (
+    tester,
+  ) async {
+    final repository = FakeIncomesRepository();
+    final router = createAppRouter(initialLocation: '/incomes/7');
+    addTearDown(router.dispose);
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          incomesRepositoryProvider.overrideWithValue(repository),
+          incomeFormOptionsProvider.overrideWithValue(
+            () async => IncomeFormOptions(
+              accounts: [sampleAccount()],
+              sources: const [],
+            ),
+          ),
+        ],
+        child: MaterialApp.router(routerConfig: router),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final edit = find.byKey(const Key('income-edit-button'));
+    final delete = find.byKey(const Key('income-delete-button'));
+    expect(edit, findsOneWidget);
+    expect(delete, findsOneWidget);
+    expect(find.byTooltip('Editar ingreso'), findsOneWidget);
+    expect(find.byTooltip('Eliminar ingreso'), findsOneWidget);
+    expect(find.bySemanticsLabel('Editar ingreso'), findsOneWidget);
+    expect(find.bySemanticsLabel('Eliminar ingreso'), findsOneWidget);
+    expect(tester.getSize(edit), const Size(48, 48));
+    expect(tester.getSize(delete), tester.getSize(edit));
+    expect(tester.getTopLeft(edit).dy, tester.getTopLeft(delete).dy);
+    expect(tester.getTopRight(edit).dx, tester.getTopLeft(delete).dx);
+    expect(
+      tester
+          .widget<Icon>(
+            find.descendant(
+              of: delete,
+              matching: find.byIcon(FinanceIcons.deleteOutline),
+            ),
+          )
+          .color,
+      Theme.of(tester.element(delete)).colorScheme.error,
+    );
+    expect(find.byType(FilledButton), findsNothing);
+
+    await tester.tap(edit);
+    await tester.pumpAndSettle();
+    expect(find.text('Editar ingreso'), findsOneWidget);
+    expect(find.byKey(const Key('income-description-field')), findsOneWidget);
+  });
+
+  testWidgets('income detail disables actions while deletion is in progress', (
+    tester,
+  ) async {
+    final repository = FakeIncomesRepository()
+      ..deleteCompletion = Completer<void>();
+    final router = createAppRouter(initialLocation: '/incomes/7');
+    addTearDown(router.dispose);
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [incomesRepositoryProvider.overrideWithValue(repository)],
+        child: MaterialApp.router(routerConfig: router),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('income-delete-button')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('income-confirm-delete-button')));
+    await tester.pump();
+
+    for (final key in [
+      const Key('income-edit-button'),
+      const Key('income-delete-button'),
+    ]) {
+      expect(
+        tester.widget<HeaderIconButton>(find.byKey(key)).onPressed,
+        isNull,
+      );
+    }
+    expect(find.byType(LinearProgressIndicator), findsOneWidget);
+
+    repository.deleteCompletion!.complete();
+    await tester.pumpAndSettle();
+    expect(repository.deletes, 1);
   });
 
   testWidgets('create form validates locally and saves exact amount', (
@@ -161,6 +265,9 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('income-account-field')), findsOneWidget);
+    final container = ProviderScope.containerOf(
+      tester.element(find.byKey(const Key('income-save-button'))),
+    );
     await tester.tap(find.byKey(const Key('income-source-field')));
     await tester.pumpAndSettle();
     expect(find.text('Salario').last, findsOneWidget);
@@ -198,6 +305,9 @@ void main() {
     expect(repository.savedCommand?.amount.toApiString(), '25.50');
     expect(repository.savedCommand?.description, '  Pago  ');
     expect(repository.savedCommand?.incomeSourceId, 4);
+    expect(repository.creates, 1);
+    expect(container.read(financialMovementRevisionProvider), 1);
+    expect(container.read(incomeRevisionProvider), 1);
     expect(find.byKey(const Key('income-delete-button')), findsOneWidget);
   });
 

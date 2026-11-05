@@ -1,6 +1,6 @@
 # AI-DLC State
 
-Current stage: Final regression fixes and CI verification, autonomous execution authorized.
+Current stage: Cross-screen financial synchronization completed; ARM64 release APK built and the existing Drive artifact updated. PR #47 is open against develop; no merge was performed.
 
 ## Extension Configuration
 | Extension | Enabled |
@@ -56,3 +56,78 @@ The release audit API/PostgreSQL service, previously stopped at the end of the f
 - [x] Se corrigió el cierre automático de la explicación del gráfico de tendencia: diálogo persistente, control de 48dp, suite focalizada 10/10, analyzer y verificación Android de 10 segundos completados el 2026-10-17.
 - [x] Espaciado de login corregido para el formulario normal y con error, pruebas 8/8, analyzer y verificación física Android completados el 2026-10-17.
 - [x] Auditoría ampliada de espaciado en historial, captura IA y voz: 107 pruebas focalizadas (39 + 33 + 35; el conteo total es 107), analyzer, build e instalación completados el 2026-10-17. Filtro de historial físico queda NOT RUN por falta de sesión; evidencia previa y captura obsoleta documentadas en `construction/release-audit-20261017/final-validation.md`.
+
+
+## Cross-screen synchronization audit — 2026-10-28
+- **Project type**: Brownfield Flutter/Dart application.
+- **Source baseline**: Frontend `ae1065d3585197a9df071d38b419bd49366c64de`; backend read-only baseline `37de6dc61a7e4c5215febe7ed3ecca1a3b97e098`.
+- **Working copy**: Isolated worktree `/home/d3ad/codigos/finance-ai-frontend-sync-fix-20261028`, branch `codex/fix-stale-ui-state-20261028`.
+- **Stage status**: Workspace Detection, focused Reverse Engineering, Requirements Analysis, Workflow Planning, Construction, and focused Build/Test complete.
+- **Working changes**: Frontend implementation, focused tests, and task documentation are in this isolated worktree. Original frontend snapshot and backend checkout remain unchanged.
+- **Extension configuration reused**: Security Baseline enabled; Resiliency Baseline disabled; Property-Based Testing partial.
+
+## Cross-screen synchronization workflow progress — 2026-10-28
+
+- [x] Brownfield flow review and requirements recorded in `inception/reverse-engineering/financial-state-flows.md` and `inception/requirements/cross-screen-financial-sync.md`.
+- [x] User impact assessment, story plan, persona, and acceptance story recorded under `inception/plans/` and `inception/user-stories/`.
+- [x] Workflow and Mermaid diagram recorded in `inception/plans/cross-screen-sync-workflow.md`.
+- [x] Focused account-balance regression test and cross-screen implementation complete under `construction/plans/cross-screen-financial-sync-code-generation-plan.md`.
+- [x] 85 focused tests, Dart MCP analysis, synchronization matrix, device workflow, and delivery report complete.
+- **Tooling**: Dart Tooling MCP 1.2.2 is present in the installed Dart SDK and registered/enabled in Codex MCP configuration; its stdio tools were discovered directly. No extra package or plugin was installed.
+
+
+## Cross-screen synchronization delivery — 2026-10-28
+
+- [x] Shared financial movement revisions refresh loaded account and history state from the server; out-of-band expense captures also refresh expense lists and budgets.
+- [x] Income, expense, transfer, text-capture, and receipt-capture write boundaries publish the appropriate revision only after confirmation; focused regression coverage is recorded in `construction/build-and-test/build-and-test-summary.md`.
+- [x] 85 focused Flutter tests pass; Dart Tooling MCP reports no analysis errors for changed files; formatting and diff-check are clean.
+- [x] Final debug audit build passed a 30-command Maestro phone flow with the local synthetic service; the synthetic income was removed and baseline balance restored.
+- [x] Workflow recording saved at `artifacts/financeai-cross-screen-sync-fixed.mp4`; the file predates the final non-visual transfer retry and duplicate-refresh refinements, which were separately built and verified.
+- **Scope**: Frontend-only work in the isolated worktree. No commit, push, merge, backend source, production API, Cloud Run, or main app package change.
+- [x] **Cleanup**: Uninstalled only the temporary `com.nullcorvus.finance_ai.release_audit` package, removed the task-only ADB reverse mapping and isolated Compose project/volume, and deleted its temporary override. The original `com.nullcorvus.finance_ai` package and its data remain untouched.
+- **Validation note**: Markdown parsing and `git diff --check` pass. Mermaid CLI could not render because Puppeteer’s Chrome Headless Shell is not installed; the workflow diagram was not modified during final verification.
+
+### Extension compliance — cross-screen synchronization
+
+| Extension | Status | Rationale |
+|---|---|---|
+| Security Baseline (enabled) | Compliant for scope | Revision notifications contain no financial data; existing authenticated repositories remain the only data source; device flow used a synthetic account and isolated local service. |
+| Resiliency Baseline (disabled) | N/A | No new retry/polling mechanism was introduced. |
+| Property-Based Testing (partial) | N/A | This change uses focused deterministic controller and mutation-boundary regressions; no property-based generator was added. |
+
+## Release delivery — 2026-10-28
+
+- [x] Flutter release-mode ARM64 APK built and signature/archive/package metadata verified.
+- [x] Existing Drive APK replaced in place; the same file ID and parent folder were retained.
+- [x] Local release APK SHA-256 and Drive-reported size recorded in `construction/build-and-test/build-and-test-summary.md`.
+- [x] User requested internal Drive delivery; no device install or production signing-key change was requested.
+- [x] Open [PR #47](https://github.com/Maicol2363/finance-ai-frontend/pull/47) from `codex/fix-stale-ui-state-20261028` to `develop`; verified open, mergeable, and unmerged.
+
+## Frontend CI and Android release testing — 2026-11-02
+
+- **Worktree**: `/home/d3ad/codigos/finance-ai/finance-ai-frontend/finance-ai-frontend-ci-improvements`, branch `codex/frontend-ci-android-integration-20261102`, based on `develop`.
+- [x] Requirements and workflow plan recorded; existing frontend unit/widget and Android integration tests and backend API integration tests were inspected before extending coverage.
+- [x] Everyday PR workflow targets `develop`/`main` and runs only quality/tests/coverage; a later user clarification removed the routine APK build and artifact because the team builds/installs during hands-on story testing.
+- [x] Release emulator workflow is separate, gated to same-repository `develop` → `main` PRs or manual dispatch; backend `main` resolves at run time and its SHA is logged.
+- [x] Reused the authentication test and added protected-route denial after logout; added real UI manual-expense and transfer journeys against the disposable local API/database.
+- [x] Validation: formatter, analyzer (no issues), 635 Flutter tests passed with 1 skipped, coverage 86.06%, local debug APK build passed, YAML/trigger assertions and `git diff --check` passed. The APK build is not part of CI.
+- [x] Local emulator availability checked: no Android emulator/AVD source, only Linux device. Android UI journeys were not run locally. `actionlint` is not installed; PyYAML parsing and custom workflow assertions were used instead.
+- **Backend review**: existing API/integration tests cover account and expense persistence, transfer persistence and transfer replay/idempotency. These lower-level retry tests are reused by relying on the backend suite; frontend UI does not test retry behavior.
+- **Scope**: No backend files, production deployment triggers/credentials, Cloud Run/Neon, branch protection, rulesets, commits, pushes, merges or deployments were modified.
+
+### Extension compliance — frontend CI and release testing
+
+| Extension | Status | Rationale |
+|---|---|---|
+| Security Baseline (enabled) | Compliant for scope | Release workflow uses read-only checkout permissions, isolated disposable PostgreSQL, blank model-provider keys and a local emulator API URL; no production credentials or endpoints are introduced. |
+| Resiliency Baseline (disabled) | N/A | No application retry/polling or production resilience behavior changed. |
+| Property-Based Testing (partial) | N/A | This adds a few deterministic UI journeys; existing API replay/idempotency coverage remains in backend integration tests. |
+
+## Release auth journey review follow-up — 2026-11-02
+
+- [x] Replaced obsolete `home-title` expectations with the Dashboard balance key after login and session restore.
+- [x] Updated logout interaction to go through Ajustes/Settings and explicitly confirm logout; protected `/accounts` route remains denied after logout.
+- [x] Changed the auth journey to use the Android platform secure credential store instead of an in-memory override, so remounting the app exercises native credential persistence and real API session restore.
+- [x] Changed emulator script to run financial journeys even when the auth test fails; the final step returns failure if either test command fails.
+- [x] `flutter analyze` passed; all 8 existing auth/router widget tests passed; formatter and workflow YAML/shell validation passed.
+- **Not run locally**: Android integration test, because there is no local emulator/AVD. Test result must be observed in GitHub Actions.

@@ -351,12 +351,7 @@ class _HubIncomeCard extends ConsumerWidget {
       child: InkWell(
         key: Key('income-card-${income.id}'),
         borderRadius: BorderRadius.circular(14),
-        onTap: () async {
-          await context.push('/incomes/${income.id}');
-          if (context.mounted) {
-            ref.read(incomeRevisionProvider.notifier).changed();
-          }
-        },
+        onTap: () => context.push('/incomes/${income.id}'),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
           child: Row(

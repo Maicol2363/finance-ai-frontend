@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/diagnostics/error_diagnostic.dart';
+import '../../../core/state/financial_data_revision.dart';
 import '../../auth/session/domain/session_models.dart';
 import '../data/expenses_repository.dart';
 import '../domain/expense_models.dart';
@@ -18,7 +21,14 @@ class HistoryController extends Notifier<HistoryState> {
   static const Object _unset = Object();
 
   @override
-  HistoryState build() => const HistoryState();
+  HistoryState build() {
+    ref.listen(financialMovementRevisionProvider, (_, _) {
+      if (state.status != HistoryLoadStatus.initial) {
+        unawaited(load());
+      }
+    });
+    return const HistoryState();
+  }
 
   Future<void> load() async {
     if (state.status == HistoryLoadStatus.loading ||
