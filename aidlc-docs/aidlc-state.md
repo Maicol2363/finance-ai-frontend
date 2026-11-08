@@ -131,3 +131,19 @@ The release audit API/PostgreSQL service, previously stopped at the end of the f
 - [x] Changed emulator script to run financial journeys even when the auth test fails; the final step returns failure if either test command fails.
 - [x] `flutter analyze` passed; all 8 existing auth/router widget tests passed; formatter and workflow YAML/shell validation passed.
 - **Not run locally**: Android integration test, because there is no local emulator/AVD. Test result must be observed in GitHub Actions.
+
+## Maintenance Task — Staff Web Not-Found Diagnostic (2026-11-08)
+- **Current Stage**: CONSTRUCTION — local verification complete; publish pending
+- **Branch**: `codex/staff-web-foundation-20261107`, confirmed current with `origin`
+- **PR**: #51 to `develop`
+- **Objective**: provide a copyable stable diagnostic for unmatched staff-web routes without exposing raw URL paths or query values
+- **Active Unit**: `staff-web-not-found-diagnostic`
+- **Plan**: `aidlc-docs/construction/plans/staff-web-not-found-diagnostic-code-generation-plan.md`
+- **Extension Configuration**: Security Baseline enabled and applicable; Property-Based Testing partial and N/A for this deterministic UI path; Resiliency Baseline disabled
+- **Stage Progress**:
+  - [x] Workspace detection and current PR head confirmed
+  - [x] Minimal requirements and workflow plan
+  - [x] One localized application unit; no API or architecture changes
+  - [x] Copyable diagnostic and privacy regression tests
+  - [x] Staff-web lint, typecheck, test suite, and production build
+  - [ ] Publish to the existing PR branch

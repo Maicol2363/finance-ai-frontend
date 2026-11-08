@@ -78,6 +78,14 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .error-state h2 { margin: 0 0 6px; color: var(--ink); font-size: 15px; }
 .error-state p { margin: 0; line-height: 1.6; }
 .error-state button { margin-top: 12px; padding: 8px 12px; border: 1px solid #ded9fb; border-radius: 7px; color: var(--violet); background: #fff; font: inherit; cursor: pointer; }
+.diagnostic-panel { max-width: 760px; margin: 24px 0; padding: 18px; border: 1px solid var(--line); border-radius: 12px; background: #fff; }
+.diagnostic-panel h2 { margin: 0 0 8px; color: var(--ink); font-size: 15px; }
+.diagnostic-panel p { margin: 8px 0; color: var(--muted); font-size: 12px; line-height: 1.6; }
+.diagnostic-panel code { color: var(--ink); font-weight: 700; }
+.diagnostic-report { overflow-x: auto; margin: 12px 0; padding: 12px; border-radius: 8px; color: #34384f; background: #f7f8fc; font: 11px/1.6 ui-monospace, SFMono-Regular, Menlo, monospace; white-space: pre-wrap; overflow-wrap: anywhere; user-select: text; }
+.diagnostic-copy-button { padding: 9px 12px; border: 1px solid #ded9fb; border-radius: 7px; color: var(--violet); background: #fff; font: inherit; font-size: 12px; font-weight: 700; cursor: pointer; }
+.diagnostic-copy-button:hover { background: var(--violet-soft); }
+.diagnostic-copy-status { min-height: 1.5em; }
 
 @media (max-width: 900px) {
   .sidebar { width: 215px; }
