@@ -2252,3 +2252,43 @@ but first wehere did yo make the changes in the pr or the actions ??
 **Context**: Addressing the P1 review on PR #48. Changes are local follow-up edits to the already-pushed branch and still require a commit/push; no PR merge occurred.
 
 ---
+
+## Construction — Staff Web Not-Found Diagnostic
+**Timestamp**: 2026-11-08T01:15:38Z
+**User Input**:
+~~~text
+[P1 Badge] Add the required copyable diagnostic to the not-found page
+When a user opens an unmatched URL, this route displays a user-visible failure but provides neither a stable diagnostic code nor a copyable report. This violates the mandatory diagnostic contract in root AGENTS.md and leaves users unable to supply the required troubleshooting information. Add a web-compatible diagnostic report and copy action using the shared contract, with a stable not-found code and privacy assertions; do not include the raw browser URL or its query values.
+AGENTS.md reference: AGENTS.md:L15-L18
+Useful? React with 👍 / 👎.
+
+My request: oK SI HACER ESO TAMBIEN
+~~~
+**AI Response**: Confirmed the finding applies to the React staff-web not-found page in open PR #51. The PR branch matches the remote and has a clean isolated worktree. Proceeding with the stable `route_not_found` diagnostic, Web Clipboard API copy action, manual-copy fallback, and privacy regression coverage.
+**Context**: User authorized this P1 follow-up on the existing staff-web PR; target is `develop`. No Flutter or backend changes.
+
+---
+
+## Construction — Staff Web Not-Found Diagnostic Verification
+**Timestamp**: 2026-11-08T01:18:03Z
+**User Input**: "oK SI HACER ESO TAMBIEN"
+**AI Response**: The two new not-found diagnostic tests passed. The full staff-web suite passed (4 test files, 9 tests); `npm run lint`, `npm run typecheck`, `npm test`, `npm run build`, and `git diff --check` passed. Privacy assertions verify that neither the unmatched route/query values nor clipboard exception details appear in the report. Security Baseline is compliant for scope; property-based testing is N/A for the deterministic UI path; resiliency baseline is disabled.
+**Context**: Local verification complete for the P1 follow-up on frontend PR #51; ready to publish to the existing PR branch.
+
+---
+
+## Git Handoff — Staff Web Not-Found Diagnostic
+**Timestamp**: 2026-11-08T01:18:35Z
+**User Input**: "oK SI HACER ESO TAMBIEN"
+**AI Response**: Committed the not-found report, browser copy action, manual fallback, privacy tests, styles, and AI-DLC plan as `b79955931279c1426e8ac85970eb5b3af10ea6b6`; pushed to the existing `codex/staff-web-foundation-20261107` branch for PR #51 against `develop`. The staff-web quality and Flutter quality/tests/coverage workflows were pending at the last check.
+**Context**: User-authorized publication of the P1 fix; no merge performed.
+
+---
+
+## Verification — PR #51 Checks
+**Timestamp**: 2026-11-08T01:22:45Z
+**User Input**: "oK SI HACER ESO TAMBIEN"
+**AI Response**: GitHub reported both `staff-web quality` and `Flutter quality, tests, and coverage` passing for PR head `3243e6b82c6c69a458f269ff6167f083b44e918b`. The staff-web test/build checks and the repository Flutter checks are green.
+**Context**: Remote verification completed for the not-found diagnostic follow-up; PR #51 remains open and unmerged.
+
+---

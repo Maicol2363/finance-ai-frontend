@@ -1,5 +1,9 @@
 # Finance AI Flutter Client
 
+## Staff web
+
+The internal Support Agent, Administrator, and Security Auditor portal is a separate React/Vite/TypeScript application in [staff-web/README.md](staff-web/README.md). The Flutter app remains the Android and Windows customer client.
+
 Shared Android and Windows Flutter client for the manual-first Finance AI application. The current slices support registration, Login, secure session restoration, protected Home, Logout, owned financial-account management, manual expense tracking, and personalized budgets with derived progress. Budgets may cover all expenses or one category, use an optional custom name, and run daily, weekly, fortnightly, monthly, quarterly, yearly, every custom number of days/weeks/months/years, or over a one-time date range. Users can create, list, inspect, edit, deactivate, reactivate, and permanently delete unused Cash, bank, digital-wallet, savings, credit-card, and other accounts with exact server-derived balances. Accounts with financial activity must be deactivated so history remains intact. Financial data stays in the backend; offline data storage and synchronization queues are not implemented. Both targets use the same Dart UI, state, validation, and API client.
 
 ## Gastos chat (HU-013)
