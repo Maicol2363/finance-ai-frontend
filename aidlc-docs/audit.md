@@ -2276,3 +2276,11 @@ My request: oK SI HACER ESO TAMBIEN
 **Context**: Local verification complete for the P1 follow-up on frontend PR #51; ready to publish to the existing PR branch.
 
 ---
+
+## Git Handoff — Staff Web Not-Found Diagnostic
+**Timestamp**: 2026-11-08T01:18:35Z
+**User Input**: "oK SI HACER ESO TAMBIEN"
+**AI Response**: Committed the not-found report, browser copy action, manual fallback, privacy tests, styles, and AI-DLC plan as `b79955931279c1426e8ac85970eb5b3af10ea6b6`; pushed to the existing `codex/staff-web-foundation-20261107` branch for PR #51 against `develop`. The staff-web quality and Flutter quality/tests/coverage workflows were pending at the last check.
+**Context**: User-authorized publication of the P1 fix; no merge performed.
+
+---

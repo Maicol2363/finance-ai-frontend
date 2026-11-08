@@ -133,7 +133,7 @@ The release audit API/PostgreSQL service, previously stopped at the end of the f
 - **Not run locally**: Android integration test, because there is no local emulator/AVD. Test result must be observed in GitHub Actions.
 
 ## Maintenance Task — Staff Web Not-Found Diagnostic (2026-11-08)
-- **Current Stage**: CONSTRUCTION — local verification complete; publish pending
+- **Current Stage**: CONSTRUCTION — published; PR checks pending
 - **Branch**: `codex/staff-web-foundation-20261107`, confirmed current with `origin`
 - **PR**: #51 to `develop`
 - **Objective**: provide a copyable stable diagnostic for unmatched staff-web routes without exposing raw URL paths or query values
@@ -146,4 +146,6 @@ The release audit API/PostgreSQL service, previously stopped at the end of the f
   - [x] One localized application unit; no API or architecture changes
   - [x] Copyable diagnostic and privacy regression tests
   - [x] Staff-web lint, typecheck, test suite, and production build
-  - [ ] Publish to the existing PR branch
+  - [x] Publish to the existing PR branch
+- **Published Commit**: `b79955931279c1426e8ac85970eb5b3af10ea6b6`
+- **Remote Checks**: staff-web quality and Flutter quality/tests/coverage pending at last status read
