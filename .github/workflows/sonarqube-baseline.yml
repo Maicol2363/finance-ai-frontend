@@ -9,12 +9,12 @@ permissions:
 
 jobs:
   publish:
-    name: Publish coverage for the frontend main commit
+    name: Publish coverage for the frontend develop commit
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
-          ref: 9e31c6d50018ee524a244e2e69ff7498a7a7d53d # main at the start of this coverage run
+          ref: 3c388071425a43eaf51b3e17ddbf0a5f5c6ddd29 # develop at the start of this coverage run
           fetch-depth: 0
           persist-credentials: false
       - name: Install checksum-verified Flutter 3.47.2
@@ -61,5 +61,5 @@ jobs:
             -Dsonar.tests=test,integration_test
             -Dsonar.sourceEncoding=UTF-8
             -Dsonar.dart.lcov.reportPaths=coverage/lcov.info
-            -Dsonar.branch.name=main
-            -Dsonar.scm.revision=9e31c6d50018ee524a244e2e69ff7498a7a7d53d
+            -Dsonar.branch.name=develop
+            -Dsonar.scm.revision=3c388071425a43eaf51b3e17ddbf0a5f5c6ddd29
