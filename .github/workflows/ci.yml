@@ -3,6 +3,8 @@ name: Frontend CI
 on:
   pull_request:
     branches: [develop, main]
+  push:
+    branches: [main]
 
 permissions:
   contents: read
@@ -17,6 +19,8 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
       - name: Install checksum-verified Flutter 3.47.2
         shell: bash
         run: |
@@ -49,3 +53,12 @@ jobs:
               if (coverage < 80) exit 1
             }
           ' coverage/lcov.info
+
+      - name: SonarQube Cloud scan
+        if: >-
+          github.event_name == 'push' ||
+          (github.event.pull_request.head.repo.full_name == github.repository &&
+           github.actor != 'dependabot[bot]')
+        uses: SonarSource/sonarqube-scan-action@4d1dc0c91ee400dcf8a6dddf2f705ac36542e304 # v8.4.0
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
