@@ -220,6 +220,43 @@ describe('StaffSessionCoordinator', () => {
     coordinator.stop()
   })
 
+  it('keeps initial sign-in quiet when no refresh session exists', async () => {
+    const api = createApi({
+      session: vi.fn().mockRejectedValue(new StaffAuthApiError(401, 'authentication_required', null, null, 'session')),
+      refresh: vi.fn().mockRejectedValue(new StaffAuthApiError(401, 'session_invalid', null, null, 'refresh')),
+    })
+    const coordinator = new StaffSessionCoordinator(api as never, { channelFactory: null })
+
+    await coordinator.restore()
+
+    expect(api.session).toHaveBeenCalledOnce()
+    expect(api.refresh).toHaveBeenCalledOnce()
+    expect(coordinator.currentState).toEqual({ status: 'anonymous' })
+    coordinator.stop()
+  })
+
+  it('explains an invalid refresh after this tab previously confirmed a session', async () => {
+    vi.useFakeTimers()
+    const api = createApi({
+      session: vi.fn()
+        .mockResolvedValueOnce(sessionView)
+        .mockRejectedValueOnce(new StaffAuthApiError(401, 'access_expired', null, null, 'session')),
+      refresh: vi.fn().mockRejectedValue(new StaffAuthApiError(401, 'session_invalid', null, null, 'refresh')),
+    })
+    const coordinator = new StaffSessionCoordinator(api as never, { channelFactory: null })
+    coordinator.start()
+    await vi.waitFor(() => expect(coordinator.currentState.status).toBe('authenticated'))
+
+    await vi.advanceTimersByTimeAsync(30_000)
+
+    expect(coordinator.currentState).toMatchObject({
+      status: 'anonymous',
+      message: 'El acceso del personal ya no está disponible. Inicia sesión otra vez si aún tienes autorización.',
+      diagnostic: { code: 'session_invalid', operation: 'refresh' },
+    })
+    coordinator.stop()
+  })
+
   it('rechecks the session under a Web Lock before rotating the refresh cookie', async () => {
     const request = vi.fn(async (_name: string, _options: unknown, callback: () => Promise<StaffSessionView>) => callback())
     const locks = { request } as unknown as LockManager

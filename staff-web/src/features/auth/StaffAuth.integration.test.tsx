@@ -61,6 +61,25 @@ describe('staff authentication integration', () => {
     expect(new Headers(refreshCall?.[1]?.headers).get('X-Staff-Request')).toBe('1')
   })
 
+  it('keeps a clean login screen when startup finds no renewable session', async () => {
+    const fetchMock = vi.mocked(fetch)
+    fetchMock.mockImplementation(async (input: RequestInfo | URL) => {
+      if (String(input).endsWith('/session')) return problem('authentication_required', 401)
+      if (String(input).endsWith('/refresh')) return problem('session_invalid', 401)
+      return problem('unknown_error', 404)
+    })
+    window.history.pushState({}, '', '/login')
+    render(<AppRouter />)
+
+    expect(await screen.findByRole('heading', { name: 'Iniciar sesión en el portal de soporte' })).toBeInTheDocument()
+    expect(fetchMock.mock.calls.map(([input]) => String(input))).toEqual([
+      '/api/v1/staff/auth/session',
+      '/api/v1/staff/auth/refresh',
+    ])
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Contenido del informe de diagnóstico')).not.toBeInTheDocument()
+  })
+
   it('shows a safe restore diagnostic with a sanitized API location and correlation id', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => new Response(
       JSON.stringify({ code: 'service_unavailable', detail: 'raw-body-password-token' }),

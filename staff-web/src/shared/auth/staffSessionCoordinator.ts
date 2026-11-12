@@ -416,10 +416,20 @@ export class StaffSessionCoordinator {
     if (isDefinitiveDenial(error)) {
       this.session = null
       this.clearTimer()
+      // On first load, a missing access cookie can still have a valid refresh
+      // cookie, so restoration must try refresh. If no refresh session exists,
+      // `session_invalid` is simply an anonymous visit; keep the sign-in page
+      // clear. Once this tab confirmed a session, continue explaining denials.
+      const silentInitialInvalidSession =
+        !hadConfirmedSession &&
+        error instanceof StaffAuthApiError &&
+        error.code === 'session_invalid'
       this.setState({
         status: 'anonymous',
-        message: safeStaffAuthMessage(error, 'session'),
-        diagnostic: safeStaffAuthDiagnostic(error, operation),
+        ...(!silentInitialInvalidSession && {
+          message: safeStaffAuthMessage(error, 'session'),
+          diagnostic: safeStaffAuthDiagnostic(error, operation),
+        }),
       })
       return
     }
