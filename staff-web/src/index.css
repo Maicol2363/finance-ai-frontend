@@ -86,6 +86,26 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .diagnostic-copy-button { padding: 9px 12px; border: 1px solid #ded9fb; border-radius: 7px; color: var(--violet); background: #fff; font: inherit; font-size: 12px; font-weight: 700; cursor: pointer; }
 .diagnostic-copy-button:hover { background: var(--violet-soft); }
 .diagnostic-copy-status { min-height: 1.5em; }
+.status-dot-active { background: #36a879; box-shadow: 0 0 0 4px #e6f8f0; }
+.sign-out-button { cursor: pointer; font: inherit; }
+.auth-page { display: grid; min-height: min(620px, calc(100vh - 160px)); place-items: center; }
+.auth-card { width: min(440px, 100%); padding: clamp(22px, 4vw, 34px); border: 1px solid var(--line); border-radius: 16px; background: #fff; box-shadow: 0 16px 45px #30385b0d; }
+.auth-card h1 { margin: 10px 0 8px; color: var(--ink); font-size: 27px; letter-spacing: -.035em; line-height: 1.2; }
+.auth-intro { margin: 0 0 23px; color: var(--muted); font-size: 13px; line-height: 1.6; }
+.auth-field { display: grid; gap: 7px; margin: 16px 0; }
+.auth-field label { color: #3c4158; font-size: 12px; font-weight: 700; }
+.auth-field input { min-height: 43px; padding: 9px 11px; border: 1px solid #dfe2ec; border-radius: 8px; color: var(--ink); background: #fff; font: inherit; font-size: 13px; }
+.auth-field input:focus { border-color: var(--violet); outline: 3px solid #8c76f033; }
+.auth-submit { width: 100%; justify-content: center; margin-top: 5px; border: 0; cursor: pointer; font: inherit; }
+.auth-submit:disabled { cursor: wait; opacity: .7; }
+.auth-back-link { display: inline-block; margin-top: 21px; color: var(--violet); font-size: 12px; font-weight: 700; }
+.auth-message { margin: 0 0 13px; padding: 10px 12px; border: 1px solid #f2d6d6; border-radius: 8px; color: #8c3030; background: #fff7f7; font-size: 12px; line-height: 1.5; }
+.text-button { padding: 0; border: 0; color: var(--violet); background: transparent; font: inherit; font-size: 12px; font-weight: 700; cursor: pointer; }
+.auth-status-panel { padding: 22px; border: 1px solid var(--line); border-radius: 12px; background: #fff; }
+.auth-status-panel h1 { margin: 0 0 8px; color: var(--ink); font-size: 21px; }
+.auth-status-panel p { color: var(--muted); font-size: 13px; line-height: 1.6; }
+.auth-status-panel a { display: inline-block; margin: 12px 0 0 14px; }
+.auth-status-panel button { padding: 9px 12px; border: 1px solid #ded9fb; border-radius: 7px; color: var(--violet); background: #fff; font: inherit; cursor: pointer; }
 
 @media (max-width: 900px) {
   .sidebar { width: 215px; }

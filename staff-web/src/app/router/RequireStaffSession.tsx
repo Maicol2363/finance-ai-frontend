@@ -1,0 +1,37 @@
+import { Link, Navigate, useLocation } from 'react-router'
+import type { ReactNode } from 'react'
+import { useStaffAuth } from '../../shared/auth/useStaffAuth'
+
+export function RequireStaffSession({ children }: { children: ReactNode }) {
+  const { state, retry, retryPendingLogout } = useStaffAuth()
+  const location = useLocation()
+
+  if (state.status === 'authenticated' && state.session.user.role === 'support_agent') {
+    return children
+  }
+  if (state.status === 'anonymous') {
+    return <Navigate to="/login" replace state={{ from: location.pathname }} />
+  }
+  if (state.status === 'recoverable_error') {
+    return (
+      <section aria-live="polite" className="auth-status-panel error-state" data-testid="staff-auth-recoverable-error">
+        <h1>Support is temporarily unavailable</h1>
+        <p>{state.message}</p>
+        <button data-testid="staff-auth-retry-button" onClick={() => void retry()} type="button">Try again</button>
+        <Link data-testid="staff-auth-sign-in-link" to="/login">Return to sign in</Link>
+      </section>
+    )
+  }
+  if (state.status === 'logout_pending') {
+    return (
+      <section aria-live="polite" className="auth-status-panel error-state" data-testid="staff-logout-pending">
+        <h1>Sign-out needs confirmation</h1>
+        <p>{state.message}</p>
+        <button data-testid="staff-logout-retry-button" onClick={() => void retryPendingLogout()} type="button">Retry sign out</button>
+      </section>
+    )
+  }
+
+  const statusMessage = state.status === 'authenticating' ? 'Signing in…' : 'Checking your staff session…'
+  return <div aria-live="polite" className="async-state" data-testid="staff-auth-loading" role="status">{statusMessage}</div>
+}

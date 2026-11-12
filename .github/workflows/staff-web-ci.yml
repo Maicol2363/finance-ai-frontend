@@ -41,6 +41,11 @@ jobs:
           npm run lint
           npm run typecheck
           npm test
+          npm run test:coverage
           npm run build
+      - name: Install Chromium for browser tests
+        run: npx playwright install --with-deps chromium
+      - name: Run staff authentication browser tests
+        run: npm run test:e2e
       - name: Audit dependencies
         run: npm audit --audit-level=moderate

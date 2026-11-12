@@ -1,13 +1,16 @@
 import { NavLink, Outlet } from 'react-router'
+import { useStaffAuth } from '../../shared/auth/useStaffAuth'
 
 const navigation = [
   { to: '/', label: 'Overview', end: true },
   { to: '/support', label: 'Support' },
-  { to: '/admin', label: 'Administration' },
-  { to: '/audit', label: 'Security audit' },
 ]
 
 export function StaffLayout() {
+  const { state, logout } = useStaffAuth()
+  const authenticated = state.status === 'authenticated'
+  const identity = authenticated ? state.session.user.email : null
+
   return (
     <div className="portal-shell">
       <a className="skip-link" href="#main-content">Skip to content</a>
@@ -30,17 +33,19 @@ export function StaffLayout() {
           ))}
         </nav>
         <div className="sidebar-footer">
-          <span aria-hidden="true" className="status-dot" />
-          <span><strong>Sign-in unavailable</strong><small>Authentication is not connected</small></span>
+          <span aria-hidden="true" className={`status-dot${authenticated ? ' status-dot-active' : ''}`} />
+          <span><strong>{authenticated ? 'Support agent' : 'Staff access protected'}</strong><small>{identity ?? 'Sign in to open Support'}</small></span>
         </div>
       </aside>
       <div className="workspace">
         <header className="topbar">
-          <div><span className="eyebrow">FINANCIAI · INTERNAL</span><p>Support and security workspace</p></div>
-          <NavLink className="sign-in-link" to="/login">Sign in</NavLink>
+          <div><span className="eyebrow">FINANCIAI · INTERNAL</span><p>Support workspace</p></div>
+          {authenticated
+            ? <button className="sign-in-link sign-out-button" data-testid="staff-sign-out-button" onClick={() => void logout()} type="button">Sign out</button>
+            : <NavLink className="sign-in-link" data-testid="staff-sign-in-link" to="/login">Sign in</NavLink>}
         </header>
         <main className="page-content" id="main-content"><Outlet /></main>
-        <footer className="page-footer">Staff tools are unavailable until secure sign-in is connected.</footer>
+        <footer className="page-footer">Support access is confirmed by the staff session service.</footer>
       </div>
     </div>
   )
