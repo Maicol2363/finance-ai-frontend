@@ -40,6 +40,8 @@ test('direct protected navigation waits for server confirmation and redirects an
   await expect(page.getByRole('heading', { name: 'Atención al cliente' })).toHaveCount(0)
   await expect(page.getByLabel('Correo electrónico')).toBeVisible()
   await expect(page.getByLabel('Contraseña')).toBeVisible()
+  await expect(page.getByRole('navigation', { name: 'Navegación del personal' })).toHaveCount(0)
+  await expect(page.getByRole('link', { name: 'Soporte' })).toHaveCount(0)
 })
 
 test('accepts only server-confirmed support agents and clears the protected view on logout', async ({ page }) => {
@@ -77,6 +79,8 @@ test('accepts only server-confirmed support agents and clears the protected view
   await page.getByRole('button', { name: 'Iniciar sesión' }).click()
 
   await expect(page.getByRole('heading', { name: 'Atención al cliente' })).toBeVisible()
+  await expect(page.getByRole('navigation', { name: 'Navegación del personal' })).toHaveCount(0)
+  await expect(page.getByRole('link', { name: 'Soporte' })).toHaveCount(0)
   await expect(page.getByText('support@example.test')).toBeVisible()
   expect(new URL(page.url()).pathname).toBe('/support')
   expect(new URL(page.url()).search).toBe('')
@@ -353,17 +357,22 @@ test('applies the Flutter light and dark palettes and persists only the theme pr
       window.localStorage.setItem('finance_ai.theme_mode', 'light')
     }
   })
-  await page.goto('/')
+  await installUnauthenticatedRoutes(page)
+  await page.goto('/login')
 
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'light')
+  await expect(page.getByTestId('staff-sign-in-page')).toBeVisible()
+  await expect(page.getByRole('navigation', { name: 'Navegación del personal' })).toHaveCount(0)
   const lightPalette = await page.evaluate(() => ({
     canvas: getComputedStyle(document.body).backgroundColor,
-    sidebar: getComputedStyle(document.querySelector('.sidebar')!).backgroundColor,
+    header: getComputedStyle(document.querySelector('.auth-topbar')!).backgroundColor,
+    card: getComputedStyle(document.querySelector('.auth-card')!).backgroundColor,
     primary: getComputedStyle(document.querySelector('.primary-button')!).backgroundColor,
   }))
   expect(lightPalette).toEqual({
     canvas: 'rgb(245, 247, 246)',
-    sidebar: 'rgb(255, 255, 255)',
+    header: 'rgb(255, 255, 255)',
+    card: 'rgb(255, 255, 255)',
     primary: 'rgb(35, 107, 82)',
   })
 
@@ -378,13 +387,13 @@ test('applies the Flutter light and dark palettes and persists only the theme pr
 
   const darkPalette = await page.evaluate(() => ({
     canvas: getComputedStyle(document.body).backgroundColor,
-    sidebar: getComputedStyle(document.querySelector('.sidebar')!).backgroundColor,
-    card: getComputedStyle(document.querySelector('.area-card')!).backgroundColor,
+    header: getComputedStyle(document.querySelector('.auth-topbar')!).backgroundColor,
+    card: getComputedStyle(document.querySelector('.auth-card')!).backgroundColor,
     primary: getComputedStyle(document.querySelector('.primary-button')!).backgroundColor,
   }))
   expect(darkPalette).toEqual({
     canvas: 'rgb(23, 29, 34)',
-    sidebar: 'rgb(34, 43, 49)',
+    header: 'rgb(34, 43, 49)',
     card: 'rgb(32, 40, 46)',
     primary: 'rgb(105, 185, 146)',
   })

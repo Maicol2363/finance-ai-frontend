@@ -5,6 +5,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { SignInPage } from './SignInPage'
 import { StaffAuthContext, type StaffAuthContextValue } from '../../shared/auth/staffAuthContext'
 import type { StaffAuthState } from '../../shared/auth/staffSessionCoordinator'
+import { StaffThemeProvider } from '../../shared/theme/StaffThemeProvider'
 
 const validSession = {
   user: { id: 42, email: 'agent@example.test', role: 'support_agent' as const },
@@ -31,16 +32,18 @@ function contextValue(state: StaffAuthState): StaffAuthContextValue {
 
 function renderPage(value: StaffAuthContextValue, entry = '/login') {
   return render(
-    <StaffAuthContext.Provider value={value}>
-      <MemoryRouter initialEntries={[entry]}>
-        <LocationProbe />
-        <Routes>
-          <Route element={<SignInPage />} path="/login" />
-          <Route element={<p data-testid="support-destination">Support destination</p>} path="/support/*" />
-          <Route element={<p data-testid="unknown-destination">Unknown destination</p>} path="*" />
-        </Routes>
-      </MemoryRouter>
-    </StaffAuthContext.Provider>,
+    <StaffThemeProvider>
+      <StaffAuthContext.Provider value={value}>
+        <MemoryRouter initialEntries={[entry]}>
+          <LocationProbe />
+          <Routes>
+            <Route element={<SignInPage />} path="/login" />
+            <Route element={<p data-testid="support-destination">Support destination</p>} path="/support/*" />
+            <Route element={<p data-testid="unknown-destination">Unknown destination</p>} path="*" />
+          </Routes>
+        </MemoryRouter>
+      </StaffAuthContext.Provider>
+    </StaffThemeProvider>,
   )
 }
 

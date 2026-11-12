@@ -20,7 +20,12 @@ export default defineConfig(({ mode }) => {
     plugins: [react(), tailwindcss()],
     server: {
       watch: {
-        ignored: [resolve(configDirectory, 'staff-web')],
+        ignored: [
+          resolve(configDirectory, 'staff-web'),
+          resolve(configDirectory, 'coverage'),
+          resolve(configDirectory, 'test-results'),
+          resolve(configDirectory, 'playwright-report'),
+        ],
       },
       proxy: {
         '/api': {

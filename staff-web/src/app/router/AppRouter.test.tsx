@@ -33,13 +33,13 @@ describe('staff portal authentication routes', () => {
 
   afterEach(() => vi.unstubAllGlobals())
 
-  it('keeps the overview public and exposes only Support Agent navigation', async () => {
+  it('opens the sign-in page at the root without exposing Support navigation', async () => {
     render(<AppRouter />)
 
-    expect(await screen.findByRole('heading', { name: 'Tu espacio de soporte empieza aquí.' })).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'Soporte' })).toBeInTheDocument()
-    expect(screen.queryByRole('link', { name: 'Administration' })).not.toBeInTheDocument()
-    expect(screen.queryByRole('link', { name: 'Auditoría de seguridad' })).not.toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Iniciar sesión en el portal de soporte' })).toBeInTheDocument()
+    expect(screen.queryByRole('navigation', { name: 'Navegación del personal' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Soporte' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Tu espacio de soporte empieza aquí.' })).not.toBeInTheDocument()
   })
 
   it('redirects direct support navigation to sign-in and hides the protected page', async () => {
@@ -48,6 +48,8 @@ describe('staff portal authentication routes', () => {
 
     expect(await screen.findByRole('heading', { name: 'Iniciar sesión en el portal de soporte' })).toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: 'Atención al cliente' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('navigation', { name: 'Navegación del personal' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Soporte' })).not.toBeInTheDocument()
   })
 
   it('shows a recoverable protected-route error and retries session confirmation', async () => {
@@ -88,7 +90,7 @@ describe('staff portal authentication routes', () => {
     expect(sessionStorage.getItem('finance-ai-staff-logout-pending')).toBeNull()
   })
 
-  it('submits credentials and opens Support only after a server-confirmed support_agent session', async () => {
+  it('redirects direct unauthenticated Support access to login, then opens Support after login', async () => {
     const fetchMock = vi.mocked(fetch)
     fetchMock.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
       if (String(input).endsWith('/session')) return deniedResponse()
@@ -99,7 +101,7 @@ describe('staff portal authentication routes', () => {
       }
       return jsonResponse({ code: 'session_invalid' }, 401)
     })
-    window.history.pushState({}, '', '/login')
+    window.history.pushState({}, '', '/support')
     const user = userEvent.setup()
     render(<AppRouter />)
 
@@ -108,6 +110,9 @@ describe('staff portal authentication routes', () => {
     await user.click(screen.getByRole('button', { name: 'Iniciar sesión' }))
 
     expect(await screen.findByRole('heading', { name: 'Atención al cliente' })).toBeInTheDocument()
+    expect(window.location.pathname).toBe('/support')
+    expect(screen.queryByRole('navigation', { name: 'Navegación del personal' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Soporte' })).not.toBeInTheDocument()
     expect(screen.getByText('agent@example.test')).toBeInTheDocument()
   })
 
