@@ -106,6 +106,7 @@ describe('staffAuthApi', () => {
       code: 'invalid_credentials',
       correlationId: 'corr-safe',
       retryAfterSeconds: 4,
+      operation: 'login',
     })
     expect((error as Error).message).not.toContain('private password')
   })
@@ -113,7 +114,7 @@ describe('staffAuthApi', () => {
   it('turns transport failures into a generic network error', async () => {
     vi.mocked(fetch).mockRejectedValue(new TypeError('socket contains private request data'))
 
-    await expect(staffAuthApi.session()).rejects.toMatchObject({ code: 'network_error' })
+    await expect(staffAuthApi.session()).rejects.toMatchObject({ code: 'network_error', operation: 'session' })
     await expect(staffAuthApi.session()).rejects.not.toThrow('private request data')
   })
 

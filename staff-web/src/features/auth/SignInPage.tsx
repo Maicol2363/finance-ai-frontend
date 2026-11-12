@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { Link, Navigate, useLocation } from 'react-router'
 import { useStaffAuth } from '../../shared/auth/useStaffAuth'
+import { AuthDiagnosticPanel } from './AuthDiagnosticPanel'
 
 function supportDestination(value: unknown): string {
   if (typeof value === 'string' && (value === '/support' || value.startsWith('/support/'))) return value
@@ -43,6 +44,7 @@ export function SignInPage() {
           <span className="eyebrow">CIERRE DE SESIÓN PENDIENTE</span>
           <h1>Confirma el cierre de sesión</h1>
           <p>{state.message}</p>
+          {state.diagnostic && <AuthDiagnosticPanel diagnostic={state.diagnostic} />}
           <button data-testid="staff-logout-retry-button" onClick={() => void retryPendingLogout()} type="button">Reintentar cierre de sesión</button>
           <Link className="text-link" data-testid="staff-overview-link" to="/">Volver al inicio</Link>
         </div>
@@ -56,6 +58,9 @@ export function SignInPage() {
   const errorMessage = state.status === 'anonymous' || state.status === 'recoverable_error'
     ? state.message
     : undefined
+  const diagnostic = state.status === 'anonymous' || state.status === 'recoverable_error'
+    ? state.diagnostic
+    : undefined
 
   return (
     <section className="auth-page" data-testid="staff-sign-in-page">
@@ -68,6 +73,7 @@ export function SignInPage() {
             {errorMessage}
           </p>
         )}
+        {diagnostic && <AuthDiagnosticPanel diagnostic={diagnostic} />}
         {state.status === 'recoverable_error' && (
           <button className="text-button" data-testid="staff-auth-retry-button" onClick={() => void retry()} type="button">Comprobar sesión de nuevo</button>
         )}

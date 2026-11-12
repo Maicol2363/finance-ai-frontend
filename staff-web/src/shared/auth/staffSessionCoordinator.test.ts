@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { StaffAuthApiError, type StaffSessionView } from '../api/staffAuthApi'
-import { StaffSessionCoordinator } from './staffSessionCoordinator'
+import { safeStaffAuthDiagnostic, StaffSessionCoordinator } from './staffSessionCoordinator'
 
 const sessionView: StaffSessionView = {
   user: { id: 5, email: 'agent@example.test', role: 'support_agent' },
@@ -97,6 +97,87 @@ describe('StaffSessionCoordinator', () => {
     coordinator.stop()
   })
 
+  it('marks logout pending before dispatch and ignores a late restore during logout', async () => {
+    vi.useFakeTimers()
+    const previousVisibility = Object.getOwnPropertyDescriptor(document, 'visibilityState')
+    Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => 'visible' })
+    let finishRevalidation: ((value: StaffSessionView) => void) | undefined
+    let finishLogout: (() => void) | undefined
+    const storage = createStorage()
+    let sessionCalls = 0
+    const api = createApi({
+      session: vi.fn(() => {
+        sessionCalls += 1
+        if (sessionCalls === 1) return Promise.resolve(sessionView)
+        return new Promise<StaffSessionView>((resolve) => { finishRevalidation = resolve })
+      }),
+      logout: vi.fn(() => new Promise<void>((resolve) => { finishLogout = resolve })),
+    })
+    const coordinator = new StaffSessionCoordinator(api as never, { storage, document, channelFactory: null })
+    vi.mocked(api.logout).mockImplementation(() => {
+      expect(storage.current()).toBe('1')
+      expect(coordinator.currentState.status).toBe('logout_pending')
+      return new Promise<void>((resolve) => { finishLogout = resolve })
+    })
+    try {
+      coordinator.start()
+      await vi.waitFor(() => expect(coordinator.currentState.status).toBe('authenticated'))
+      const revalidation = vi.advanceTimersByTimeAsync(30_000)
+      await vi.waitFor(() => expect(api.session).toHaveBeenCalledTimes(2))
+      const revalidationRequest = coordinator.restore()
+
+      const logout = coordinator.logout()
+      expect(storage.setItem).toHaveBeenCalledWith('finance-ai-staff-logout-pending', '1')
+      finishRevalidation?.(sessionView)
+      await Promise.all([revalidation, revalidationRequest])
+
+      expect(coordinator.currentState.status).toBe('logout_pending')
+      await coordinator.restore()
+      document.dispatchEvent(new Event('visibilitychange'))
+      expect(sessionCalls).toBe(2)
+
+      finishLogout?.()
+      await logout
+      expect(coordinator.currentState.status).toBe('anonymous')
+      expect(sessionCalls).toBe(2)
+      coordinator.stop()
+    } finally {
+      if (previousVisibility) Object.defineProperty(document, 'visibilityState', previousVisibility)
+      else Reflect.deleteProperty(document, 'visibilityState')
+    }
+  })
+
+  it('keeps diagnostic metadata allow-listed and rejects unsafe correlation values', () => {
+    const occurredAt = new Date('2026-11-12T15:30:00.000Z')
+    const diagnostic = safeStaffAuthDiagnostic(
+      new StaffAuthApiError(403, 'staff_access_denied', 'req-7f2a', null, 'session'),
+      'login',
+      occurredAt,
+    )
+    expect(diagnostic).toEqual({
+      code: 'staff_access_denied',
+      operation: 'session',
+      occurredAtUtc: '2026-11-12T15:30:00.000Z',
+      platform: 'web',
+      apiLocation: '/api/v1/staff/auth/session',
+      correlationId: 'req-7f2a',
+      reason: 'staff_access_denied',
+    })
+
+    const unsafe = safeStaffAuthDiagnostic(
+      new StaffAuthApiError(500, 'secret@example.test', 'password=not-safe'),
+      'logout',
+      occurredAt,
+    )
+    expect(unsafe).toMatchObject({
+      code: 'unknown_error',
+      operation: 'logout',
+      apiLocation: '/api/v1/staff/auth/logout',
+      correlationId: null,
+    })
+    expect(JSON.stringify(unsafe)).not.toMatch(/secret@example|password|not-safe/)
+  })
+
   it('shares one in-flight refresh promise within a tab', async () => {
     let completeRefresh: ((value: StaffSessionView) => void) | undefined
     const api = createApi({
@@ -115,6 +196,27 @@ describe('StaffSessionCoordinator', () => {
 
     expect(api.refresh).toHaveBeenCalledOnce()
     expect(coordinator.currentState.status).toBe('authenticated')
+    coordinator.stop()
+  })
+
+  it('retains the refresh operation and safe correlation id after a refresh failure', async () => {
+    const api = createApi({
+      session: vi.fn().mockRejectedValue(new StaffAuthApiError(401, 'access_expired', null, null, 'session')),
+      refresh: vi.fn().mockRejectedValue(new StaffAuthApiError(503, 'service_unavailable', 'refresh-123', null, 'refresh')),
+    })
+    const coordinator = new StaffSessionCoordinator(api as never, { channelFactory: null })
+
+    await coordinator.restore()
+
+    expect(coordinator.currentState).toMatchObject({
+      status: 'recoverable_error',
+      diagnostic: {
+        code: 'service_unavailable',
+        operation: 'refresh',
+        apiLocation: '/api/v1/staff/auth/refresh',
+        correlationId: 'refresh-123',
+      },
+    })
     coordinator.stop()
   })
 

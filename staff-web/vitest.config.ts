@@ -17,6 +17,7 @@ export default defineConfig({
         'src/app/router/RequireStaffSession.tsx',
         'src/app/layouts/StaffLayout.tsx',
         'src/features/auth/SignInPage.tsx',
+        'src/features/auth/AuthDiagnosticPanel.tsx',
         'src/features/shared/OverviewPage.tsx',
         'src/shared/api/staffAuthApi.ts',
         'src/shared/auth/StaffAuthProvider.tsx',

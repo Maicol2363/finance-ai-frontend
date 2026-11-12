@@ -61,6 +61,76 @@ describe('staff authentication integration', () => {
     expect(new Headers(refreshCall?.[1]?.headers).get('X-Staff-Request')).toBe('1')
   })
 
+  it('shows a safe restore diagnostic with a sanitized API location and correlation id', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(
+      JSON.stringify({ code: 'service_unavailable', detail: 'raw-body-password-token' }),
+      {
+        status: 503,
+        headers: {
+          'Content-Type': 'application/problem+json',
+          'X-Correlation-ID': 'restore-request-7',
+        },
+      },
+    )))
+    window.history.pushState({}, '', '/support')
+    render(<AppRouter />)
+
+    expect(await screen.findByTestId('staff-auth-recoverable-error')).toBeInTheDocument()
+    const report = screen.getByLabelText('Contenido del informe de diagnóstico').textContent ?? ''
+    expect(report).toContain('Código del error: service_unavailable')
+    expect(report).toContain('Operación: staff.auth.session')
+    expect(report).toContain('Ubicación de la API: /api/v1/staff/auth/session')
+    expect(report).toContain('Id. de solicitud/correlación: restore-request-7')
+    expect(report).not.toMatch(/raw-body-password-token|agent@example\.test|Bearer|access_token/)
+  })
+
+  it('shows and copies a privacy-safe login failure report', async () => {
+    const fetchMock = vi.mocked(fetch)
+    fetchMock.mockImplementation(async (input: RequestInfo | URL) => {
+      if (String(input).endsWith('/session')) return problem('session_invalid', 401)
+      if (String(input).endsWith('/login')) {
+        return new Response(JSON.stringify({
+          code: 'invalid_credentials',
+          detail: 'raw-body-password-token',
+        }), {
+          status: 401,
+          headers: {
+            'Content-Type': 'application/problem+json',
+            'X-Correlation-ID': 'support@example.test',
+          },
+        })
+      }
+      return problem('unknown_error', 404)
+    })
+    const user = userEvent.setup()
+    const writeText = vi.fn<Clipboard['writeText']>().mockResolvedValue()
+    const previousClipboard = Object.getOwnPropertyDescriptor(navigator, 'clipboard')
+    Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } })
+    window.history.pushState({}, '', '/login')
+    render(<AppRouter />)
+
+    try {
+      await user.type(await screen.findByRole('textbox', { name: 'Correo electrónico' }), 'support@example.test')
+      await user.type(screen.getByLabelText('Contraseña'), 'not-persisted-password')
+      await user.click(screen.getByRole('button', { name: 'Iniciar sesión' }))
+
+      const reportElement = await screen.findByLabelText('Contenido del informe de diagnóstico')
+      const report = reportElement.textContent ?? ''
+      expect(report).toContain('Código del error: invalid_credentials')
+      expect(report).toContain('Operación: staff.auth.login')
+      expect(report).toContain('Ubicación de la API: /api/v1/staff/auth/login')
+      expect(report).toContain('Id. de solicitud/correlación: no_disponible')
+      expect(report).not.toMatch(/support@example\.test|not-persisted-password|raw-body-password-token|Bearer|access_token/)
+
+      await user.click(screen.getByTestId('staff-auth-diagnostic-copy-button'))
+      expect(writeText).toHaveBeenCalledExactlyOnceWith(report)
+      expect(await screen.findByRole('status')).toHaveTextContent('Se copió el informe de diagnóstico.')
+    } finally {
+      if (previousClipboard) Object.defineProperty(navigator, 'clipboard', previousClipboard)
+      else Reflect.deleteProperty(navigator, 'clipboard')
+    }
+  })
+
   it('keeps a session with an unexpected role outside Support', async () => {
     vi.mocked(fetch).mockResolvedValueOnce(jsonResponse({
       ...validSession,
@@ -106,6 +176,10 @@ describe('staff authentication integration', () => {
     expect(screen.queryByRole('heading', { name: 'Atención al cliente' })).not.toBeInTheDocument()
     expect(screen.queryByText(/signed out/i)).not.toBeInTheDocument()
     expect(Object.entries(sessionStorage)).toEqual([['finance-ai-staff-logout-pending', '1']])
+    const report = screen.getByLabelText('Contenido del informe de diagnóstico').textContent ?? ''
+    expect(report).toContain('Código del error: network_error')
+    expect(report).toContain('Operación: staff.auth.logout')
+    expect(report).not.toMatch(/simulated disconnect|agent@example\.test|access_token|refresh_token/)
   })
 
   it('lets a user explicitly retry a recoverable session check', async () => {

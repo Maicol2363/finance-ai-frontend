@@ -1,6 +1,7 @@
 import { Link, Navigate, useLocation } from 'react-router'
 import type { ReactNode } from 'react'
 import { useStaffAuth } from '../../shared/auth/useStaffAuth'
+import { AuthDiagnosticPanel } from '../../features/auth/AuthDiagnosticPanel'
 
 export function RequireStaffSession({ children }: { children: ReactNode }) {
   const { state, retry, retryPendingLogout } = useStaffAuth()
@@ -17,6 +18,7 @@ export function RequireStaffSession({ children }: { children: ReactNode }) {
       <section aria-live="polite" className="auth-status-panel error-state" data-testid="staff-auth-recoverable-error">
         <h1>Soporte no está disponible temporalmente</h1>
         <p>{state.message}</p>
+        {state.diagnostic && <AuthDiagnosticPanel diagnostic={state.diagnostic} />}
         <button data-testid="staff-auth-retry-button" onClick={() => void retry()} type="button">Intentar de nuevo</button>
         <Link data-testid="staff-auth-sign-in-link" to="/login">Volver al inicio de sesión</Link>
       </section>
@@ -27,6 +29,7 @@ export function RequireStaffSession({ children }: { children: ReactNode }) {
       <section aria-live="polite" className="auth-status-panel error-state" data-testid="staff-logout-pending">
         <h1>Confirma el cierre de sesión</h1>
         <p>{state.message}</p>
+        {state.diagnostic && <AuthDiagnosticPanel diagnostic={state.diagnostic} />}
         <button data-testid="staff-logout-retry-button" onClick={() => void retryPendingLogout()} type="button">Reintentar cierre de sesión</button>
       </section>
     )

@@ -270,7 +270,81 @@ test('removes Support after timed revalidation receives a definitive denial', as
 
   await expect(page.getByTestId('staff-sign-in-page')).toBeVisible()
   await expect(page.getByRole('heading', { name: 'Atención al cliente' })).toHaveCount(0)
+  const report = page.getByLabel('Contenido del informe de diagnóstico')
+  await expect(report).toContainText('Código del error: staff_access_denied')
+  await expect(report).toContainText('Operación: staff.auth.session')
+  await expect(report).toContainText('Ubicación de la API: /api/v1/staff/auth/session')
   expect(sessionRequests).toBe(2)
+})
+
+test('shows a copyable login diagnostic without credentials or response details', async ({ page }) => {
+  await page.route('**/api/v1/staff/auth/**', async (route) => {
+    if (route.request().url().endsWith('/session')) {
+      await respondProblem(route, 401, 'session_invalid')
+      return
+    }
+    if (route.request().url().endsWith('/login')) {
+      await route.fulfill({
+        status: 401,
+        contentType: 'application/problem+json',
+        headers: { 'X-Correlation-ID': 'support@example.test' },
+        body: JSON.stringify({
+          code: 'invalid_credentials',
+          detail: 'private response password and token value',
+        }),
+      })
+      return
+    }
+    await respondProblem(route, 404, 'unknown_error')
+  })
+
+  await page.goto('/login')
+  await page.getByLabel('Correo electrónico').fill('support@example.test')
+  await page.getByLabel('Contraseña').fill('not-persisted-password')
+  await page.getByRole('button', { name: 'Iniciar sesión' }).click()
+
+  const report = page.getByLabel('Contenido del informe de diagnóstico')
+  await expect(report).toContainText('Código del error: invalid_credentials')
+  await expect(report).toContainText('Operación: staff.auth.login')
+  await expect(report).toContainText('Ubicación de la API: /api/v1/staff/auth/login')
+  await expect(report).toContainText('Id. de solicitud/correlación: no_disponible')
+  await expect(report).not.toContainText(/support@example\.test|not-persisted-password|private response|token value/)
+  await expect(page.getByTestId('staff-auth-diagnostic-copy-button')).toHaveText('Copiar informe de diagnóstico')
+})
+
+test('keeps logout blocked and shows a safe diagnostic when confirmation is unavailable', async ({ page }) => {
+  await page.route('**/api/v1/staff/auth/**', async (route) => {
+    const request = route.request()
+    if (request.url().endsWith('/session')) {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(supportAgentSession) })
+      return
+    }
+    if (request.url().endsWith('/logout')) {
+      expect(await page.evaluate(() => sessionStorage.getItem('finance-ai-staff-logout-pending'))).toBe('1')
+      await route.fulfill({
+        status: 503,
+        contentType: 'application/problem+json',
+        headers: { 'X-Correlation-ID': 'logout-42' },
+        body: JSON.stringify({ code: 'service_unavailable', detail: 'private token response' }),
+      })
+      return
+    }
+    await respondProblem(route, 404, 'unknown_error')
+  })
+
+  await page.goto('/support')
+  await expect(page.getByRole('heading', { name: 'Atención al cliente' })).toBeVisible()
+  await page.getByTestId('staff-sign-out-button').click()
+
+  await expect(page.getByTestId('staff-logout-pending')).toBeVisible()
+  const report = page.getByLabel('Contenido del informe de diagnóstico')
+  await expect(report).toContainText('Código del error: service_unavailable')
+  await expect(report).toContainText('Operación: staff.auth.logout')
+  await expect(report).toContainText('Ubicación de la API: /api/v1/staff/auth/logout')
+  await expect(report).toContainText('Id. de solicitud/correlación: logout-42')
+  await expect(report).not.toContainText(/support@example\.test|private token response|access_token|refresh_token/)
+  expect(await page.evaluate(() => sessionStorage.getItem('finance-ai-staff-logout-pending'))).toBe('1')
+  await expect(page.getByRole('heading', { name: 'Atención al cliente' })).toHaveCount(0)
 })
 
 test('applies the Flutter light and dark palettes and persists only the theme preference', async ({ page }) => {

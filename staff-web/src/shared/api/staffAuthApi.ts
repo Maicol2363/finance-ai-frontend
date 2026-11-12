@@ -27,17 +27,22 @@ export interface StaffSessionView {
   absolute_expires_at: string
 }
 
+type MutationPath = 'login' | 'refresh' | 'logout'
+export type StaffAuthOperation = MutationPath | 'session'
+
 export class StaffAuthApiError extends Error {
   readonly status: number
   readonly code: string
   readonly correlationId: string | null
   readonly retryAfterSeconds: number | null
+  readonly operation: StaffAuthOperation | null
 
   constructor(
     status: number,
     code: string,
     correlationId: string | null = null,
     retryAfterSeconds: number | null = null,
+    operation: StaffAuthOperation | null = null,
   ) {
     super('The staff authentication request could not be completed.')
     this.name = 'StaffAuthApiError'
@@ -45,10 +50,9 @@ export class StaffAuthApiError extends Error {
     this.code = code
     this.correlationId = correlationId
     this.retryAfterSeconds = retryAfterSeconds
+    this.operation = operation
   }
 }
-
-type MutationPath = 'login' | 'refresh' | 'logout'
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
@@ -116,7 +120,7 @@ async function readProblemCode(response: Response): Promise<string> {
 }
 
 async function request<T>(
-  path: MutationPath | 'session',
+  path: StaffAuthOperation,
   body: unknown,
   readResponse: (response: Response) => Promise<T>,
 ): Promise<T> {
@@ -144,13 +148,16 @@ async function request<T>(
         await readProblemCode(response),
         response.headers.get('X-Correlation-ID'),
         parseRetryAfter(response.headers.get('Retry-After')),
+        path,
       )
     }
     return await readResponse(response)
   } catch (error) {
-    if (controller.signal.aborted) throw new StaffAuthApiError(0, 'request_timeout')
-    if (error instanceof StaffAuthApiError) throw error
-    throw new StaffAuthApiError(0, 'network_error')
+    if (controller.signal.aborted) throw new StaffAuthApiError(0, 'request_timeout', null, null, path)
+    if (error instanceof StaffAuthApiError) {
+      throw new StaffAuthApiError(error.status, error.code, error.correlationId, error.retryAfterSeconds, path)
+    }
+    throw new StaffAuthApiError(0, 'network_error', null, null, path)
   } finally {
     clearTimeout(timeoutId)
   }

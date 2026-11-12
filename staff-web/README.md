@@ -14,7 +14,7 @@ cp .env.example .env.local
 npm run dev
 ```
 
-The Vite server binds to loopback at `http://127.0.0.1:5173`. Set `VITE_FINANCE_AI_API_BASE_URL` in `.env.local` to the local backend URL if it differs from `http://127.0.0.1:8000`. This value is public and compiled into browser code; never put secrets in `VITE_*` variables.
+The Vite server binds to loopback at `http://127.0.0.1:5173`. Set `VITE_FINANCE_AI_API_BASE_URL` in `.env.local` to the backend origin if it differs from `http://127.0.0.1:8000`. Vite forwards browser requests to `/api/...` through its development proxy, so staff authentication remains same-origin in the browser. This is public configuration; never put secrets in `VITE_*` variables.
 
 ## Quality commands
 
@@ -22,11 +22,13 @@ The Vite server binds to loopback at `http://127.0.0.1:5173`. Set `VITE_FINANCE_
 npm run lint
 npm run typecheck
 npm test
+npm run test:coverage
+npm run test:e2e
 npm run build
 ```
 
 ## Current boundary
 
-This is a navigation and component foundation only. Workspaces display no live user or staff data and perform no privileged actions. Browser sign-in stays unavailable until the backend defines and implements a secure browser-session contract. The API client omits cookies, does not persist access credentials, and never logs request data. Implement each role's approved stories in its own feature branch after the shared backend contracts are ready.
+The staff portal uses the approved cookie-backed browser-session contract. Staff auth requests use relative `/api/v1/staff/auth/...` paths with `credentials: include`; the browser always addresses the staff site itself. In development, Vite proxies `/api` to `VITE_FINANCE_AI_API_BASE_URL`. In production, the staff site's HTTPS ingress or reverse proxy must route `/api/` to the backend on the server side and preserve the request path, browser `Origin`, `X-Staff-Request`, `X-Correlation-ID`, cookies, and `Set-Cookie` attributes. Keep the staff UI and API under one browser origin; do not enable credentialed cross-origin CORS. Authentication and authorization remain enforced by the backend. The web app does not persist credentials or log request data.
 
 The lockfile currently includes only the core React, Router, Vite, TypeScript, Tailwind and test tooling. Add server-state caching, form/validation packages, or charting only when an approved story uses them; no dashboard, business form, or Auditor chart is implemented in this scaffold.

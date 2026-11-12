@@ -1,6 +1,7 @@
 import {
   StaffAuthApiError,
   staffAuthApi,
+  type StaffAuthOperation,
   type StaffSessionView,
 } from '../api/staffAuthApi'
 
@@ -8,18 +9,104 @@ const PENDING_LOGOUT_MARKER = 'finance-ai-staff-logout-pending'
 const AUTH_CHANNEL_NAME = 'finance-ai-staff-auth'
 const REFRESH_LOCK_NAME = 'finance-ai-staff-refresh'
 const REVALIDATION_INTERVAL_MS = 30_000
+const DIAGNOSTIC_API_PATH = '/api/v1/staff/auth'
+const SAFE_DIAGNOSTIC_CODES = new Set([
+  'access_expired',
+  'authentication_required',
+  'internal_error',
+  'invalid_credentials',
+  'invalid_response',
+  'logout_unconfirmed',
+  'network_error',
+  'request_timeout',
+  'request_too_large',
+  'service_unavailable',
+  'session_invalid',
+  'staff_access_denied',
+  'staff_origin_denied',
+  'staff_request_denied',
+  'staff_session_exists',
+  'unknown_error',
+  'unclassified_error',
+  'unsupported_media_type',
+  'validation_error',
+])
+const SAFE_DIAGNOSTIC_REASONS: Record<string, string> = {
+  access_expired: 'access_expired',
+  authentication_required: 'authentication_required',
+  internal_error: 'server_error',
+  invalid_credentials: 'credentials_rejected',
+  invalid_response: 'invalid_server_response',
+  logout_unconfirmed: 'logout_unconfirmed',
+  network_error: 'network_unavailable',
+  request_timeout: 'request_timed_out',
+  request_too_large: 'request_rejected',
+  service_unavailable: 'service_unavailable',
+  session_invalid: 'session_invalid',
+  staff_access_denied: 'staff_access_denied',
+  staff_origin_denied: 'request_origin_denied',
+  staff_request_denied: 'request_denied',
+  staff_session_exists: 'staff_session_exists',
+  unknown_error: 'unknown_error',
+  unclassified_error: 'unclassified_error',
+  unsupported_media_type: 'unsupported_request_format',
+  validation_error: 'request_validation_failed',
+}
+const SAFE_CORRELATION_ID = /^[A-Za-z0-9._-]{1,64}$/
+
+export interface StaffAuthDiagnostic {
+  code: string
+  operation: StaffAuthOperation
+  occurredAtUtc: string
+  platform: 'web'
+  apiLocation: string
+  correlationId: string | null
+  reason: string
+}
 
 type SessionApi = Pick<typeof staffAuthApi, 'login' | 'session' | 'refresh' | 'logout'>
 type AuthMessage = { type: 'clear-protected-view' }
 
 export type StaffAuthState =
   | { status: 'restoring' }
-  | { status: 'anonymous'; message?: string }
+  | { status: 'anonymous'; message?: string; diagnostic?: StaffAuthDiagnostic }
   | { status: 'authenticating' }
   | { status: 'authenticated'; session: StaffSessionView }
   | { status: 'refreshing' }
-  | { status: 'recoverable_error'; message: string; retryAfterSeconds?: number }
-  | { status: 'logout_pending'; message: string }
+  | { status: 'recoverable_error'; message: string; retryAfterSeconds?: number; diagnostic?: StaffAuthDiagnostic }
+  | { status: 'logout_pending'; message: string; diagnostic?: StaffAuthDiagnostic }
+
+function isStaffAuthOperation(value: unknown): value is StaffAuthOperation {
+  return value === 'login' || value === 'session' || value === 'refresh' || value === 'logout'
+}
+
+export function safeStaffAuthDiagnostic(
+  error: unknown,
+  fallbackOperation: StaffAuthOperation,
+  occurredAt = new Date(),
+): StaffAuthDiagnostic {
+  const errorCode = error instanceof StaffAuthApiError ? error.code : 'unclassified_error'
+  const code = SAFE_DIAGNOSTIC_CODES.has(errorCode) ? errorCode : 'unknown_error'
+  const safeFallbackOperation = isStaffAuthOperation(fallbackOperation) ? fallbackOperation : 'session'
+  const operation = error instanceof StaffAuthApiError && isStaffAuthOperation(error.operation)
+    ? error.operation
+    : safeFallbackOperation
+  const candidateCorrelationId = error instanceof StaffAuthApiError ? error.correlationId : null
+  const correlationId = candidateCorrelationId && SAFE_CORRELATION_ID.test(candidateCorrelationId)
+    ? candidateCorrelationId
+    : null
+  const validTime = Number.isFinite(occurredAt.getTime()) ? occurredAt : new Date()
+
+  return {
+    code,
+    operation,
+    occurredAtUtc: validTime.toISOString(),
+    platform: 'web',
+    apiLocation: `${DIAGNOSTIC_API_PATH}/${operation}`,
+    correlationId,
+    reason: SAFE_DIAGNOSTIC_REASONS[code] ?? SAFE_DIAGNOSTIC_REASONS.unclassified_error,
+  }
+}
 
 export function safeStaffAuthMessage(
   error: unknown,
@@ -100,7 +187,9 @@ export class StaffSessionCoordinator {
   private timer: ReturnType<typeof setTimeout> | null = null
   private restorePromise: Promise<void> | null = null
   private refreshPromise: Promise<StaffSessionView> | null = null
+  private logoutPromise: Promise<void> | null = null
   private authGeneration = 0
+  private logoutPendingInMemory = false
   private started = false
 
   constructor(
@@ -138,7 +227,8 @@ export class StaffSessionCoordinator {
       this.channel?.addEventListener('message', this.handleBroadcast)
       this.documentRef?.addEventListener('visibilitychange', this.handleVisibilityChange)
       if (readLogoutPending(this.storage)) {
-        this.setState({ status: 'logout_pending', message: 'No se pudo confirmar el cierre de sesión. Vuelve a intentarlo para completarlo.' })
+        this.logoutPendingInMemory = true
+        this.setLogoutPendingState(true)
       } else {
         void this.restore()
       }
@@ -156,6 +246,11 @@ export class StaffSessionCoordinator {
   }
 
   async login(email: string, password: string): Promise<void> {
+    if (this.isLogoutPending()) {
+      this.logoutPendingInMemory = true
+      this.setLogoutPendingState(true)
+      return
+    }
     const generation = ++this.authGeneration
     this.restorePromise = null
     this.clearTimer()
@@ -167,14 +262,28 @@ export class StaffSessionCoordinator {
     } catch (error) {
       if (generation !== this.authGeneration) return
       if (isDefinitiveDenial(error) || (error instanceof StaffAuthApiError && error.status === 401)) {
-        this.setState({ status: 'anonymous', message: safeStaffAuthMessage(error, 'login') })
+        this.setState({
+          status: 'anonymous',
+          message: safeStaffAuthMessage(error, 'login'),
+          diagnostic: safeStaffAuthDiagnostic(error, 'login'),
+        })
         return
       }
-      this.setState({ status: 'recoverable_error', message: safeStaffAuthMessage(error, 'login') })
+      this.setState({
+        status: 'recoverable_error',
+        message: safeStaffAuthMessage(error, 'login'),
+        diagnostic: safeStaffAuthDiagnostic(error, 'login'),
+      })
     }
   }
 
   async restore(): Promise<void> {
+    if (this.isLogoutPending()) {
+      this.logoutPendingInMemory = true
+      this.clearTimer()
+      if (this.state.status !== 'logout_pending') this.setLogoutPendingState(true)
+      return
+    }
     if (this.restorePromise) return this.restorePromise
     const restore = this.performRestore()
     this.restorePromise = restore
@@ -186,8 +295,9 @@ export class StaffSessionCoordinator {
   }
 
   private async performRestore(): Promise<void> {
-    if (readLogoutPending(this.storage)) {
-      this.setState({ status: 'logout_pending', message: 'No se pudo confirmar el cierre de sesión. Vuelve a intentarlo para completarlo.' })
+    if (this.isLogoutPending()) {
+      this.logoutPendingInMemory = true
+      this.setLogoutPendingState(true)
       return
     }
     const generation = this.authGeneration
@@ -195,21 +305,21 @@ export class StaffSessionCoordinator {
     this.setState({ status: 'restoring' })
     try {
       const session = await this.api.session()
-      if (generation === this.authGeneration) this.setAuthenticated(session)
+      if (generation === this.authGeneration && !this.isLogoutPending()) this.setAuthenticated(session)
     } catch (error) {
-      if (generation !== this.authGeneration) return
+      if (generation !== this.authGeneration || this.isLogoutPending()) return
       if (shouldRefresh(error)) {
         this.setState({ status: 'refreshing' })
         try {
           const session = await this.coordinateRefresh()
-          if (generation === this.authGeneration) this.setAuthenticated(session)
+          if (generation === this.authGeneration && !this.isLogoutPending()) this.setAuthenticated(session)
         } catch (refreshError) {
-          if (generation !== this.authGeneration) return
-          this.handleSessionError(refreshError, hadConfirmedSession)
+          if (generation !== this.authGeneration || this.isLogoutPending()) return
+          this.handleSessionError(refreshError, hadConfirmedSession, 'refresh')
         }
         return
       }
-      this.handleSessionError(error, hadConfirmedSession)
+      this.handleSessionError(error, hadConfirmedSession, 'session')
     }
   }
 
@@ -220,27 +330,58 @@ export class StaffSessionCoordinator {
   }
 
   async logout(): Promise<void> {
+    if (this.isLogoutPending()) {
+      this.logoutPendingInMemory = true
+      if (this.state.status !== 'logout_pending') this.setLogoutPendingState(true)
+      return
+    }
     this.authGeneration += 1
     this.restorePromise = null
     this.clearTimer()
     this.session = null
+    this.logoutPendingInMemory = true
+    writeLogoutPending(this.storage)
     this.setState({ status: 'logout_pending', message: 'Cerrando sesión…' })
     await this.completeLogout()
   }
 
   async retryPendingLogout(): Promise<void> {
-    if (this.state.status === 'logout_pending') await this.completeLogout()
+    if (this.state.status === 'logout_pending' || this.isLogoutPending()) {
+      this.logoutPendingInMemory = true
+      await this.completeLogout()
+    }
   }
 
   private async completeLogout(): Promise<void> {
+    if (!this.logoutPendingInMemory) return
+    if (this.logoutPromise) return this.logoutPromise
+    if (!readLogoutPending(this.storage)) writeLogoutPending(this.storage)
+    const generation = this.authGeneration
+    const attempt = (async () => {
+      try {
+        await this.api.logout()
+        if (generation !== this.authGeneration) return
+        this.logoutPendingInMemory = false
+        clearLogoutPending(this.storage)
+        this.session = null
+        this.channel?.postMessage({ type: 'clear-protected-view' } satisfies AuthMessage)
+        this.setState({ status: 'anonymous', message: 'Has cerrado sesión.' })
+      } catch (error) {
+        if (generation !== this.authGeneration) return
+        this.logoutPendingInMemory = true
+        writeLogoutPending(this.storage)
+        this.setState({
+          status: 'logout_pending',
+          message: safeStaffAuthMessage(error, 'logout'),
+          diagnostic: safeStaffAuthDiagnostic(error, 'logout'),
+        })
+      }
+    })()
+    this.logoutPromise = attempt
     try {
-      await this.api.logout()
-      clearLogoutPending(this.storage)
-      this.channel?.postMessage({ type: 'clear-protected-view' } satisfies AuthMessage)
-      this.setState({ status: 'anonymous', message: 'Has cerrado sesión.' })
-    } catch (error) {
-      writeLogoutPending(this.storage)
-      this.setState({ status: 'logout_pending', message: safeStaffAuthMessage(error, 'logout') })
+      await attempt
+    } finally {
+      if (this.logoutPromise === attempt) this.logoutPromise = null
     }
   }
 
@@ -267,16 +408,25 @@ export class StaffSessionCoordinator {
     }
   }
 
-  private handleSessionError(error: unknown, hadConfirmedSession: boolean): void {
+  private handleSessionError(
+    error: unknown,
+    hadConfirmedSession: boolean,
+    operation: 'session' | 'refresh',
+  ): void {
     if (isDefinitiveDenial(error)) {
       this.session = null
       this.clearTimer()
-      this.setState({ status: 'anonymous' })
+      this.setState({
+        status: 'anonymous',
+        message: safeStaffAuthMessage(error, 'session'),
+        diagnostic: safeStaffAuthDiagnostic(error, operation),
+      })
       return
     }
     const state: StaffAuthState = {
       status: 'recoverable_error',
       message: safeStaffAuthMessage(error, 'session'),
+      diagnostic: safeStaffAuthDiagnostic(error, operation),
     }
     if (error instanceof StaffAuthApiError && error.retryAfterSeconds) {
       state.retryAfterSeconds = error.retryAfterSeconds
@@ -298,7 +448,7 @@ export class StaffSessionCoordinator {
 
   private scheduleRevalidation(): void {
     this.clearTimer()
-    if (!this.started || !this.session || this.documentRef?.visibilityState === 'hidden') return
+    if (!this.started || !this.session || this.isLogoutPending() || this.documentRef?.visibilityState === 'hidden') return
     this.timer = setTimeout(() => {
       this.timer = null
       void this.restore()
@@ -315,8 +465,9 @@ export class StaffSessionCoordinator {
       this.clearTimer()
       return
     }
-    if (readLogoutPending(this.storage)) {
-      this.setState({ status: 'logout_pending', message: 'No se pudo confirmar el cierre de sesión. Vuelve a intentarlo para completarlo.' })
+    if (this.isLogoutPending()) {
+      this.logoutPendingInMemory = true
+      if (this.state.status !== 'logout_pending') this.setLogoutPendingState(true)
       return
     }
     void this.restore()
@@ -332,9 +483,27 @@ export class StaffSessionCoordinator {
     }
     this.authGeneration += 1
     this.clearTimer()
+    this.logoutPendingInMemory = false
     this.session = null
     clearLogoutPending(this.storage)
     this.setState({ status: 'anonymous' })
+  }
+
+  private isLogoutPending(): boolean {
+    return this.logoutPendingInMemory || readLogoutPending(this.storage)
+  }
+
+  private setLogoutPendingState(hasFailedAttempt: boolean): void {
+    this.setState({
+      status: 'logout_pending',
+      message: 'No se pudo confirmar el cierre de sesión. Vuelve a intentarlo para completarlo.',
+      ...(hasFailedAttempt && {
+        diagnostic: safeStaffAuthDiagnostic(
+          new StaffAuthApiError(0, 'logout_unconfirmed', null, null, 'logout'),
+          'logout',
+        ),
+      }),
+    })
   }
 
   private getSessionStorage(): Storage | null {
