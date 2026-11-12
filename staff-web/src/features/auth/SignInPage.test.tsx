@@ -50,8 +50,8 @@ describe('SignInPage', () => {
     const user = userEvent.setup()
     renderPage(value)
 
-    const email = screen.getByRole('textbox', { name: 'Email' })
-    const password = screen.getByLabelText('Password')
+    const email = screen.getByRole('textbox', { name: 'Correo electrónico' })
+    const password = screen.getByLabelText('Contraseña')
     expect(email).toHaveAttribute('autocomplete', 'username')
     expect(password).toHaveAttribute('autocomplete', 'current-password')
     expect(screen.getByTestId('staff-sign-in-form')).toHaveAttribute('aria-labelledby', 'staff-sign-in-heading')
@@ -63,46 +63,46 @@ describe('SignInPage', () => {
   })
 
   it('shows only the safe generic credential message supplied by auth state', () => {
-    renderPage(contextValue({ status: 'anonymous', message: 'The email or password could not be verified.' }))
+    renderPage(contextValue({ status: 'anonymous', message: 'No se pudo verificar el correo electrónico o la contraseña.' }))
 
-    expect(screen.getByRole('alert')).toHaveTextContent('The email or password could not be verified.')
+    expect(screen.getByRole('alert')).toHaveTextContent('No se pudo verificar el correo electrónico o la contraseña.')
     expect(screen.queryByText(/invalid_credentials|request body|example-only-password/i)).not.toBeInTheDocument()
   })
 
   it('respects Retry-After and enables submit when the wait elapses', async () => {
     vi.useFakeTimers()
     try {
-      renderPage(contextValue({ status: 'recoverable_error', message: 'Too many attempts.', retryAfterSeconds: 2 }))
+      renderPage(contextValue({ status: 'recoverable_error', message: 'Demasiados intentos.', retryAfterSeconds: 2 }))
 
-      const submit = screen.getByRole('button', { name: 'Try again in 2s' })
+      const submit = screen.getByRole('button', { name: 'Vuelve a intentarlo en 2 s' })
       expect(submit).toBeDisabled()
       await act(async () => vi.advanceTimersByTimeAsync(1000))
-      expect(screen.getByRole('button', { name: 'Try again in 1s' })).toBeDisabled()
+      expect(screen.getByRole('button', { name: 'Vuelve a intentarlo en 1 s' })).toBeDisabled()
       await act(async () => vi.advanceTimersByTimeAsync(1000))
-      expect(screen.getByRole('button', { name: 'Sign in' })).toBeEnabled()
+      expect(screen.getByRole('button', { name: 'Iniciar sesión' })).toBeEnabled()
     } finally {
       vi.useRealTimers()
     }
   })
 
   it('provides an explicit retry action for recoverable session failures', async () => {
-    const value = contextValue({ status: 'recoverable_error', message: 'The service could not be reached. Retry.' })
+    const value = contextValue({ status: 'recoverable_error', message: 'No se pudo conectar con el servicio. Inténtalo de nuevo.' })
     const user = userEvent.setup()
     renderPage(value)
 
-    await user.click(screen.getByRole('button', { name: 'Check session again' }))
+    await user.click(screen.getByRole('button', { name: 'Comprobar sesión de nuevo' }))
     expect(value.retry).toHaveBeenCalledOnce()
-    expect(screen.getByRole('alert')).toHaveTextContent('The service could not be reached. Retry.')
+    expect(screen.getByRole('alert')).toHaveTextContent('No se pudo conectar con el servicio. Inténtalo de nuevo.')
   })
 
   it('keeps the user blocked while logout needs server confirmation', async () => {
-    const value = contextValue({ status: 'logout_pending', message: 'Sign-out is not confirmed. Retry to complete it.' })
+    const value = contextValue({ status: 'logout_pending', message: 'No se pudo confirmar el cierre de sesión. Vuelve a intentarlo para completarlo.' })
     const user = userEvent.setup()
     renderPage(value)
 
-    expect(screen.getByRole('heading', { name: 'Sign-out needs confirmation' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Confirma el cierre de sesión' })).toBeInTheDocument()
     expect(screen.queryByTestId('staff-sign-in-form')).not.toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: 'Retry sign out' }))
+    await user.click(screen.getByRole('button', { name: 'Reintentar cierre de sesión' }))
     expect(value.retryPendingLogout).toHaveBeenCalledOnce()
   })
 

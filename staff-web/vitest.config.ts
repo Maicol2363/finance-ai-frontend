@@ -23,6 +23,8 @@ export default defineConfig({
         'src/shared/auth/staffAuthContext.ts',
         'src/shared/auth/staffSessionCoordinator.ts',
         'src/shared/auth/useStaffAuth.ts',
+        'src/shared/theme/StaffThemeProvider.tsx',
+        'src/shared/theme/ThemeToggleButton.tsx',
       ],
       thresholds: {
         statements: 80,

@@ -36,7 +36,7 @@ describe('staff authentication integration', () => {
     window.history.pushState({}, '', '/support')
     render(<AppRouter />)
 
-    expect(await screen.findByRole('heading', { name: 'Customer support' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Atención al cliente' })).toBeInTheDocument()
     expect(fetchMock).toHaveBeenCalledOnce()
     expect(String(fetchMock.mock.calls[0]?.[0])).toBe('/api/v1/staff/auth/session')
     expect(await screen.findByText('agent@example.test')).toBeInTheDocument()
@@ -52,7 +52,7 @@ describe('staff authentication integration', () => {
     window.history.pushState({}, '', '/support')
     render(<AppRouter />)
 
-    expect(await screen.findByRole('heading', { name: 'Customer support' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Atención al cliente' })).toBeInTheDocument()
     const refreshCall = fetchMock.mock.calls.find(([input]) => String(input).endsWith('/refresh'))
     expect(refreshCall).toBeDefined()
     expect(refreshCall?.[1]?.method).toBe('POST')
@@ -69,8 +69,8 @@ describe('staff authentication integration', () => {
     window.history.pushState({}, '', '/support')
     render(<AppRouter />)
 
-    expect(await screen.findByRole('heading', { name: 'Sign in to the support portal' })).toBeInTheDocument()
-    expect(screen.queryByRole('heading', { name: 'Customer support' })).not.toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Iniciar sesión en el portal de soporte' })).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Atención al cliente' })).not.toBeInTheDocument()
   })
 
   it('clears the pending marker and confirms sign-out only after HTTP 204', async () => {
@@ -85,7 +85,7 @@ describe('staff authentication integration', () => {
     render(<AppRouter />)
 
     await user.click(await screen.findByTestId('staff-sign-out-button'))
-    expect(await screen.findByRole('heading', { name: 'Sign in to the support portal' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Iniciar sesión en el portal de soporte' })).toBeInTheDocument()
     expect(screen.queryByTestId('staff-logout-pending')).not.toBeInTheDocument()
     expect(sessionStorage.getItem('finance-ai-staff-logout-pending')).toBeNull()
     expect(fetchMock.mock.calls.some(([input]) => String(input).endsWith('/logout'))).toBe(true)
@@ -103,7 +103,7 @@ describe('staff authentication integration', () => {
 
     await user.click(await screen.findByTestId('staff-sign-out-button'))
     expect(await screen.findByTestId('staff-logout-pending')).toBeInTheDocument()
-    expect(screen.queryByRole('heading', { name: 'Customer support' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Atención al cliente' })).not.toBeInTheDocument()
     expect(screen.queryByText(/signed out/i)).not.toBeInTheDocument()
     expect(Object.entries(sessionStorage)).toEqual([['finance-ai-staff-logout-pending', '1']])
   })
@@ -122,9 +122,9 @@ describe('staff authentication integration', () => {
     render(<AppRouter />)
 
     expect(await screen.findByTestId('staff-auth-recoverable-error')).toBeInTheDocument()
-    expect(screen.queryByRole('heading', { name: 'Customer support' })).not.toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: 'Try again' }))
-    await waitFor(() => expect(screen.getByRole('heading', { name: 'Customer support' })).toBeInTheDocument())
+    expect(screen.queryByRole('heading', { name: 'Atención al cliente' })).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Intentar de nuevo' }))
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Atención al cliente' })).toBeInTheDocument())
     expect(sessionCalls).toBe(2)
   })
 })

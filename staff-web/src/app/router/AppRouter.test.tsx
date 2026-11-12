@@ -36,18 +36,18 @@ describe('staff portal authentication routes', () => {
   it('keeps the overview public and exposes only Support Agent navigation', async () => {
     render(<AppRouter />)
 
-    expect(await screen.findByRole('heading', { name: 'Your support workspace starts here.' })).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'Support' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Tu espacio de soporte empieza aquí.' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Soporte' })).toBeInTheDocument()
     expect(screen.queryByRole('link', { name: 'Administration' })).not.toBeInTheDocument()
-    expect(screen.queryByRole('link', { name: 'Security audit' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Auditoría de seguridad' })).not.toBeInTheDocument()
   })
 
   it('redirects direct support navigation to sign-in and hides the protected page', async () => {
     window.history.pushState({}, '', '/support')
     render(<AppRouter />)
 
-    expect(await screen.findByRole('heading', { name: 'Sign in to the support portal' })).toBeInTheDocument()
-    expect(screen.queryByRole('heading', { name: 'Customer support' })).not.toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Iniciar sesión en el portal de soporte' })).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Atención al cliente' })).not.toBeInTheDocument()
   })
 
   it('shows a recoverable protected-route error and retries session confirmation', async () => {
@@ -66,9 +66,9 @@ describe('staff portal authentication routes', () => {
     render(<AppRouter />)
 
     expect(await screen.findByTestId('staff-auth-recoverable-error')).toBeInTheDocument()
-    expect(screen.queryByRole('heading', { name: 'Customer support' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Atención al cliente' })).not.toBeInTheDocument()
     await user.click(screen.getByTestId('staff-auth-retry-button'))
-    expect(await screen.findByRole('heading', { name: 'Customer support' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Atención al cliente' })).toBeInTheDocument()
   })
 
   it('keeps protected content hidden while logout is pending and allows an explicit retry', async () => {
@@ -82,9 +82,9 @@ describe('staff portal authentication routes', () => {
     render(<AppRouter />)
 
     expect(await screen.findByTestId('staff-logout-pending')).toBeInTheDocument()
-    expect(screen.queryByRole('heading', { name: 'Customer support' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Atención al cliente' })).not.toBeInTheDocument()
     await user.click(screen.getByTestId('staff-logout-retry-button'))
-    expect(await screen.findByRole('heading', { name: 'Sign in to the support portal' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Iniciar sesión en el portal de soporte' })).toBeInTheDocument()
     expect(sessionStorage.getItem('finance-ai-staff-logout-pending')).toBeNull()
   })
 
@@ -103,11 +103,11 @@ describe('staff portal authentication routes', () => {
     const user = userEvent.setup()
     render(<AppRouter />)
 
-    await user.type(await screen.findByLabelText('Email'), 'agent@example.test')
-    await user.type(screen.getByLabelText('Password'), 'example-only-password')
-    await user.click(screen.getByRole('button', { name: 'Sign in' }))
+    await user.type(await screen.findByLabelText('Correo electrónico'), 'agent@example.test')
+    await user.type(screen.getByLabelText('Contraseña'), 'example-only-password')
+    await user.click(screen.getByRole('button', { name: 'Iniciar sesión' }))
 
-    expect(await screen.findByRole('heading', { name: 'Customer support' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Atención al cliente' })).toBeInTheDocument()
     expect(screen.getByText('agent@example.test')).toBeInTheDocument()
   })
 
@@ -120,11 +120,11 @@ describe('staff portal authentication routes', () => {
     const user = userEvent.setup()
     render(<AppRouter />)
 
-    await user.type(await screen.findByLabelText('Email'), 'agent@example.test')
-    await user.type(screen.getByLabelText('Password'), 'example-only-password')
-    await user.click(screen.getByRole('button', { name: 'Sign in' }))
+    await user.type(await screen.findByLabelText('Correo electrónico'), 'agent@example.test')
+    await user.type(screen.getByLabelText('Contraseña'), 'example-only-password')
+    await user.click(screen.getByRole('button', { name: 'Iniciar sesión' }))
 
-    expect(await screen.findByRole('button', { name: 'Signing in…' })).toBeDisabled()
+    expect(await screen.findByRole('button', { name: 'Iniciando sesión…' })).toBeDisabled()
   })
 
   it('does not open the protected route when the server returns a different staff role', async () => {
@@ -136,20 +136,20 @@ describe('staff portal authentication routes', () => {
     const user = userEvent.setup()
     render(<AppRouter />)
 
-    await user.type(await screen.findByLabelText('Email'), 'admin@example.test')
-    await user.type(screen.getByLabelText('Password'), 'example-only-password')
-    await user.click(screen.getByRole('button', { name: 'Sign in' }))
+    await user.type(await screen.findByLabelText('Correo electrónico'), 'admin@example.test')
+    await user.type(screen.getByLabelText('Contraseña'), 'example-only-password')
+    await user.click(screen.getByRole('button', { name: 'Iniciar sesión' }))
 
-    await waitFor(() => expect(screen.getByRole('heading', { name: 'Sign in to the support portal' })).toBeInTheDocument())
-    expect(screen.queryByRole('heading', { name: 'Customer support' })).not.toBeInTheDocument()
-    expect(screen.getByRole('alert')).toHaveTextContent(/access is no longer available/i)
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Iniciar sesión en el portal de soporte' })).toBeInTheDocument())
+    expect(screen.queryByRole('heading', { name: 'Atención al cliente' })).not.toBeInTheDocument()
+    expect(screen.getByRole('alert')).toHaveTextContent(/ya no está disponible/i)
   })
 
   it('does not route admin or audit paths to staff features', async () => {
     window.history.pushState({}, '', '/admin')
     render(<AppRouter />)
 
-    expect(await screen.findByRole('heading', { name: 'That page is not here' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'No encontramos esta página' })).toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: 'Administration' })).not.toBeInTheDocument()
   })
 })

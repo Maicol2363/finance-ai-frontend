@@ -26,25 +26,25 @@ export function safeStaffAuthMessage(
   context: 'login' | 'session' | 'logout',
 ): string {
   if (!(error instanceof StaffAuthApiError)) {
-    return 'Something went wrong. Please try again.'
+    return 'Ocurrió un error. Inténtalo de nuevo.'
   }
   if (context === 'login' && error.code === 'invalid_credentials') {
-    return 'The email or password could not be verified.'
+    return 'No se pudo verificar el correo electrónico o la contraseña.'
   }
   if (error.code === 'staff_session_exists') {
-    return 'A staff session is already active. Sign out there, then try again.'
+    return 'Ya hay una sesión del personal activa. Ciérrala allí y vuelve a intentarlo.'
   }
   if (error.code === 'staff_access_denied' || error.code === 'session_invalid') {
-    return 'Staff access is no longer available. Sign in again if you still have access.'
+    return 'El acceso del personal ya no está disponible. Inicia sesión otra vez si aún tienes autorización.'
   }
   if (error.status === 429 && error.retryAfterSeconds) {
-    return `Too many attempts. Try again in ${error.retryAfterSeconds} seconds.`
+    return `Demasiados intentos. Vuelve a intentarlo en ${error.retryAfterSeconds} segundos.`
   }
   if (error.code === 'request_timeout' || error.code === 'network_error') {
-    return 'The service could not be reached. Check your connection and retry.'
+    return 'No se pudo conectar con el servicio. Comprueba tu conexión e inténtalo de nuevo.'
   }
-  if (context === 'logout') return 'Sign-out is not confirmed. Retry to complete it.'
-  return 'The service is temporarily unavailable. Please retry.'
+  if (context === 'logout') return 'No se pudo confirmar el cierre de sesión. Vuelve a intentarlo para completarlo.'
+  return 'El servicio no está disponible temporalmente. Inténtalo de nuevo.'
 }
 
 function shouldRefresh(error: unknown): boolean {
@@ -138,7 +138,7 @@ export class StaffSessionCoordinator {
       this.channel?.addEventListener('message', this.handleBroadcast)
       this.documentRef?.addEventListener('visibilitychange', this.handleVisibilityChange)
       if (readLogoutPending(this.storage)) {
-        this.setState({ status: 'logout_pending', message: 'Sign-out is not confirmed. Retry to complete it.' })
+        this.setState({ status: 'logout_pending', message: 'No se pudo confirmar el cierre de sesión. Vuelve a intentarlo para completarlo.' })
       } else {
         void this.restore()
       }
@@ -187,7 +187,7 @@ export class StaffSessionCoordinator {
 
   private async performRestore(): Promise<void> {
     if (readLogoutPending(this.storage)) {
-      this.setState({ status: 'logout_pending', message: 'Sign-out is not confirmed. Retry to complete it.' })
+      this.setState({ status: 'logout_pending', message: 'No se pudo confirmar el cierre de sesión. Vuelve a intentarlo para completarlo.' })
       return
     }
     const generation = this.authGeneration
@@ -224,7 +224,7 @@ export class StaffSessionCoordinator {
     this.restorePromise = null
     this.clearTimer()
     this.session = null
-    this.setState({ status: 'logout_pending', message: 'Signing out…' })
+    this.setState({ status: 'logout_pending', message: 'Cerrando sesión…' })
     await this.completeLogout()
   }
 
@@ -237,7 +237,7 @@ export class StaffSessionCoordinator {
       await this.api.logout()
       clearLogoutPending(this.storage)
       this.channel?.postMessage({ type: 'clear-protected-view' } satisfies AuthMessage)
-      this.setState({ status: 'anonymous', message: 'You are signed out.' })
+      this.setState({ status: 'anonymous', message: 'Has cerrado sesión.' })
     } catch (error) {
       writeLogoutPending(this.storage)
       this.setState({ status: 'logout_pending', message: safeStaffAuthMessage(error, 'logout') })
@@ -316,7 +316,7 @@ export class StaffSessionCoordinator {
       return
     }
     if (readLogoutPending(this.storage)) {
-      this.setState({ status: 'logout_pending', message: 'Sign-out is not confirmed. Retry to complete it.' })
+      this.setState({ status: 'logout_pending', message: 'No se pudo confirmar el cierre de sesión. Vuelve a intentarlo para completarlo.' })
       return
     }
     void this.restore()

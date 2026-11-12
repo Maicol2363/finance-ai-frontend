@@ -40,17 +40,17 @@ export function SignInPage() {
     return (
       <section aria-live="polite" className="auth-page" data-testid="staff-logout-pending">
         <div className="auth-card error-state">
-          <span className="eyebrow">SIGN-OUT PENDING</span>
-          <h1>Sign-out needs confirmation</h1>
+          <span className="eyebrow">CIERRE DE SESIÓN PENDIENTE</span>
+          <h1>Confirma el cierre de sesión</h1>
           <p>{state.message}</p>
-          <button data-testid="staff-logout-retry-button" onClick={() => void retryPendingLogout()} type="button">Retry sign out</button>
-          <Link className="text-link" data-testid="staff-overview-link" to="/">Return to overview</Link>
+          <button data-testid="staff-logout-retry-button" onClick={() => void retryPendingLogout()} type="button">Reintentar cierre de sesión</button>
+          <Link className="text-link" data-testid="staff-overview-link" to="/">Volver al inicio</Link>
         </div>
       </section>
     )
   }
   if (state.status === 'restoring' || state.status === 'refreshing') {
-    return <div aria-live="polite" className="async-state" data-testid="staff-auth-loading" role="status">Checking your staff session…</div>
+    return <div aria-live="polite" className="async-state" data-testid="staff-auth-loading" role="status">Comprobando tu sesión del personal…</div>
   }
 
   const errorMessage = state.status === 'anonymous' || state.status === 'recoverable_error'
@@ -60,20 +60,20 @@ export function SignInPage() {
   return (
     <section className="auth-page" data-testid="staff-sign-in-page">
       <div className="auth-card">
-        <span className="eyebrow">SUPPORT AGENT ACCESS</span>
-        <h1 id="staff-sign-in-heading">Sign in to the support portal</h1>
-        <p className="auth-intro">Use your staff account to continue to the Support workspace.</p>
+        <span className="eyebrow">ACCESO PARA AGENTES DE SOPORTE</span>
+        <h1 id="staff-sign-in-heading">Iniciar sesión en el portal de soporte</h1>
+        <p className="auth-intro">Usa tu cuenta del personal para continuar al espacio de Soporte.</p>
         {errorMessage && (
           <p aria-live="polite" className="auth-message" data-testid="staff-auth-message" role="alert">
             {errorMessage}
           </p>
         )}
         {state.status === 'recoverable_error' && (
-          <button className="text-button" data-testid="staff-auth-retry-button" onClick={() => void retry()} type="button">Check session again</button>
+          <button className="text-button" data-testid="staff-auth-retry-button" onClick={() => void retry()} type="button">Comprobar sesión de nuevo</button>
         )}
         <form aria-labelledby="staff-sign-in-heading" data-testid="staff-sign-in-form" onSubmit={(event) => void submitCredentials(event)}>
           <div className="auth-field">
-            <label htmlFor="staff-email">Email</label>
+            <label htmlFor="staff-email">Correo electrónico</label>
             <input
               autoComplete="username"
               data-testid="staff-sign-in-email-input"
@@ -86,7 +86,7 @@ export function SignInPage() {
             />
           </div>
           <div className="auth-field">
-            <label htmlFor="staff-password">Password</label>
+            <label htmlFor="staff-password">Contraseña</label>
             <input
               autoComplete="current-password"
               data-testid="staff-sign-in-password-input"
@@ -105,13 +105,13 @@ export function SignInPage() {
             type="submit"
           >
             {state.status === 'authenticating'
-              ? 'Signing in…'
+              ? 'Iniciando sesión…'
               : secondsRemaining > 0
-                ? `Try again in ${secondsRemaining}s`
-                : 'Sign in'}
+                ? `Vuelve a intentarlo en ${secondsRemaining} s`
+                : 'Iniciar sesión'}
           </button>
         </form>
-        <Link className="auth-back-link" data-testid="staff-overview-link" to="/">Back to overview</Link>
+        <Link className="auth-back-link" data-testid="staff-overview-link" to="/">Volver al inicio</Link>
       </div>
     </section>
   )

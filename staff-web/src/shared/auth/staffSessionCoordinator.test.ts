@@ -219,7 +219,7 @@ describe('StaffSessionCoordinator', () => {
     vi.mocked(api.logout).mockResolvedValue(undefined)
     await coordinator.retryPendingLogout()
 
-    expect(coordinator.currentState).toMatchObject({ status: 'anonymous', message: 'You are signed out.' })
+    expect(coordinator.currentState).toMatchObject({ status: 'anonymous', message: 'Has cerrado sesión.' })
     expect(storage.removeItem).toHaveBeenCalledWith('finance-ai-staff-logout-pending')
     expect(channel.channel.postMessage).toHaveBeenCalledWith({ type: 'clear-protected-view' })
     coordinator.stop()

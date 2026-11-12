@@ -1,9 +1,10 @@
 import { NavLink, Outlet } from 'react-router'
 import { useStaffAuth } from '../../shared/auth/useStaffAuth'
+import { ThemeToggleButton } from '../../shared/theme/ThemeToggleButton'
 
 const navigation = [
-  { to: '/', label: 'Overview', end: true },
-  { to: '/support', label: 'Support' },
+  { to: '/', label: 'Inicio', end: true },
+  { to: '/support', label: 'Soporte' },
 ]
 
 export function StaffLayout() {
@@ -13,13 +14,13 @@ export function StaffLayout() {
 
   return (
     <div className="portal-shell">
-      <a className="skip-link" href="#main-content">Skip to content</a>
-      <aside aria-label="Staff navigation" className="sidebar">
-        <NavLink aria-label="FinanciAI staff home" className="brand" to="/">
+      <a className="skip-link" href="#main-content">Saltar al contenido</a>
+      <aside aria-label="Navegación del personal" className="sidebar">
+        <NavLink aria-label="Inicio de FinanciAI" className="brand" to="/">
           <span aria-hidden="true" className="brand-mark">F</span>
-          <span><strong>FinanciAI</strong><small>Staff workspace</small></span>
+          <span><strong>FinanciAI</strong><small>Portal del personal</small></span>
         </NavLink>
-        <p className="nav-label">WORKSPACE</p>
+        <p className="nav-label">ESPACIO DE TRABAJO</p>
         <nav className="primary-nav">
           {navigation.map(({ to, label, end }) => (
             <NavLink
@@ -34,18 +35,21 @@ export function StaffLayout() {
         </nav>
         <div className="sidebar-footer">
           <span aria-hidden="true" className={`status-dot${authenticated ? ' status-dot-active' : ''}`} />
-          <span><strong>{authenticated ? 'Support agent' : 'Staff access protected'}</strong><small>{identity ?? 'Sign in to open Support'}</small></span>
+          <span><strong>{authenticated ? 'Agente de soporte' : 'Acceso protegido'}</strong><small>{identity ?? 'Inicia sesión para abrir Soporte'}</small></span>
         </div>
       </aside>
       <div className="workspace">
         <header className="topbar">
-          <div><span className="eyebrow">FINANCIAI · INTERNAL</span><p>Support workspace</p></div>
-          {authenticated
-            ? <button className="sign-in-link sign-out-button" data-testid="staff-sign-out-button" onClick={() => void logout()} type="button">Sign out</button>
-            : <NavLink className="sign-in-link" data-testid="staff-sign-in-link" to="/login">Sign in</NavLink>}
+          <div><span className="eyebrow">FINANCIAI · INTERNO</span><p>Espacio de soporte</p></div>
+          <div className="topbar-actions">
+            <ThemeToggleButton />
+            {authenticated
+              ? <button className="sign-in-link sign-out-button" data-testid="staff-sign-out-button" onClick={() => void logout()} type="button">Cerrar sesión</button>
+              : <NavLink className="sign-in-link" data-testid="staff-sign-in-link" to="/login">Iniciar sesión</NavLink>}
+          </div>
         </header>
         <main className="page-content" id="main-content"><Outlet /></main>
-        <footer className="page-footer">Support access is confirmed by the staff session service.</footer>
+        <footer className="page-footer">El acceso a Soporte se confirma con el servicio de sesiones del personal.</footer>
       </div>
     </div>
   )

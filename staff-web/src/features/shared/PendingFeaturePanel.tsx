@@ -14,8 +14,8 @@ export function PendingFeaturePanel({ eyebrow, title, description }: PendingFeat
       </div>
       <div className="pending-panel">
         <span aria-hidden="true" className="pending-icon">◷</span>
-        <div><h2>Foundation only</h2><p>This area is not implemented. Live data and protected actions stay disabled until secure staff authentication is connected.</p></div>
-        <span className="status-pill">NOT READY</span>
+        <div><h2>Solo estructura</h2><p>Esta sección aún no está implementada. Los datos reales y las acciones protegidas permanecerán desactivados hasta conectar la autenticación segura del personal.</p></div>
+        <span className="status-pill">NO DISPONIBLE</span>
       </div>
     </section>
   )

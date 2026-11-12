@@ -37,9 +37,9 @@ test('direct protected navigation waits for server confirmation and redirects an
   await page.goto('/support')
 
   await expect(page.getByTestId('staff-sign-in-page')).toBeVisible()
-  await expect(page.getByRole('heading', { name: 'Customer support' })).toHaveCount(0)
-  await expect(page.getByLabel('Email')).toBeVisible()
-  await expect(page.getByLabel('Password')).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Atención al cliente' })).toHaveCount(0)
+  await expect(page.getByLabel('Correo electrónico')).toBeVisible()
+  await expect(page.getByLabel('Contraseña')).toBeVisible()
 })
 
 test('accepts only server-confirmed support agents and clears the protected view on logout', async ({ page }) => {
@@ -72,11 +72,11 @@ test('accepts only server-confirmed support agents and clears the protected view
   })
 
   await page.goto('/support')
-  await page.getByLabel('Email').fill('support@example.test')
-  await page.getByLabel('Password').fill('not-persisted-password')
-  await page.getByRole('button', { name: 'Sign in' }).click()
+  await page.getByLabel('Correo electrónico').fill('support@example.test')
+  await page.getByLabel('Contraseña').fill('not-persisted-password')
+  await page.getByRole('button', { name: 'Iniciar sesión' }).click()
 
-  await expect(page.getByRole('heading', { name: 'Customer support' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Atención al cliente' })).toBeVisible()
   await expect(page.getByText('support@example.test')).toBeVisible()
   expect(new URL(page.url()).pathname).toBe('/support')
   expect(new URL(page.url()).search).toBe('')
@@ -89,7 +89,7 @@ test('accepts only server-confirmed support agents and clears the protected view
 
   await page.getByTestId('staff-sign-out-button').click()
   await expect(page.getByTestId('staff-sign-in-page')).toBeVisible()
-  await expect(page.getByRole('heading', { name: 'Customer support' })).toHaveCount(0)
+  await expect(page.getByRole('heading', { name: 'Atención al cliente' })).toHaveCount(0)
 })
 
 test('clears another tab’s protected view through the fixed safe broadcast message', async ({ page }) => {
@@ -107,8 +107,8 @@ test('clears another tab’s protected view through the fixed safe broadcast mes
 
   await Promise.all([page.goto('/support'), secondPage.goto('/support')])
   await Promise.all([
-    expect(page.getByRole('heading', { name: 'Customer support' })).toBeVisible(),
-    expect(secondPage.getByRole('heading', { name: 'Customer support' })).toBeVisible(),
+    expect(page.getByRole('heading', { name: 'Atención al cliente' })).toBeVisible(),
+    expect(secondPage.getByRole('heading', { name: 'Atención al cliente' })).toBeVisible(),
   ])
 
   await page.evaluate(() => {
@@ -116,7 +116,7 @@ test('clears another tab’s protected view through the fixed safe broadcast mes
     channel.postMessage({ type: 'clear-protected-view', email: 'should-not-be-shared@example.test' })
     channel.close()
   })
-  await expect(secondPage.getByRole('heading', { name: 'Customer support' })).toBeVisible()
+  await expect(secondPage.getByRole('heading', { name: 'Atención al cliente' })).toBeVisible()
 
   await page.evaluate(() => {
     const channel = new BroadcastChannel('finance-ai-staff-auth')
@@ -125,9 +125,9 @@ test('clears another tab’s protected view through the fixed safe broadcast mes
   })
 
   await expect(secondPage.getByTestId('staff-sign-in-page')).toBeVisible()
-  await expect(secondPage.getByRole('heading', { name: 'Customer support' })).toHaveCount(0)
+  await expect(secondPage.getByRole('heading', { name: 'Atención al cliente' })).toHaveCount(0)
   await expect(page.getByTestId('staff-sign-in-page')).toBeVisible()
-  await expect(page.getByRole('heading', { name: 'Customer support' })).toHaveCount(0)
+  await expect(page.getByRole('heading', { name: 'Atención al cliente' })).toHaveCount(0)
   expect(new URL(secondPage.url()).pathname).toBe('/login')
   expect(new URL(secondPage.url()).search).toBe('')
   expectNoAuthStateInConsole(consoleMessages)
@@ -163,18 +163,18 @@ test('hides protected content while visible-tab session revalidation is unresolv
   })
 
   await page.goto('/support')
-  await page.getByLabel('Email').fill('support@example.test')
-  await page.getByLabel('Password').fill('not-persisted-password')
-  await page.getByRole('button', { name: 'Sign in' }).click()
-  await expect(page.getByRole('heading', { name: 'Customer support' })).toBeVisible()
+  await page.getByLabel('Correo electrónico').fill('support@example.test')
+  await page.getByLabel('Contraseña').fill('not-persisted-password')
+  await page.getByRole('button', { name: 'Iniciar sesión' }).click()
+  await expect(page.getByRole('heading', { name: 'Atención al cliente' })).toBeVisible()
 
   await page.clock.fastForward(30_000)
   await expect.poll(() => sessionRequests).toBe(2)
   await expect(page.getByTestId('staff-auth-loading')).toBeVisible()
-  await expect(page.getByRole('heading', { name: 'Customer support' })).toHaveCount(0)
+  await expect(page.getByRole('heading', { name: 'Atención al cliente' })).toHaveCount(0)
 
   finishRevalidation?.()
-  await expect(page.getByRole('heading', { name: 'Customer support' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Atención al cliente' })).toBeVisible()
 })
 
 test('rejects an admin role returned by the session service', async ({ page }) => {
@@ -194,13 +194,13 @@ test('rejects an admin role returned by the session service', async ({ page }) =
   })
 
   await page.goto('/login')
-  await page.getByLabel('Email').fill('admin@example.test')
-  await page.getByLabel('Password').fill('not-persisted-password')
-  await page.getByRole('button', { name: 'Sign in' }).click()
+  await page.getByLabel('Correo electrónico').fill('admin@example.test')
+  await page.getByLabel('Contraseña').fill('not-persisted-password')
+  await page.getByRole('button', { name: 'Iniciar sesión' }).click()
 
   await expect(page.getByTestId('staff-sign-in-page')).toBeVisible()
-  await expect(page.getByRole('heading', { name: 'Customer support' })).toHaveCount(0)
-  await expect(page.getByRole('alert')).toContainText('access is no longer available')
+  await expect(page.getByRole('heading', { name: 'Atención al cliente' })).toHaveCount(0)
+  await expect(page.getByRole('alert')).toContainText('ya no está disponible')
 })
 
 test('refreshes through C1 when the server reports an expired access session', async ({ page }) => {
@@ -228,7 +228,7 @@ test('refreshes through C1 when the server reports an expired access session', a
 
   await page.goto('/support')
 
-  await expect(page.getByRole('heading', { name: 'Customer support' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Atención al cliente' })).toBeVisible()
   expect(sessionRequests).toBeGreaterThanOrEqual(1)
   expect(refreshRequests).toBe(1)
 })
@@ -261,14 +261,64 @@ test('removes Support after timed revalidation receives a definitive denial', as
   })
 
   await page.goto('/support')
-  await page.getByLabel('Email').fill('support@example.test')
-  await page.getByLabel('Password').fill('not-persisted-password')
-  await page.getByRole('button', { name: 'Sign in' }).click()
-  await expect(page.getByRole('heading', { name: 'Customer support' })).toBeVisible()
+  await page.getByLabel('Correo electrónico').fill('support@example.test')
+  await page.getByLabel('Contraseña').fill('not-persisted-password')
+  await page.getByRole('button', { name: 'Iniciar sesión' }).click()
+  await expect(page.getByRole('heading', { name: 'Atención al cliente' })).toBeVisible()
 
   await page.clock.fastForward(30_000)
 
   await expect(page.getByTestId('staff-sign-in-page')).toBeVisible()
-  await expect(page.getByRole('heading', { name: 'Customer support' })).toHaveCount(0)
+  await expect(page.getByRole('heading', { name: 'Atención al cliente' })).toHaveCount(0)
   expect(sessionRequests).toBe(2)
+})
+
+test('applies the Flutter light and dark palettes and persists only the theme preference', async ({ page }) => {
+  await page.addInitScript(() => {
+    if (window.localStorage.getItem('finance_ai.theme_mode') === null) {
+      window.localStorage.setItem('finance_ai.theme_mode', 'light')
+    }
+  })
+  await page.goto('/')
+
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'light')
+  const lightPalette = await page.evaluate(() => ({
+    canvas: getComputedStyle(document.body).backgroundColor,
+    sidebar: getComputedStyle(document.querySelector('.sidebar')!).backgroundColor,
+    primary: getComputedStyle(document.querySelector('.primary-button')!).backgroundColor,
+  }))
+  expect(lightPalette).toEqual({
+    canvas: 'rgb(245, 247, 246)',
+    sidebar: 'rgb(255, 255, 255)',
+    primary: 'rgb(35, 107, 82)',
+  })
+
+  const toggle = page.getByTestId('staff-theme-toggle')
+  await expect(toggle.locator('.theme-toggle-label')).toHaveText('Claro')
+  await expect(toggle).toHaveAttribute('aria-pressed', 'false')
+  await toggle.click()
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark')
+  await expect(toggle).toHaveAttribute('aria-label', 'Modo oscuro')
+  await expect(toggle).toHaveAttribute('aria-pressed', 'true')
+  await expect(toggle.locator('.theme-toggle-label')).toHaveText('Oscuro')
+
+  const darkPalette = await page.evaluate(() => ({
+    canvas: getComputedStyle(document.body).backgroundColor,
+    sidebar: getComputedStyle(document.querySelector('.sidebar')!).backgroundColor,
+    card: getComputedStyle(document.querySelector('.area-card')!).backgroundColor,
+    primary: getComputedStyle(document.querySelector('.primary-button')!).backgroundColor,
+  }))
+  expect(darkPalette).toEqual({
+    canvas: 'rgb(23, 29, 34)',
+    sidebar: 'rgb(34, 43, 49)',
+    card: 'rgb(32, 40, 46)',
+    primary: 'rgb(105, 185, 146)',
+  })
+
+  expect(await page.evaluate(() => Object.entries(localStorage))).toEqual([
+    ['finance_ai.theme_mode', 'dark'],
+  ])
+  await page.reload()
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark')
+  await expect(page.getByTestId('staff-theme-toggle')).toHaveAttribute('aria-pressed', 'true')
 })
