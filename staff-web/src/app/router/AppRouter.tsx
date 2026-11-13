@@ -1,27 +1,27 @@
-import { BrowserRouter, Route, Routes } from 'react-router'
+import { BrowserRouter, Navigate, Route, Routes } from 'react-router'
 import { StaffLayout } from '../layouts/StaffLayout'
 import { SignInPage } from '../../features/auth/SignInPage'
-import { AdminWorkspacePage } from '../../features/admin/AdminWorkspacePage'
-import { AuditWorkspacePage } from '../../features/audit/AuditWorkspacePage'
 import { NotFoundPage } from '../../features/shared/NotFoundPage'
-import { OverviewPage } from '../../features/shared/OverviewPage'
-import { UnauthorizedPage } from '../../features/shared/UnauthorizedPage'
 import { SupportWorkspacePage } from '../../features/support/SupportWorkspacePage'
+import { StaffAuthProvider } from '../../shared/auth/StaffAuthProvider'
+import { RequireStaffSession } from './RequireStaffSession'
+import { StaffThemeProvider } from '../../shared/theme/StaffThemeProvider'
 
 export function AppRouter() {
   return (
-    <BrowserRouter>
-      <Routes>
-        <Route element={<StaffLayout />} path="/">
-          <Route element={<OverviewPage />} index />
-          <Route element={<SignInPage />} path="login" />
-          <Route element={<SupportWorkspacePage />} path="support/*" />
-          <Route element={<AdminWorkspacePage />} path="admin/*" />
-          <Route element={<AuditWorkspacePage />} path="audit/*" />
-          <Route element={<UnauthorizedPage />} path="unauthorized" />
-          <Route element={<NotFoundPage />} path="*" />
-        </Route>
-      </Routes>
-    </BrowserRouter>
+    <StaffThemeProvider>
+      <StaffAuthProvider>
+        <BrowserRouter>
+          <Routes>
+            <Route element={<SignInPage />} path="/login" />
+            <Route element={<RequireStaffSession><StaffLayout /></RequireStaffSession>} path="/">
+              <Route element={<Navigate to="/support" replace />} index />
+              <Route element={<SupportWorkspacePage />} path="support/*" />
+            </Route>
+            <Route element={<NotFoundPage />} path="*" />
+          </Routes>
+        </BrowserRouter>
+      </StaffAuthProvider>
+    </StaffThemeProvider>
   )
 }

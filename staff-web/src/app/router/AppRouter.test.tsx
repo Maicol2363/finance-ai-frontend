@@ -1,38 +1,160 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { AppRouter } from './AppRouter'
 
-function renderApp() {
-  return render(<AppRouter />)
+const validSession = {
+  user: { id: 42, email: 'agent@example.test', role: 'support_agent' },
+  access_expires_at: '2026-11-11T15:30:00Z',
+  renewable_expires_at: '2026-11-12T15:00:00Z',
+  absolute_expires_at: '2026-11-18T15:00:00Z',
 }
 
-describe('staff portal foundation', () => {
-  it('shows the shared layout and clearly marks role workspaces as pending', () => {
-    renderApp()
-    expect(screen.getByRole('complementary', { name: 'Staff navigation' })).toBeInTheDocument()
-    expect(screen.getByRole('navigation')).toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: 'Ready for implementation' })).toBeInTheDocument()
-    expect(screen.getByText(/does not display live data/i)).toBeInTheDocument()
+function jsonResponse(body: unknown, status = 200): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { 'Content-Type': 'application/json' },
+  })
+}
+
+function deniedResponse(): Response {
+  return jsonResponse({ code: 'session_invalid', status: 401, title: 'Unauthorized' }, 401)
+}
+
+describe('staff portal authentication routes', () => {
+  beforeEach(() => {
+    window.history.pushState({}, '', '/')
+    sessionStorage.clear()
+    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
+      if (String(input).endsWith('/session')) return deniedResponse()
+      return jsonResponse({ code: 'invalid_credentials', status: 401 }, 401)
+    }))
   })
 
-  it('navigates to the sign-in placeholder without simulating authentication', async () => {
-    const user = userEvent.setup()
-    renderApp()
-    await user.click(screen.getByRole('link', { name: 'Sign in' }))
-    expect(screen.getByRole('heading', { name: 'Sign-in is not connected' })).toBeInTheDocument()
-    expect(screen.getByText(/does not yet define a secure browser-session contract/i)).toBeInTheDocument()
+  afterEach(() => vi.unstubAllGlobals())
+
+  it('opens the sign-in page at the root without exposing Support navigation', async () => {
+    render(<AppRouter />)
+
+    expect(await screen.findByRole('heading', { name: 'Iniciar sesión en el portal de soporte' })).toBeInTheDocument()
+    expect(screen.queryByRole('navigation', { name: 'Navegación del personal' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Soporte' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Tu espacio de soporte empieza aquí.' })).not.toBeInTheDocument()
   })
 
-  it('navigates between the three role workspaces', async () => {
-    const user = userEvent.setup()
-    renderApp()
+  it('redirects direct support navigation to sign-in and hides the protected page', async () => {
+    window.history.pushState({}, '', '/support')
+    render(<AppRouter />)
 
-    await user.click(screen.getByRole('link', { name: 'Support' }))
-    expect(screen.getByRole('heading', { name: 'Customer support' })).toBeInTheDocument()
-    await user.click(screen.getByRole('link', { name: 'Administration' }))
-    expect(screen.getByRole('heading', { name: 'Administration' })).toBeInTheDocument()
-    await user.click(screen.getByRole('link', { name: 'Security audit' }))
-    expect(screen.getByRole('heading', { name: 'Security audit' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Iniciar sesión en el portal de soporte' })).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Atención al cliente' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('navigation', { name: 'Navegación del personal' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Soporte' })).not.toBeInTheDocument()
+  })
+
+  it('shows a recoverable protected-route error and retries session confirmation', async () => {
+    let sessionRequests = 0
+    vi.mocked(fetch).mockImplementation(async (input: RequestInfo | URL) => {
+      if (String(input).endsWith('/session')) {
+        sessionRequests += 1
+        return sessionRequests === 1
+          ? jsonResponse({ code: 'service_unavailable', status: 503 }, 503)
+          : jsonResponse(validSession)
+      }
+      return deniedResponse()
+    })
+    window.history.pushState({}, '', '/support')
+    const user = userEvent.setup()
+    render(<AppRouter />)
+
+    expect(await screen.findByTestId('staff-auth-recoverable-error')).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Atención al cliente' })).not.toBeInTheDocument()
+    await user.click(screen.getByTestId('staff-auth-retry-button'))
+    expect(await screen.findByRole('heading', { name: 'Atención al cliente' })).toBeInTheDocument()
+  })
+
+  it('keeps protected content hidden while logout is pending and allows an explicit retry', async () => {
+    sessionStorage.setItem('finance-ai-staff-logout-pending', '1')
+    vi.mocked(fetch).mockImplementation(async (input: RequestInfo | URL) => {
+      if (String(input).endsWith('/logout')) return new Response(null, { status: 204 })
+      return deniedResponse()
+    })
+    window.history.pushState({}, '', '/support')
+    const user = userEvent.setup()
+    render(<AppRouter />)
+
+    expect(await screen.findByTestId('staff-logout-pending')).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Atención al cliente' })).not.toBeInTheDocument()
+    await user.click(screen.getByTestId('staff-logout-retry-button'))
+    expect(await screen.findByRole('heading', { name: 'Iniciar sesión en el portal de soporte' })).toBeInTheDocument()
+    expect(sessionStorage.getItem('finance-ai-staff-logout-pending')).toBeNull()
+  })
+
+  it('redirects direct unauthenticated Support access to login, then opens Support after login', async () => {
+    const fetchMock = vi.mocked(fetch)
+    fetchMock.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+      if (String(input).endsWith('/session')) return deniedResponse()
+      if (String(input).endsWith('/login')) {
+        expect(init?.credentials).toBe('include')
+        expect(init?.headers).toBeInstanceOf(Headers)
+        return jsonResponse(validSession)
+      }
+      return jsonResponse({ code: 'session_invalid' }, 401)
+    })
+    window.history.pushState({}, '', '/support')
+    const user = userEvent.setup()
+    render(<AppRouter />)
+
+    await user.type(await screen.findByLabelText('Correo electrónico'), 'agent@example.test')
+    await user.type(screen.getByLabelText('Contraseña'), 'example-only-password')
+    await user.click(screen.getByRole('button', { name: 'Iniciar sesión' }))
+
+    expect(await screen.findByRole('heading', { name: 'Atención al cliente' })).toBeInTheDocument()
+    expect(window.location.pathname).toBe('/support')
+    expect(screen.queryByRole('navigation', { name: 'Navegación del personal' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Soporte' })).not.toBeInTheDocument()
+    expect(screen.getByText('agent@example.test')).toBeInTheDocument()
+  })
+
+  it('keeps credential submission visibly pending while the server request is unresolved', async () => {
+    vi.mocked(fetch).mockImplementation(async (input: RequestInfo | URL) => {
+      if (String(input).endsWith('/session')) return deniedResponse()
+      return new Promise<Response>(() => {})
+    })
+    window.history.pushState({}, '', '/login')
+    const user = userEvent.setup()
+    render(<AppRouter />)
+
+    await user.type(await screen.findByLabelText('Correo electrónico'), 'agent@example.test')
+    await user.type(screen.getByLabelText('Contraseña'), 'example-only-password')
+    await user.click(screen.getByRole('button', { name: 'Iniciar sesión' }))
+
+    expect(await screen.findByRole('button', { name: 'Iniciando sesión…' })).toBeDisabled()
+  })
+
+  it('does not open the protected route when the server returns a different staff role', async () => {
+    vi.mocked(fetch).mockImplementation(async (input: RequestInfo | URL) => {
+      if (String(input).endsWith('/session')) return deniedResponse()
+      return jsonResponse({ ...validSession, user: { ...validSession.user, role: 'admin' } })
+    })
+    window.history.pushState({}, '', '/login')
+    const user = userEvent.setup()
+    render(<AppRouter />)
+
+    await user.type(await screen.findByLabelText('Correo electrónico'), 'admin@example.test')
+    await user.type(screen.getByLabelText('Contraseña'), 'example-only-password')
+    await user.click(screen.getByRole('button', { name: 'Iniciar sesión' }))
+
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Iniciar sesión en el portal de soporte' })).toBeInTheDocument())
+    expect(screen.queryByRole('heading', { name: 'Atención al cliente' })).not.toBeInTheDocument()
+    expect(screen.getByRole('alert')).toHaveTextContent(/ya no está disponible/i)
+  })
+
+  it('does not route admin or audit paths to staff features', async () => {
+    window.history.pushState({}, '', '/admin')
+    render(<AppRouter />)
+
+    expect(await screen.findByRole('heading', { name: 'No encontramos esta página' })).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Administration' })).not.toBeInTheDocument()
   })
 })

@@ -36,20 +36,20 @@ describe('not-found diagnostics', () => {
     try {
       renderNotFound('/private/customer/812?email=hidden%40example.com&token=secret-value')
 
-      expect(screen.getByRole('heading', { name: 'That page is not here' })).toBeInTheDocument()
+      expect(screen.getByRole('heading', { name: 'No encontramos esta página' })).toBeInTheDocument()
       expect(screen.getByText('route_not_found')).toBeInTheDocument()
-      const report = screen.getByLabelText('Diagnostic report').textContent ?? ''
-      expect(report).toContain('Error code: route_not_found')
-      expect(report).toContain('Operation: route.not_found')
-      expect(report).toContain('Platform: web')
+      const report = screen.getByLabelText('Contenido del informe de diagnóstico').textContent ?? ''
+      expect(report).toContain('Código de error: route_not_found')
+      expect(report).toContain('Operación: route.not_found')
+      expect(report).toContain('Plataforma: web')
       expect(report).not.toContain('/private/customer/812')
       expect(report).not.toContain('hidden@example.com')
       expect(report).not.toContain('secret-value')
 
-      fireEvent.click(screen.getByRole('button', { name: 'Copy diagnostic report' }))
+      fireEvent.click(screen.getByRole('button', { name: 'Copiar informe de diagnóstico' }))
 
       expect(writeText).toHaveBeenCalledExactlyOnceWith(report)
-      expect(await screen.findByRole('status')).toHaveTextContent('Diagnostic report copied.')
+      expect(await screen.findByRole('status')).toHaveTextContent('Se copió el informe de diagnóstico.')
     } finally {
       restoreClipboard()
     }
@@ -60,14 +60,14 @@ describe('not-found diagnostics', () => {
 
     try {
       renderNotFound('/unmatched?private=value')
-      fireEvent.click(screen.getByRole('button', { name: 'Copy diagnostic report' }))
+      fireEvent.click(screen.getByRole('button', { name: 'Copiar informe de diagnóstico' }))
 
       expect(await screen.findByRole('status')).toHaveTextContent(
-        'Copy is unavailable here. Select and copy the report above.',
+        'No se puede copiar aquí. Selecciona y copia el informe de arriba.',
       )
-      expect(screen.getByLabelText('Diagnostic report')).toHaveTextContent('route_not_found')
-      expect(screen.getByLabelText('Diagnostic report')).not.toHaveTextContent('private=value')
-      expect(screen.getByLabelText('Diagnostic report')).not.toHaveTextContent('private clipboard detail')
+      expect(screen.getByLabelText('Contenido del informe de diagnóstico')).toHaveTextContent('route_not_found')
+      expect(screen.getByLabelText('Contenido del informe de diagnóstico')).not.toHaveTextContent('private=value')
+      expect(screen.getByLabelText('Contenido del informe de diagnóstico')).not.toHaveTextContent('private clipboard detail')
     } finally {
       restoreClipboard()
     }

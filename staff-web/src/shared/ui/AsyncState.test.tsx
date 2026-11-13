@@ -5,17 +5,17 @@ import { ErrorState, LoadingState } from './AsyncState'
 
 describe('shared async states', () => {
   it('announces loading state to assistive technology', () => {
-    render(<LoadingState label="Loading tickets" />)
-    expect(screen.getByRole('status')).toHaveTextContent('Loading tickets')
+    render(<LoadingState label="Cargando tickets" />)
+    expect(screen.getByRole('status')).toHaveTextContent('Cargando tickets')
   })
 
   it('announces safe errors and invokes retry when provided', async () => {
     const user = userEvent.setup()
     const onRetry = vi.fn()
-    render(<ErrorState title="The request failed. Try again later." onRetry={onRetry} />)
+    render(<ErrorState title="La solicitud falló. Vuelve a intentarlo." onRetry={onRetry} />)
 
-    expect(screen.getByRole('alert')).toHaveTextContent('The request failed. Try again later.')
-    await user.click(screen.getByRole('button', { name: 'Try again' }))
+    expect(screen.getByRole('alert')).toHaveTextContent('La solicitud falló. Vuelve a intentarlo.')
+    await user.click(screen.getByRole('button', { name: 'Intentar de nuevo' }))
     expect(onRetry).toHaveBeenCalledOnce()
   })
 })
