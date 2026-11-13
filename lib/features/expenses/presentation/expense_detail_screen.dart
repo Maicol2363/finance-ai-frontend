@@ -105,6 +105,32 @@ class _ExpenseDetailScreenState extends ConsumerState<ExpenseDetailScreen> {
 
     return ManagementPageScaffold(
       title: isReceipt ? 'Detalle del recibo' : 'Detalle del gasto',
+      actions: [
+        if (expense != null) ...[
+          HeaderIconButton(
+            key: const Key('expense-edit-button'),
+            tooltip: isReceipt ? 'Editar recibo' : 'Editar gasto',
+            icon: FinanceIcons.editOutlined,
+            onPressed: state.isSaving || !expense.isEditable
+                ? null
+                : () async {
+                    await context.push('/expenses/${widget.expenseId}/edit');
+                    if (context.mounted) {
+                      controller.loadDetail(widget.expenseId);
+                    }
+                  },
+          ),
+          HeaderIconButton(
+            key: const Key('expense-delete-button'),
+            tooltip: isReceipt ? 'Eliminar recibo' : 'Eliminar gasto',
+            icon: FinanceIcons.deleteOutline,
+            iconColor: Theme.of(context).colorScheme.error,
+            onPressed: state.isSaving || !expense.isEditable
+                ? null
+                : () => _confirmDeletion(expense),
+          ),
+        ],
+      ],
       leading: HeaderIconButton(
         icon: FinanceIcons.arrowBack,
         tooltip: context.canPop() ? 'Volver' : 'Volver a gastos',
@@ -156,20 +182,7 @@ class _ExpenseDetailScreenState extends ConsumerState<ExpenseDetailScreen> {
             ),
           ],
           if (expense != null) ...[
-            const SizedBox(height: 28),
-            FilledButton.icon(
-              key: const Key('expense-edit-button'),
-              onPressed: state.isSaving || !expense.isEditable
-                  ? null
-                  : () async {
-                      await context.push('/expenses/${widget.expenseId}/edit');
-                      if (context.mounted) {
-                        controller.loadDetail(widget.expenseId);
-                      }
-                    },
-              icon: const Icon(FinanceIcons.editOutlined),
-              label: Text(isReceipt ? 'Editar recibo' : 'Editar gasto'),
-            ),
+            const SizedBox(height: 12),
             if (!expense.isEditable)
               Padding(
                 padding: const EdgeInsets.only(top: 8),
@@ -179,22 +192,6 @@ class _ExpenseDetailScreenState extends ConsumerState<ExpenseDetailScreen> {
                       : 'Solo los gastos confirmados se pueden editar o eliminar.',
                 ),
               ),
-            const SizedBox(height: 12),
-            OutlinedButton.icon(
-              key: const Key('expense-delete-button'),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: Theme.of(context).colorScheme.error,
-              ),
-              onPressed: state.isSaving || !expense.isEditable
-                  ? null
-                  : () => _confirmDeletion(expense),
-              icon: const Icon(FinanceIcons.deleteOutline),
-              label: Text(
-                isReceipt
-                    ? 'Eliminar recibo definitivamente'
-                    : 'Eliminar gasto definitivamente',
-              ),
-            ),
           ],
           if (state.isSaving) ...[
             const SizedBox(height: 20),

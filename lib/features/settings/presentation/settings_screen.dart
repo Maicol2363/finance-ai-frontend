@@ -8,7 +8,6 @@ import '../../../core/formatters/catalog_labels.dart';
 import '../../../core/theme/theme_controller.dart';
 import '../../../core/widgets/management_page_scaffold.dart';
 import '../../../core/widgets/manage_widgets.dart';
-import '../../../core/widgets/theme_toggle_button.dart';
 import '../../accounts/application/accounts_controller.dart';
 import '../../accounts/application/accounts_state.dart';
 import '../../auth/session/application/auth_session_controller.dart';
@@ -64,7 +63,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     return ManagementPageScaffold(
       title: 'Ajustes',
       subtitle: 'Personaliza tu app',
-      actions: const [ThemeToggleButton()],
       body: ListView(
         children: [
           const SectionTitle('Mi cuenta'),

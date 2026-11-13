@@ -198,7 +198,7 @@ class MoneyInputFormatter extends TextInputFormatter {
     TextEditingValue oldValue,
     TextEditingValue newValue,
   ) {
-    if (newValue.text.isEmpty) {
+    if (newValue.text.isEmpty || !newValue.composing.isCollapsed) {
       return newValue;
     }
 
@@ -211,7 +211,40 @@ class MoneyInputFormatter extends TextInputFormatter {
     String integerPart = '';
     String? decimalPart;
 
-    // Check for comma or dot as decimal separator
+    // Formatter output uses dots only for grouping. A surviving grouping dot
+    // must not become a decimal separator when a nearby digit is deleted.
+    var editStart = 0;
+    while (editStart < oldValue.text.length &&
+        editStart < newValue.text.length &&
+        oldValue.text[editStart] == newValue.text[editStart]) {
+      editStart++;
+    }
+    var oldEnd = oldValue.text.length;
+    var newEnd = newValue.text.length;
+    while (oldEnd > editStart &&
+        newEnd > editStart &&
+        oldValue.text[oldEnd - 1] == newValue.text[newEnd - 1]) {
+      oldEnd--;
+      newEnd--;
+    }
+    final oldSelection = oldValue.selection;
+    if (oldSelection.isValid &&
+        !oldSelection.isCollapsed &&
+        oldSelection.end <= oldValue.text.length) {
+      final replacementEnd =
+          newValue.text.length - (oldValue.text.length - oldSelection.end);
+      if (replacementEnd >= oldSelection.start &&
+          newValue.text.startsWith(
+            oldValue.text.substring(0, oldSelection.start),
+          ) &&
+          newValue.text.substring(replacementEnd) ==
+              oldValue.text.substring(oldSelection.end)) {
+        editStart = oldSelection.start;
+        newEnd = replacementEnd;
+      }
+    }
+
+    // Commas are always decimal; dots are decimal only if newly entered.
     final commaIndex = text.indexOf(',');
     int decIndex = -1;
     if (commaIndex != -1) {
@@ -220,7 +253,10 @@ class MoneyInputFormatter extends TextInputFormatter {
       final lastDotIndex = text.lastIndexOf('.');
       if (lastDotIndex != -1) {
         final afterLastDot = text.substring(lastDotIndex + 1);
-        if (afterLastDot.length <= maxDecimals) {
+        final originalDotIndex = lastDotIndex + (isNegative ? 1 : 0);
+        final insertedDot =
+            originalDotIndex >= editStart && originalDotIndex < newEnd;
+        if (insertedDot && afterLastDot.length <= maxDecimals) {
           decIndex = lastDotIndex;
         }
       }
@@ -268,26 +304,23 @@ class MoneyInputFormatter extends TextInputFormatter {
 
     final formattedText = buffer.toString();
 
-    int newCursor;
-    if (newValue.selection.baseOffset >= newValue.text.length) {
-      newCursor = formattedText.length;
-    } else {
-      int digitsBeforeCursor = 0;
-      final oldCommaIdx = newValue.text.indexOf(',');
-      final cursorAfterComma =
-          oldCommaIdx != -1 && newValue.selection.baseOffset > oldCommaIdx;
+    if (formattedText == newValue.text) return newValue;
 
-      for (
-        int i = 0;
-        i < newValue.selection.baseOffset && i < newValue.text.length;
-        i++
-      ) {
+    int mapOffset(int offset) {
+      if (offset < 0 || offset >= newValue.text.length) {
+        return formattedText.length;
+      }
+      int digitsBeforeCursor = 0;
+      final oldCommaIdx = decIndex == -1 ? -1 : decIndex + (isNegative ? 1 : 0);
+      final cursorAfterComma = oldCommaIdx != -1 && offset > oldCommaIdx;
+
+      for (int i = 0; i < offset && i < newValue.text.length; i++) {
         if (RegExp(r'\d').hasMatch(newValue.text[i])) {
           digitsBeforeCursor++;
         }
       }
 
-      newCursor = formattedText.length;
+      var newCursor = formattedText.length;
       int digitsFound = 0;
       final newCommaIdx = formattedText.indexOf(',');
       for (int i = 0; i < formattedText.length; i++) {
@@ -304,11 +337,17 @@ class MoneyInputFormatter extends TextInputFormatter {
         }
         newCursor = i + 1;
       }
+      return newCursor;
     }
 
     return TextEditingValue(
       text: formattedText,
-      selection: TextSelection.collapsed(offset: newCursor),
+      selection: TextSelection(
+        baseOffset: mapOffset(newValue.selection.baseOffset),
+        extentOffset: mapOffset(newValue.selection.extentOffset),
+        affinity: newValue.selection.affinity,
+        isDirectional: newValue.selection.isDirectional,
+      ),
     );
   }
 }

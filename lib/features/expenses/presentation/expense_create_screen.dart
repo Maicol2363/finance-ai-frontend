@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:finance_ai/core/icons/finance_icon_catalog.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -9,12 +7,12 @@ import '../../../core/diagnostics/error_diagnostic.dart';
 import '../../../core/diagnostics/error_diagnostic_panel.dart';
 import '../../../core/formatters/catalog_labels.dart';
 import '../../../core/formatters/money_formatter.dart';
+import '../../../core/state/financial_data_revision.dart';
 import '../../../core/theme/app_palette.dart';
 import '../../../core/widgets/app_header.dart';
 import '../../../core/widgets/management_page_scaffold.dart';
 import '../../accounts/data/accounts_repository.dart';
 import '../../accounts/domain/account_models.dart';
-import '../../budgets/application/budgets_controller.dart';
 import '../../auth/session/application/auth_session_controller.dart';
 import '../../auth/session/domain/session_models.dart';
 import '../../categories/data/categories_repository.dart';
@@ -26,7 +24,6 @@ import '../../incomes/data/incomes_repository.dart';
 import '../../incomes/domain/income_models.dart';
 import '../application/expenses_controller.dart';
 import '../application/expenses_state.dart';
-import '../application/history_controller.dart';
 
 enum MovementType { expense, income }
 
@@ -200,8 +197,13 @@ class _ExpenseCreateScreenState extends ConsumerState<ExpenseCreateScreen> {
         _loadingOptions = false;
       });
       if (focusAmount) {
-        Future<void>.microtask(() {
-          if (mounted) {
+        // The loading frame still has a disabled TextField. Wait until the
+        // enabled field is attached before requesting its input connection.
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted &&
+              !_loadingOptions &&
+              _loadDiagnostic == null &&
+              ModalRoute.of(context)?.isCurrent == true) {
             _amountFocus.requestFocus();
           }
         });
@@ -289,8 +291,6 @@ class _ExpenseCreateScreenState extends ConsumerState<ExpenseCreateScreen> {
     );
     if (!mounted) return;
     if (outcome == ExpenseMutationOutcome.success) {
-      unawaited(ref.read(historyControllerProvider.notifier).load());
-      unawaited(ref.read(budgetsControllerProvider.notifier).load());
       if (context.canPop()) {
         context.pop();
       } else {
@@ -345,12 +345,15 @@ class _ExpenseCreateScreenState extends ConsumerState<ExpenseCreateScreen> {
       incomeSourceId: _selectedSourceId,
     );
 
+    final providerContainer = ProviderScope.containerOf(context, listen: false);
     try {
       final repository = ref.read(incomesRepositoryProvider);
       await repository.create(command);
+      providerContainer.read(incomeRevisionProvider.notifier).changed();
+      providerContainer
+          .read(financialMovementRevisionProvider.notifier)
+          .changed();
       if (!mounted) return;
-      ref.read(incomeRevisionProvider.notifier).changed();
-      unawaited(ref.read(historyControllerProvider.notifier).load());
       if (context.canPop()) {
         context.pop();
       } else {

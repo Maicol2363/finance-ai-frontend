@@ -71,18 +71,20 @@ class HeaderIconButton extends StatelessWidget {
     required this.icon,
     required this.tooltip,
     this.onPressed,
+    this.iconColor,
   });
 
   final IconData icon;
   final String tooltip;
   final VoidCallback? onPressed;
+  final Color? iconColor;
 
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
     final enabled = onPressed != null;
-    final iconColor = enabled
-        ? palette.text
+    final resolvedIconColor = enabled
+        ? iconColor ?? palette.text
         : palette.muted.withValues(alpha: 0.38);
 
     return Tooltip(
@@ -108,7 +110,7 @@ class HeaderIconButton extends StatelessWidget {
                     border: Border.all(color: palette.line),
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: Icon(icon, size: 18, color: iconColor),
+                  child: Icon(icon, size: 18, color: resolvedIconColor),
                 ),
               ),
             ),

@@ -4,10 +4,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../../core/diagnostics/error_diagnostic.dart';
+import '../../../core/state/financial_data_revision.dart';
 import '../../auth/session/application/auth_session_controller.dart';
 import '../../budgets/application/budgets_controller.dart';
-import '../../expenses/application/expenses_controller.dart';
-import '../../expenses/application/history_controller.dart';
 import '../../expenses/domain/expense_models.dart';
 import '../data/receipt_capture_remote_data_source.dart';
 import '../data/receipt_photo_cache_repository.dart';
@@ -334,6 +333,8 @@ class ReceiptCaptureNotifier extends Notifier<ReceiptCaptureState> {
         proposalId: current.proposalId,
         command: command,
       );
+      ref.read(financialMovementRevisionProvider.notifier).changed();
+      ref.read(externalExpenseRevisionProvider.notifier).changed();
 
       // Save local photo in cache for offline viewing (Model B)
       String? savedCachePath;
@@ -350,11 +351,9 @@ class ReceiptCaptureNotifier extends Notifier<ReceiptCaptureState> {
         // Cache persistence failure is non-blocking
       }
 
-      // Refresh expense feed providers
+      // Budget progress is owned by the shared budget controller.
       try {
-        ref.read(expensesControllerProvider.notifier).load();
-        ref.read(historyControllerProvider.notifier).load();
-        ref.read(budgetsControllerProvider.notifier).load();
+        unawaited(ref.read(budgetsControllerProvider.notifier).load());
       } catch (_) {}
 
       state = ReceiptCaptureSuccess(

@@ -31,7 +31,6 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
   final _amountController = TextEditingController();
   final _noteController = TextEditingController();
   final _receiptNameController = TextEditingController();
-  final _receiptNoteController = TextEditingController();
   final _descriptionController = TextEditingController();
   int? _selectedAccountId;
   int? _selectedCategoryId;
@@ -71,7 +70,6 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
     _amountController.dispose();
     _noteController.dispose();
     _receiptNameController.dispose();
-    _receiptNoteController.dispose();
     _descriptionController.dispose();
     _nameFocus.dispose();
     _amountFocus.dispose();
@@ -475,14 +473,6 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
               ? (value) => setState(() => _clearNote = value ?? false)
               : null,
         ),
-        TextField(
-          key: const Key('expense-receipt-note-field'),
-          controller: _receiptNoteController,
-          enabled: formEnabled,
-          textInputAction: TextInputAction.next,
-          maxLines: 2,
-          decoration: const InputDecoration(labelText: 'Nota del recibo'),
-        ),
         const SizedBox(height: 12),
         TextField(
           key: const Key('expense-description-field'),
@@ -550,7 +540,6 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
       );
       _noteController.text = editExpense.note ?? '';
       _receiptNameController.text = editExpense.receiptName;
-      _receiptNoteController.text = editExpense.receiptNote ?? '';
       _descriptionController.text = editExpense.description ?? '';
       _selectedAccountId = editExpense.accountId;
       _selectedCategoryId = editExpense.category?.id;
@@ -624,7 +613,6 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
       note: _clearNote ? null : _asOptionalText(_noteController.text),
       clearNote: _clearNote,
       receiptName: receiptName,
-      receiptNote: _asOptionalText(_receiptNoteController.text),
       categoryId: _clearCategory ? null : _selectedCategoryId,
       clearCategory: _clearCategory,
       accountId: _selectedAccountId,

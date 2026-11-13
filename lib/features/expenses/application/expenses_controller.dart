@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/diagnostics/error_diagnostic.dart';
 import '../../../core/formatters/money_formatter.dart';
+import '../../../core/state/financial_data_revision.dart';
 import '../../accounts/domain/account_models.dart';
 import '../../auth/session/domain/session_models.dart';
 import '../../budgets/application/budgets_controller.dart';
@@ -13,14 +16,25 @@ final expensesControllerProvider =
     NotifierProvider<ExpensesController, ExpensesState>(ExpensesController.new);
 
 class ExpensesController extends Notifier<ExpensesState> {
+  bool _reloadRequested = false;
+
   @override
-  ExpensesState build() => const ExpensesState();
+  ExpensesState build() {
+    ref.listen(externalExpenseRevisionProvider, (_, _) {
+      if (state.result != null ||
+          state.listStatus != ExpensesLoadStatus.initial) {
+        unawaited(load());
+      }
+    });
+    return const ExpensesState();
+  }
 
   Future<void> load({int? page, int? pageSize}) async {
     final targetPage = page ?? 1;
     final targetSize = pageSize ?? state.pageSize;
     if (state.listStatus == ExpensesLoadStatus.loading ||
         state.listStatus == ExpensesLoadStatus.loadingMore) {
+      _reloadRequested = true;
       return;
     }
     state = state.copyWith(
@@ -55,6 +69,8 @@ class ExpensesController extends Notifier<ExpensesState> {
         listStatus: ExpensesLoadStatus.failure,
         listDiagnostic: _unexpected(operation: 'load_expenses'),
       );
+    } finally {
+      await _drainReloadRequest();
     }
   }
 
@@ -109,6 +125,8 @@ class ExpensesController extends Notifier<ExpensesState> {
         listStatus: ExpensesLoadStatus.failure,
         listDiagnostic: _unexpected(operation: 'load_more_expenses'),
       );
+    } finally {
+      await _drainReloadRequest();
     }
   }
 
@@ -300,6 +318,7 @@ class ExpensesController extends Notifier<ExpensesState> {
     }
     state = state.copyWith(mutationStatus: ExpenseMutationStatus.saving);
     if (await _refreshCanonicalList()) {
+      ref.read(financialMovementRevisionProvider.notifier).changed();
       state = state.copyWith(
         mutationStatus: ExpenseMutationStatus.idle,
         clearMutationDiagnostic: true,
@@ -525,6 +544,7 @@ class ExpensesController extends Notifier<ExpensesState> {
       fieldErrors: const {},
       clearMutationDiagnostic: true,
     );
+    ref.read(financialMovementRevisionProvider.notifier).changed();
     await _refreshCanonicalList();
     await _refreshBudgetProgress();
     state = state.copyWith(
@@ -545,6 +565,7 @@ class ExpensesController extends Notifier<ExpensesState> {
       fieldErrors: const {},
       clearMutationDiagnostic: true,
     );
+    ref.read(financialMovementRevisionProvider.notifier).changed();
     await _refreshCanonicalList();
     await _refreshBudgetProgress();
     state = state.copyWith(
@@ -559,6 +580,14 @@ class ExpensesController extends Notifier<ExpensesState> {
     } on Object {
       // The expense mutation already succeeded; dashboard refresh remains retryable.
     }
+  }
+
+  Future<void> _drainReloadRequest() async {
+    if (!_reloadRequested) {
+      return;
+    }
+    _reloadRequested = false;
+    await load();
   }
 
   Future<bool> _refreshDeletionResolution(
@@ -588,6 +617,9 @@ class ExpensesController extends Notifier<ExpensesState> {
         clearMutationDiagnostic: !stillExists,
         clearListDiagnostic: true,
       );
+      if (!stillExists) {
+        ref.read(financialMovementRevisionProvider.notifier).changed();
+      }
       return !stillExists;
     } on Object {
       state = state.copyWith(
@@ -605,6 +637,9 @@ class ExpensesController extends Notifier<ExpensesState> {
     var refreshed = true;
     if (failure.isMutationOutcomeUncertain) {
       refreshed = await _refreshCanonicalList();
+      if (refreshed) {
+        ref.read(financialMovementRevisionProvider.notifier).changed();
+      }
     }
     state = state.copyWith(
       mutationStatus: failure.isMutationOutcomeUncertain && !refreshed

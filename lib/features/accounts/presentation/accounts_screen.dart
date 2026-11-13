@@ -7,7 +7,6 @@ import '../../../core/diagnostics/error_diagnostic_panel.dart';
 import '../../../core/widgets/app_header.dart';
 import '../../../core/widgets/manage_widgets.dart';
 import '../../../core/widgets/management_page_scaffold.dart';
-import '../../../core/widgets/theme_toggle_button.dart';
 import '../application/accounts_controller.dart';
 import '../application/accounts_state.dart';
 import '../domain/account_models.dart';
@@ -53,7 +52,6 @@ class _AccountsScreenState extends ConsumerState<AccountsScreen> {
           }
         },
       ),
-      actions: const [ThemeToggleButton()],
       body: RefreshIndicator(
         onRefresh: controller.load,
         child: ListView(

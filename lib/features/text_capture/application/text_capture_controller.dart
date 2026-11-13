@@ -1,13 +1,11 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/diagnostics/error_diagnostic.dart';
+import '../../../core/state/financial_data_revision.dart';
 import '../../../core/time/clock_provider.dart';
-import '../../accounts/application/accounts_controller.dart';
 import '../../auth/session/application/auth_session_controller.dart';
 import '../../auth/session/domain/session_models.dart';
 import '../../budgets/application/budgets_controller.dart';
-import '../../expenses/application/expenses_controller.dart';
-import '../../expenses/application/history_controller.dart';
 import '../../incomes/data/incomes_repository.dart';
 import '../data/text_capture_repository.dart';
 import '../domain/text_capture_models.dart';
@@ -229,9 +227,7 @@ class TextCaptureController extends Notifier<TextCaptureChatState> {
               item,
         ],
       );
-      _refreshMovements(
-        refreshBudget: confirmation.intent == CaptureIntent.expense,
-      );
+      _refreshMovements(intent: confirmation.intent);
     } on TextCaptureFailure catch (failure) {
       _failConfirm(
         entry.id,
@@ -325,15 +321,16 @@ class TextCaptureController extends Notifier<TextCaptureChatState> {
   }
 
   /// Every list that shows balances or movements reads the new record.
-  void _refreshMovements({bool refreshBudget = false}) {
+  void _refreshMovements({required CaptureIntent intent}) {
     try {
-      ref.read(expensesControllerProvider.notifier).load();
-      ref.read(historyControllerProvider.notifier).load();
-      if (refreshBudget) {
+      ref.read(financialMovementRevisionProvider.notifier).changed();
+      if (intent == CaptureIntent.expense) {
+        ref.read(externalExpenseRevisionProvider.notifier).changed();
         ref.read(budgetsControllerProvider.notifier).load();
       }
-      ref.read(accountsControllerProvider.notifier).load();
-      ref.read(incomeRevisionProvider.notifier).changed();
+      if (intent == CaptureIntent.income) {
+        ref.read(incomeRevisionProvider.notifier).changed();
+      }
     } catch (_) {
       // They reload on their own the next time they are opened.
     }
