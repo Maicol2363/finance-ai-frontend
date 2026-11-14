@@ -51,7 +51,7 @@ export function SignInPage() {
       <a className="skip-link" href="#main-content">Saltar al contenido</a>
       <header className="auth-topbar">
         <div aria-label="FinanciAI, portal del personal" className="brand">
-          <span aria-hidden="true" className="brand-mark">F</span>
+          <img alt="" aria-hidden="true" className="brand-logo" data-testid="staff-brand-logo" src="/finance-ai-app-icon.png" />
           <span><strong>FinanciAI</strong><small>Portal del personal</small></span>
         </div>
         <ThemeToggleButton />

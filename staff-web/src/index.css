@@ -70,7 +70,7 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .skip-link { position: fixed; top: 8px; left: 8px; z-index: 5; padding: 10px 14px; border-radius: 8px; color: var(--ink); background: var(--card); transform: translateY(-160%); }
 .skip-link:focus { transform: translateY(0); }
 .brand { display: flex; align-items: center; gap: 11px; padding: 0 10px; text-decoration: none; }
-.brand-mark { display: grid; width: 39px; height: 39px; place-items: center; border-radius: 13px; color: var(--on-primary); background: var(--primary); font-size: 21px; font-weight: 800; }
+.brand-logo { display: block; width: 39px; height: 39px; flex: none; border-radius: 12px; object-fit: contain; }
 .brand strong, .brand small { display: block; }
 .brand strong { font-size: 15px; letter-spacing: .01em; }
 .brand small { margin-top: 3px; color: var(--muted); font-size: 11px; }
