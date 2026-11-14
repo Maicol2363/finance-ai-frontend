@@ -7,16 +7,16 @@ export function RequireStaffSession({ children }: { children: ReactNode }) {
   const { state, retry, retryPendingLogout } = useStaffAuth()
   const location = useLocation()
 
-  if (state.status === 'authenticated' && state.session.user.role === 'support_agent') {
+  if (state.status === 'authenticated') {
     return children
   }
-  if (state.status === 'anonymous') {
+  if (state.status === 'anonymous' || state.status === 'mfa_required') {
     return <Navigate to="/login" replace state={{ from: location.pathname }} />
   }
   if (state.status === 'recoverable_error') {
     return (
       <section aria-live="polite" className="auth-status-panel error-state" data-testid="staff-auth-recoverable-error">
-        <h1>Soporte no está disponible temporalmente</h1>
+        <h1>El portal del personal no está disponible temporalmente</h1>
         <p>{state.message}</p>
         {state.diagnostic && <AuthDiagnosticPanel diagnostic={state.diagnostic} />}
         <button data-testid="staff-auth-retry-button" onClick={() => void retry()} type="button">Intentar de nuevo</button>

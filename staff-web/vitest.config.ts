@@ -15,6 +15,10 @@ export default defineConfig({
       include: [
         'src/app/router/AppRouter.tsx',
         'src/app/router/RequireStaffSession.tsx',
+        'src/app/router/RequireStaffRole.tsx',
+        'src/features/audit/**/*.{ts,tsx}',
+        'src/features/auth/MfaStep.tsx',
+        'src/shared/auth/roleHome.ts',
         'src/app/layouts/StaffLayout.tsx',
         'src/features/auth/SignInPage.tsx',
         'src/features/auth/AuthDiagnosticPanel.tsx',
