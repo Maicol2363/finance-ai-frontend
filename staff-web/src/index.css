@@ -164,6 +164,7 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .support-error, .support-empty, .support-loading { padding: 18px; border: 1px solid var(--line); border-radius: 10px; color: var(--muted); background: var(--card); font-size: 13px; line-height: 1.6; }
 .support-error { display: flex; justify-content: space-between; gap: 12px; color: var(--discard); background: var(--error-soft); }
 .support-error button { border: 0; color: inherit; background: transparent; font: inherit; font-weight: 700; cursor: pointer; }
+.support-empty-list { padding: 18px; color: var(--muted); font-size: 13px; }
 .support-empty h2 { margin: 0 0 5px; color: var(--ink); font-size: 15px; }
 .support-empty p { margin: 0; }
 .support-content { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(280px, .75fr); align-items: start; gap: 16px; }

@@ -1,8 +1,11 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useStaffAuth } from '../../shared/auth/useStaffAuth'
+import { SupportDiagnosticPanel } from './SupportDiagnosticPanel'
 import {
-  SupportTicketsApiError,
+  safeSupportDiagnostic,
+  safeSupportMessage,
   supportTicketsApi,
+  type SupportDiagnostic,
   type SupportTicket,
   type SupportTicketDetail,
   type TicketStatus,
@@ -23,15 +26,13 @@ const statusLabels: Record<TicketStatus, string> = {
   resolved: 'Resuelto',
 }
 
-function formatDate(value: string): string {
-  return new Intl.DateTimeFormat('es-CO', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value))
+interface SupportFailure {
+  message: string
+  diagnostic: SupportDiagnostic
 }
 
-function claimError(error: unknown): string {
-  if (error instanceof SupportTicketsApiError && error.status === 409) {
-    return 'Otro agente reclamó este ticket primero. Actualiza la cola para ver su asignación.'
-  }
-  return 'No se pudo reclamar el ticket. Inténtalo de nuevo.'
+function formatDate(value: string): string {
+  return new Intl.DateTimeFormat('es-CO', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value))
 }
 
 export function SupportWorkspacePage() {
@@ -39,7 +40,8 @@ export function SupportWorkspacePage() {
   const [filter, setFilter] = useState<TicketStatus | 'all'>('all')
   const [tickets, setTickets] = useState<SupportTicket[]>([])
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
+  const [queueFailure, setQueueFailure] = useState<SupportFailure | null>(null)
+  const [actionFailure, setActionFailure] = useState<SupportFailure | null>(null)
   const [notice, setNotice] = useState('')
   const [busyId, setBusyId] = useState<number | null>(null)
   const [detail, setDetail] = useState<SupportTicketDetail | null>(null)
@@ -47,11 +49,16 @@ export function SupportWorkspacePage() {
 
   const refresh = useCallback(async (signal?: AbortSignal) => {
     setLoading(true)
-    setError('')
+    setQueueFailure(null)
     try {
       setTickets(await supportTicketsApi.list(filter, signal))
-    } catch {
-      if (!signal?.aborted) setError('No se pudo cargar la cola. Comprueba tu sesión e inténtalo de nuevo.')
+    } catch (failure) {
+      if (!signal?.aborted) {
+        setQueueFailure({
+          message: safeSupportMessage(failure, 'queue'),
+          diagnostic: safeSupportDiagnostic(failure, 'queue'),
+        })
+      }
     } finally {
       if (!signal?.aborted) setLoading(false)
     }
@@ -68,8 +75,12 @@ export function SupportWorkspacePage() {
     setDetailLoading(true)
     try {
       setDetail(await supportTicketsApi.detail(ticket.id))
-    } catch {
-      setNotice('No fue posible abrir el contexto autorizado del ticket.')
+      setActionFailure(null)
+    } catch (failure) {
+      setActionFailure({
+        message: safeSupportMessage(failure, 'detail'),
+        diagnostic: safeSupportDiagnostic(failure, 'detail'),
+      })
     } finally {
       setDetailLoading(false)
     }
@@ -78,6 +89,7 @@ export function SupportWorkspacePage() {
   async function claim(ticket: SupportTicket) {
     setBusyId(ticket.id)
     setNotice('')
+    setActionFailure(null)
     try {
       const claimed = await supportTicketsApi.claim(ticket.id)
       setTickets((current) => filter === 'open'
@@ -86,7 +98,10 @@ export function SupportWorkspacePage() {
       setNotice('Ticket reclamado. Ya puedes consultar su contexto autorizado.')
       await openDetail(claimed)
     } catch (failure) {
-      setNotice(claimError(failure))
+      setActionFailure({
+        message: safeSupportMessage(failure, 'claim'),
+        diagnostic: safeSupportDiagnostic(failure, 'claim'),
+      })
       await refresh()
     } finally {
       setBusyId(null)
@@ -110,20 +125,28 @@ export function SupportWorkspacePage() {
             aria-pressed={filter === item.value}
             className={filter === item.value ? 'filter-button is-selected' : 'filter-button'}
             key={item.value}
-            onClick={() => { setFilter(item.value); setDetail(null) }}
+            onClick={() => { setFilter(item.value); setDetail(null); setActionFailure(null) }}
             type="button"
           >{item.label}</button>
         ))}
       </div>
 
       <p aria-live="polite" className="support-notice">{notice}</p>
-      {error && <div className="support-error" role="alert">{error}<button onClick={() => void refresh()} type="button">Reintentar</button></div>}
+      {queueFailure && <>
+        <div className="support-error" role="alert">{queueFailure.message}<button onClick={() => void refresh()} type="button">Reintentar</button></div>
+        <SupportDiagnosticPanel diagnostic={queueFailure.diagnostic} id="support-queue-diagnostic" />
+      </>}
+      {actionFailure && <>
+        <div className="support-error" role="alert">{actionFailure.message}</div>
+        <SupportDiagnosticPanel diagnostic={actionFailure.diagnostic} id="support-action-diagnostic" />
+      </>}
       {loading && <p aria-live="polite" className="support-loading">Cargando tickets…</p>}
-      {!loading && !error && tickets.length === 0 && <div className="support-empty"><h2>No hay tickets en esta vista</h2><p>Prueba otro filtro o actualiza la cola más tarde.</p></div>}
+      {!loading && !queueFailure && tickets.length === 0 && !detail && !detailLoading && <div className="support-empty"><h2>No hay tickets en esta vista</h2><p>Prueba otro filtro o actualiza la cola más tarde.</p></div>}
 
-      {!loading && tickets.length > 0 && (
+      {(!loading && tickets.length > 0 || detail !== null || detailLoading) && (
         <div className="support-content">
           <div aria-label="Tickets de soporte" className="ticket-list" role="list">
+            {tickets.length === 0 && <p className="support-empty-list">La cola está vacía para este filtro.</p>}
             {tickets.map((ticket) => {
               const mine = ticket.assigned_staff_user_id === session?.user.id
               const assigned = ticket.assigned_staff_user_id !== null
