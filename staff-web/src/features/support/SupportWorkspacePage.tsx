@@ -1,6 +1,6 @@
 import { SupportCasePanel } from './SupportCasePanel'
 import { SupportCreateForm } from './SupportCreateForm'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useStaffAuth } from '../../shared/auth/useStaffAuth'
 import { SupportDiagnosticPanel } from './SupportDiagnosticPanel'
 import {
@@ -48,6 +48,15 @@ export function SupportWorkspacePage() {
   const [busyId, setBusyId] = useState<number | null>(null)
   const [detail, setDetail] = useState<SupportTicketDetail | null>(null)
   const [detailLoading, setDetailLoading] = useState(false)
+  const [contextOpen, setContextOpen] = useState(false)
+  const contextDialog = useRef<HTMLDialogElement>(null)
+  const detailRequest = useRef<AbortController | null>(null)
+
+  useEffect(() => () => detailRequest.current?.abort(), [])
+
+  useEffect(() => {
+    if (contextOpen && !contextDialog.current?.open) contextDialog.current?.showModal()
+  }, [contextOpen])
 
   const refresh = useCallback(async (signal?: AbortSignal) => {
     setLoading(true)
@@ -73,18 +82,24 @@ export function SupportWorkspacePage() {
   }, [refresh])
 
   async function openDetail(ticket: SupportTicket) {
+    detailRequest.current?.abort()
+    const request = new AbortController()
+    detailRequest.current = request
     setDetail(null)
+    setActionFailure(null)
     setDetailLoading(true)
+    setContextOpen(true)
     try {
-      setDetail(await supportTicketsApi.detail(ticket.id))
-      setActionFailure(null)
+      const value = await supportTicketsApi.detail(ticket.id, request.signal)
+      if (!request.signal.aborted) setDetail(value)
     } catch (failure) {
+      if (request.signal.aborted) return
       setActionFailure({
         message: safeSupportMessage(failure, 'detail'),
         diagnostic: safeSupportDiagnostic(failure, 'detail'),
       })
     } finally {
-      setDetailLoading(false)
+      if (!request.signal.aborted) setDetailLoading(false)
     }
   }
 
@@ -134,22 +149,21 @@ export function SupportWorkspacePage() {
         ))}
       </div>
 
-      <p aria-live="polite" className="support-notice">{notice}</p>
+      {notice && <p role="status" className="support-notice">{notice}</p>}
       {queueFailure && <>
         <div className="support-error" role="alert">{queueFailure.message}<button onClick={() => void refresh()} type="button">Reintentar</button></div>
         <SupportDiagnosticPanel diagnostic={queueFailure.diagnostic} id="support-queue-diagnostic" />
       </>}
-      {actionFailure && <>
+      {actionFailure && !contextOpen && <>
         <div className="support-error" role="alert">{actionFailure.message}</div>
         <SupportDiagnosticPanel diagnostic={actionFailure.diagnostic} id="support-action-diagnostic" />
       </>}
       {loading && <p aria-live="polite" className="support-loading">Cargando tickets…</p>}
-      {!loading && !queueFailure && tickets.length === 0 && !detail && !detailLoading && <div className="support-empty"><h2>No hay tickets en esta vista</h2><p>Prueba otro filtro o actualiza la cola más tarde.</p></div>}
+      {!loading && !queueFailure && tickets.length === 0 && <div className="support-empty"><h2>No hay tickets en esta vista</h2><p>Prueba otro filtro o actualiza la cola más tarde.</p></div>}
 
-      {(!loading && tickets.length > 0 || detail !== null || detailLoading) && (
+      {(!loading && tickets.length > 0) && (
         <div className="support-content">
           <div aria-label="Tickets de soporte" className="ticket-list" role="list">
-            {tickets.length === 0 && <p className="support-empty-list">La cola está vacía para este filtro.</p>}
             {tickets.map((ticket) => {
               const mine = ticket.assigned_staff_user_id === session?.user.id
               const assigned = ticket.assigned_staff_user_id !== null
@@ -172,10 +186,30 @@ export function SupportWorkspacePage() {
               )
             })}
           </div>
+        </div>
+      )}
 
-          <aside aria-label="Contexto del ticket asignado" className="ticket-detail" aria-live="polite">
-            {detailLoading && <p>Cargando contexto autorizado…</p>}
-            {!detailLoading && !detail && <p>Reclama un ticket para consultar su contexto autorizado.</p>}
+      {contextOpen && <dialog
+        aria-labelledby="ticket-context-title"
+        className="ticket-detail"
+        ref={contextDialog}
+        onClose={() => {
+          setContextOpen(false)
+          detailRequest.current?.abort()
+          setDetail(null)
+          setDetailLoading(false)
+          setActionFailure(null)
+        }}
+      >
+        <div className="ticket-context-heading">
+          <h2 id="ticket-context-title">Contexto del ticket</h2>
+          <button className="secondary-button" type="button" onClick={() => contextDialog.current?.close()}>Cerrar contexto</button>
+        </div>
+        {actionFailure && <>
+          <div className="support-error" role="alert">{actionFailure.message}</div>
+          <SupportDiagnosticPanel diagnostic={actionFailure.diagnostic} id="support-context-diagnostic" />
+        </>}
+        {detailLoading && <p role="status">Cargando contexto…</p>}
             {detail && <>
               <p className="eyebrow">TICKET #{detail.id}</p>
               <h2>{detail.subject}</h2>
@@ -185,9 +219,7 @@ export function SupportWorkspacePage() {
               <SupportCasePanel key={detail.id} id={detail.id} onChange={(ticket) => { setDetail((current) => current?.id === ticket.id ? ticket : current); void refresh() }} />
               <p className="privacy-note">Los datos financieros y las credenciales no están disponibles en el portal de soporte.</p>
             </>}
-          </aside>
-        </div>
-      )}
+      </dialog>}
     </section>
   )
 }

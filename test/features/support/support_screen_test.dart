@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:finance_ai/core/diagnostics/error_diagnostic.dart';
 import 'package:finance_ai/features/support/data/support_repository.dart';
 import 'package:finance_ai/features/support/domain/support_models.dart';
@@ -7,6 +9,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 class FakeSupportRepository implements SupportRepository {
+  @override
+  Future<Uint8List> download(int id, int attachmentId) async => Uint8List(0);
+
   String status = 'open';
   bool denied = false;
   final bodies = <String>[];
@@ -41,6 +46,7 @@ class FakeSupportRepository implements SupportRepository {
     required String subject,
     required String category,
     required String description,
+    Map<String, String>? attachment,
   }) async {
     commands.add('$subject|$category|$description');
     return ticket;
@@ -61,7 +67,11 @@ class FakeSupportRepository implements SupportRepository {
         .toList(),
   );
   @override
-  Future<void> send(int id, String body) async {
+  Future<void> send(
+    int id,
+    String body, {
+    Map<String, String>? attachment,
+  }) async {
     bodies.add(body);
   }
 }
@@ -122,7 +132,9 @@ void main() {
       find.widgetWithText(TextFormField, 'Descripción'),
       'Ayuda con la app',
     );
+    await tester.pumpAndSettle();
     await tester.ensureVisible(find.text('Crear ticket'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Crear ticket'));
     await tester.pumpAndSettle();
     expect(repository.commands, ['Consulta|general|Ayuda con la app']);

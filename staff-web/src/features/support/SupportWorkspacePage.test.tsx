@@ -1,8 +1,16 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { SupportTicketsApiError, supportTicketsApi } from './supportTicketsApi'
 import { SupportWorkspacePage } from './SupportWorkspacePage'
+
+beforeAll(() => {
+  HTMLDialogElement.prototype.showModal = function () { this.open = true }
+  HTMLDialogElement.prototype.close = function () {
+    this.open = false
+    this.dispatchEvent(new Event('close'))
+  }
+})
 
 const { mockSession } = vi.hoisted(() => ({
   mockSession: { user: { id: 42, role: 'support_agent', email: 'agent@example.test' } },
@@ -76,7 +84,10 @@ describe('SupportWorkspacePage', () => {
     await user.click(await screen.findByRole('button', { name: 'Reclamar ticket' }))
 
     expect(await screen.findByText('Detalle autorizado')).toBeInTheDocument()
-    expect(screen.getByText('La cola está vacía para este filtro.')).toBeInTheDocument()
+    expect(screen.getByText('No hay tickets en esta vista')).toBeInTheDocument()
+    expect(screen.getByRole('dialog', { name: 'Contexto del ticket' })).toBeVisible()
+    await user.click(screen.getByRole('button', { name: 'Cerrar contexto' }))
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
 
   it('shows and copies a privacy-safe queue diagnostic', async () => {
