@@ -16,7 +16,11 @@ test('real customer-agent conversation, resolution, escalation and denial', asyn
   const customerHeaders = { Authorization: `Bearer ${credentials.access_credential}` }
   const subject = `E2E soporte ${Date.now()}`
   const file = { name: 'evidencia.pdf', mimeType: 'application/pdf', buffer: Buffer.from('%PDF-1.7\nQA') }
-  const created = await request.post(`${api}/support/tickets`, { headers: customerHeaders, data: { subject, category: 'general', description: 'Descripción sintética', attachment: { name: file.name, content: file.buffer.toString('base64') } } })
+  const image = {
+    name: 'captura.png',
+    content: 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGMQqo0BAAGQAOzY5F2BAAAAAElFTkSuQmCC',
+  }
+  const created = await request.post(`${api}/support/tickets`, { headers: customerHeaders, data: { subject, category: 'general', description: 'Descripción sintética', attachment: image } })
   expect(created.status()).toBe(201)
   const ticket = await created.json() as { id: number }
   await page.goto('/login')
@@ -28,10 +32,17 @@ test('real customer-agent conversation, resolution, escalation and denial', asyn
   await card.getByRole('button', { name: 'Reclamar ticket' }).click()
   const context = page.getByRole('dialog', { name: 'Contexto del ticket' })
   await expect(context).toBeVisible()
+  await context.getByText('Cliente e historial', { exact: true }).click()
   await expect(context.getByText('Identificador de cuenta', { exact: true })).toBeVisible()
+  await context.getByText('Cliente e historial', { exact: true }).click()
+  await page.keyboard.press('Escape')
+  await expect(context).toBeVisible()
+  const preview = context.getByRole('img', { name: image.name })
+  await expect(preview).toBeVisible()
+  await expect.poll(() => preview.evaluate((element: HTMLImageElement) => element.naturalWidth)).toBe(1)
   const download = page.waitForEvent('download')
-  await context.getByRole('button', { name: 'Descargar evidencia.pdf' }).click()
-  expect((await download).suggestedFilename()).toBe(file.name)
+  await context.getByRole('button', { name: 'Descargar captura.png' }).click()
+  expect((await download).suggestedFilename()).toBe(image.name)
   const response = await request.post(`${api}/support/tickets/${ticket.id}/messages`, { headers: customerHeaders, data: { body: 'Mensaje real del cliente <script>literal</script>' } })
   expect(response.status()).toBe(204)
   await page.getByRole('button', { name: 'Actualizar conversación' }).click()
@@ -40,9 +51,9 @@ test('real customer-agent conversation, resolution, escalation and denial', asyn
   await context.locator('.support-case input[type=file]').setInputFiles({ ...file, name: 'respuesta.pdf' })
   await page.getByRole('button', { name: 'Enviar mensaje' }).click()
   await expect(page.getByText('Respuesta real del agente', { exact: true })).toBeVisible()
-  await expect(page.getByRole('button', { name: 'Enviar mensaje' })).toBeEnabled()
-  await page.getByLabel('Resumen de resolución o motivo interno de escalamiento').fill('Resolución real de prueba')
-  await expect(page.getByLabel('Resumen de resolución o motivo interno de escalamiento')).toHaveValue('Resolución real de prueba')
+  await context.getByText('Gestionar ticket', { exact: true }).click()
+  await page.getByLabel('Resumen de resolución').fill('Resolución real de prueba')
+  await expect(page.getByLabel('Resumen de resolución')).toHaveValue('Resolución real de prueba')
   const resolution = page.waitForResponse((response) =>
     response.url().endsWith(`/staff/support/tickets/${ticket.id}/resolve`) &&
     response.request().method() === 'POST')
@@ -54,7 +65,7 @@ test('real customer-agent conversation, resolution, escalation and denial', asyn
   expect(view.ticket.status).toBe('resolved')
   expect(view.ticket.resolution_summary).toBe('Resolución real de prueba')
   expect(view.messages).toHaveLength(2)
-  expect(view.attachments.map((attachment: { name: string }) => attachment.name)).toEqual(['evidencia.pdf', 'respuesta.pdf'])
+  expect(view.attachments.map((attachment: { name: string }) => attachment.name)).toEqual(['captura.png', 'respuesta.pdf'])
   expect((await request.post(`${api}/support/tickets/${ticket.id}/messages`, { headers: customerHeaders, data: { body: 'Respuesta tardía' } })).status()).toBe(409)
   expect((await request.get(`${api}/support/tickets/${ticket.id}`)).status()).toBe(401)
 
@@ -70,7 +81,9 @@ test('real customer-agent conversation, resolution, escalation and denial', asyn
   const nextCard = page.getByRole('listitem').filter({ has: page.getByRole('heading', { name: escalatedSubject, exact: true }) })
   await nextCard.getByRole('button', { name: 'Reclamar ticket' }).click()
   await expect(context.getByRole('button', { name: 'Descargar creado-por-agente.pdf' })).toBeVisible()
-  await page.getByLabel('Resumen de resolución o motivo interno de escalamiento').fill('Motivo interno E2E')
+  await context.getByText('Gestionar ticket', { exact: true }).click()
+  await context.getByLabel('Acción').selectOption('escalate')
+  await page.getByLabel('Motivo interno de escalamiento').fill('Motivo interno E2E')
   await page.getByRole('button', { name: 'Escalar ticket' }).click()
   await expect(page.getByText('Este ticket está en modo de solo lectura.')).toBeVisible()
   await expect(page.getByRole('button', { name: 'Enviar mensaje' })).toHaveCount(0)

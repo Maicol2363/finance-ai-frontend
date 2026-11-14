@@ -193,6 +193,7 @@ export function SupportWorkspacePage() {
         aria-labelledby="ticket-context-title"
         className="ticket-detail"
         ref={contextDialog}
+        onCancel={(event) => event.preventDefault()}
         onClose={() => {
           setContextOpen(false)
           detailRequest.current?.abort()
@@ -213,11 +214,9 @@ export function SupportWorkspacePage() {
             {detail && <>
               <p className="eyebrow">TICKET #{detail.id}</p>
               <h2>{detail.subject}</h2>
-              <dl className="ticket-detail-meta"><div><dt>Estado</dt><dd>{statusLabels[detail.status]}</dd></div><div><dt>Categoría</dt><dd>{detail.category}</dd></div><div><dt>Creado</dt><dd>{formatDate(detail.created_at)}</dd></div></dl>
-              <h3>Descripción</h3>
-              <p className="ticket-description">{detail.description}</p>
+              <dl className="ticket-detail-meta"><div><dt>Estado</dt><dd>{statusLabels[detail.status]}</dd></div><div><dt>Categoría</dt><dd>{({ general: 'General', account: 'Cuenta', technical: 'Problema técnico', other: 'Otro' } as Record<string, string>)[detail.category] ?? detail.category}</dd></div><div><dt>Creado</dt><dd>{formatDate(detail.created_at)}</dd></div></dl>
+              <p className="ticket-description chat-ticket-intro">{detail.description}</p>
               <SupportCasePanel key={detail.id} id={detail.id} onChange={(ticket) => { setDetail((current) => current?.id === ticket.id ? ticket : current); void refresh() }} />
-              <p className="privacy-note">Los datos financieros y las credenciales no están disponibles en el portal de soporte.</p>
             </>}
       </dialog>}
     </section>

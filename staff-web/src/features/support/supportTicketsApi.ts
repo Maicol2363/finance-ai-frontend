@@ -193,8 +193,8 @@ export const supportTicketsApi = {
   create(data: { customer_identifier: string; subject: string; category: string; description: string; attachment?: AttachmentInput }): Promise<SupportTicket> {
     return request('create', '', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) })
   },
-  download(ticketId: number, attachmentId: number): Promise<{ content: string }> {
-    return request('attachment', `/${ticketId}/attachments/${attachmentId}`, { method: 'GET' })
+  download(ticketId: number, attachmentId: number, signal?: AbortSignal): Promise<{ content: string }> {
+    return request('attachment', `/${ticketId}/attachments/${attachmentId}`, { method: 'GET', signal })
   },
   conversation(id: number, signal?: AbortSignal): Promise<SupportConversation> {
     return request('conversation', `/${id}/conversation`, { method: 'GET', signal })

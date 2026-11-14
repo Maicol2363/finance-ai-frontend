@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
@@ -31,7 +32,7 @@ class _SupportScreenState extends ConsumerState<SupportScreen> {
   String category = 'general';
   final createKey = GlobalKey<FormState>();
   final replyKey = GlobalKey<FormState>();
-  final detailKey = GlobalKey();
+  final chatScroll = ScrollController();
   final createController = ExpansibleController();
   static const maxAttachmentBytes = 2 * 1024 * 1024;
   Map<String, String>? ticketAttachment;
@@ -96,31 +97,35 @@ class _SupportScreenState extends ConsumerState<SupportScreen> {
   }
 
   Widget downloadButton(int ticketId, SupportAttachment attachment) =>
-      TextButton.icon(
-        icon: const Icon(Icons.download_outlined),
-        label: Text(attachment.name),
-        onPressed: busy
-            ? null
-            : () => perform((repository) async {
-                final bytes = await repository.download(
-                  ticketId,
-                  attachment.id,
-                );
-                if (mounted) {
-                  await FilePicker.saveFile(
-                    fileName: attachment.name,
-                    bytes: bytes,
-                  );
-                }
-              }),
+      _ChatAttachment(
+        key: ValueKey((ticketId, attachment.id)),
+        attachment: attachment,
+        load: () => ref
+            .read(supportRepositoryProvider)
+            .download(ticketId, attachment.id),
+        onSave: (load) => perform((_) async {
+          final bytes = await load();
+          if (mounted) {
+            await FilePicker.saveFile(fileName: attachment.name, bytes: bytes);
+          }
+        }),
       );
 
   void showConversation() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final detailContext = detailKey.currentContext;
-      if (mounted && detailContext != null) {
-        Scrollable.ensureVisible(detailContext);
+      if (mounted && chatScroll.hasClients) {
+        chatScroll.jumpTo(chatScroll.position.maxScrollExtent);
       }
+    });
+  }
+
+  void closeConversation() {
+    setState(() {
+      conversation = null;
+      diagnostic = null;
+      notice = '';
+      replyAttachment = null;
+      message.clear();
     });
   }
 
@@ -132,6 +137,7 @@ class _SupportScreenState extends ConsumerState<SupportScreen> {
 
   @override
   void dispose() {
+    chatScroll.dispose();
     createController.dispose();
     subject.dispose();
     description.dispose();
@@ -249,6 +255,7 @@ class _SupportScreenState extends ConsumerState<SupportScreen> {
           conversation = value;
           notice = 'Mensaje enviado.';
         });
+        showConversation();
       }
     });
   }
@@ -264,6 +271,227 @@ class _SupportScreenState extends ConsumerState<SupportScreen> {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
     final localizations = MaterialLocalizations.of(context);
+    if (current != null) {
+      return PopScope(
+        canPop: false,
+        onPopInvokedWithResult: (didPop, _) {
+          if (!didPop && !busy) closeConversation();
+        },
+        child: Scaffold(
+          appBar: AppBar(
+            leading: IconButton(
+              onPressed: busy ? null : closeConversation,
+              tooltip: MaterialLocalizations.of(context).backButtonTooltip,
+              icon: const BackButtonIcon(),
+            ),
+            title: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  current.ticket.subject,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                Text(
+                  '#${current.ticket.id} · ${supportStatusLabels[current.ticket.status] ?? current.ticket.status}',
+                  style: theme.textTheme.labelMedium,
+                ),
+              ],
+            ),
+            actions: [
+              IconButton(
+                onPressed: busy ? null : load,
+                tooltip: 'Actualizar',
+                icon: const Icon(Icons.refresh),
+              ),
+            ],
+          ),
+          body: Align(
+            alignment: Alignment.topCenter,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 760),
+              child: Column(
+                children: [
+                  if (busy)
+                    const LinearProgressIndicator(
+                      semanticsLabel: 'Cargando soporte',
+                    ),
+                  if (diagnostic case final error?)
+                    Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: ErrorDiagnosticPanel(diagnostic: error),
+                    ),
+                  Expanded(
+                    child: ListView(
+                      controller: chatScroll,
+                      padding: const EdgeInsets.all(16),
+                      children: [
+                        Card(
+                          margin: const EdgeInsets.only(bottom: 16),
+                          child: Padding(
+                            padding: const EdgeInsets.all(14),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Solicitud inicial',
+                                  style: theme.textTheme.labelLarge,
+                                ),
+                                const SizedBox(height: 6),
+                                SelectableText(current.ticket.description),
+                                ...current.attachments
+                                    .where((file) => file.messageId == null)
+                                    .map(
+                                      (file) => downloadButton(
+                                        current.ticket.id,
+                                        file,
+                                      ),
+                                    ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        if (current.messages.isEmpty)
+                          const Center(child: Text('Aún no hay mensajes.')),
+                        for (final item in current.messages)
+                          Align(
+                            alignment: item.author == userId
+                                ? Alignment.centerRight
+                                : Alignment.centerLeft,
+                            child: FractionallySizedBox(
+                              widthFactor: .82,
+                              alignment: item.author == userId
+                                  ? Alignment.centerRight
+                                  : Alignment.centerLeft,
+                              child: Card(
+                                margin: const EdgeInsets.only(bottom: 10),
+                                color: item.author == userId
+                                    ? colors.secondaryContainer
+                                    : colors.surfaceContainerHigh,
+                                child: Padding(
+                                  padding: const EdgeInsets.all(12),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        item.author == userId
+                                            ? 'Tú'
+                                            : 'Soporte',
+                                        style: theme.textTheme.labelLarge,
+                                      ),
+                                      const SizedBox(height: 4),
+                                      SelectableText(item.body),
+                                      ...current.attachments
+                                          .where(
+                                            (file) => file.messageId == item.id,
+                                          )
+                                          .map(
+                                            (file) => downloadButton(
+                                              current.ticket.id,
+                                              file,
+                                            ),
+                                          ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        '${localizations.formatShortDate(item.createdAt.toLocal())} · ${localizations.formatTimeOfDay(TimeOfDay.fromDateTime(item.createdAt.toLocal()))}',
+                                        style: theme.textTheme.bodySmall,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        if (current.ticket.resolution
+                            case final resolution?) ...[
+                          Text(
+                            'Resolución',
+                            style: theme.textTheme.titleMedium,
+                          ),
+                          SelectableText(resolution),
+                        ],
+                        if (notice.isNotEmpty)
+                          Semantics(liveRegion: true, child: Text(notice)),
+                      ],
+                    ),
+                  ),
+                  SafeArea(
+                    top: false,
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
+                      child:
+                          current.ticket.status == 'open' ||
+                              current.ticket.status == 'in_progress'
+                          ? Form(
+                              key: replyKey,
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  if (replyAttachment case final file?)
+                                    InputChip(
+                                      label: Text(file['name']!),
+                                      deleteButtonTooltipMessage:
+                                          'Quitar archivo',
+                                      onDeleted: busy
+                                          ? null
+                                          : () => setState(
+                                              () => replyAttachment = null,
+                                            ),
+                                    ),
+                                  Row(
+                                    crossAxisAlignment: CrossAxisAlignment.end,
+                                    children: [
+                                      IconButton(
+                                        onPressed: busy
+                                            ? null
+                                            : () => selectFile(reply: true),
+                                        tooltip: replyAttachment == null
+                                            ? 'Adjuntar archivo'
+                                            : 'Cambiar archivo',
+                                        icon: const Icon(Icons.attach_file),
+                                      ),
+                                      Expanded(
+                                        child: TextFormField(
+                                          controller: message,
+                                          maxLength: 4000,
+                                          minLines: 1,
+                                          maxLines: 4,
+                                          validator: requiredText,
+                                          decoration: const InputDecoration(
+                                            labelText: 'Mensaje',
+                                            counterText: '',
+                                            border: OutlineInputBorder(
+                                              borderRadius: BorderRadius.all(
+                                                Radius.circular(22),
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      IconButton.filled(
+                                        onPressed: busy ? null : send,
+                                        tooltip: 'Enviar mensaje',
+                                        icon: const Icon(Icons.send_rounded),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            )
+                          : const Text(
+                              'Este ticket está en modo de solo lectura.',
+                            ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    }
     return Scaffold(
       appBar: AppBar(
         title: const Text('Ayuda y soporte'),
@@ -275,7 +503,8 @@ class _SupportScreenState extends ConsumerState<SupportScreen> {
           ),
         ],
       ),
-      body: Center(
+      body: Align(
+        alignment: Alignment.topCenter,
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 760),
           child: SingleChildScrollView(
@@ -395,132 +624,14 @@ class _SupportScreenState extends ConsumerState<SupportScreen> {
                     child: ListTile(
                       leading: const Icon(Icons.forum_outlined),
                       trailing: const Icon(Icons.chevron_right),
-                      selectedTileColor: colors.secondaryContainer,
-                      selectedColor: colors.onSecondaryContainer,
                       title: Text(ticket.subject),
                       subtitle: Text(
                         '#${ticket.id} · ${supportStatusLabels[ticket.status] ?? ticket.status}',
                       ),
-                      selected: current?.ticket.id == ticket.id,
                       onTap: busy ? null : () => open(ticket.id),
                     ),
                   ),
                 ),
-                if (current != null) ...[
-                  const SizedBox(height: 16),
-                  Card(
-                    key: detailKey,
-                    margin: EdgeInsets.zero,
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          if (notice.isNotEmpty) ...[
-                            Semantics(liveRegion: true, child: Text(notice)),
-                            const SizedBox(height: 12),
-                          ],
-                          Text(
-                            current.ticket.subject,
-                            style: Theme.of(context).textTheme.titleLarge,
-                          ),
-                          Text(
-                            supportStatusLabels[current.ticket.status] ??
-                                current.ticket.status,
-                          ),
-                          const SizedBox(height: 8),
-                          SelectableText(current.ticket.description),
-                          ...current.attachments
-                              .where((file) => file.messageId == null)
-                              .map(
-                                (file) =>
-                                    downloadButton(current.ticket.id, file),
-                              ),
-                          const SizedBox(height: 16),
-                          Text(
-                            'Conversación',
-                            style: Theme.of(context).textTheme.titleMedium,
-                          ),
-                          const SizedBox(height: 8),
-                          if (current.messages.isEmpty)
-                            const Text('Aún no hay mensajes.'),
-                          ...current.messages.map(
-                            (item) => Card(
-                              margin: const EdgeInsets.only(bottom: 8),
-                              color: item.author == userId
-                                  ? colors.secondaryContainer
-                                  : colors.surfaceContainerLow,
-                              child: Padding(
-                                padding: const EdgeInsets.all(12),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      item.author == userId ? 'Tú' : 'Soporte',
-                                      style: theme.textTheme.labelLarge,
-                                    ),
-                                    Text(
-                                      '${localizations.formatShortDate(item.createdAt.toLocal())} · ${localizations.formatTimeOfDay(TimeOfDay.fromDateTime(item.createdAt.toLocal()))}',
-                                      style: theme.textTheme.bodySmall,
-                                    ),
-                                    const SizedBox(height: 6),
-                                    SelectableText(item.body),
-                                    ...current.attachments
-                                        .where(
-                                          (file) => file.messageId == item.id,
-                                        )
-                                        .map(
-                                          (file) => downloadButton(
-                                            current.ticket.id,
-                                            file,
-                                          ),
-                                        ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ),
-                          if (current.ticket.resolution != null) ...[
-                            const SizedBox(height: 16),
-                            Text(
-                              'Resolución',
-                              style: Theme.of(context).textTheme.titleMedium,
-                            ),
-                            SelectableText(current.ticket.resolution!),
-                          ],
-                          const SizedBox(height: 16),
-                          if (current.ticket.status == 'open' ||
-                              current.ticket.status == 'in_progress')
-                            Form(
-                              key: replyKey,
-                              child: Column(
-                                children: [
-                                  TextFormField(
-                                    controller: message,
-                                    maxLength: 4000,
-                                    maxLines: 3,
-                                    validator: requiredText,
-                                    decoration: const InputDecoration(
-                                      labelText: 'Mensaje',
-                                    ),
-                                  ),
-                                  attachmentPicker(reply: true),
-                                  FilledButton(
-                                    onPressed: busy ? null : send,
-                                    child: const Text('Enviar mensaje'),
-                                  ),
-                                ],
-                              ),
-                            )
-                          else
-                            const Text(
-                              'Este ticket está en modo de solo lectura.',
-                            ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
               ],
             ),
           ),
@@ -528,4 +639,71 @@ class _SupportScreenState extends ConsumerState<SupportScreen> {
       ),
     );
   }
+}
+
+class _ChatAttachment extends StatefulWidget {
+  const _ChatAttachment({
+    super.key,
+    required this.attachment,
+    required this.load,
+    required this.onSave,
+  });
+
+  final SupportAttachment attachment;
+  final Future<Uint8List> Function() load;
+  final void Function(Future<Uint8List> Function()) onSave;
+
+  @override
+  State<_ChatAttachment> createState() => _ChatAttachmentState();
+}
+
+class _ChatAttachmentState extends State<_ChatAttachment> {
+  Future<Uint8List>? preview;
+
+  @override
+  void initState() {
+    super.initState();
+    if (RegExp(
+      r'\.(png|jpe?g)$',
+      caseSensitive: false,
+    ).hasMatch(widget.attachment.name)) {
+      preview = widget.load();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      if (preview case final future?)
+        FutureBuilder<Uint8List>(
+          future: future,
+          builder: (context, snapshot) {
+            if (snapshot.data case final bytes?) {
+              return Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(10),
+                  child: Image.memory(
+                    bytes,
+                    width: 240,
+                    height: 160,
+                    fit: BoxFit.contain,
+                    semanticLabel: widget.attachment.name,
+                    cacheWidth: 480,
+                    errorBuilder: (_, _, _) => const SizedBox.shrink(),
+                  ),
+                ),
+              );
+            }
+            return const SizedBox.shrink();
+          },
+        ),
+      TextButton.icon(
+        onPressed: () => widget.onSave(widget.load),
+        icon: const Icon(Icons.download_outlined),
+        label: Text(widget.attachment.name),
+      ),
+    ],
+  );
 }

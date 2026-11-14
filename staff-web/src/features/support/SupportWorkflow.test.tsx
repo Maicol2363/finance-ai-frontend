@@ -51,7 +51,10 @@ describe('support workflow', () => {
   it.each(['Resolver ticket', 'Escalar ticket'])('requires a summary and submits %s', async (label) => {
     const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(json(conversation)).mockResolvedValueOnce(new Response(null, { status: 204 })).mockResolvedValueOnce(json({ ...conversation, ticket: { ...ticket, status: 'resolved', resolution_summary: 'Resultado' } }))
     render(<SupportCasePanel id={7} onChange={vi.fn()} />)
-    const field = await screen.findByLabelText('Resumen de resolución o motivo interno de escalamiento')
+    await userEvent.click(await screen.findByText('Gestionar ticket'))
+    const escalate = label === 'Escalar ticket'
+    if (escalate) await userEvent.selectOptions(screen.getByLabelText('Acción'), 'escalate')
+    const field = await screen.findByLabelText(escalate ? 'Motivo interno de escalamiento' : 'Resumen de resolución')
     fireEvent.change(field, { target: { value: 'Resultado' } })
     await userEvent.click(screen.getByRole('button', { name: label }))
     expect(await screen.findByText('Resultado')).toBeInTheDocument()

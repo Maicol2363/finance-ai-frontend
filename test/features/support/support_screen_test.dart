@@ -102,8 +102,8 @@ void main() {
         find.widgetWithText(TextFormField, 'Mensaje'),
         '<script>texto seguro</script>',
       );
-      await tester.ensureVisible(find.text('Enviar mensaje'));
-      await tester.tap(find.text('Enviar mensaje'));
+      await tester.ensureVisible(find.byTooltip('Enviar mensaje'));
+      await tester.tap(find.byTooltip('Enviar mensaje'));
       await tester.pumpAndSettle();
       expect(repository.bodies, ['<script>texto seguro</script>']);
       expect(find.text('<script>texto seguro</script>'), findsOneWidget);
@@ -112,7 +112,7 @@ void main() {
       await tester.pumpAndSettle();
       await tester.ensureVisible(find.text('Consulta atendida'));
       expect(find.text('Consulta atendida'), findsOneWidget);
-      expect(find.text('Enviar mensaje'), findsNothing);
+      expect(find.byTooltip('Enviar mensaje'), findsNothing);
     },
   );
   testWidgets('creates a request with required fields', (tester) async {

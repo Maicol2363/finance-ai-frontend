@@ -410,3 +410,28 @@ dialog.ticket-detail::backdrop { background: rgb(10 15 18 / 62%); }
 .support-attachment { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .support-attachment span, .support-file { overflow-wrap: anywhere; }
 .support-file { max-width: 100%; margin-block: 6px; text-align: start; }
+
+.chat-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+.ticket-detail .chat-toolbar h3 { margin: 0; font-size: 15px; }
+.chat-info { padding: 10px 0; border-block-end: 1px solid var(--line); color: var(--ink); }
+.chat-info summary { cursor: pointer; font-size: 13px; font-weight: 650; }
+.chat-info dl { margin-block: 10px; }
+.chat-scroll { margin-top: 10px; padding: 12px; background: var(--soft); border-radius: 14px; max-height: min(48dvh, 480px); overflow: auto; overscroll-behavior: contain; }
+.chat-initial { padding: 12px; border: 1px solid var(--line); background: var(--card); border-radius: 10px; font-size: 13px; }
+.chat-initial p { margin-block: 5px 0; }
+.ticket-detail .support-case .chat-messages { list-style: none; padding: 0; margin: 12px 0; }
+.chat-bubble { justify-self: start; max-width: 84%; padding: 10px 12px; background: var(--card); border: 1px solid var(--line); border-radius: 4px 14px 14px; overflow-wrap: anywhere; }
+.chat-bubble.chat-outgoing { justify-self: end; background: var(--primary-soft); border-radius: 14px 4px 14px 14px; }
+.chat-bubble strong, .chat-bubble time { font-size: 11px; color: var(--muted); }
+.chat-bubble time { display: block; text-align: end; }
+.chat-bubble p { font-size: 14px; }
+.chat-file img { display: block; max-width: min(100%, 260px); max-height: 185px; object-fit: contain; border-radius: 8px; margin-top: 6px; }
+.chat-notice, .chat-error { margin: 8px 0; color: var(--muted); font-size: 13px; }
+.support-case .chat-compose { grid-template-columns: auto minmax(0, 1fr) auto; align-items: end; margin: 12px 0; gap: 8px; }
+.support-case .chat-compose textarea { min-height: 42px; max-height: 120px; border: 1px solid var(--line); border-radius: 18px; resize: vertical; }
+.chat-compose .chat-icon { display: grid; place-items: center; min-width: 42px; min-height: 42px; padding: 8px; margin: 0; border-radius: 50%; }
+.chat-compose .support-attachment { max-width: 120px; }
+.chat-operations { border: 0; }
+.chat-operations form { padding: 12px; background: var(--soft); border-radius: 10px; }
+.chat-operations form textarea { min-height: 58px; }
+.chat-ticket-intro { margin-block: 12px; }
