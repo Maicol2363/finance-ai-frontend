@@ -40,7 +40,7 @@ class _SupportScreenState extends ConsumerState<SupportScreen> {
   }
 
   Future<void> perform(Future<void> Function(SupportRepository) action) async {
-    if (busy) return;
+    if (!mounted || busy) return;
     setState(() {
       busy = true;
       diagnostic = null;
