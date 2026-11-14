@@ -58,6 +58,7 @@ describe('SignInPage', () => {
     expect(email).toHaveAttribute('autocomplete', 'username')
     expect(password).toHaveAttribute('autocomplete', 'current-password')
     expect(screen.getByTestId('staff-sign-in-form')).toHaveAttribute('aria-labelledby', 'staff-sign-in-heading')
+    expect(screen.getByTestId('staff-brand-logo')).toHaveAttribute('src', '/finance-ai-app-icon.png')
 
     await user.type(email, 'agent@example.test')
     await user.type(password, 'example-only-password')

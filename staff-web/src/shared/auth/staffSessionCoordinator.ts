@@ -20,6 +20,7 @@ const SAFE_DIAGNOSTIC_CODES = new Set([
   'network_error',
   'request_timeout',
   'request_too_large',
+  'route_not_found',
   'service_unavailable',
   'session_invalid',
   'staff_access_denied',
@@ -41,6 +42,7 @@ const SAFE_DIAGNOSTIC_REASONS: Record<string, string> = {
   network_error: 'network_unavailable',
   request_timeout: 'request_timed_out',
   request_too_large: 'request_rejected',
+  route_not_found: 'api_route_unavailable',
   service_unavailable: 'service_unavailable',
   session_invalid: 'session_invalid',
   staff_access_denied: 'staff_access_denied',
@@ -123,6 +125,9 @@ export function safeStaffAuthMessage(
   }
   if (error.code === 'staff_access_denied' || error.code === 'session_invalid') {
     return 'El acceso del personal ya no está disponible. Inicia sesión otra vez si aún tienes autorización.'
+  }
+  if (error.code === 'route_not_found') {
+    return 'El servicio de autenticación no está disponible en este backend. Comparte el informe de diagnóstico con soporte.'
   }
   if (error.status === 429 && error.retryAfterSeconds) {
     return `Demasiados intentos. Vuelve a intentarlo en ${error.retryAfterSeconds} segundos.`

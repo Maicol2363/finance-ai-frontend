@@ -37,8 +37,10 @@ describe('staff authentication integration', () => {
     render(<AppRouter />)
 
     expect(await screen.findByRole('heading', { name: 'Atención al cliente' })).toBeInTheDocument()
-    expect(fetchMock).toHaveBeenCalledOnce()
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2))
     expect(String(fetchMock.mock.calls[0]?.[0])).toBe('/api/v1/staff/auth/session')
+    expect(String(fetchMock.mock.calls[1]?.[0])).toBe('/api/v1/staff/support/tickets')
+    expect(fetchMock.mock.calls[1]?.[1]?.credentials).toBe('include')
     expect(await screen.findByText('agent@example.test')).toBeInTheDocument()
   })
 

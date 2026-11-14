@@ -154,6 +154,16 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 ),
             ],
           ),
+          SettingsGroup(
+            children: [
+              SettingsRow(
+                rowKey: const Key('settings-support-row'),
+                label: 'Ayuda y soporte',
+                subtitle: 'Crear y consultar solicitudes',
+                onTap: () => context.push('/support'),
+              ),
+            ],
+          ),
           const SectionTitle('Sesión'),
           SettingsGroup(
             children: [

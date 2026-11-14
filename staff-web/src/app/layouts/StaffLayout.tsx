@@ -13,7 +13,7 @@ export function StaffLayout() {
       <div className="workspace">
         <header className="topbar">
           <div aria-label="FinanciAI, portal del personal" className="brand">
-            <span aria-hidden="true" className="brand-mark">F</span>
+            <img alt="" aria-hidden="true" className="brand-logo" src="/finance-ai-app-icon.png" />
             <span><strong>FinanciAI</strong><small>Portal del personal</small></span>
           </div>
           <div className="topbar-actions">

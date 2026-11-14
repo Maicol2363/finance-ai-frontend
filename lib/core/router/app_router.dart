@@ -27,6 +27,7 @@ import '../../features/incomes/presentation/income_list_screen.dart';
 import '../../features/receipt_capture/presentation/screens/receipt_review_screen.dart';
 import '../../features/settings/presentation/settings_screen.dart';
 import 'app_shell.dart';
+import '../../features/support/presentation/support_screen.dart';
 
 const _authenticatedRoots = <String>[
   '/home',
@@ -34,6 +35,7 @@ const _authenticatedRoots = <String>[
   '/analysis',
   '/chat',
   '/settings',
+  '/support',
   '/accounts',
   '/budgets',
   '/categories',
@@ -89,6 +91,10 @@ GoRouter createAppRouter({
         path: '/register',
         name: 'register',
         builder: (context, state) => const RegisterScreen(),
+      ),
+      GoRoute(
+        path: '/support',
+        builder: (context, state) => const SupportScreen(),
       ),
       GoRoute(
         path: '/login',
