@@ -6,6 +6,7 @@ const SAFE_PROBLEM_CODES = new Set([
   'internal_error',
   'invalid_credentials',
   'request_too_large',
+  'route_not_found',
   'service_unavailable',
   'session_invalid',
   'staff_access_denied',
