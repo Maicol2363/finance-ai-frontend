@@ -57,7 +57,7 @@ describe('SupportWorkspacePage', () => {
     await user.click(screen.getByRole('button', { name: 'Reclamar ticket' }))
 
     expect(await screen.findByText('Detalle autorizado')).toBeInTheDocument()
-    expect(fetchMock).toHaveBeenCalledTimes(3)
+    expect(fetchMock).toHaveBeenCalledTimes(4)
     expect(fetchMock.mock.calls[1]?.[1]).toMatchObject({ method: 'POST', credentials: 'include' })
     expect(new Headers(fetchMock.mock.calls[1]?.[1]?.headers).get('X-Staff-Request')).toBe('1')
   })

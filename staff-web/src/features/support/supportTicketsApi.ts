@@ -1,7 +1,7 @@
 const TICKETS_PATH = '/api/v1/staff/support/tickets'
 
 export type TicketStatus = 'open' | 'in_progress' | 'escalated' | 'resolved'
-export type SupportOperation = 'queue' | 'detail' | 'claim'
+export type SupportOperation = 'queue' | 'detail' | 'claim' | 'lookup' | 'create' | 'conversation' | 'message' | 'escalate' | 'resolve'
 
 export interface SupportTicket {
   id: number
@@ -29,6 +29,7 @@ const SAFE_PROBLEM_CODES = new Set([
   'staff_origin_denied',
   'staff_request_denied',
   'support_ticket_claim_conflict',
+  'support_ticket_state_conflict',
   'support_ticket_not_found',
   'unknown_error',
   'unsupported_media_type',
@@ -84,6 +85,7 @@ async function request<T>(operation: SupportOperation, path: string, init?: Requ
     if (!response.ok) {
       throw new SupportTicketsApiError(response.status, await readProblemCode(response), correlationId, operation)
     }
+    if (response.status === 204) return undefined as T
     try {
       return (await response.json()) as T
     } catch {
@@ -118,6 +120,7 @@ const SAFE_DIAGNOSTIC_REASONS: Record<string, string> = {
   staff_origin_denied: 'request_origin_denied',
   staff_request_denied: 'request_denied',
   support_ticket_claim_conflict: 'claim_conflict',
+  support_ticket_state_conflict: 'ticket_state_conflict',
   support_ticket_not_found: 'ticket_unavailable',
   unknown_error: 'unknown_error',
   unsupported_media_type: 'unsupported_request_format',
@@ -126,6 +129,10 @@ const SAFE_DIAGNOSTIC_REASONS: Record<string, string> = {
 }
 
 function supportApiLocation(operation: SupportOperation): string {
+  if (operation === 'lookup') return `${TICKETS_PATH}/customer-lookup`
+  if (operation === 'conversation') return `${TICKETS_PATH}/{ticket_id}/conversation`
+  if (operation === 'message') return `${TICKETS_PATH}/{ticket_id}/messages`
+  if (operation === 'escalate' || operation === 'resolve') return `${TICKETS_PATH}/{ticket_id}/${operation}`
   if (operation === 'detail') return `${TICKETS_PATH}/{ticket_id}`
   if (operation === 'claim') return `${TICKETS_PATH}/{ticket_id}/claim`
   return TICKETS_PATH
@@ -153,12 +160,37 @@ export function safeSupportMessage(error: unknown, operation: SupportOperation):
   if (error instanceof SupportTicketsApiError && error.code === 'route_not_found') {
     return 'El servicio todavía no ofrece esta operación. Comparte el informe de diagnóstico con soporte.'
   }
+  if (error instanceof SupportTicketsApiError && error.status === 409) return 'El estado del ticket cambió. Actualiza antes de continuar.'
   if (operation === 'queue') return 'No se pudo cargar la cola. Comprueba tu sesión e inténtalo de nuevo.'
+  if (operation === 'lookup') return `${TICKETS_PATH}/customer-lookup`
+  if (operation === 'conversation') return `${TICKETS_PATH}/{ticket_id}/conversation`
+  if (operation === 'message') return `${TICKETS_PATH}/{ticket_id}/messages`
+  if (operation === 'escalate' || operation === 'resolve') return `${TICKETS_PATH}/{ticket_id}/${operation}`
   if (operation === 'detail') return 'No fue posible abrir el contexto autorizado del ticket.'
-  return 'No se pudo reclamar el ticket. Inténtalo de nuevo.'
+  return 'No se pudo completar la operación. Verifica tu sesión y actualiza el ticket.'
+}
+
+export interface SupportCustomer { id: number; email: string; is_active: boolean }
+export interface SupportConversation {
+  ticket: SupportTicketDetail & { resolution_summary: string | null }
+  customer: SupportCustomer
+  messages: Array<{ id: number; author_user_id: number; body: string; created_at: string }>
+  history: Array<{ id: number; actor_user_id: number; event_type: string; created_at: string; previous_status: string | null; new_status: string | null; new_assignee_user_id: number | null; internal_reason?: string | null }>
 }
 
 export const supportTicketsApi = {
+  lookup(identifier: string): Promise<SupportCustomer> {
+    return request('lookup', '/customer-lookup', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ identifier }) })
+  },
+  create(data: { customer_identifier: string; subject: string; category: string; description: string }): Promise<SupportTicket> {
+    return request('create', '', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) })
+  },
+  conversation(id: number, signal?: AbortSignal): Promise<SupportConversation> {
+    return request('conversation', `/${id}/conversation`, { method: 'GET', signal })
+  },
+  action(id: number, kind: 'message' | 'escalate' | 'resolve', data: { body: string } | { summary: string }): Promise<void> {
+    return request(kind, `/${id}/${kind === 'message' ? 'messages' : kind}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) })
+  },
   list(status: TicketStatus | 'all', signal?: AbortSignal): Promise<SupportTicket[]> {
     const query = status === 'all' ? '' : `?status=${encodeURIComponent(status)}`
     return request('queue', query, { method: 'GET', signal })

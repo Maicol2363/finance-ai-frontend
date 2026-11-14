@@ -8,7 +8,8 @@ export default defineConfig({
   reporter: process.env.CI ? 'github' : 'list',
   use: {
     baseURL: 'http://127.0.0.1:4173',
-    trace: 'retain-on-failure',
+    trace: process.env.SUPPORT_DEMO_PASSWORD ? 'off' : 'retain-on-failure',
+    launchOptions: { executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH },
     ...devices['Desktop Chrome'],
   },
   webServer: {

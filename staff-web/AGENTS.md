@@ -11,6 +11,7 @@ This app is the React/Vite/TypeScript staff portal in the Flutter repository. It
 
 ## Scope and security
 
+- PB-012 SUP-02–SUP-06 and its Flutter dependencies are authorized by the 2026-11-14 implementation request. Use the backend creation, restricted lookup, conversation, escalation and resolution contracts; preserve staff-only internal reasons and never add administrative operations here.
 - SUP-01 is approved for implementation in the Support portal: show the backend-authorized global queue to `support_agent`, filter by the approved ticket states, claim only unassigned `open` tickets, transition successful claims to `in_progress`, and do not allow reassignment. Keep the queue projection limited and show ticket detail only after the backend authorizes the assigned agent.
 - Admin and Auditor pages remain explicit placeholders with no live data or privileged actions until their stories and shared security prerequisites are approved.
 - Do not simulate authentication or authorization. Enable staff sign-in only against the approved backend browser-session contract; the backend must enforce every protected operation.

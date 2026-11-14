@@ -1,3 +1,5 @@
+import { SupportCasePanel } from './SupportCasePanel'
+import { SupportCreateForm } from './SupportCreateForm'
 import { useCallback, useEffect, useState } from 'react'
 import { useStaffAuth } from '../../shared/auth/useStaffAuth'
 import { SupportDiagnosticPanel } from './SupportDiagnosticPanel'
@@ -119,6 +121,7 @@ export function SupportWorkspacePage() {
         <button className="secondary-button" disabled={loading} onClick={() => void refresh()} type="button">Actualizar</button>
       </div>
 
+      <SupportCreateForm onCreated={() => void refresh()} />
       <div aria-label="Filtrar tickets por estado" className="support-filters" role="group">
         {filters.map((item) => (
           <button
@@ -163,7 +166,7 @@ export function SupportWorkspacePage() {
                   </dl>
                   <div className="ticket-actions">
                     {ticket.status === 'open' && !assigned && <button className="primary-button" disabled={busyId === ticket.id} onClick={() => void claim(ticket)} type="button">{busyId === ticket.id ? 'Reclamando…' : 'Reclamar ticket'}</button>}
-                    {mine && <button className="secondary-button" onClick={() => void openDetail(ticket)} type="button">Ver contexto</button>}
+                    {(mine || ticket.status === 'escalated') && <button className="secondary-button" onClick={() => void openDetail(ticket)} type="button">Ver contexto</button>}
                   </div>
                 </article>
               )
@@ -179,6 +182,7 @@ export function SupportWorkspacePage() {
               <dl className="ticket-detail-meta"><div><dt>Estado</dt><dd>{statusLabels[detail.status]}</dd></div><div><dt>Categoría</dt><dd>{detail.category}</dd></div><div><dt>Creado</dt><dd>{formatDate(detail.created_at)}</dd></div></dl>
               <h3>Descripción</h3>
               <p className="ticket-description">{detail.description}</p>
+              <SupportCasePanel key={detail.id} id={detail.id} onChange={(ticket) => { setDetail((current) => current?.id === ticket.id ? ticket : current); void refresh() }} />
               <p className="privacy-note">Los datos financieros y las credenciales no están disponibles en el portal de soporte.</p>
             </>}
           </aside>

@@ -215,3 +215,10 @@ button, a { -webkit-tap-highlight-color: transparent; }
   .support-workspace .page-heading { align-items: start; }
   .support-workspace .page-heading > .secondary-button { flex: 0 0 auto; }
 }
+
+.support-case form, .support-workspace details form { display: grid; gap: .75rem; margin-block: 1rem; }
+.support-case label, .support-workspace details label { display: grid; gap: .4rem; }
+.support-case textarea, .support-workspace details textarea, .support-workspace details input, .support-workspace details select { width: 100%; padding: .65rem; border: 1px solid currentColor; border-radius: .5rem; background: transparent; color: inherit; }
+.support-case textarea, .support-workspace details textarea { min-height: 6rem; resize: vertical; }
+.support-case p, .support-case dd { overflow-wrap: anywhere; }
+.support-case ol { padding-inline-start: 1.2rem; }
