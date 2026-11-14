@@ -3,6 +3,8 @@ name: Frontend CI
 on:
   pull_request:
     branches: [develop, main]
+  push:
+    branches: [main]
 
 permissions:
   contents: read
@@ -49,3 +51,10 @@ jobs:
               if (coverage < 80) exit 1
             }
           ' coverage/lcov.info
+
+      - name: Build Android APK without a device
+        if: github.base_ref == 'main' || github.ref == 'refs/heads/main'
+        run: |
+          # Free hosted runner disk space for Gradle and the Android NDK.
+          rm -rf "${ANDROID_HOME:?}/emulator" "$ANDROID_HOME/system-images"
+          flutter build apk --debug --no-pub
