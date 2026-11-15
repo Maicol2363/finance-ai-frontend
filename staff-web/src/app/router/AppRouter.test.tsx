@@ -36,7 +36,7 @@ describe('staff portal authentication routes', () => {
   it('opens the sign-in page at the root without exposing Support navigation', async () => {
     render(<AppRouter />)
 
-    expect(await screen.findByRole('heading', { name: 'Iniciar sesión en el portal de soporte' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Iniciar sesión en el portal del personal' })).toBeInTheDocument()
     expect(screen.queryByRole('navigation', { name: 'Navegación del personal' })).not.toBeInTheDocument()
     expect(screen.queryByRole('link', { name: 'Soporte' })).not.toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: 'Tu espacio de soporte empieza aquí.' })).not.toBeInTheDocument()
@@ -46,7 +46,7 @@ describe('staff portal authentication routes', () => {
     window.history.pushState({}, '', '/support')
     render(<AppRouter />)
 
-    expect(await screen.findByRole('heading', { name: 'Iniciar sesión en el portal de soporte' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Iniciar sesión en el portal del personal' })).toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: 'Atención al cliente' })).not.toBeInTheDocument()
     expect(screen.queryByRole('navigation', { name: 'Navegación del personal' })).not.toBeInTheDocument()
     expect(screen.queryByRole('link', { name: 'Soporte' })).not.toBeInTheDocument()
@@ -86,7 +86,7 @@ describe('staff portal authentication routes', () => {
     expect(await screen.findByTestId('staff-logout-pending')).toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: 'Atención al cliente' })).not.toBeInTheDocument()
     await user.click(screen.getByTestId('staff-logout-retry-button'))
-    expect(await screen.findByRole('heading', { name: 'Iniciar sesión en el portal de soporte' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Iniciar sesión en el portal del personal' })).toBeInTheDocument()
     expect(sessionStorage.getItem('finance-ai-staff-logout-pending')).toBeNull()
   })
 
@@ -145,7 +145,7 @@ describe('staff portal authentication routes', () => {
     await user.type(screen.getByLabelText('Contraseña'), 'example-only-password')
     await user.click(screen.getByRole('button', { name: 'Iniciar sesión' }))
 
-    await waitFor(() => expect(screen.getByRole('heading', { name: 'Iniciar sesión en el portal de soporte' })).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Iniciar sesión en el portal del personal' })).toBeInTheDocument())
     expect(screen.queryByRole('heading', { name: 'Atención al cliente' })).not.toBeInTheDocument()
     expect(screen.getByRole('alert')).toHaveTextContent(/ya no está disponible/i)
   })

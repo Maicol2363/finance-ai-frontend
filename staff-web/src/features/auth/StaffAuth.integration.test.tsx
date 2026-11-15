@@ -73,7 +73,7 @@ describe('staff authentication integration', () => {
     window.history.pushState({}, '', '/login')
     render(<AppRouter />)
 
-    expect(await screen.findByRole('heading', { name: 'Iniciar sesión en el portal de soporte' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Iniciar sesión en el portal del personal' })).toBeInTheDocument()
     expect(fetchMock.mock.calls.map(([input]) => String(input))).toEqual([
       '/api/v1/staff/auth/session',
       '/api/v1/staff/auth/refresh',
@@ -152,15 +152,30 @@ describe('staff authentication integration', () => {
     }
   })
 
-  it('keeps a session with an unexpected role outside Support', async () => {
-    vi.mocked(fetch).mockResolvedValueOnce(jsonResponse({
+  it('keeps a Security Auditor session outside Support without requesting support data', async () => {
+    const fetchMock = vi.mocked(fetch)
+    fetchMock.mockResolvedValueOnce(jsonResponse({
       ...validSession,
       user: { ...validSession.user, role: 'security_auditor' },
     }))
     window.history.pushState({}, '', '/support')
     render(<AppRouter />)
 
-    expect(await screen.findByRole('heading', { name: 'Iniciar sesión en el portal de soporte' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Esta sección no corresponde a tu rol' })).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Atención al cliente' })).not.toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Ir a mi espacio' })).toHaveAttribute('href', '/audit')
+    expect(fetchMock.mock.calls.some(([input]) => String(input).includes('/staff/support/'))).toBe(false)
+  })
+
+  it('keeps a session with a non-portal role out of every staff workspace', async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(jsonResponse({
+      ...validSession,
+      user: { ...validSession.user, role: 'admin' },
+    }))
+    window.history.pushState({}, '', '/support')
+    render(<AppRouter />)
+
+    expect(await screen.findByRole('heading', { name: 'Iniciar sesión en el portal del personal' })).toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: 'Atención al cliente' })).not.toBeInTheDocument()
   })
 
@@ -176,7 +191,7 @@ describe('staff authentication integration', () => {
     render(<AppRouter />)
 
     await user.click(await screen.findByTestId('staff-sign-out-button'))
-    expect(await screen.findByRole('heading', { name: 'Iniciar sesión en el portal de soporte' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Iniciar sesión en el portal del personal' })).toBeInTheDocument()
     expect(screen.queryByTestId('staff-logout-pending')).not.toBeInTheDocument()
     expect(sessionStorage.getItem('finance-ai-staff-logout-pending')).toBeNull()
     expect(fetchMock.mock.calls.some(([input]) => String(input).endsWith('/logout'))).toBe(true)
