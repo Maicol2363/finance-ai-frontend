@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router'
 import {
   auditApi,
@@ -28,10 +28,14 @@ export function AuditInvestigationPage() {
   const [loadingMore, setLoadingMore] = useState(false)
   const [failure, setFailure] = useState<AuditFailure | null>(null)
   const [attempt, setAttempt] = useState(0)
+  const paginationController = useRef<AbortController | null>(null)
 
   useEffect(() => {
+    paginationController.current?.abort()
+    paginationController.current = null
     setItems([])
     setPage(null)
+    setLoadingMore(false)
     setFailure(null)
     if (!validAccount) return
     const controller = new AbortController()
@@ -47,20 +51,35 @@ export function AuditInvestigationPage() {
       .finally(() => {
         if (!controller.signal.aborted) setLoading(false)
       })
-    return () => controller.abort()
+    return () => {
+      controller.abort()
+      paginationController.current?.abort()
+      paginationController.current = null
+    }
   }, [accountId, validAccount, period, attempt, toFailure])
 
   async function loadMore(): Promise<void> {
     if (!page?.next_cursor || loadingMore) return
+    const controller = new AbortController()
+    paginationController.current = controller
     setLoadingMore(true)
     try {
-      const next = await auditApi.investigate(accountId, period, { cursor: page.next_cursor, limit: PAGE_SIZE })
+      const next = await auditApi.investigate(
+        accountId,
+        period,
+        { cursor: page.next_cursor, limit: PAGE_SIZE },
+        controller.signal,
+      )
+      if (controller.signal.aborted) return
       setPage(next)
       setItems((current) => [...current, ...next.items])
     } catch (error) {
-      setFailure(toFailure(error, 'investigation'))
+      if (!controller.signal.aborted && !isAbort(error)) setFailure(toFailure(error, 'investigation'))
     } finally {
-      setLoadingMore(false)
+      if (paginationController.current === controller) {
+        paginationController.current = null
+        if (!controller.signal.aborted) setLoadingMore(false)
+      }
     }
   }
 

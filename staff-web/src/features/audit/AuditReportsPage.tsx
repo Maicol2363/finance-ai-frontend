@@ -20,10 +20,19 @@ export function AuditReportsPage() {
   const [report, setReport] = useState<GeneratedReport | null>(null)
   const [failure, setFailure] = useState<AuditFailure | null>(null)
   const urlRef = useRef<string | null>(null)
+  const reportController = useRef<AbortController | null>(null)
+  const mounted = useRef(false)
 
   // The PDF exists only as an in-memory object URL that is released when no longer needed.
-  useEffect(() => () => {
-    if (urlRef.current) URL.revokeObjectURL(urlRef.current)
+  useEffect(() => {
+    mounted.current = true
+    return () => {
+      mounted.current = false
+      reportController.current?.abort()
+      reportController.current = null
+      if (urlRef.current) URL.revokeObjectURL(urlRef.current)
+      urlRef.current = null
+    }
   }, [])
 
   function release(): void {
@@ -37,8 +46,11 @@ export function AuditReportsPage() {
     setReport(null)
     setFailure(null)
     setGenerating(true)
+    const controller = new AbortController()
+    reportController.current = controller
     try {
-      const file = await auditApi.report(period, filters)
+      const file = await auditApi.report(period, filters, controller.signal)
+      if (!mounted.current || controller.signal.aborted) return
       const url = URL.createObjectURL(file.blob)
       urlRef.current = url
       setReport({ reportId: file.reportId, eventCount: file.eventCount, filename: file.filename, url })
@@ -50,9 +62,12 @@ export function AuditReportsPage() {
       anchor.click()
       anchor.remove()
     } catch (error) {
-      setFailure(toFailure(error, 'report'))
+      if (mounted.current && !controller.signal.aborted) setFailure(toFailure(error, 'report'))
     } finally {
-      setGenerating(false)
+      if (reportController.current === controller) {
+        reportController.current = null
+        if (mounted.current && !controller.signal.aborted) setGenerating(false)
+      }
     }
   }
 

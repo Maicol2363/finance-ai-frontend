@@ -361,30 +361,33 @@ export function parseCatalog(value: unknown): AuditCatalog {
   }
 }
 
-async function readProblem(response: Response): Promise<{ code: string; fields: string[] }> {
+async function readProblem(response: Response, signal: AbortSignal): Promise<{ code: string; fields: string[] }> {
   try {
     const body: unknown = await response.json()
     if (isRecord(body) && typeof body.code === 'string') {
       const fields = isRecord(body.field_errors) ? Object.keys(body.field_errors) : []
       return { code: body.code, fields }
     }
-  } catch {
+  } catch (error) {
+    if (signal.aborted) throw error
     // An unreadable problem body receives a fixed safe code.
   }
   return { code: 'unknown_error', fields: [] }
 }
 
-async function send(
+async function send<T>(
   operation: AuditOperation,
   path: string,
   init: RequestInit,
   timeoutMs: number,
-): Promise<{ response: Response; correlationId: string }> {
+  consume: (response: Response, correlationId: string, signal: AbortSignal) => Promise<T>,
+): Promise<T> {
   const requestId = crypto.randomUUID()
   const controller = new AbortController()
   const external = init.signal
   const abort = () => controller.abort()
-  external?.addEventListener('abort', abort)
+  if (external?.aborted) controller.abort(external.reason)
+  else external?.addEventListener('abort', abort, { once: true })
   const timeoutId = setTimeout(abort, timeoutMs)
   try {
     const response = await fetch(`${AUDIT_PATH}${path}`, {
@@ -399,13 +402,16 @@ async function send(
         ...init.headers,
       },
     })
+    if (controller.signal.aborted) {
+      throw controller.signal.reason ?? new DOMException('Request aborted', 'AbortError')
+    }
     const responseId = response.headers.get('X-Correlation-ID')
     const correlationId = responseId && SAFE_CORRELATION_ID.test(responseId) ? responseId : requestId
     if (!response.ok) {
-      const problem = await readProblem(response)
+      const problem = await readProblem(response, controller.signal)
       throw new AuditApiError(response.status, problem.code, correlationId, operation, problem.fields)
     }
-    return { response, correlationId }
+    return await consume(response, correlationId, controller.signal)
   } catch (error) {
     if (error instanceof AuditApiError) throw error
     if (external?.aborted) throw error
@@ -418,12 +424,20 @@ async function send(
 }
 
 async function getJson<T>(operation: AuditOperation, path: string, parse: (value: unknown) => T, signal?: AbortSignal): Promise<T> {
-  const { response, correlationId } = await send(operation, path, { method: 'GET', signal }, REQUEST_TIMEOUT_MS)
-  try {
-    return parse(await response.json())
-  } catch {
-    throw new AuditApiError(0, 'invalid_response', correlationId, operation)
-  }
+  return send(operation, path, { method: 'GET', signal }, REQUEST_TIMEOUT_MS, async (response, correlationId, requestSignal) => {
+    let body: unknown
+    try {
+      body = await response.json()
+    } catch (error) {
+      if (requestSignal.aborted) throw error
+      throw new AuditApiError(0, 'invalid_response', correlationId, operation)
+    }
+    try {
+      return parse(body)
+    } catch {
+      throw new AuditApiError(0, 'invalid_response', correlationId, operation)
+    }
+  })
 }
 
 export function buildQuery(values: Record<string, string | number | undefined | null>): string {
@@ -469,32 +483,42 @@ export const auditApi = {
     return getJson('summary', `/summary${buildQuery({ ...period, ...filters })}`, parseSummary, signal)
   },
 
-  async report(period: AuditPeriodQuery, filters: AuditFilterQuery): Promise<AuditReportFile> {
+  report(period: AuditPeriodQuery, filters: AuditFilterQuery, signal?: AbortSignal): Promise<AuditReportFile> {
     const body: Record<string, string> = { ...period }
     for (const key of FILTER_KEYS) {
       const value = filters[key]
       if (value) body[key] = value
     }
-    const { response, correlationId } = await send(
+    return send(
       'report',
       '/reports',
-      { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) },
+      { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), signal },
       REPORT_TIMEOUT_MS,
+      async (response, correlationId, requestSignal) => {
+        const reportId = response.headers.get('X-Report-Id') ?? ''
+        const eventCount = Number(response.headers.get('X-Report-Event-Count'))
+        const disposition = response.headers.get('Content-Disposition') ?? ''
+        const filename = /filename="([^"]+)"/.exec(disposition)?.[1] ?? ''
+        const contentType = response.headers.get('Content-Type') ?? ''
+        if (
+          !UUID_PATTERN.test(reportId) ||
+          !isCount(eventCount) ||
+          !REPORT_FILENAME.test(filename) ||
+          !contentType.toLowerCase().startsWith('application/pdf')
+        ) {
+          throw new AuditApiError(0, 'invalid_response', correlationId, 'report')
+        }
+        try {
+          const blob = await response.blob()
+          if (requestSignal.aborted) {
+            throw requestSignal.reason ?? new DOMException('Request aborted', 'AbortError')
+          }
+          return { blob, filename, reportId, eventCount }
+        } catch (error) {
+          if (requestSignal.aborted) throw error
+          throw new AuditApiError(0, 'invalid_response', correlationId, 'report')
+        }
+      },
     )
-    const reportId = response.headers.get('X-Report-Id') ?? ''
-    const eventCount = Number(response.headers.get('X-Report-Event-Count'))
-    const disposition = response.headers.get('Content-Disposition') ?? ''
-    const filename = /filename="([^"]+)"/.exec(disposition)?.[1] ?? ''
-    const contentType = response.headers.get('Content-Type') ?? ''
-    if (
-      !UUID_PATTERN.test(reportId) ||
-      !isCount(eventCount) ||
-      !REPORT_FILENAME.test(filename) ||
-      !contentType.toLowerCase().startsWith('application/pdf')
-    ) {
-      throw new AuditApiError(0, 'invalid_response', correlationId, 'report')
-    }
-    const blob = await response.blob()
-    return { blob, filename, reportId, eventCount }
   },
 }

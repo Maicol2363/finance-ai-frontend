@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { AppRouter } from '../../app/router/AppRouter'
@@ -44,6 +44,12 @@ function summary(overrides: Record<string, unknown> = {}) {
     coverage: 'available',
     ...overrides,
   }
+}
+
+function deferred<T>() {
+  let resolve!: (value: T) => void
+  const promise = new Promise<T>((done) => { resolve = done })
+  return { promise, resolve }
 }
 
 describe('Security Auditor investigation, summary and reports', () => {
@@ -146,6 +152,53 @@ describe('Security Auditor investigation, summary and reports', () => {
     render(<AppRouter />)
     await user.click(await screen.findByRole('button', { name: 'Cargar eventos posteriores' }))
     expect(await screen.findByText(/Esto no significa que no haya actividad/)).toBeInTheDocument()
+  })
+
+  it('discards an in-flight investigation page when the account changes', async () => {
+    const user = userEvent.setup()
+    const nextPage = deferred<Response>()
+    let nextSignal: AbortSignal | undefined
+    routeFetch((url, init) => {
+      if (url.pathname.endsWith('/staff/auth/session')) return jsonResponse(auditorSession)
+      if (url.pathname === '/api/v1/staff/audit/investigations/15' && url.searchParams.get('cursor') === 'more') {
+        nextSignal = init?.signal as AbortSignal | undefined
+        return nextPage.promise
+      }
+      if (url.pathname === '/api/v1/staff/audit/investigations/15') {
+        return jsonResponse({
+          account_id: '15', identity_lookup: 'not_performed',
+          items: [{ ...auditEvent(), match: 'actor' }], next_cursor: 'more',
+          read_boundary: '2026-11-14T20:00:00Z', period,
+        })
+      }
+      if (url.pathname === '/api/v1/staff/audit/investigations/16') {
+        return jsonResponse({
+          account_id: '16', identity_lookup: 'not_performed',
+          items: [{ ...auditEvent({ event_type: 'staff.login', actor_id: '16' }), match: 'actor' }], next_cursor: null,
+          read_boundary: '2026-11-14T20:00:00Z', period,
+        })
+      }
+      return undefined
+    })
+    window.history.pushState({}, '', '/audit/investigation?account_id=15&start_date=2026-11-01&end_date=2026-11-14')
+    render(<AppRouter />)
+
+    await screen.findByRole('table')
+    await user.click(screen.getByRole('button', { name: 'Cargar eventos posteriores' }))
+    await waitFor(() => expect(nextSignal).toBeDefined())
+    await user.clear(screen.getByLabelText('Identificador histórico de la cuenta'))
+    await user.type(screen.getByLabelText('Identificador histórico de la cuenta'), '16')
+    await user.click(screen.getByRole('button', { name: 'Investigar' }))
+
+    expect(await screen.findByText('Cuenta 16: 1 eventos, de más antiguo a más reciente, en America/Bogota (UTC−05:00).')).toBeInTheDocument()
+    expect(nextSignal?.aborted).toBe(true)
+    nextPage.resolve(jsonResponse({
+      account_id: '15', identity_lookup: 'not_performed',
+      items: [{ ...auditEvent({ event_type: 'auth.mfa_failed', actor_id: '15' }), match: 'actor' }],
+      next_cursor: null, read_boundary: '2026-11-14T20:00:00Z', period,
+    }))
+    await waitFor(() => expect(within(screen.getByRole('table')).queryByText('auth.mfa_failed')).not.toBeInTheDocument())
+    expect(within(screen.getByRole('table')).getByText('staff.login')).toBeInTheDocument()
   })
 
   it('shows an empty investigation without inventing history', async () => {
@@ -271,6 +324,46 @@ describe('Security Auditor investigation, summary and reports', () => {
     expect(body.outcome).toBe('denied')
     expect(body.time_zone).toBe('America/Bogota')
     expect(new Headers(call?.[1]?.headers).get('X-Staff-Request')).toBe('1')
+  })
+
+  it('aborts report generation and avoids download side effects after unmount', async () => {
+    const pendingResponse = deferred<Response>()
+    const createObjectURL = vi.fn(() => 'blob:late-report')
+    vi.stubGlobal('URL', Object.assign(URL, { createObjectURL, revokeObjectURL: vi.fn() }))
+    const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => undefined)
+    let requestSignal: AbortSignal | undefined
+    const fetchMock = routeFetch((url, init) => {
+      if (url.pathname.endsWith('/staff/auth/session')) return jsonResponse(auditorSession)
+      if (url.pathname === '/api/v1/staff/audit/reports' && init?.method === 'POST') {
+        requestSignal = init.signal as AbortSignal | undefined
+        return pendingResponse.promise
+      }
+      return undefined
+    })
+    const user = userEvent.setup()
+    window.history.pushState({}, '', '/audit/reports')
+    const { unmount } = render(<AppRouter />)
+    await user.click(await screen.findByRole('button', { name: 'Generar informe PDF' }))
+    await waitFor(() => expect(requestSignal).toBeDefined())
+
+    unmount()
+    expect(requestSignal?.aborted).toBe(true)
+    const reportId = '55555555-5555-4555-8555-555555555555'
+    await act(async () => {
+      pendingResponse.resolve(new Response(new Blob(['%PDF-1.4']), {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/pdf',
+          'Content-Disposition': `attachment; filename="informe-auditoria-${reportId}.pdf"`,
+          'X-Report-Id': reportId,
+          'X-Report-Event-Count': '12',
+        },
+      }))
+      await new Promise((resolve) => setTimeout(resolve, 0))
+    })
+    expect(fetchMock).toHaveBeenCalled()
+    expect(createObjectURL).not.toHaveBeenCalled()
+    expect(click).not.toHaveBeenCalled()
   })
 
   it.each([

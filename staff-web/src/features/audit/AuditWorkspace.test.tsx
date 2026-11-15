@@ -17,6 +17,12 @@ function eventsPage(items: unknown[], nextCursor: string | null = null) {
   return { items, next_cursor: nextCursor, read_boundary: '2026-11-14T20:00:00Z', period, filters: {} }
 }
 
+function deferred<T>() {
+  let resolve!: (value: T) => void
+  const promise = new Promise<T>((done) => { resolve = done })
+  return { promise, resolve }
+}
+
 describe('Security Auditor workspace', () => {
   beforeEach(() => {
     window.history.pushState({}, '', '/')
@@ -61,6 +67,35 @@ describe('Security Auditor workspace', () => {
     expect(requestedPaths(fetchMock).some((path) => path.includes('/staff/support/'))).toBe(false)
   })
 
+  it('keeps section navigation rooted at the audit workspace from nested pages', async () => {
+    const user = userEvent.setup()
+    routeFetch((url) => {
+      if (url.pathname.endsWith('/staff/auth/session')) return jsonResponse(auditorSession)
+      if (url.pathname === '/api/v1/staff/audit/events') return jsonResponse(eventsPage([auditEvent()]))
+      if (url.pathname === '/api/v1/staff/audit/summary') {
+        return jsonResponse({
+          period,
+          filters: {},
+          cutoff: '2026-11-14T20:00:00Z',
+          total_events: 1,
+          metrics: [],
+          by_type: [{ event_type: 'access.denied', outcome: 'denied', count: 1 }],
+          by_day: [{ date: '2026-11-14', count: 1 }],
+          earliest_recorded_at: '2026-11-01T00:00:00Z',
+          coverage: 'available',
+        })
+      }
+      return undefined
+    })
+    window.history.pushState({}, '', '/audit/summary')
+    render(<AppRouter />)
+
+    expect(await screen.findByTestId('audit-summary')).toBeInTheDocument()
+    await user.click(screen.getByRole('link', { name: 'Eventos' }))
+    expect(await screen.findByRole('heading', { name: 'Eventos de seguridad' })).toBeInTheDocument()
+    expect(window.location.pathname).toBe('/audit/events')
+  })
+
   it('denies the audit workspace to a support agent without requesting audit data', async () => {
     const fetchMock = routeFetch((url) => (url.pathname.endsWith('/staff/auth/session') ? jsonResponse(supportSession) : undefined))
     window.history.pushState({}, '', '/audit/events')
@@ -102,6 +137,38 @@ describe('Security Auditor workspace', () => {
     await user.click(await screen.findByRole('button', { name: 'Cargar más eventos' }))
     await waitFor(() => expect(within(screen.getByRole('table')).getAllByRole('row')).toHaveLength(3))
     expect(screen.queryByRole('button', { name: 'Cargar más eventos' })).not.toBeInTheDocument()
+  })
+
+  it('discards an in-flight events page when the active filters change', async () => {
+    const user = userEvent.setup()
+    const nextPage = deferred<Response>()
+    let nextSignal: AbortSignal | undefined
+    routeFetch((url, init) => {
+      if (url.pathname.endsWith('/staff/auth/session')) return jsonResponse(auditorSession)
+      if (url.pathname === '/api/v1/staff/audit/events' && url.searchParams.get('cursor') === 'next') {
+        nextSignal = init?.signal as AbortSignal | undefined
+        return nextPage.promise
+      }
+      if (url.pathname === '/api/v1/staff/audit/events') {
+        const eventType = url.searchParams.get('event_type') ?? 'access.denied'
+        return jsonResponse(eventsPage([auditEvent({ event_type: eventType })], eventType === 'access.denied' ? 'next' : null))
+      }
+      return undefined
+    })
+    window.history.pushState({}, '', '/audit/events?start_date=2026-11-01&end_date=2026-11-14')
+    render(<AppRouter />)
+
+    await screen.findByRole('table')
+    await user.click(screen.getByRole('button', { name: 'Cargar más eventos' }))
+    await waitFor(() => expect(nextSignal).toBeDefined())
+    await user.selectOptions(screen.getByLabelText('Tipo de evento'), 'auth.login_success')
+    await user.click(screen.getByRole('button', { name: 'Aplicar filtros' }))
+
+    expect(await within(await screen.findByRole('table')).findByText('auth.login_success')).toBeInTheDocument()
+    expect(nextSignal?.aborted).toBe(true)
+    nextPage.resolve(jsonResponse(eventsPage([auditEvent({ event_type: 'auth.mfa_failed' })])))
+    await waitFor(() => expect(within(screen.getByRole('table')).queryByText('auth.mfa_failed')).not.toBeInTheDocument())
+    expect(within(screen.getByRole('table')).getByText('auth.login_success')).toBeInTheDocument()
   })
 
   it('validates filters before calling the server', async () => {

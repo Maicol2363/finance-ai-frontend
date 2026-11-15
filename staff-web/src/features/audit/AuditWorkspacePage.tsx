@@ -61,7 +61,7 @@ export function AuditWorkspacePage() {
       </div>
       <nav aria-label="Secciones de auditoría" className="audit-tabs">
         {SECTIONS.map((section) => (
-          <NavLink className={({ isActive }) => `audit-tab${isActive ? ' is-active' : ''}`} key={section.to} to={section.to}>
+          <NavLink className={({ isActive }) => `audit-tab${isActive ? ' is-active' : ''}`} key={section.to} to={`/audit/${section.to}`}>
             {section.label}
           </NavLink>
         ))}
@@ -73,7 +73,7 @@ export function AuditWorkspacePage() {
       ) : (
         <AuditCatalogContext.Provider value={catalog}>
           <Routes>
-            <Route element={<Navigate replace to="events" />} index />
+            <Route element={<Navigate replace to="/audit/events" />} index />
             <Route element={<AuditEventsPage />} path="events" />
             <Route element={<AuditEventDetailPage />} path="events/:eventId" />
             <Route element={<AuditInvestigationPage />} path="investigation" />
@@ -83,7 +83,7 @@ export function AuditWorkspacePage() {
               element={(
                 <div className="audit-empty">
                   <p>Esta sección de auditoría no existe.</p>
-                  <Link className="text-link" to="events">Ir a eventos</Link>
+                  <Link className="text-link" to="/audit/events">Ir a eventos</Link>
                 </div>
               )}
               path="*"
