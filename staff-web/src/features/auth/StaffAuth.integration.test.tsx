@@ -170,7 +170,7 @@ describe('staff authentication integration', () => {
   it('keeps a session with a non-portal role out of every staff workspace', async () => {
     vi.mocked(fetch).mockResolvedValueOnce(jsonResponse({
       ...validSession,
-      user: { ...validSession.user, role: 'admin' },
+      user: { ...validSession.user, role: 'user' },
     }))
     window.history.pushState({}, '', '/support')
     render(<AppRouter />)

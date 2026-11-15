@@ -28,6 +28,7 @@ export function StaffAuthProvider({ children }: StaffAuthProviderProps) {
     startMfaEnrollment: () => coordinator.startMfaEnrollment(),
     verifyMfa: (code) => coordinator.verifyMfa(code),
     cancelMfa: () => coordinator.cancelMfa(),
+    resetMfa: (email, password, proof) => coordinator.resetMfa(email, password, proof),
     session: state.status === 'authenticated' ? state.session : null,
   }), [coordinator, state])
 

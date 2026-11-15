@@ -82,7 +82,7 @@ describe('staffAuthApi', () => {
     expect(() =>
       parseStaffSessionView({
         ...sessionView,
-        user: { ...sessionView.user, role: 'admin' },
+        user: { ...sessionView.user, role: 'user' },
       }),
     ).toThrowError(StaffAuthApiError)
     expect(() => parseStaffSessionView({ ...sessionView, absolute_expires_at: 'tomorrow' }))

@@ -7,6 +7,7 @@ import { useStaffAuth } from '../../shared/auth/useStaffAuth'
 const ROLE_LABELS: Readonly<Record<StaffRole, string>> = {
   support_agent: 'Agente de soporte',
   security_auditor: 'Auditor de seguridad',
+  admin: 'Administrador',
 }
 
 /**

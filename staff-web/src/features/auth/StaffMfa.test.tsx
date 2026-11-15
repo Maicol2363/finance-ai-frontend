@@ -177,9 +177,9 @@ describe('Security Auditor two-step sign-in', () => {
 describe('staff auth API contract for MFA roles', () => {
   afterEach(() => vi.unstubAllGlobals())
 
-  it('accepts only the two portal roles in a session', () => {
+  it('accepts only portal roles in a session', () => {
     expect(parseStaffSessionView(auditorSession).user.role).toBe('security_auditor')
-    expect(() => parseStaffSessionView({ ...auditorSession, user: { ...auditorSession.user, role: 'admin' } })).toThrow(StaffAuthApiError)
+    expect(parseStaffSessionView({ ...auditorSession, user: { ...auditorSession.user, role: 'admin' } }).user.role).toBe('admin')
     expect(() => parseStaffSessionView({ ...auditorSession, user: { ...auditorSession.user, role: 'user' } })).toThrow(StaffAuthApiError)
   })
 

@@ -1,5 +1,5 @@
 import { createContext } from 'react'
-import type { StaffMfaEnrollmentView, StaffSessionView } from '../api/staffAuthApi'
+import type { MfaResetProof, StaffMfaEnrollmentView, StaffSessionView } from '../api/staffAuthApi'
 import type { StaffAuthState } from './staffSessionCoordinator'
 
 export interface StaffAuthContextValue {
@@ -11,6 +11,7 @@ export interface StaffAuthContextValue {
   startMfaEnrollment: () => Promise<StaffMfaEnrollmentView | null>
   verifyMfa: (code: string) => Promise<void>
   cancelMfa: () => Promise<void>
+  resetMfa: (email: string, password: string, proof: MfaResetProof) => Promise<void>
   session: StaffSessionView | null
 }
 

@@ -74,10 +74,10 @@ describe('StaffAuthProvider', () => {
     expect(new Headers(init?.headers).has('Authorization')).toBe(false)
   })
 
-  it('fails closed when restoration returns a privileged role', async () => {
+  it('fails closed when restoration returns a non-staff role', async () => {
     vi.mocked(fetch).mockResolvedValueOnce(jsonResponse({
       ...validSession,
-      user: { ...validSession.user, role: 'admin' },
+      user: { ...validSession.user, role: 'user' },
     }))
 
     renderProvider()

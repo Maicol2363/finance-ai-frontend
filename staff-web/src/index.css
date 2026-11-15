@@ -331,3 +331,50 @@ button, a { -webkit-tap-highlight-color: transparent; }
   .audit-bar-track { grid-column: 1 / -1; grid-row: 2; }
   .audit-tab { padding: 8px 10px; }
 }
+
+/* Administrator workspace (ADM-01..ADM-05) */
+.admin-workspace { display: grid; gap: 16px; }
+.admin-section { display: grid; gap: 14px; }
+.admin-section h2 { margin: 0; color: var(--ink); font-size: 17px; }
+.admin-intro, .admin-hint { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.6; }
+.admin-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.admin-card { display: grid; gap: 12px; min-width: 0; padding: 18px; border: 1px solid var(--line); border-radius: 12px; background: var(--card); }
+.admin-card h3 { margin: 0; color: var(--ink); font-size: 15px; overflow-wrap: anywhere; }
+.admin-nested { background: var(--soft-2); }
+.admin-form { display: grid; align-items: start; gap: 12px; max-width: 460px; }
+.admin-form .primary-button, .admin-form .secondary-button { justify-self: start; margin-top: 0; cursor: pointer; }
+.admin-field { display: grid; align-content: start; gap: 6px; }
+.admin-field label, .admin-radio-group legend { color: var(--ink); font-size: 12px; font-weight: 700; }
+.admin-field input, .admin-field select, .admin-field textarea { width: 100%; min-height: 40px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; color: var(--ink); background: var(--card); font: inherit; font-size: 13px; }
+.admin-field textarea { resize: vertical; }
+.admin-field input:focus, .admin-field select:focus, .admin-field textarea:focus { border-color: var(--primary); outline: 3px solid color-mix(in srgb, var(--primary) 24%, transparent); }
+.admin-field input[aria-invalid="true"] { border-color: var(--discard); }
+.admin-field-error { margin: 0; color: var(--discard); font-size: 12px; font-weight: 600; }
+.admin-radio-group { display: flex; flex-wrap: wrap; gap: 6px 18px; margin: 0; padding: 0; border: 0; }
+.admin-radio-group label { color: var(--ink); font-size: 13px; font-weight: 500; }
+.admin-check { display: block; color: var(--ink); font-size: 12px; line-height: 1.6; }
+.admin-definition { display: flex; flex-wrap: wrap; gap: 8px 24px; margin: 0; }
+.admin-definition div { display: grid; gap: 4px; }
+.admin-definition dt { color: var(--muted); font-size: 10px; font-weight: 700; letter-spacing: .04em; }
+.admin-definition dd { margin: 0; color: var(--ink); font-size: 13px; overflow-wrap: anywhere; }
+.admin-badge { display: inline-block; padding: 3px 8px; border: 1px solid var(--line); border-radius: 999px; color: var(--muted); background: var(--soft); font-size: 10px; font-weight: 750; }
+.admin-badge.status-active { color: var(--primary-dark); background: var(--primary-soft); }
+.admin-badge.status-suspended { color: var(--discard); background: var(--error-soft); }
+.admin-suspension { padding: 12px; border-radius: 8px; background: var(--error-soft); }
+.admin-suspension h4, .admin-confirm h4 { margin: 0 0 6px; color: var(--ink); font-size: 13px; }
+.admin-suspension p { margin: 0 0 4px; font-size: 12px; }
+.admin-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.admin-actions .primary-button { margin-top: 0; cursor: pointer; }
+.admin-danger { border-color: var(--discard); color: var(--discard); }
+.admin-confirm { display: grid; gap: 12px; padding: 14px; border: 1px solid var(--line); border-radius: 10px; background: var(--soft-2); }
+.admin-notice { min-height: 1.4em; margin: 0; color: var(--primary-dark); font-size: 12px; }
+.admin-error { display: grid; gap: 4px; padding: 12px 14px; border: 1px solid var(--discard); border-radius: 10px; background: var(--error-soft); }
+.admin-error-message { margin: 0; color: var(--discard); font-size: 13px; font-weight: 600; }
+.admin-error-reference { margin: 0; color: var(--muted); font-size: 11px; }
+.admin-secret { display: grid; gap: 10px; padding: 14px; border: 1px dashed var(--primary); border-radius: 10px; background: var(--primary-soft); }
+.admin-secret h3 { margin: 0; font-size: 14px; }
+.admin-secret input { width: 100%; min-height: 38px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; color: var(--ink); background: var(--card); font: inherit; font-size: 12px; }
+.admin-codes { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 6px 18px; margin: 0; padding-left: 20px; }
+.admin-codes code { font-size: 13px; letter-spacing: .04em; }
+.admin-thread { display: grid; gap: 10px; margin: 0; padding-left: 18px; color: var(--ink); font-size: 12px; }
+.admin-thread p { margin: 4px 0 0; }

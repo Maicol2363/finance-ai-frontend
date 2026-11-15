@@ -62,7 +62,7 @@ export function MfaStep({ state, startMfaEnrollment, verifyMfa, cancelMfa }: Mfa
           {state.challenge.enrollment_required ? 'Configura tu autenticador' : 'Ingresa tu código de verificación'}
         </h1>
         <p className="auth-intro">
-          Tu contraseña es correcta. Para acceder a funciones de auditoría de seguridad necesitas además un código
+          Tu contraseña es correcta. Para acceder a funciones privilegiadas necesitas además un código
           de tu aplicación de autenticación.
         </p>
         <p className="audit-hint" data-testid="staff-mfa-expiry">

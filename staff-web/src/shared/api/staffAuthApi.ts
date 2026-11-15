@@ -2,6 +2,8 @@ const STAFF_AUTH_PATH = '/api/v1/staff/auth'
 const STAFF_REQUEST_TIMEOUT_MS = 15_000
 const SAFE_PROBLEM_CODES = new Set([
   'access_expired',
+  'activation_invalid',
+  'activation_password_invalid',
   'audit_unavailable',
   'authentication_required',
   'internal_error',
@@ -11,7 +13,9 @@ const SAFE_PROBLEM_CODES = new Set([
   'mfa_code_invalid',
   'mfa_enrollment_required',
   'mfa_rate_limited',
+  'mfa_recovery_invalid',
   'mfa_unavailable',
+  'password_confirmation_invalid',
   'request_invalid',
   'request_too_large',
   'route_not_found',
@@ -25,9 +29,9 @@ const SAFE_PROBLEM_CODES = new Set([
   'validation_error',
 ])
 
-/** The two roles that may hold a staff portal session. Admin portal access is not enabled. */
-export type StaffRole = 'support_agent' | 'security_auditor'
-const STAFF_ROLES: ReadonlySet<string> = new Set<StaffRole>(['support_agent', 'security_auditor'])
+/** The roles that may hold a staff portal session. Admin and auditor sessions are MFA-verified. */
+export type StaffRole = 'support_agent' | 'security_auditor' | 'admin'
+const STAFF_ROLES: ReadonlySet<string> = new Set<StaffRole>(['support_agent', 'security_auditor', 'admin'])
 
 export interface StaffSessionView {
   user: {
@@ -66,6 +70,9 @@ export type StaffAuthOperation =
   | 'mfa_enrollment'
   | 'mfa_verify'
   | 'mfa_cancel'
+  | 'mfa_reset'
+  | 'mfa_recovery_codes'
+  | 'activate'
 
 export const STAFF_AUTH_OPERATION_PATHS: Readonly<Record<StaffAuthOperation, string>> = {
   login: 'login',
@@ -75,6 +82,9 @@ export const STAFF_AUTH_OPERATION_PATHS: Readonly<Record<StaffAuthOperation, str
   mfa_enrollment: 'mfa/enrollment',
   mfa_verify: 'mfa/verify',
   mfa_cancel: 'mfa/cancel',
+  mfa_reset: 'mfa/reset',
+  mfa_recovery_codes: 'mfa/recovery-codes',
+  activate: 'activate',
 }
 
 export class StaffAuthApiError extends Error {
@@ -190,6 +200,27 @@ export function parseStaffMfaEnrollment(value: unknown): StaffMfaEnrollmentView 
     qr_svg_data_url: value.qr_svg_data_url,
   }
 }
+
+const RECOVERY_CODE_PATTERN = /^[A-Z2-7]{4}(?:-[A-Z2-7]{4}){3}$/
+
+/** Single-use recovery codes are shown once; the browser never stores them. */
+export function parseRecoveryCodes(value: unknown): string[] {
+  if (!isRecord(value) || !Array.isArray(value.recovery_codes)) {
+    throw new StaffAuthApiError(0, 'invalid_response')
+  }
+  const codes = value.recovery_codes
+  if (
+    codes.length < 1 ||
+    codes.length > 20 ||
+    !codes.every((code) => typeof code === 'string' && RECOVERY_CODE_PATTERN.test(code))
+  ) {
+    throw new StaffAuthApiError(0, 'invalid_response')
+  }
+  return codes as string[]
+}
+
+/** Exactly one proof of identity, besides the password, for an authenticator reset. */
+export type MfaResetProof = { recoveryCode: string } | { code: string }
 
 export function isMfaChallenge(result: StaffLoginResult): result is StaffMfaChallengeView {
   return 'status' in result && result.status === 'mfa_required'
@@ -310,6 +341,28 @@ export const staffAuthApi = {
 
   async cancelMfa(): Promise<void> {
     return request('mfa_cancel', {}, readNoContent)
+  },
+
+  /** Lost-device recovery or voluntary replacement; success opens a new enrollment challenge. */
+  async resetMfa(email: string, password: string, proof: MfaResetProof): Promise<StaffMfaChallengeView> {
+    const body = 'recoveryCode' in proof
+      ? { email, password, recovery_code: proof.recoveryCode }
+      : { email, password, code: proof.code }
+    return request('mfa_reset', body, (response) => readJson(response, parseStaffMfaChallenge))
+  },
+
+  /** Replaces the single-use recovery codes after re-confirming the password. */
+  async issueRecoveryCodes(password: string): Promise<string[]> {
+    return request('mfa_recovery_codes', { password }, (response) => readJson(response, parseRecoveryCodes))
+  },
+
+  /** Public: consumes an invitation token and creates the invited staff account. */
+  async activate(token: string, password: string, passwordConfirmation: string): Promise<void> {
+    return request(
+      'activate',
+      { token, password, password_confirmation: passwordConfirmation },
+      readNoContent,
+    )
   },
 }
 
