@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 
@@ -33,6 +34,9 @@ class _SupportScreenState extends ConsumerState<SupportScreen> {
   final createKey = GlobalKey<FormState>();
   final replyKey = GlobalKey<FormState>();
   final chatScroll = ScrollController();
+  Timer? refreshTimer;
+  bool refreshing = false;
+  int operationVersion = 0;
   final createController = ExpansibleController();
   static const maxAttachmentBytes = 2 * 1024 * 1024;
   Map<String, String>? ticketAttachment;
@@ -120,6 +124,7 @@ class _SupportScreenState extends ConsumerState<SupportScreen> {
   }
 
   void closeConversation() {
+    operationVersion++;
     setState(() {
       conversation = null;
       diagnostic = null;
@@ -133,10 +138,14 @@ class _SupportScreenState extends ConsumerState<SupportScreen> {
   void initState() {
     super.initState();
     Future.microtask(load);
+    refreshTimer = Timer.periodic(const Duration(seconds: 5), (_) {
+      unawaited(refreshInBackground());
+    });
   }
 
   @override
   void dispose() {
+    refreshTimer?.cancel();
     chatScroll.dispose();
     createController.dispose();
     subject.dispose();
@@ -147,6 +156,7 @@ class _SupportScreenState extends ConsumerState<SupportScreen> {
 
   Future<void> perform(Future<void> Function(SupportRepository) action) async {
     if (!mounted || busy) return;
+    operationVersion++;
     setState(() {
       busy = true;
       diagnostic = null;
@@ -181,6 +191,44 @@ class _SupportScreenState extends ConsumerState<SupportScreen> {
       }
     } finally {
       if (mounted) setState(() => busy = false);
+    }
+  }
+
+  Future<void> refreshInBackground() async {
+    if (!mounted ||
+        busy ||
+        refreshing ||
+        ModalRoute.of(context)?.isCurrent == false) {
+      return;
+    }
+    refreshing = true;
+    final version = operationVersion;
+    final current = conversation;
+    try {
+      final repository = ref.read(supportRepositoryProvider);
+      if (current == null) {
+        final items = await repository.list();
+        if (mounted && version == operationVersion && conversation == null) {
+          setState(() => tickets = items);
+        }
+      } else {
+        final refreshed = await repository.read(current.ticket.id);
+        if (!mounted ||
+            version != operationVersion ||
+            !identical(conversation, current)) {
+          return;
+        }
+        final nearBottom =
+            chatScroll.hasClients && chatScroll.position.extentAfter < 80;
+        setState(() => conversation = refreshed);
+        if (nearBottom && refreshed.messages.length > current.messages.length) {
+          showConversation();
+        }
+      }
+    } catch (_) {
+      // Keep the last successful view and retry on the next tick.
+    } finally {
+      refreshing = false;
     }
   }
 
@@ -298,13 +346,6 @@ class _SupportScreenState extends ConsumerState<SupportScreen> {
                 ),
               ],
             ),
-            actions: [
-              IconButton(
-                onPressed: busy ? null : load,
-                tooltip: 'Actualizar',
-                icon: const Icon(Icons.refresh),
-              ),
-            ],
           ),
           body: Align(
             alignment: Alignment.topCenter,
@@ -493,16 +534,7 @@ class _SupportScreenState extends ConsumerState<SupportScreen> {
       );
     }
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Ayuda y soporte'),
-        actions: [
-          IconButton(
-            onPressed: busy ? null : load,
-            tooltip: 'Actualizar',
-            icon: const Icon(Icons.refresh),
-          ),
-        ],
-      ),
+      appBar: AppBar(title: const Text('Ayuda y soporte')),
       body: Align(
         alignment: Alignment.topCenter,
         child: ConstrainedBox(

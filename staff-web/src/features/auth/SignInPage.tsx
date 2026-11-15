@@ -6,6 +6,11 @@ import { ThemeToggleButton } from '../../shared/theme/ThemeToggleButton'
 import { AuthDiagnosticPanel } from './AuthDiagnosticPanel'
 import { MfaStep } from './MfaStep'
 
+function supportDestination(value: unknown): string {
+  if (typeof value === 'string' && (value === '/support' || value.startsWith('/support?') || value.startsWith('/support/'))) return value
+  return '/support'
+}
+
 export function SignInPage() {
   const { state, login, retry, retryPendingLogout, startMfaEnrollment, verifyMfa, cancelMfa } = useStaffAuth()
   const location = useLocation()

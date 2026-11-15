@@ -435,3 +435,12 @@ dialog.ticket-detail::backdrop { background: rgb(10 15 18 / 62%); }
 .chat-operations form { padding: 12px; background: var(--soft); border-radius: 10px; }
 .chat-operations form textarea { min-height: 58px; }
 .chat-ticket-intro { margin-block: 12px; }
+
+.topbar-actions .theme-toggle-button,
+.topbar-actions .sign-out-button {
+  min-height: 40px;
+  padding: 8px 12px;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.25;
+}

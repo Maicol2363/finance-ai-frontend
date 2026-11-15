@@ -1,3 +1,4 @@
+import { MemoryRouter } from 'react-router'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -58,14 +59,14 @@ describe('SupportWorkspacePage', () => {
       .mockResolvedValueOnce(jsonResponse({ ...ticket, status: 'in_progress', assigned_staff_user_id: 42 }))
       .mockResolvedValueOnce(jsonResponse({ ...ticket, status: 'in_progress', assigned_staff_user_id: 42, category: 'general', description: 'Detalle autorizado' }))
     const user = userEvent.setup()
-    render(<SupportWorkspacePage />)
+    render(<MemoryRouter><SupportWorkspacePage /></MemoryRouter>)
 
     expect(await screen.findByText('Ayuda con la cuenta')).toBeInTheDocument()
     expect(screen.queryByText('Detalle autorizado')).not.toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Reclamar ticket' }))
 
     expect(await screen.findByText('Detalle autorizado')).toBeInTheDocument()
-    expect(fetchMock).toHaveBeenCalledTimes(4)
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(4))
     expect(fetchMock.mock.calls[1]?.[1]).toMatchObject({ method: 'POST', credentials: 'include' })
     expect(new Headers(fetchMock.mock.calls[1]?.[1]?.headers).get('X-Staff-Request')).toBe('1')
   })
@@ -78,7 +79,7 @@ describe('SupportWorkspacePage', () => {
       .mockResolvedValueOnce(jsonResponse(claimed))
       .mockResolvedValueOnce(jsonResponse({ ...claimed, category: 'general', description: 'Detalle autorizado' }))
     const user = userEvent.setup()
-    render(<SupportWorkspacePage />)
+    render(<MemoryRouter><SupportWorkspacePage /></MemoryRouter>)
 
     await user.click(await screen.findByRole('button', { name: 'Abiertos' }))
     await user.click(await screen.findByRole('button', { name: 'Reclamar ticket' }))
@@ -101,7 +102,7 @@ describe('SupportWorkspacePage', () => {
     Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } })
 
     try {
-      render(<SupportWorkspacePage />)
+      render(<MemoryRouter><SupportWorkspacePage /></MemoryRouter>)
 
       const report = (await screen.findByLabelText('Contenido del informe de diagnóstico de soporte')).textContent ?? ''
       expectSafeSupportReport(report, {
@@ -129,7 +130,7 @@ describe('SupportWorkspacePage', () => {
       ))
       .mockResolvedValueOnce(jsonResponse([{ ...ticket, assigned_staff_user_id: 88 }]))
     const user = userEvent.setup()
-    render(<SupportWorkspacePage />)
+    render(<MemoryRouter><SupportWorkspacePage /></MemoryRouter>)
 
     await user.click(await screen.findByRole('button', { name: 'Reclamar ticket' }))
 
@@ -154,7 +155,7 @@ describe('SupportWorkspacePage', () => {
         { 'X-Correlation-ID': 'detail-corr-3' },
       ))
     const user = userEvent.setup()
-    render(<SupportWorkspacePage />)
+    render(<MemoryRouter><SupportWorkspacePage /></MemoryRouter>)
 
     await user.click(await screen.findByRole('button', { name: 'Ver contexto' }))
 
@@ -174,7 +175,7 @@ describe('SupportWorkspacePage', () => {
       .mockResolvedValueOnce(jsonResponse({ code: 'support_ticket_claim_conflict' }, 409))
       .mockResolvedValueOnce(jsonResponse([{ ...ticket, assigned_staff_user_id: 88 }]))
     const user = userEvent.setup()
-    render(<SupportWorkspacePage />)
+    render(<MemoryRouter><SupportWorkspacePage /></MemoryRouter>)
 
     await user.click(await screen.findByRole('button', { name: 'Reclamar ticket' }))
     expect(await screen.findByText(/Otro agente reclamó este ticket primero/)).toBeInTheDocument()
@@ -185,7 +186,7 @@ describe('SupportWorkspacePage', () => {
       .mockResolvedValueOnce(jsonResponse([ticket]))
       .mockResolvedValueOnce(jsonResponse([]))
     const user = userEvent.setup()
-    render(<SupportWorkspacePage />)
+    render(<MemoryRouter><SupportWorkspacePage /></MemoryRouter>)
     await user.click(await screen.findByRole('button', { name: 'Escalados' }))
 
     await waitFor(() => expect(fetchMock).toHaveBeenLastCalledWith(
@@ -197,7 +198,7 @@ describe('SupportWorkspacePage', () => {
 
   it('offers a retry after a network failure', async () => {
     vi.spyOn(globalThis, 'fetch').mockRejectedValueOnce(new Error('offline')).mockResolvedValueOnce(jsonResponse([]))
-    render(<SupportWorkspacePage />)
+    render(<MemoryRouter><SupportWorkspacePage /></MemoryRouter>)
     expect(await screen.findByRole('alert')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Reintentar' }))
     expect(await screen.findByText('No hay tickets en esta vista')).toBeInTheDocument()

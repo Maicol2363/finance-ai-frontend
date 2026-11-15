@@ -1,7 +1,8 @@
+import { useSupportPolling } from './useSupportPolling'
 import { SupportChatFile } from './SupportChatFile'
 import { SupportAttachmentInput } from './SupportAttachmentInput'
 import { encodeAttachment } from './encodeAttachment'
-import { useEffect, useRef, useState, type FormEvent } from 'react'
+import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
 import { SupportDiagnosticPanel } from './SupportDiagnosticPanel'
 import { supportTicketsApi, safeSupportDiagnostic, safeSupportMessage, type AttachmentSummary, type SupportConversation, type SupportDiagnostic, type SupportTicketDetail } from './supportTicketsApi'
 
@@ -17,6 +18,7 @@ export function SupportCasePanel({ id, onChange }: { id: number; onChange: (tick
   const [transition, setTransition] = useState<'resolve' | 'escalate'>('resolve')
   const scroll = useRef<HTMLDivElement>(null)
   const scrollToLatest = useRef(true)
+  const mutationVersion = useRef(0)
   useEffect(() => {
     if (scrollToLatest.current && scroll.current && data) {
       scroll.current.scrollTop = scroll.current.scrollHeight
@@ -37,8 +39,23 @@ export function SupportCasePanel({ id, onChange }: { id: number; onChange: (tick
     })
     return () => controller.abort()
   }, [id])
+  const pollConversation = useCallback(async (signal: AbortSignal) => {
+    if (busy) return
+    const version = mutationVersion.current
+    try {
+      const value = await supportTicketsApi.conversation(id, signal)
+      if (signal.aborted || version !== mutationVersion.current) return
+      const viewport = scroll.current
+      scrollToLatest.current = !viewport || viewport.scrollHeight - viewport.clientHeight - viewport.scrollTop < 80
+      setData(value)
+    } catch {
+      // Retain the open conversation and draft through a transient refresh failure.
+    }
+  }, [id, busy])
+  useSupportPolling(pollConversation)
+
   async function action(kind: 'message' | 'escalate' | 'resolve', event: FormEvent) {
-    event.preventDefault(); setBusy(true); setFailure(null); setNotice('')
+    event.preventDefault(); mutationVersion.current += 1; setBusy(true); setFailure(null); setNotice('')
     try {
       await supportTicketsApi.action(id, kind, kind === 'message' ? { body, attachment: attachment ? await encodeAttachment(attachment) : undefined } : { summary })
       if (kind === 'message') { setBody(''); setAttachment(null); scrollToLatest.current = true }
@@ -73,7 +90,7 @@ export function SupportCasePanel({ id, onChange }: { id: number; onChange: (tick
   return <div className="support-case">
     <div className="chat-toolbar">
       <h3>Conversación</h3>
-      <button className="secondary-button" disabled={busy} onClick={() => void load()} type="button">Actualizar conversación</button>
+      {failure?.operation === 'conversation' && <button className="secondary-button" disabled={busy} onClick={() => void load()} type="button">Reintentar</button>}
     </div>
     {failure && <div className="chat-error"><p role="alert">{errorMessage}</p><SupportDiagnosticPanel diagnostic={failure} id="support-case-diagnostic" /></div>}
     <p className="chat-notice" role="status">{notice}</p>

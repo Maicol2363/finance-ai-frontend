@@ -469,14 +469,15 @@ export class StaffSessionCoordinator {
     }
     const generation = this.authGeneration
     const hadConfirmedSession = this.session !== null
-    this.setState({ status: 'restoring' })
+    const checkingInBackground = this.state.status === 'authenticated'
+    if (!checkingInBackground) this.setState({ status: 'restoring' })
     try {
       const session = await this.api.session()
       if (generation === this.authGeneration && !this.isLogoutPending()) this.setAuthenticated(session)
     } catch (error) {
       if (generation !== this.authGeneration || this.isLogoutPending()) return
       if (shouldRefresh(error)) {
-        this.setState({ status: 'refreshing' })
+        if (!checkingInBackground) this.setState({ status: 'refreshing' })
         try {
           const session = await this.coordinateRefresh()
           if (generation === this.authGeneration && !this.isLogoutPending()) this.setAuthenticated(session)

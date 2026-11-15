@@ -108,7 +108,7 @@ void main() {
       expect(repository.bodies, ['<script>texto seguro</script>']);
       expect(find.text('<script>texto seguro</script>'), findsOneWidget);
       repository.status = 'resolved';
-      await tester.tap(find.byTooltip('Actualizar'));
+      await tester.pump(const Duration(seconds: 5));
       await tester.pumpAndSettle();
       await tester.ensureVisible(find.text('Consulta atendida'));
       expect(find.text('Consulta atendida'), findsOneWidget);

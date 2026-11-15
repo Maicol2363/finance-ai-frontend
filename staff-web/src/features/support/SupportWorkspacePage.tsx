@@ -1,3 +1,5 @@
+import { useSearchParams } from 'react-router'
+import { useSupportPolling } from './useSupportPolling'
 import { SupportCasePanel } from './SupportCasePanel'
 import { SupportCreateForm } from './SupportCreateForm'
 import { useCallback, useEffect, useRef, useState } from 'react'
@@ -38,6 +40,9 @@ function formatDate(value: string): string {
 }
 
 export function SupportWorkspacePage() {
+  const [params, setParams] = useSearchParams()
+  const rawTicketId = params.get('ticket')
+  const ticketId = rawTicketId && /^[1-9][0-9]*$/.test(rawTicketId) && Number.isSafeInteger(Number(rawTicketId)) ? Number(rawTicketId) : null
   const { session } = useStaffAuth()
   const [filter, setFilter] = useState<TicketStatus | 'all'>('all')
   const [tickets, setTickets] = useState<SupportTicket[]>([])
@@ -48,30 +53,30 @@ export function SupportWorkspacePage() {
   const [busyId, setBusyId] = useState<number | null>(null)
   const [detail, setDetail] = useState<SupportTicketDetail | null>(null)
   const [detailLoading, setDetailLoading] = useState(false)
-  const [contextOpen, setContextOpen] = useState(false)
+  const contextOpen = ticketId !== null
   const contextDialog = useRef<HTMLDialogElement>(null)
-  const detailRequest = useRef<AbortController | null>(null)
-
-  useEffect(() => () => detailRequest.current?.abort(), [])
 
   useEffect(() => {
     if (contextOpen && !contextDialog.current?.open) contextDialog.current?.showModal()
   }, [contextOpen])
 
-  const refresh = useCallback(async (signal?: AbortSignal) => {
-    setLoading(true)
-    setQueueFailure(null)
+  const refresh = useCallback(async (signal?: AbortSignal, background = false) => {
+    if (!background) setLoading(true)
     try {
-      setTickets(await supportTicketsApi.list(filter, signal))
-    } catch (failure) {
+      const items = await supportTicketsApi.list(filter, signal)
       if (!signal?.aborted) {
+        setTickets(items)
+        setQueueFailure(null)
+      }
+    } catch (failure) {
+      if (!signal?.aborted && !background) {
         setQueueFailure({
           message: safeSupportMessage(failure, 'queue'),
           diagnostic: safeSupportDiagnostic(failure, 'queue'),
         })
       }
     } finally {
-      if (!signal?.aborted) setLoading(false)
+      if (!signal?.aborted && !background) setLoading(false)
     }
   }, [filter])
 
@@ -81,27 +86,42 @@ export function SupportWorkspacePage() {
     return () => controller.abort()
   }, [refresh])
 
-  async function openDetail(ticket: SupportTicket) {
-    detailRequest.current?.abort()
+  const pollQueue = useCallback((signal: AbortSignal) => refresh(signal, true), [refresh])
+  useSupportPolling(pollQueue)
+
+  function openDetail(id: number) {
+    setParams((current) => {
+      const next = new URLSearchParams(current)
+      next.set('ticket', String(id))
+      return next
+    }, { replace: true })
+  }
+
+  useEffect(() => {
+    if (ticketId === null) return
+    const id = ticketId
+
     const request = new AbortController()
-    detailRequest.current = request
     setDetail(null)
     setActionFailure(null)
     setDetailLoading(true)
-    setContextOpen(true)
-    try {
-      const value = await supportTicketsApi.detail(ticket.id, request.signal)
-      if (!request.signal.aborted) setDetail(value)
-    } catch (failure) {
-      if (request.signal.aborted) return
-      setActionFailure({
-        message: safeSupportMessage(failure, 'detail'),
-        diagnostic: safeSupportDiagnostic(failure, 'detail'),
-      })
-    } finally {
-      if (!request.signal.aborted) setDetailLoading(false)
+    async function loadDetail() {
+      try {
+        const value = await supportTicketsApi.detail(id, request.signal)
+        if (!request.signal.aborted) setDetail(value)
+      } catch (failure) {
+        if (request.signal.aborted) return
+        setActionFailure({
+          message: safeSupportMessage(failure, 'detail'),
+          diagnostic: safeSupportDiagnostic(failure, 'detail'),
+        })
+      } finally {
+        if (!request.signal.aborted) setDetailLoading(false)
+      }
     }
-  }
+    void loadDetail()
+    return () => request.abort()
+  }, [ticketId])
 
   async function claim(ticket: SupportTicket) {
     setBusyId(ticket.id)
@@ -113,7 +133,7 @@ export function SupportWorkspacePage() {
         ? current.filter((item) => item.id !== claimed.id)
         : current.map((item) => item.id === claimed.id ? claimed : item))
       setNotice('Ticket reclamado. Ya puedes consultar su contexto autorizado.')
-      await openDetail(claimed)
+      openDetail(claimed.id)
     } catch (failure) {
       setActionFailure({
         message: safeSupportMessage(failure, 'claim'),
@@ -133,7 +153,6 @@ export function SupportWorkspacePage() {
           <h1 id="support-title">Atención al cliente</h1>
           <p>Consulta la cola y reclama un caso para empezar a atenderlo.</p>
         </div>
-        <button className="secondary-button" disabled={loading} onClick={() => void refresh()} type="button">Actualizar</button>
       </div>
 
       <SupportCreateForm onCreated={() => void refresh()} />
@@ -180,7 +199,7 @@ export function SupportWorkspacePage() {
                   </dl>
                   <div className="ticket-actions">
                     {ticket.status === 'open' && !assigned && <button className="primary-button" disabled={busyId === ticket.id} onClick={() => void claim(ticket)} type="button">{busyId === ticket.id ? 'Reclamando…' : 'Reclamar ticket'}</button>}
-                    {(mine || ticket.status === 'escalated') && <button className="secondary-button" onClick={() => void openDetail(ticket)} type="button">Ver contexto</button>}
+                    {(mine || ticket.status === 'escalated') && <button className="secondary-button" onClick={() => openDetail(ticket.id)} type="button">Ver contexto</button>}
                   </div>
                 </article>
               )
@@ -195,8 +214,11 @@ export function SupportWorkspacePage() {
         ref={contextDialog}
         onCancel={(event) => event.preventDefault()}
         onClose={() => {
-          setContextOpen(false)
-          detailRequest.current?.abort()
+          setParams((current) => {
+            const next = new URLSearchParams(current)
+            next.delete('ticket')
+            return next
+          }, { replace: true })
           setDetail(null)
           setDetailLoading(false)
           setActionFailure(null)
