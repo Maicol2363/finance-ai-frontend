@@ -295,7 +295,7 @@ describe('Security Auditor investigation, summary and reports', () => {
     const fetchMock = routeFetch((url, init) => {
       if (url.pathname.endsWith('/staff/auth/session')) return jsonResponse(auditorSession)
       if (url.pathname === '/api/v1/staff/audit/reports' && init?.method === 'POST') {
-        return new Response(new Blob(['%PDF-1.4']), {
+        return new Response('%PDF-1.4', {
           status: 200,
           headers: {
             'Content-Type': 'application/pdf',
@@ -350,7 +350,7 @@ describe('Security Auditor investigation, summary and reports', () => {
     expect(requestSignal?.aborted).toBe(true)
     const reportId = '55555555-5555-4555-8555-555555555555'
     await act(async () => {
-      pendingResponse.resolve(new Response(new Blob(['%PDF-1.4']), {
+      pendingResponse.resolve(new Response('%PDF-1.4', {
         status: 200,
         headers: {
           'Content-Type': 'application/pdf',
