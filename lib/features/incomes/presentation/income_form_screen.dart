@@ -7,6 +7,7 @@ import '../../../core/diagnostics/error_diagnostic.dart';
 import '../../../core/formatters/catalog_labels.dart';
 import '../../../core/diagnostics/error_diagnostic_panel.dart';
 import '../../../core/formatters/money_formatter.dart';
+import '../../../core/state/financial_data_revision.dart';
 import '../../../core/widgets/app_header.dart';
 import '../../../core/widgets/management_page_scaffold.dart';
 import '../../accounts/data/accounts_repository.dart';
@@ -177,13 +178,17 @@ class _IncomeFormScreenState extends ConsumerState<IncomeFormScreen> {
       description: _description.text,
       incomeSourceId: _sourceId,
     );
+    final providerContainer = ProviderScope.containerOf(context, listen: false);
     try {
       final repository = ref.read(incomesRepositoryProvider);
       final saved = widget.incomeId == null
           ? await repository.create(command)
           : await repository.update(widget.incomeId!, command);
+      providerContainer.read(incomeRevisionProvider.notifier).changed();
+      providerContainer
+          .read(financialMovementRevisionProvider.notifier)
+          .changed();
       if (!mounted) return;
-      ref.read(incomeRevisionProvider.notifier).changed();
       if (widget.incomeId != null && context.canPop()) {
         context.pop();
       } else {

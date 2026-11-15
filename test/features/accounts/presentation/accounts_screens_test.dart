@@ -1,6 +1,7 @@
 import 'package:finance_ai/app.dart';
 import 'package:finance_ai/core/icons/finance_icon_catalog.dart';
 import 'package:finance_ai/core/router/app_router.dart';
+import 'package:finance_ai/core/state/financial_data_revision.dart';
 import 'package:finance_ai/features/accounts/data/accounts_repository.dart';
 import 'package:finance_ai/features/accounts/domain/account_models.dart';
 import 'package:finance_ai/features/accounts/presentation/account_detail_screen.dart';
@@ -25,13 +26,14 @@ Account account({
   String name = 'Credit card',
   bool isActive = true,
   bool currencyIsLocked = true,
+  MoneyAmount? balance,
 }) => Account(
   id: id,
   name: name,
   type: AccountType.creditCard,
   currency: cop,
   openingBalance: MoneyAmount.parseApi('-100.00'),
-  balance: MoneyAmount.parseApi('-250.75'),
+  balance: balance ?? MoneyAmount.parseApi('-250.75'),
   currencyIsLocked: currencyIsLocked,
   isActive: isActive,
   createdAt: DateTime.utc(2026, 9, 8),
@@ -178,6 +180,27 @@ Future<void> pumpAccountsApp(
 }
 
 void main() {
+  testWidgets('refreshes a retained account balance after a movement change', (
+    tester,
+  ) async {
+    final repository = WidgetAccountsRepository();
+    await pumpAccountsApp(tester, repository);
+    expect(find.text(r'-$ 250,75 COP'), findsOneWidget);
+
+    final container = ProviderScope.containerOf(
+      tester.element(find.byKey(const Key('accounts-list'))),
+    );
+    repository.current = result([
+      account(balance: MoneyAmount.parseApi('4070.25')),
+    ]);
+    container.read(financialMovementRevisionProvider.notifier).changed();
+    await tester.pumpAndSettle();
+
+    expect(find.text(r'$ 4.070,25 COP'), findsOneWidget);
+    expect(find.text(r'-$ 250,75 COP'), findsNothing);
+    expect(repository.includeInactiveValues, [false, false]);
+  });
+
   testWidgets('list shows exact negative meaning, filter, and account detail', (
     tester,
   ) async {

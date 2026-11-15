@@ -2,6 +2,8 @@
 
 This repository owns the shared Flutter client for Android and Windows, native platform runners, secure client storage, and frontend tests. Product requirements and architecture decisions live in `NullCorvus/finance-ai`; the API and OpenAPI contract live in `Maicol2363/finance-ai-backend`.
 
+The `staff-web/` directory is a separate React/Vite/TypeScript staff portal foundation. Keep its dependencies, build output, tests, and environment files inside that directory. Follow `staff-web/AGENTS.md` for its setup and safety boundaries; do not move Flutter product behavior into this web client.
+
 ## Branch workflow
 
 - Start story branches from `develop` and target `develop` in feature pull requests.

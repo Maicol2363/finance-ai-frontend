@@ -215,6 +215,7 @@ void main() {
       expect(requests[0].url.queryParameters['page'], '2');
       expect(requests[0].url.queryParameters['page_size'], '10');
       expect(jsonDecode(requests[2].body)['amount'], '30.00');
+      expect(jsonDecode(requests[2].body).containsKey('receipt_note'), isFalse);
       expect(requests[3].url.path, '/api/v1/expenses/7');
       expect(requests[4].url.queryParameters['type'], 'expense');
     },

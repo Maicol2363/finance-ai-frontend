@@ -1,6 +1,11 @@
+import 'package:finance_ai/core/state/financial_data_revision.dart';
 import 'package:finance_ai/features/accounts/application/accounts_controller.dart';
 import 'package:finance_ai/features/accounts/application/accounts_state.dart';
+import 'package:finance_ai/features/accounts/data/accounts_repository.dart';
 import 'package:finance_ai/features/accounts/domain/account_models.dart';
+import 'package:finance_ai/features/expenses/data/expenses_repository.dart';
+import 'package:finance_ai/features/expenses/domain/expense_models.dart';
+import 'package:finance_ai/features/expenses/domain/history_models.dart';
 import 'package:finance_ai/features/transfers/application/transfer_controller.dart';
 import 'package:finance_ai/features/transfers/application/transfer_state.dart';
 import 'package:finance_ai/features/transfers/data/transfers_repository.dart';
@@ -20,13 +25,14 @@ Account account({
   int id = 11,
   String name = 'Cash',
   CurrencySummary currency = cop,
+  MoneyAmount? balance,
 }) => Account(
   id: id,
   name: name,
   type: AccountType.cash,
   currency: currency,
   openingBalance: MoneyAmount.parseApi('1000.00'),
-  balance: MoneyAmount.parseApi('1000.00'),
+  balance: balance ?? MoneyAmount.parseApi('1000.00'),
   currencyIsLocked: false,
   isActive: true,
   createdAt: DateTime.utc(2026, 9, 8),
@@ -57,9 +63,11 @@ class FakeTransfersRepository implements TransfersRepository {
   Transfer result = transfer();
   Object? failure;
   TransferCreateCommand? lastCommand;
+  int createCalls = 0;
 
   @override
   Future<Transfer> create(TransferCreateCommand command) async {
+    createCalls += 1;
     lastCommand = command;
     if (failure case final error?) {
       throw error;
@@ -68,9 +76,96 @@ class FakeTransfersRepository implements TransfersRepository {
   }
 }
 
-ProviderContainer containerWith(FakeTransfersRepository repository) {
+class FakeAccountsRepository implements AccountsRepository {
+  AccountListResult listResult = AccountListResult(
+    accounts: [
+      account(),
+      account(id: 12, name: 'Savings'),
+    ],
+    suggestedCurrencyCode: 'COP',
+    supportedCurrencies: const [cop, usd],
+    accountTypes: AccountType.values,
+  );
+  int listCalls = 0;
+
+  @override
+  Future<AccountListResult> list({required bool includeInactive}) async {
+    listCalls += 1;
+    return listResult;
+  }
+
+  @override
+  Future<Account> get(int accountId) => throw UnimplementedError();
+
+  @override
+  Future<Account> create(AccountCreateCommand command) =>
+      throw UnimplementedError();
+
+  @override
+  Future<Account> update(int accountId, AccountUpdateCommand command) =>
+      throw UnimplementedError();
+
+  @override
+  Future<Account> setActive(int accountId, {required bool isActive}) =>
+      throw UnimplementedError();
+
+  @override
+  Future<void> deleteAccount(int accountId) => throw UnimplementedError();
+}
+
+class FakeExpensesRepository implements ExpensesRepository {
+  int historyCalls = 0;
+  Object? historyFailure;
+
+  @override
+  Future<ExpenseListResult> list({int page = 1, int pageSize = 50}) =>
+      throw UnimplementedError();
+
+  @override
+  Future<Expense> get(int expenseId) => throw UnimplementedError();
+
+  @override
+  Future<Expense> create(ExpenseCreateCommand command) =>
+      throw UnimplementedError();
+
+  @override
+  Future<Expense> update(int expenseId, ExpenseUpdateCommand command) =>
+      throw UnimplementedError();
+
+  @override
+  Future<void> deleteExpense(int expenseId) => throw UnimplementedError();
+
+  @override
+  Future<HistoryResult> history(HistoryFilters filters) async {
+    historyCalls += 1;
+    if (historyFailure case final failure?) {
+      throw failure;
+    }
+    return HistoryResult(
+      items: const [],
+      total: 0,
+      page: 1,
+      pageSize: 50,
+      hasNext: false,
+    );
+  }
+}
+
+ProviderContainer containerWith(
+  FakeTransfersRepository repository, {
+  FakeAccountsRepository? accountsRepository,
+  FakeExpensesRepository? expensesRepository,
+}) {
   return ProviderContainer(
-    overrides: [transfersRepositoryProvider.overrideWithValue(repository)],
+    overrides: [
+      transfersRepositoryProvider.overrideWithValue(repository),
+      accountsRepositoryProvider.overrideWithValue(
+        accountsRepository ?? FakeAccountsRepository(),
+      ),
+      expensesRepositoryProvider.overrideWithValue(
+        expensesRepository ?? FakeExpensesRepository(),
+      ),
+    ],
   );
 }
 
@@ -93,8 +188,8 @@ Future<TransferMutationOutcome> submit(
   String sourceAmount = '100.00',
   String? destinationAmount,
   DateTime? date,
-}) {
-  return container
+}) async {
+  final outcome = await container
       .read(transferControllerProvider.notifier)
       .create(
         sourceAccountId: source,
@@ -103,12 +198,33 @@ Future<TransferMutationOutcome> submit(
         destinationAmountInput: destinationAmount,
         date: date ?? DateTime.utc(2026, 9, 18),
       );
+  // Let the account controller finish the refresh scheduled by the movement
+  // revision before the test disposes its ProviderContainer.
+  await Future<void>.delayed(Duration.zero);
+  return outcome;
 }
 
 void main() {
   test('same-currency creation omits the destination amount', () async {
     final repository = FakeTransfersRepository();
-    final container = containerWith(repository);
+    final accountsRepository = FakeAccountsRepository()
+      ..listResult = AccountListResult(
+        accounts: [
+          account(balance: MoneyAmount.parseApi('900.00')),
+          account(
+            id: 12,
+            name: 'Savings',
+            balance: MoneyAmount.parseApi('1100.00'),
+          ),
+        ],
+        suggestedCurrencyCode: 'COP',
+        supportedCurrencies: const [cop, usd],
+        accountTypes: AccountType.values,
+      );
+    final container = containerWith(
+      repository,
+      accountsRepository: accountsRepository,
+    );
     addTearDown(container.dispose);
     seedAccounts(container, [account(), account(id: 12, name: 'Savings')]);
 
@@ -116,6 +232,18 @@ void main() {
 
     expect(outcome, TransferMutationOutcome.success);
     expect(repository.lastCommand?.destinationAmount, isNull);
+    expect(repository.createCalls, 1);
+    expect(accountsRepository.listCalls, 1);
+    expect(
+      container
+          .read(accountsControllerProvider)
+          .result
+          ?.accountById(11)
+          ?.balance
+          .toApiString(),
+      '900.00',
+    );
+    expect(container.read(financialMovementRevisionProvider), 1);
     expect(container.read(transferControllerProvider).lastTransfer?.id, 9);
   });
 
@@ -205,6 +333,73 @@ void main() {
     expect(
       container.read(transferControllerProvider).mutationDiagnostic?.code,
       'transfer_same_account',
+    );
+    expect(container.read(financialMovementRevisionProvider), 0);
+  });
+
+  test(
+    'uncertain transfer refreshes accounts and history before retry',
+    () async {
+      final repository = FakeTransfersRepository()
+        ..failure = const TransferFailure(
+          code: 'network_unavailable',
+          userMessage: 'Could not confirm transfer.',
+          isMutationOutcomeUncertain: true,
+        );
+      final accountsRepository = FakeAccountsRepository();
+      final expensesRepository = FakeExpensesRepository();
+      final container = containerWith(
+        repository,
+        accountsRepository: accountsRepository,
+        expensesRepository: expensesRepository,
+      );
+      addTearDown(container.dispose);
+      seedAccounts(container, [account(), account(id: 12, name: 'Savings')]);
+
+      expect(await submit(container), TransferMutationOutcome.failure);
+      expect(
+        container.read(transferControllerProvider).requiresMutationReview,
+        isTrue,
+      );
+
+      await container
+          .read(transferControllerProvider.notifier)
+          .resolveUncertainMutation();
+
+      expect(accountsRepository.listCalls, 1);
+      expect(expensesRepository.historyCalls, 1);
+      expect(
+        container.read(transferControllerProvider).mutationStatus,
+        TransferMutationStatus.idle,
+      );
+      expect(container.read(financialMovementRevisionProvider), 0);
+    },
+  );
+
+  test('uncertain transfer stays blocked when history refresh fails', () async {
+    final repository = FakeTransfersRepository()
+      ..failure = const TransferFailure(
+        code: 'network_unavailable',
+        userMessage: 'Could not confirm transfer.',
+        isMutationOutcomeUncertain: true,
+      );
+    final expensesRepository = FakeExpensesRepository()
+      ..historyFailure = StateError('fixture history failure');
+    final container = containerWith(
+      repository,
+      expensesRepository: expensesRepository,
+    );
+    addTearDown(container.dispose);
+    seedAccounts(container, [account(), account(id: 12, name: 'Savings')]);
+
+    expect(await submit(container), TransferMutationOutcome.failure);
+    await container
+        .read(transferControllerProvider.notifier)
+        .resolveUncertainMutation();
+
+    expect(
+      container.read(transferControllerProvider).requiresMutationReview,
+      isTrue,
     );
   });
 }

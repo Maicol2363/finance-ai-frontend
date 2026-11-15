@@ -10,7 +10,6 @@ import '../../../core/formatters/money_formatter.dart';
 import '../../../core/money/currency_totals.dart';
 import '../../../core/theme/app_palette.dart';
 import '../../../core/time/clock_provider.dart';
-import '../../../core/widgets/theme_toggle_button.dart';
 import '../../accounts/application/account_balances.dart';
 import '../../accounts/application/accounts_controller.dart';
 import '../../accounts/application/accounts_state.dart';
@@ -343,8 +342,6 @@ class _HomeHeaderState extends State<_HomeHeader> {
             ),
           ),
         ),
-        const SizedBox(width: 4),
-        const ThemeToggleButton(),
       ],
     );
   }

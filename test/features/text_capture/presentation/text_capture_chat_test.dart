@@ -5,6 +5,7 @@ import 'package:finance_ai/core/theme/app_theme.dart';
 import 'package:finance_ai/core/theme/app_palette.dart';
 import 'package:finance_ai/features/accounts/application/accounts_controller.dart';
 import 'package:finance_ai/features/categories/application/categories_controller.dart';
+import 'package:finance_ai/features/expenses/application/expenses_controller.dart';
 import 'package:finance_ai/features/text_capture/application/text_capture_controller.dart';
 import 'package:finance_ai/features/text_capture/domain/text_capture_models.dart';
 import 'package:finance_ai/features/text_capture/presentation/text_capture_chat.dart';
@@ -133,7 +134,8 @@ void main() {
   ) async {
     final repository = FakeTextCaptureRepository(proposals: [proposal()]);
     final expenses = FakeExpensesRepository();
-    await pumpChat(tester, repository, expenses: expenses);
+    final container = await pumpChat(tester, repository, expenses: expenses);
+    await container.read(expensesControllerProvider.notifier).load();
 
     await send(tester, messageText);
 
@@ -162,7 +164,7 @@ void main() {
     expect(byKey('confirmed-card'), findsOneWidget);
     expect(find.text('Gasto registrado'), findsOneWidget);
     expect(find.text('Ver detalle'), findsOneWidget);
-    expect(expenses.listCalls, greaterThanOrEqualTo(1));
+    expect(expenses.listCalls, greaterThanOrEqualTo(2));
   });
 
   testWidgets('a low confidence proposal asks for a careful review', (

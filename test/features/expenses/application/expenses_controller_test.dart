@@ -1,3 +1,6 @@
+import 'dart:async';
+
+import 'package:finance_ai/core/state/financial_data_revision.dart';
 import 'package:finance_ai/features/accounts/domain/account_models.dart';
 import 'package:finance_ai/features/expenses/application/expenses_controller.dart';
 import 'package:finance_ai/features/expenses/application/expenses_state.dart';
@@ -61,10 +64,12 @@ class FakeExpensesRepository implements ExpensesRepository {
   Object? updateFailure;
   Object? deleteFailure;
   int listCalls = 0;
+  int createCalls = 0;
   int deleteCalls = 0;
   bool deleteRemovesBeforeFailure = false;
   ExpenseCreateCommand? lastCreateCommand;
   Object? createFailure;
+  Completer<ExpenseListResult>? pendingList;
   ExpenseUpdateCommand? lastCommand;
 
   @override
@@ -72,6 +77,10 @@ class FakeExpensesRepository implements ExpensesRepository {
     listCalls += 1;
     if (listFailure case final failure?) {
       throw failure;
+    }
+    if (pendingList case final pending?) {
+      pendingList = null;
+      return pending.future;
     }
     return listResult;
   }
@@ -86,6 +95,7 @@ class FakeExpensesRepository implements ExpensesRepository {
 
   @override
   Future<Expense> create(ExpenseCreateCommand command) async {
+    createCalls += 1;
     lastCreateCommand = command;
     if (createFailure case final failure?) {
       throw failure;
@@ -165,6 +175,76 @@ void main() {
     expect(repository.listCalls, 2);
   });
 
+  test('external expense revision reloads a loaded feed', () async {
+    final repository = FakeExpensesRepository();
+    final container = containerWith(repository);
+    addTearDown(container.dispose);
+    final controller = container.read(expensesControllerProvider.notifier);
+    await controller.load();
+
+    final refreshed = Completer<void>();
+    final subscription = container.listen(expensesControllerProvider, (
+      _,
+      next,
+    ) {
+      if (next.result?.items.single.id == 99 && !refreshed.isCompleted) {
+        refreshed.complete();
+      }
+    });
+    addTearDown(subscription.close);
+    repository.listResult = pageResult(items: [expense(id: 99)]);
+    container.read(externalExpenseRevisionProvider.notifier).changed();
+
+    await refreshed.future.timeout(const Duration(seconds: 2));
+    expect(repository.listCalls, 2);
+    expect(
+      container.read(expensesControllerProvider).result?.items.single.id,
+      99,
+    );
+  });
+
+  test(
+    'feed refresh requested during loading runs after the current page',
+    () async {
+      final repository = FakeExpensesRepository();
+      final container = containerWith(repository);
+      addTearDown(container.dispose);
+      final controller = container.read(expensesControllerProvider.notifier);
+      await controller.load();
+
+      final pending = Completer<ExpenseListResult>();
+      repository.pendingList = pending;
+      final refresh = controller.load();
+      repository.listResult = pageResult(items: [expense(id: 99)]);
+      await controller.load();
+      pending.complete(pageResult(items: [expense(id: 7)]));
+      await refresh;
+
+      expect(repository.listCalls, 3);
+      expect(
+        container.read(expensesControllerProvider).result?.items.single.id,
+        99,
+      );
+    },
+  );
+
+  test(
+    'successful create publishes one movement change and performs one write',
+    () async {
+      final repository = FakeExpensesRepository();
+      final container = containerWith(repository);
+      addTearDown(container.dispose);
+
+      final outcome = await container
+          .read(expensesControllerProvider.notifier)
+          .create(accountId: 11, amountInput: '25.00', merchant: 'Market');
+
+      expect(outcome, ExpenseMutationOutcome.success);
+      expect(repository.createCalls, 1);
+      expect(container.read(financialMovementRevisionProvider), 1);
+    },
+  );
+
   test('load failure exposes a copyable list diagnostic', () async {
     final repository = FakeExpensesRepository()
       ..listFailure = const ExpenseFailure(
@@ -229,6 +309,7 @@ void main() {
 
     expect(outcome, ExpenseMutationOutcome.success);
     expect(repository.lastCommand?.name, 'Updated groceries');
+    expect(container.read(financialMovementRevisionProvider), 1);
     expect(
       container.read(expensesControllerProvider).result?.items.single.name,
       'Updated groceries',
@@ -306,6 +387,8 @@ void main() {
         .deleteExpense(7);
 
     expect(outcome, ExpenseMutationOutcome.success);
+    expect(repository.deleteCalls, 1);
+    expect(container.read(financialMovementRevisionProvider), 1);
     expect(container.read(expensesControllerProvider).result?.items, isEmpty);
   });
 
@@ -324,6 +407,8 @@ void main() {
         .deleteExpense(7);
 
     expect(outcome, ExpenseMutationOutcome.failure);
+    expect(repository.deleteCalls, 1);
+    expect(container.read(financialMovementRevisionProvider), 0);
     expect(
       container.read(expensesControllerProvider).mutationDiagnostic,
       isNotNull,

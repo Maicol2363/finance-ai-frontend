@@ -128,7 +128,10 @@ class BudgetsController extends Notifier<BudgetsState> {
   }
 
   void clearFieldError(String field) {
-    state = state.withoutFieldError(field);
+    final next = state.withoutFieldError(field);
+    state = next.fieldErrors.isEmpty
+        ? next.copyWith(clearMutationDiagnostic: true)
+        : next;
   }
 
   void clearMutationFeedback() {

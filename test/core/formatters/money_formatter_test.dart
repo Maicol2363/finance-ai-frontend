@@ -97,6 +97,114 @@ void main() {
   group('MoneyInputFormatter', () {
     const formatter = MoneyInputFormatter(allowNegative: true);
 
+    TextEditingValue value(String text, [int? cursor]) => TextEditingValue(
+      text: text,
+      selection: TextSelection.collapsed(offset: cursor ?? text.length),
+    );
+
+    test('backspace keeps grouped integers editable down to empty', () {
+      var current = value('50.000');
+      for (final expected in ['5.000', '500', '50', '5', '']) {
+        final raw = current.text.substring(0, current.text.length - 1);
+        current = formatter.formatEditUpdate(current, value(raw));
+        expect(current.text, expected);
+        expect(current.selection.baseOffset, expected.length);
+      }
+      expect(formatter.formatEditUpdate(current, value('7')).text, '7');
+    });
+
+    test('deletion in the middle does not reinterpret existing grouping', () {
+      expect(
+        formatter.formatEditUpdate(value('50.000', 5), value('50.00', 4)),
+        value('5.000', 4),
+      );
+      expect(
+        formatter.formatEditUpdate(value('1.000', 2), value('1000', 1)),
+        value('1.000', 1),
+      );
+    });
+
+    test('intentional decimal dots and replacement paste remain supported', () {
+      expect(
+        formatter
+            .formatEditUpdate(
+              const TextEditingValue(
+                text: '50.000',
+                selection: TextSelection(baseOffset: 0, extentOffset: 6),
+              ),
+              value('50.00'),
+            )
+            .text,
+        '50,00',
+      );
+      for (final text in ['12.50', '12,50']) {
+        expect(
+          formatter.formatEditUpdate(value('50.000'), value(text)).text,
+          '12,50',
+        );
+      }
+      expect(
+        formatter.formatEditUpdate(value('5.000'), value('5.000.')).text,
+        '5.000,',
+      );
+      expect(
+        formatter.formatEditUpdate(value('50,00'), value('50,0')).text,
+        '50,0',
+      );
+      expect(
+        formatter.formatEditUpdate(value('50,0'), value('50,')).text,
+        '50,',
+      );
+      expect(formatter.formatEditUpdate(value('50,'), value('50')).text, '50');
+    });
+
+    test('preserves selection ranges and active IME composition', () {
+      final selected = TextEditingValue(
+        text: '5.000',
+        selection: const TextSelection(baseOffset: 1, extentOffset: 4),
+      );
+      expect(formatter.formatEditUpdate(value('5.000'), selected), selected);
+      const composing = TextEditingValue(
+        text: '1000',
+        selection: TextSelection.collapsed(offset: 4),
+        composing: TextRange(start: 0, end: 4),
+      );
+      expect(formatter.formatEditUpdate(value('100'), composing), composing);
+    });
+
+    test('generated integer deletions preserve digit value and cursor bounds', () {
+      // Ascending bounded enumeration reports the smallest failing integer;
+      // additional large boundary cases exercise multiple grouping separators.
+      for (final amount in [
+        for (var n = 1; n <= 2500; n++) n,
+        10000,
+        50000,
+        100000,
+        1000000,
+        123456789,
+      ]) {
+        var current = value(MoneyFormatter.formatWhole(amount));
+        var digits = amount.toString();
+        while (digits.isNotEmpty) {
+          digits = digits.substring(0, digits.length - 1);
+          current = formatter.formatEditUpdate(
+            current,
+            value(current.text.substring(0, current.text.length - 1)),
+          );
+          expect(current.text.replaceAll('.', ''), digits, reason: '$amount');
+          expect(current.text.contains(','), isFalse, reason: '$amount');
+          expect(
+            current.selection.baseOffset,
+            inInclusiveRange(0, current.text.length),
+          );
+          expect(
+            current.selection.extentOffset,
+            inInclusiveRange(0, current.text.length),
+          );
+        }
+      }
+    });
+
     test('formats digits with dot thousands separators as user types', () {
       final v1 = formatter.formatEditUpdate(
         TextEditingValue.empty,

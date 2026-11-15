@@ -69,3 +69,66 @@ Final source correction: dcab32043a499d81e0f7e18c56b5fd7c22157139. Both installe
 - 41e5787e6c26d8283c99893dc94b829dc3e2571cc5cba9241c144a9ff996407a — verification-delivery.apk
 
 Physical USD Análisis now displays 151.42, agreeing with Inicio and its visible 63.50 / 13 × 31 formula. Earlier probe assertions were taken before the navigation frame settled; a fresh UI dump and inspected screenshot verified the final screen.
+
+
+## Cross-screen financial synchronization — 2026-10-28
+
+### Synchronization matrix
+
+| Successful action | Dashboard and account balances | History | Monthly totals | Budgets and expense feed |
+|---|---|---|---|---|
+| Manual or quick income create, edit, or delete | Reload loaded account state from the existing repository | Reload loaded history | Income revision refreshes income totals | No expense or budget refresh |
+| Expense create, edit, or delete | Reload loaded account state | Reload loaded history | Expense list refreshes expense totals | Expense and budget state refresh through the expense controller |
+| Text-capture or receipt-confirmed expense | Reload loaded account state | Reload loaded history | Expense totals refresh | Separate expense-feed revision refreshes expense lists and budgets |
+| Text-capture income | Reload loaded account state | Reload loaded history | Income revision refreshes income totals | No expense-feed refresh |
+| Transfer | Reload both account balances | Reload loaded history | Income and expense totals remain unchanged | Unchanged |
+| Account, category, income-source, or budget management | Existing resource controller/provider owns its own updates | No financial movement unless a separate transaction is confirmed | Unchanged unless a movement is confirmed | Budget changes stay within budget state |
+
+The fix adds shared movement and external-expense revision signals. Loaded Accounts and History controllers reload canonical server state on a movement signal and coalesce requests received while loading. Mutation screens publish only after success or authoritative reconciliation; refreshes never replay financial writes. Transfers also wait for account and history refresh completion before releasing an uncertain-mutation retry guard.
+
+### Verification results
+
+- 85 focused Flutter tests passed after the final source refinements.
+- Dart Tooling MCP analysis reported no errors for the changed Dart files; `git diff --check` passed.
+- A debug audit APK built and was installed under `com.nullcorvus.finance_ai.release_audit`. The original `com.nullcorvus.finance_ai` package was not replaced.
+- The final audit build passed a 30-command Maestro flow on Xiaomi 23021RAAEG against the isolated local test API. A synthetic 4,321 COP income changed the account balance from 485,500 to 489,821 COP, updated income and net totals, appeared once in History, and was reflected in account detail. The synthetic entry was deleted and the baseline balance restored.
+- Video artifact: `artifacts/financeai-cross-screen-sync-fixed.mp4` (44.27 seconds, H.264, 720×1280). It captures the same income-to-dashboard/history/account workflow from the earlier successful device pass, before the final non-visual transfer-reconciliation and duplicate-refresh refinements. The final build was separately validated by Maestro; a later recording export did not produce a file.
+- Pandoc parsed the Markdown documents and `git diff --check` passed. Mermaid CLI rendering could not start because the configured Puppeteer Chrome Headless Shell is absent; the existing diagram was not changed in this final pass.
+- No backend source, deployed API, Cloud Run service, main APK, or production financial data was changed.
+
+### Extension compliance
+
+- Security Baseline (enabled): Compliant for this scope. Refresh signals contain no financial payload or credentials, use existing repositories, and were exercised with a synthetic profile on an isolated local API.
+- Resiliency Baseline (disabled): N/A; no new retry or polling system was introduced.
+- Property-Based Testing (partial): N/A to this focused controller/UI synchronization change; deterministic regression and mutation-coverage tests were run instead.
+
+
+## Release APK and Drive update — 2026-10-28
+
+- Built an Android ARM64 APK in Flutter release mode for `com.nullcorvus.finance_ai`, version `0.8.0`, version code `2009`, targeting the production Cloud Run API over HTTPS.
+- APK size: 34,046,223 bytes. SHA-256: `2bc45fc1a51279933052f7cccd34b2e5b1f58378d3cb58e49dcc4045ec160985`.
+- `aapt` confirmed the package/version/ABI metadata, `apksigner verify` passed with APK Signature Scheme v2, and `unzip -tq` found no archive errors.
+- Updated the existing Drive APK in place: [Finance-AI-0.8.0+2009-arm64-release-2026-10-28.apk](https://drive.google.com/file/d/1z__jJblXcb8MC2PZvE1tJzy3Kkh2GFgs/view). The file ID and parent folder stayed the same; Drive reports 34,046,223 bytes and modification time 2026-10-28T17:16:24Z.
+- The project release build configuration signs with the Android debug key. This artifact is suitable for QA/internal distribution; it is not signed with a production Play Store key.
+- The APK was not installed on the phone. The existing app package and its data were left untouched.
+- The source tree's `integration_test` development dependency prevents its generated Android registrant from compiling in a direct release build. The release was built from a temporary copy with only that dev-only dependency omitted; the tracked dependency and application sources remain unchanged.
+
+## Frontend CI and release Android journeys — 2026-11-02
+
+- Daily frontend CI runs for pull requests targeting `develop` or `main`. The quality job performs Dart formatting, `flutter analyze`, the existing `flutter test --coverage` suite, and the existing 80% line-coverage gate.
+- A local debug APK build was run during implementation, but is not part of routine PR CI. The user will build/install while manually testing user stories.
+- Android emulator integration is isolated in `.github/workflows/release-android-integration.yml`; its PR job condition permits only a same-repository `develop` → `main` PR. Manual runs accept a backend branch, tag, or SHA. Release PR runs check out backend `main` at run time and log the resolved SHA.
+- The workflow starts the backend and PostgreSQL through the backend's Compose file with an ephemeral database volume and blank AI provider keys. No production API/database is configured.
+- Android journeys: existing real API auth flow (registration, login, app restart/session restore, logout and protected-route denial); manual expense flow (100,000 COP opening balance, 20,000 COP expense/history, 80,000 COP balance through dashboard and accounts); transfer flow (100,000/10,000 COP accounts, 30,000 COP transfer, 70,000/40,000 COP balances, history exactly once across tab navigation).
+- Existing backend integration tests already cover transfer persistence and replay/idempotency; the UI suite does not duplicate them.
+- Validation on this host: `flutter analyze` passed with no issues; format check passed; `flutter test --coverage` passed 635 tests with 1 existing skip and 86.06% line coverage; YAML parser and workflow trigger/job assertions passed; `git diff --check` passed. `flutter build apk --debug` also passed locally as an implementation check; the build is intentionally omitted from PR CI.
+- `actionlint` is not installed. No Android emulator/AVD is available (`flutter emulators` reports no emulator sources; only Linux is connected), so Android integration journeys were not run locally and remain to be executed on the release workflow or a configured emulator.
+- No backend source or production deployment workflow, secrets, Cloud Run/Neon resources, GitHub rules, commits, pushes, merges or deployments were changed.
+
+### Auth release-gate review follow-up
+
+The auth journey now asserts the current dashboard, restores session from Android `FlutterSecureStorage`, navigates to Settings, confirms logout, and verifies protected-route denial. The emulator script runs the auth and financial test commands independently, then fails the job if either command fails, so an auth failure does not hide financial journey results. The auth integration itself cannot be executed on this local host because no emulator is installed; `flutter analyze` and the existing auth widget tests pass.
+
+### Follow-up scope correction — APK CI artifact removed
+
+The user clarified that the team builds/installs the app during manual user-story testing and does not need a debug APK artifact on each PR. Routine frontend CI therefore has one quality/test/coverage job only; it does not compile or upload an APK. A local APK build remains available when hands-on QA needs it.

@@ -1,0 +1,51 @@
+name: Staff web CI
+
+on:
+  pull_request:
+    branches: [develop, main]
+    paths:
+      - "staff-web/**"
+      - "AGENTS.md"
+      - ".github/workflows/staff-web-ci.yml"
+  push:
+    branches: [develop, main]
+    paths:
+      - "staff-web/**"
+      - "AGENTS.md"
+      - ".github/workflows/staff-web-ci.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: staff-web-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: staff-web
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version-file: staff-web/.nvmrc
+          cache: npm
+          cache-dependency-path: staff-web/package-lock.json
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Lint, type-check, test, and build
+        run: |
+          npm run lint
+          npm run typecheck
+          npm test
+          npm run test:coverage
+          npm run build
+      - name: Install Chromium for browser tests
+        run: npx playwright install --with-deps chromium
+      - name: Run staff authentication browser tests
+        run: npm run test:e2e
+      - name: Audit dependencies
+        run: npm audit --audit-level=moderate

@@ -7,7 +7,6 @@ import '../../../../core/diagnostics/error_diagnostic_panel.dart';
 import '../../../../core/theme/app_palette.dart';
 import '../../../../core/widgets/auth_brand.dart';
 import '../../../../core/widgets/manage_widgets.dart';
-import '../../../../core/widgets/theme_toggle_button.dart';
 import '../../session/application/auth_session_controller.dart';
 import '../../session/application/auth_session_state.dart';
 
@@ -256,7 +255,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 ),
               ),
             ),
-            const Positioned(top: 4, right: 6, child: ThemeToggleButton()),
           ],
         ),
       ),

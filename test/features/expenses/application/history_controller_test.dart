@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:finance_ai/features/accounts/domain/account_models.dart';
+import 'package:finance_ai/core/state/financial_data_revision.dart';
 import 'package:finance_ai/features/expenses/application/history_controller.dart';
 import 'package:finance_ai/features/expenses/application/history_state.dart';
 import 'package:finance_ai/features/expenses/data/expenses_repository.dart';
@@ -118,6 +119,40 @@ void main() {
     expect(state.result?.items.map((entry) => entry.id), [8, 9]);
     expect(repository.seenFilters.last.page, 2);
   });
+
+  test(
+    'movement revision reloads loaded history with its active filters',
+    () async {
+      final repository = FakeExpensesRepository();
+      final container = ProviderContainer(
+        overrides: [expensesRepositoryProvider.overrideWithValue(repository)],
+      );
+      addTearDown(container.dispose);
+      final controller = container.read(historyControllerProvider.notifier);
+      await controller.setType(TransactionType.income);
+
+      final refreshed = Completer<void>();
+      final subscription = container.listen(historyControllerProvider, (
+        _,
+        next,
+      ) {
+        if (next.result?.items.single.id == 9 && !refreshed.isCompleted) {
+          refreshed.complete();
+        }
+      });
+      addTearDown(subscription.close);
+      repository.historyResult = historyPage(items: [item(id: 9)]);
+      container.read(financialMovementRevisionProvider.notifier).changed();
+
+      await refreshed.future.timeout(const Duration(seconds: 2));
+      expect(repository.seenFilters.last.type, TransactionType.income);
+      expect(repository.seenFilters.map((filters) => filters.page), [1, 1]);
+      expect(
+        container.read(historyControllerProvider).result?.items.single.id,
+        9,
+      );
+    },
+  );
 
   test(
     'load requested during loadMore reloads the first page afterward',

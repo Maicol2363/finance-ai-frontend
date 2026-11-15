@@ -7,7 +7,6 @@ import '../../../core/diagnostics/error_diagnostic_panel.dart';
 import '../../../core/widgets/app_header.dart';
 import '../../../core/widgets/management_page_scaffold.dart';
 import '../../../core/widgets/manage_widgets.dart';
-import '../../../core/widgets/theme_toggle_button.dart';
 import '../../../core/formatters/money_formatter.dart';
 import '../../../core/formatters/catalog_labels.dart';
 import '../application/accounts_controller.dart';
@@ -102,7 +101,6 @@ class _AccountFormScreenState extends ConsumerState<AccountFormScreen> {
               : 'Volver a cuentas',
           onPressed: state.isSaving ? null : _goBack,
         ),
-        actions: const [ThemeToggleButton()],
         body: ListView(
           padding: EdgeInsets.zero,
           children: [

@@ -4,7 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/theme/app_palette.dart';
-import '../../../core/widgets/theme_toggle_button.dart';
 import '../../accounts/application/accounts_controller.dart';
 import '../../accounts/application/accounts_state.dart';
 import '../../auth/session/application/auth_session_controller.dart';
@@ -74,7 +73,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               onPressed: () => context.push('/history'),
               icon: const Icon(FinanceIcons.search),
             ),
-            const ThemeToggleButton(),
             IconButton(
               key: const Key('logout-button'),
               tooltip: 'Cerrar sesión',
