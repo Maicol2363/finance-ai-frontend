@@ -2,14 +2,13 @@ import { useId, useState, type FormEvent } from 'react'
 import { useStaffAuth } from '../../shared/auth/useStaffAuth'
 import {
   adminApi,
-  safeAdminDiagnostic,
-  safeAdminMessage,
   type PortalStaffRole,
   type StaffAccount,
   type StaffInvitationCreated,
 } from './adminApi'
 import { AdminFailureNotice, type AdminFailure } from './AdminFailureNotice'
 import { activationLink, formatDateTime, looksLikeEmail, parseAccountId, roleLabel, statusLabel } from './adminFormat'
+import { useAdminFailure } from './useAdminFailure'
 
 const ASSIGNABLE: ReadonlyArray<{ value: PortalStaffRole; label: string }> = [
   { value: 'support_agent', label: 'Agente de soporte' },
@@ -27,6 +26,7 @@ export function StaffPage() {
 }
 
 function InvitationForm() {
+  const toFailure = useAdminFailure()
   const [email, setEmail] = useState('')
   const [role, setRole] = useState<PortalStaffRole>('support_agent')
   const [fieldError, setFieldError] = useState('')
@@ -52,7 +52,7 @@ function InvitationForm() {
       setEmail('')
     } catch (error) {
       setCreated(null)
-      setFailure({ message: safeAdminMessage(error), diagnostic: safeAdminDiagnostic(error, 'invite') })
+      setFailure(toFailure(error, 'invite'))
     } finally {
       setBusy(false)
     }
@@ -126,6 +126,7 @@ function InvitationForm() {
 
 function RoleForm() {
   const { session } = useStaffAuth()
+  const toFailure = useAdminFailure()
   const [idText, setIdText] = useState('')
   const [fieldError, setFieldError] = useState('')
   const [loading, setLoading] = useState(false)
@@ -156,7 +157,7 @@ function RoleForm() {
       setTarget(found.assignable_roles[0] ?? '')
       setConfirmed(false)
     } catch (error) {
-      setFailure({ message: safeAdminMessage(error), diagnostic: safeAdminDiagnostic(error, 'staff') })
+      setFailure(toFailure(error, 'staff'))
     } finally {
       setLoading(false)
     }
@@ -174,7 +175,7 @@ function RoleForm() {
       setConfirmed(false)
       setNotice(`Rol actualizado a «${roleLabel(updated.role)}». Sus sesiones se cerraron y debe iniciar sesión de nuevo.`)
     } catch (error) {
-      setFailure({ message: safeAdminMessage(error), diagnostic: safeAdminDiagnostic(error, 'role') })
+      setFailure(toFailure(error, 'role'))
     } finally {
       setBusy(false)
     }

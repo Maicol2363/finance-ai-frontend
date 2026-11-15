@@ -516,9 +516,17 @@ export function safeAdminMessage(error: unknown): string {
     if (error.code === 'network_error' || error.code === 'request_timeout') {
       return 'No se pudo conectar con el servicio. Comprueba tu conexión e inténtalo de nuevo.'
     }
-    if (error.code === 'authentication_required' || error.code === 'session_invalid' || error.code === 'access_expired') {
-      return 'Tu sesión expiró. Inicia sesión de nuevo.'
+    if (error.code === 'authentication_required' || error.code === 'access_expired') {
+      return 'Tu sesión se está renovando. Vuelve a intentarlo en unos segundos.'
+    }
+    if (error.code === 'session_invalid') {
+      return 'Tu sesión ya no es válida. Inicia sesión de nuevo.'
     }
   }
   return 'No se pudo completar la operación. Inténtalo de nuevo.'
+}
+
+/** Errors after which the current session must be re-confirmed by the session coordinator. */
+export function needsSessionCheck(error: unknown): boolean {
+  return error instanceof AdminApiError && (error.status === 401 || error.status === 403)
 }

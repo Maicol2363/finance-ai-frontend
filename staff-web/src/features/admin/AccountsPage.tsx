@@ -1,8 +1,9 @@
 import { useId, useState, type FormEvent } from 'react'
 import { useStaffAuth } from '../../shared/auth/useStaffAuth'
-import { adminApi, safeAdminDiagnostic, safeAdminMessage, type AdminAccount } from './adminApi'
+import { adminApi, type AdminAccount } from './adminApi'
 import { AdminFailureNotice, type AdminFailure } from './AdminFailureNotice'
 import { formatDateTime, looksLikeEmail, parseAccountId, roleLabel, statusLabel } from './adminFormat'
+import { useAdminFailure } from './useAdminFailure'
 
 type LookupMode = 'email' | 'id'
 type PendingAction = null | 'suspend' | 'reactivate'
@@ -12,6 +13,7 @@ const REASON_MAX = 500
 /** ADM-01 account lookup and ADM-02 suspension/reactivation of login accounts. */
 export function AccountsPage() {
   const { session } = useStaffAuth()
+  const toFailure = useAdminFailure()
   const [mode, setMode] = useState<LookupMode>('email')
   const [query, setQuery] = useState('')
   const [fieldError, setFieldError] = useState('')
@@ -61,7 +63,7 @@ export function AccountsPage() {
     try {
       setAccount(await lookup())
     } catch (error) {
-      setFailure({ message: safeAdminMessage(error), diagnostic: safeAdminDiagnostic(error, 'lookup') })
+      setFailure(toFailure(error, 'lookup'))
     } finally {
       setSearching(false)
     }
@@ -85,10 +87,7 @@ export function AccountsPage() {
       )
       resetPanel()
     } catch (error) {
-      setFailure({
-        message: safeAdminMessage(error),
-        diagnostic: safeAdminDiagnostic(error, panel === 'suspend' ? 'suspend' : 'reactivate'),
-      })
+      setFailure(toFailure(error, panel === 'suspend' ? 'suspend' : 'reactivate'))
     } finally {
       setBusy(false)
     }

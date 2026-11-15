@@ -3,8 +3,10 @@ import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { StaffPage } from './StaffPage'
 
+const retry = vi.hoisted(() => vi.fn())
+
 vi.mock('../../shared/auth/useStaffAuth', () => ({
-  useStaffAuth: () => ({ session: { user: { id: 1, email: 'admin@example.test', role: 'admin' } } }),
+  useStaffAuth: () => ({ session: { user: { id: 1, email: 'admin@example.test', role: 'admin' } }, retry }),
 }))
 
 const TOKEN = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQ'

@@ -2,8 +2,6 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useStaffAuth } from '../../shared/auth/useStaffAuth'
 import {
   adminApi,
-  safeAdminDiagnostic,
-  safeAdminMessage,
   type AdminCase,
   type EscalatedTicketItem,
   type EscalationScope,
@@ -11,6 +9,7 @@ import {
 import { AdminFailureNotice, type AdminFailure } from './AdminFailureNotice'
 import { EscalationCasePanel } from './EscalationCasePanel'
 import { formatDateTime } from './adminFormat'
+import { useAdminFailure } from './useAdminFailure'
 
 const SCOPES: ReadonlyArray<{ value: EscalationScope; label: string }> = [
   { value: 'all', label: 'Todos' },
@@ -21,6 +20,7 @@ const SCOPES: ReadonlyArray<{ value: EscalationScope; label: string }> = [
 /** ADM-05 queue of tickets escalated by Support Agents. */
 export function EscalationsPage() {
   const { session } = useStaffAuth()
+  const toFailure = useAdminFailure()
   const [scope, setScope] = useState<EscalationScope>('all')
   const [tickets, setTickets] = useState<EscalatedTicketItem[]>([])
   const [loading, setLoading] = useState(true)
@@ -40,7 +40,7 @@ export function EscalationsPage() {
       setTickets(await adminApi.escalated(scope, signal))
     } catch (error) {
       if (!signal?.aborted) {
-        setQueueFailure({ message: safeAdminMessage(error), diagnostic: safeAdminDiagnostic(error, 'queue') })
+        setQueueFailure(toFailure(error, 'queue'))
       }
     } finally {
       if (!signal?.aborted) setLoading(false)
@@ -63,7 +63,7 @@ export function EscalationsPage() {
       if (requestId === caseRequest.current) setOpenCase(loaded)
     } catch (error) {
       if (requestId === caseRequest.current) {
-        setActionFailure({ message: safeAdminMessage(error), diagnostic: safeAdminDiagnostic(error, 'case') })
+        setActionFailure(toFailure(error, 'case'))
       }
     } finally {
       if (requestId === caseRequest.current) setCaseLoading(false)
@@ -80,7 +80,7 @@ export function EscalationsPage() {
       if (requestId === caseRequest.current) setOpenCase(claimed)
       setNotice('Caso reclamado. Ahora eres el único administrador que puede responder, resolver o devolverlo.')
     } catch (error) {
-      setActionFailure({ message: safeAdminMessage(error), diagnostic: safeAdminDiagnostic(error, 'claim') })
+      setActionFailure(toFailure(error, 'claim'))
     } finally {
       setBusyId(null)
       await refresh()
@@ -101,7 +101,7 @@ export function EscalationsPage() {
     } catch (error) {
       if (requestId !== caseRequest.current) return
       setOpenCase(null)
-      setActionFailure({ message: safeAdminMessage(error), diagnostic: safeAdminDiagnostic(error, 'case') })
+      setActionFailure(toFailure(error, 'case'))
     }
   }
 

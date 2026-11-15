@@ -1,7 +1,8 @@
 import { useState, type FormEvent } from 'react'
-import { adminApi, safeAdminDiagnostic, safeAdminMessage, type AdminCase, type AdminOperation } from './adminApi'
+import { adminApi, type AdminCase, type AdminOperation } from './adminApi'
 import { AdminFailureNotice, type AdminFailure } from './AdminFailureNotice'
 import { eventLabel, formatDateTime } from './adminFormat'
+import { useAdminFailure } from './useAdminFailure'
 
 type Action = 'reply' | 'resolve' | 'return'
 
@@ -25,6 +26,7 @@ function author(data: AdminCase, adminId: number, authorId: number): string {
  * to the owning administrator; the backend enforces ownership regardless.
  */
 export function EscalationCasePanel({ adminId, data, onChanged, onClaim, onFinished }: Props) {
+  const toFailure = useAdminFailure()
   const [action, setAction] = useState<Action | null>(null)
   const [text, setText] = useState('')
   const [confirmed, setConfirmed] = useState(false)
@@ -65,7 +67,7 @@ export function EscalationCasePanel({ adminId, data, onChanged, onClaim, onFinis
         )
       }
     } catch (error) {
-      setFailure({ message: safeAdminMessage(error), diagnostic: safeAdminDiagnostic(error, operation) })
+      setFailure(toFailure(error, operation))
     } finally {
       setBusy(false)
     }

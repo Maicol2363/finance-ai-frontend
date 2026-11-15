@@ -3,8 +3,10 @@ import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { EscalationsPage } from './EscalationsPage'
 
+const retry = vi.hoisted(() => vi.fn())
+
 vi.mock('../../shared/auth/useStaffAuth', () => ({
-  useStaffAuth: () => ({ session: { user: { id: 1, email: 'admin@example.test', role: 'admin' } } }),
+  useStaffAuth: () => ({ session: { user: { id: 1, email: 'admin@example.test', role: 'admin' } }, retry }),
 }))
 
 const row = {
@@ -80,6 +82,7 @@ function bodies(path: string): unknown[] {
 describe('EscalationsPage (ADM-05)', () => {
   beforeEach(() => {
     vi.stubGlobal('fetch', vi.fn())
+    retry.mockReset()
   })
   afterEach(() => vi.unstubAllGlobals())
 
@@ -319,5 +322,24 @@ describe('EscalationsPage (ADM-05)', () => {
 
     expect(await screen.findByTestId('admin-error')).toHaveTextContent('Tu sesión ya no tiene permiso de administración')
     expect(screen.queryByText('Ticket #3')).not.toBeInTheDocument()
+    expect(retry).toHaveBeenCalledTimes(1)
+  })
+
+  it('treats an expired access credential as a renewal, asks the coordinator once and does not demand a new sign-in', async () => {
+    routeFetch({ 'GET /tickets/escalated': () => jsonResponse({ code: 'access_expired' }, 401, { 'X-Correlation-ID': 'c-x' }) })
+    render(<EscalationsPage />)
+
+    const notice = await screen.findByTestId('admin-error')
+    expect(notice).toHaveTextContent('Tu sesión se está renovando')
+    expect(notice).not.toHaveTextContent('Inicia sesión')
+    expect(retry).toHaveBeenCalledTimes(1)
+  })
+
+  it('does not ask the coordinator to re-confirm the session after an ordinary failure', async () => {
+    routeFetch({ 'GET /tickets/escalated': () => jsonResponse({ code: 'internal_error' }, 500, { 'X-Correlation-ID': 'c-y' }) })
+    render(<EscalationsPage />)
+
+    expect(await screen.findByTestId('admin-error')).toHaveTextContent('No se pudo completar la operación')
+    expect(retry).not.toHaveBeenCalled()
   })
 })

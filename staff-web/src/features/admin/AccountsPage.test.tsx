@@ -3,8 +3,10 @@ import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { AccountsPage } from './AccountsPage'
 
+const retry = vi.hoisted(() => vi.fn())
+
 vi.mock('../../shared/auth/useStaffAuth', () => ({
-  useStaffAuth: () => ({ session: { user: { id: 1, email: 'admin@example.test', role: 'admin' } } }),
+  useStaffAuth: () => ({ session: { user: { id: 1, email: 'admin@example.test', role: 'admin' } }, retry }),
 }))
 
 const base = {
@@ -31,6 +33,7 @@ function problem(code: string, status: number, correlation = 'corr-9'): Response
 describe('AccountsPage (ADM-01, ADM-02)', () => {
   beforeEach(() => {
     vi.stubGlobal('fetch', vi.fn())
+    retry.mockReset()
   })
   afterEach(() => vi.unstubAllGlobals())
 
@@ -197,6 +200,30 @@ describe('AccountsPage (ADM-01, ADM-02)', () => {
     expect(await screen.findByTestId('admin-error')).toHaveTextContent(message)
     expect(screen.getByTestId('admin-confirm-panel')).toBeInTheDocument()
     expect(screen.getByTestId('admin-account-result')).toHaveTextContent('Activa')
+  })
+
+  it('keeps what was typed when the access credential expired, asks the coordinator and lets the person resend', async () => {
+    vi.mocked(fetch)
+      .mockResolvedValueOnce(jsonResponse(base))
+      .mockResolvedValueOnce(problem('access_expired', 401))
+      .mockResolvedValueOnce(jsonResponse({ ...base, status: 'suspended', suspension: null }))
+    const user = userEvent.setup()
+    render(<AccountsPage />)
+    await search(user, 'customer@example.com')
+    await user.click(await screen.findByRole('button', { name: 'Suspender cuenta' }))
+    await user.type(screen.getByLabelText(/Motivo de la suspensión/), 'motivo')
+    await user.click(screen.getByRole('checkbox'))
+    await user.click(screen.getByRole('button', { name: 'Confirmar suspensión' }))
+
+    const notice = await screen.findByTestId('admin-error')
+    expect(notice).toHaveTextContent('Tu sesión se está renovando')
+    expect(notice).toHaveTextContent('access_expired')
+    expect(retry).toHaveBeenCalledTimes(1)
+    expect(screen.getByLabelText(/Motivo de la suspensión/)).toHaveValue('motivo')
+
+    await user.click(screen.getByRole('button', { name: 'Confirmar suspensión' }))
+    await waitFor(() => expect(screen.queryByTestId('admin-confirm-panel')).not.toBeInTheDocument())
+    expect(screen.getByTestId('admin-account-result')).toHaveTextContent('Suspendida')
   })
 
   it('does not send a second suspension while one is in flight', async () => {
