@@ -299,7 +299,7 @@ describe('StaffSessionCoordinator', () => {
     coordinator.stop()
   })
 
-  it('hides an authenticated view while the timed revalidation is unresolved', async () => {
+  it('keeps the authenticated view mounted while a timed revalidation is unresolved', async () => {
     vi.useFakeTimers()
     let finishRevalidation: ((value: StaffSessionView) => void) | undefined
     const api = createApi({
@@ -311,12 +311,19 @@ describe('StaffSessionCoordinator', () => {
     coordinator.start()
     await vi.waitFor(() => expect(coordinator.currentState.status).toBe('authenticated'))
 
+    // Silent revalidation: replacing the authenticated state would unmount the workspace and
+    // discard open forms and one-time secrets. A denial still removes the view (next test).
+    const states: string[] = []
+    coordinator.subscribe((state) => states.push(state.status))
     const revalidation = vi.advanceTimersByTimeAsync(30_000)
-    await vi.waitFor(() => expect(coordinator.currentState.status).toBe('restoring'))
+    await vi.waitFor(() => expect(api.session).toHaveBeenCalledTimes(2))
+    expect(coordinator.currentState.status).toBe('authenticated')
     finishRevalidation?.(sessionView)
     await revalidation
 
     expect(coordinator.currentState.status).toBe('authenticated')
+    expect(states).not.toContain('restoring')
+    expect(states).not.toContain('refreshing')
     coordinator.stop()
   })
 
