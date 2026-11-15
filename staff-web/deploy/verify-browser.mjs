@@ -28,6 +28,8 @@ try {
       assert.equal(document?.status(), 200)
       assert.equal((await session).status(), 401)
       await expect(page.getByTestId('staff-sign-in-page')).toBeVisible()
+      const logo = page.getByTestId('staff-brand-logo')
+      await expect.poll(() => logo.evaluate((image) => image.complete && image.naturalWidth > 0)).toBe(true)
       await expect(page).toHaveURL(origin + '/login')
       await expect(page.getByRole('navigation', { name: 'Navegación del personal' })).toHaveCount(0)
     }
