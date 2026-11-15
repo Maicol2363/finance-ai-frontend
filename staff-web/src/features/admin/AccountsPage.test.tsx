@@ -73,9 +73,9 @@ describe('AccountsPage (ADM-01, ADM-02)', () => {
     expect(result).toHaveTextContent('cuenta de acceso (login), no una cuenta financiera')
     expect(result).toHaveTextContent('Cliente')
     expect(result).toHaveTextContent('Activa')
-    expect(String(vi.mocked(fetch).mock.calls[0]![0])).toBe(
-      '/api/v1/staff/admin/accounts/lookup?email=Customer%40Example.com',
-    )
+    expect(String(vi.mocked(fetch).mock.calls[0]![0])).toBe('/api/v1/staff/admin/accounts/lookup')
+    expect(JSON.parse(String(vi.mocked(fetch).mock.calls[0]![1]?.body))).toEqual({ email: 'Customer@Example.com' })
+    expect(String(vi.mocked(fetch).mock.calls[0]![0])).not.toMatch(/customer/i)
     expect(result.textContent).not.toMatch(/saldo|balance|contraseña|password|token/i)
   })
 
@@ -87,7 +87,8 @@ describe('AccountsPage (ADM-01, ADM-02)', () => {
     await search(user, '7', 'id')
 
     expect(await screen.findByTestId('admin-account-result')).toBeInTheDocument()
-    expect(String(vi.mocked(fetch).mock.calls[0]![0])).toBe('/api/v1/staff/admin/accounts/lookup?id=7')
+    expect(String(vi.mocked(fetch).mock.calls[0]![0])).toBe('/api/v1/staff/admin/accounts/lookup')
+    expect(JSON.parse(String(vi.mocked(fetch).mock.calls[0]![1]?.body))).toEqual({ id: 7 })
   })
 
   it('shows a safe not-found message with the correlation reference and no result', async () => {

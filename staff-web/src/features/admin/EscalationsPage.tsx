@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useStaffAuth } from '../../shared/auth/useStaffAuth'
 import {
   adminApi,
@@ -30,6 +30,8 @@ export function EscalationsPage() {
   const [openCase, setOpenCase] = useState<AdminCase | null>(null)
   const [caseLoading, setCaseLoading] = useState(false)
   const [busyId, setBusyId] = useState<number | null>(null)
+  // Only the most recent case request may update the panel (a slow earlier response must not win).
+  const caseRequest = useRef(0)
 
   const refresh = useCallback(async (signal?: AbortSignal) => {
     setLoading(true)
@@ -52,15 +54,19 @@ export function EscalationsPage() {
   }, [refresh])
 
   async function open(ticket: EscalatedTicketItem): Promise<void> {
+    const requestId = ++caseRequest.current
     setCaseLoading(true)
     setOpenCase(null)
     setActionFailure(null)
     try {
-      setOpenCase(await adminApi.case(ticket.id))
+      const loaded = await adminApi.case(ticket.id)
+      if (requestId === caseRequest.current) setOpenCase(loaded)
     } catch (error) {
-      setActionFailure({ message: safeAdminMessage(error), diagnostic: safeAdminDiagnostic(error, 'case') })
+      if (requestId === caseRequest.current) {
+        setActionFailure({ message: safeAdminMessage(error), diagnostic: safeAdminDiagnostic(error, 'case') })
+      }
     } finally {
-      setCaseLoading(false)
+      if (requestId === caseRequest.current) setCaseLoading(false)
     }
   }
 
@@ -68,8 +74,10 @@ export function EscalationsPage() {
     setBusyId(ticketId)
     setNotice('')
     setActionFailure(null)
+    const requestId = ++caseRequest.current
     try {
-      setOpenCase(await adminApi.claim(ticketId))
+      const claimed = await adminApi.claim(ticketId)
+      if (requestId === caseRequest.current) setOpenCase(claimed)
       setNotice('Caso reclamado. Ahora eres el único administrador que puede responder, resolver o devolverlo.')
     } catch (error) {
       setActionFailure({ message: safeAdminMessage(error), diagnostic: safeAdminDiagnostic(error, 'claim') })
@@ -86,9 +94,12 @@ export function EscalationsPage() {
   }
 
   async function reloadCase(id: number): Promise<void> {
+    const requestId = ++caseRequest.current
     try {
-      setOpenCase(await adminApi.case(id))
+      const loaded = await adminApi.case(id)
+      if (requestId === caseRequest.current) setOpenCase(loaded)
     } catch (error) {
+      if (requestId !== caseRequest.current) return
       setOpenCase(null)
       setActionFailure({ message: safeAdminMessage(error), diagnostic: safeAdminDiagnostic(error, 'case') })
     }
@@ -106,7 +117,7 @@ export function EscalationsPage() {
             aria-pressed={scope === item.value}
             className={scope === item.value ? 'filter-button is-selected' : 'filter-button'}
             key={item.value}
-            onClick={() => { setScope(item.value); setOpenCase(null) }}
+            onClick={() => { caseRequest.current += 1; setScope(item.value); setOpenCase(null); setCaseLoading(false) }}
             type="button"
           >{item.label}</button>
         ))}

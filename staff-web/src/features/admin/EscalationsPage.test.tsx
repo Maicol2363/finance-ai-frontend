@@ -292,6 +292,27 @@ describe('EscalationsPage (ADM-05)', () => {
     expect(screen.getByRole('form', { name: 'Resolver' })).toBeInTheDocument()
   })
 
+  it('shows the most recently requested case even when an earlier response arrives later', async () => {
+    let finishFirst: ((response: Response) => void) | undefined
+    routeFetch({
+      'GET /tickets/escalated': () => jsonResponse([row, { ...row, id: 4, subject: 'Segundo caso' }]),
+      'GET /tickets/3': () => new Promise<Response>((resolve) => { finishFirst = resolve }),
+      'GET /tickets/4': () => jsonResponse(caseFor({ ticket: { ...caseFor().ticket, id: 4, subject: 'Segundo caso' } })),
+    })
+    const user = userEvent.setup()
+    render(<EscalationsPage />)
+    const buttons = await screen.findAllByRole('button', { name: 'Ver caso' })
+
+    await user.click(buttons[0])
+    await user.click(buttons[1])
+    expect(await screen.findByTestId('admin-case')).toHaveTextContent('CASO ESCALADO #4')
+    finishFirst?.(jsonResponse(caseFor()))
+    await new Promise((resolve) => setTimeout(resolve, 50))
+
+    expect(screen.getByTestId('admin-case')).toHaveTextContent('CASO ESCALADO #4')
+    expect(screen.queryByText('CASO ESCALADO #3')).not.toBeInTheDocument()
+  })
+
   it('shows a safe queue failure with a retry', async () => {
     routeFetch({ 'GET /tickets/escalated': () => jsonResponse({ code: 'staff_access_denied' }, 403, { 'X-Correlation-ID': 'c-q' }) })
     render(<EscalationsPage />)

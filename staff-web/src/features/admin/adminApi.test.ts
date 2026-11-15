@@ -111,7 +111,11 @@ describe('admin API transport', () => {
     await adminApi.lookupByEmail('Customer@Example.com')
 
     const [url, init] = vi.mocked(fetch).mock.calls[0]!
-    expect(String(url)).toBe('/api/v1/staff/admin/accounts/lookup?email=Customer%40Example.com')
+    // The address is in the body, never in the URL (proxies log URLs).
+    expect(String(url)).toBe('/api/v1/staff/admin/accounts/lookup')
+    expect(String(url)).not.toContain('Customer')
+    expect(JSON.parse(String(init?.body))).toEqual({ email: 'Customer@Example.com' })
+    expect(init?.method).toBe('POST')
     expect(init?.credentials).toBe('include')
     expect(init?.cache).toBe('no-store')
     const headers = new Headers(init?.headers)

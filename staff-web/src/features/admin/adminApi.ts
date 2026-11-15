@@ -421,11 +421,12 @@ async function request<T>(
 const noContent = (): void => undefined
 
 export const adminApi = {
+  // The email goes in the JSON body, never in a URL that proxies and browsers log.
   lookupByEmail(email: string, signal?: AbortSignal): Promise<AdminAccount> {
-    return request('lookup', `/accounts/lookup?email=${encodeURIComponent(email)}`, { method: 'GET', signal }, parseAdminAccount)
+    return request('lookup', '/accounts/lookup', { method: 'POST', body: { email }, signal }, parseAdminAccount)
   },
   lookupById(id: number, signal?: AbortSignal): Promise<AdminAccount> {
-    return request('lookup', `/accounts/lookup?id=${encodeURIComponent(String(id))}`, { method: 'GET', signal }, parseAdminAccount)
+    return request('lookup', '/accounts/lookup', { method: 'POST', body: { id }, signal }, parseAdminAccount)
   },
   account(id: number, signal?: AbortSignal): Promise<AdminAccount> {
     return request('account', `/accounts/${id}`, { method: 'GET', signal }, parseAdminAccount)
