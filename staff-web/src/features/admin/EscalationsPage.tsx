@@ -134,7 +134,7 @@ export function EscalationsPage() {
         <div className="support-content">
           <div aria-label="Casos escalados" className="ticket-list" role="list">
             {tickets.map((ticket) => (
-              <article className="ticket-card" key={ticket.id} role="listitem">
+              <div className="ticket-card" key={ticket.id} role="listitem">
                 <div className="ticket-card-heading">
                   <span className="ticket-id">Ticket #{ticket.id}</span>
                   <span className="ticket-status">
@@ -154,10 +154,10 @@ export function EscalationsPage() {
                   )}
                   <button className="secondary-button" onClick={() => void open(ticket)} type="button">Ver caso</button>
                 </div>
-              </article>
+              </div>
             ))}
           </div>
-          <aside aria-label="Contexto del caso" aria-live="polite" className="ticket-detail">
+          <section aria-label="Contexto del caso" aria-live="polite" className="ticket-detail">
             {caseLoading && <p>Cargando el contexto autorizado…</p>}
             {!caseLoading && !openCase && <p>Selecciona un caso para ver su contexto.</p>}
             {openCase && (
@@ -170,7 +170,7 @@ export function EscalationsPage() {
                 onFinished={handleFinished}
               />
             )}
-          </aside>
+          </section>
         </div>
       )}
     </div>
