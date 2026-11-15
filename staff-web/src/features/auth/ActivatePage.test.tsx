@@ -49,6 +49,24 @@ describe('ActivatePage (ADM-03)', () => {
     expect(document.body.textContent).not.toContain(TOKEN)
   })
 
+  it('re-reads a second activation link opened in the same tab and strips it again', async () => {
+    vi.mocked(fetch).mockResolvedValue(new Response(null, { status: 204 }))
+    const user = userEvent.setup()
+    renderPage()
+    await user.type(await screen.findByLabelText('Contraseña nueva'), PASSWORD)
+    await user.type(screen.getByLabelText('Confirma la contraseña'), PASSWORD)
+    await user.click(screen.getByRole('button', { name: 'Activar cuenta' }))
+    expect(await screen.findByTestId('staff-activate-success')).toBeInTheDocument()
+
+    const second = 'ZYXWVUTSRQPONMLKJIHGFEDCBAzyxwvutsrq'.padEnd(43, 'a')
+    window.location.hash = `#token=${second}`
+    window.dispatchEvent(new HashChangeEvent('hashchange'))
+
+    expect(await screen.findByLabelText('Contraseña nueva')).toBeInTheDocument()
+    expect(window.location.hash).toBe('')
+    expect(window.location.href).not.toContain(second)
+  })
+
   it('shows a generic invalid-link page when there is no usable token', async () => {
     window.history.pushState({}, '', '/activate')
     renderPage()

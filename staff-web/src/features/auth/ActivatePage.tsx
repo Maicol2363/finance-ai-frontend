@@ -36,7 +36,20 @@ export function ActivatePage() {
   const [done, setDone] = useState(false)
 
   useEffect(() => {
-    if (window.location.hash) window.history.replaceState(null, '', window.location.pathname)
+    // Opening another activation link in the same tab is only a hash change: re-read it, then
+    // remove it from the address bar again.
+    const consume = (): void => {
+      const next = readActivationToken(window.location.hash)
+      if (window.location.hash) window.history.replaceState(null, '', window.location.pathname)
+      if (next !== null) {
+        setToken(next)
+        setDone(false)
+        setMessage('')
+      }
+    }
+    consume()
+    window.addEventListener('hashchange', consume)
+    return () => window.removeEventListener('hashchange', consume)
   }, [])
 
   async function submit(event: FormEvent<HTMLFormElement>): Promise<void> {
