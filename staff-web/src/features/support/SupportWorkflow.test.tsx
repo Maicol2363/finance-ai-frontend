@@ -35,9 +35,11 @@ describe('support workflow', () => {
     expect(document.querySelector('.support-case script')).toBeNull()
     const user = userEvent.setup()
     await user.type(screen.getByLabelText('Mensaje al cliente'), 'Respuesta')
-    await user.click(screen.getByRole('button', { name: 'Enviar mensaje' }))
+    await user.keyboard('{Shift>}{Enter}{/Shift}Segunda línea')
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    await user.keyboard('{Enter}')
     await waitFor(() => expect(onChange).toHaveBeenCalledWith(ticket))
-    expect(JSON.parse(fetchMock.mock.calls[1]?.[1]?.body as string)).toEqual({ body: 'Respuesta' })
+    expect(JSON.parse(fetchMock.mock.calls[1]?.[1]?.body as string)).toEqual({ body: 'Respuesta\nSegunda línea' })
     expect(await screen.findByText('Cambio guardado.')).toBeInTheDocument()
   })
   it.each(['resolved', 'escalated'])('makes %s cases read-only and preserves the visible conversation', async (status) => {

@@ -56,7 +56,6 @@ export function RequireStaffSession({ children }: { children: ReactNode }) {
   if (state.status === 'anonymous' || state.status === 'mfa_required') {
     return <Navigate to="/login" replace state={{ from: location.pathname + location.search }} />
   }
-  }
   if (state.status === 'recoverable_error') {
     return (
       <section aria-live="polite" className="auth-status-panel error-state" data-testid="staff-auth-recoverable-error">

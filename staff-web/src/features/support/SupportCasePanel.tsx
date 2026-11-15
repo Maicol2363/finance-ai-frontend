@@ -131,7 +131,12 @@ export function SupportCasePanel({ id, onChange }: { id: number; onChange: (tick
       {data.ticket.status === 'in_progress' ? <>
         <form className="chat-compose" onSubmit={(event) => void action('message', event)}>
           <SupportAttachmentInput compact busy={busy} file={attachment} onChange={setAttachment} />
-          <textarea aria-label="Mensaje al cliente" placeholder="Escribe un mensaje" rows={1} required maxLength={4000} value={body} onChange={(event) => setBody(event.target.value)} />
+          <textarea aria-label="Mensaje al cliente" placeholder="Escribe un mensaje" rows={1} required maxLength={4000} value={body} onChange={(event) => setBody(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key !== 'Enter' || event.shiftKey || event.nativeEvent.isComposing) return
+              event.preventDefault()
+              if (!event.repeat && !busy && body.trim()) event.currentTarget.form?.requestSubmit()
+            }} />
           <button className="primary-button chat-icon" aria-label="Enviar mensaje" title="Enviar mensaje" disabled={busy || !body.trim()} type="submit">
             <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="m22 2-7 20-4-9-9-4 20-7ZM11 13 22 2"/></svg>
           </button>

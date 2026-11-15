@@ -299,7 +299,7 @@ describe('StaffSessionCoordinator', () => {
     coordinator.stop()
   })
 
-  it('keeps the authenticated view mounted while timed revalidation is unresolved', async () => {
+  it('hides an authenticated view while timed revalidation is unresolved', async () => {
     vi.useFakeTimers()
     let finishRevalidation: ((value: StaffSessionView) => void) | undefined
     const api = createApi({
@@ -312,8 +312,8 @@ describe('StaffSessionCoordinator', () => {
     await vi.waitFor(() => expect(coordinator.currentState.status).toBe('authenticated'))
 
     const revalidation = vi.advanceTimersByTimeAsync(30_000)
-    await vi.waitFor(() => expect(api.session).toHaveBeenCalledTimes(2))
-    expect(coordinator.currentState.status).toBe('authenticated')
+    await vi.waitFor(() => expect(coordinator.currentState.status).toBe('restoring'))
+    expect(api.session).toHaveBeenCalledTimes(2)
     finishRevalidation?.(sessionView)
     await revalidation
 

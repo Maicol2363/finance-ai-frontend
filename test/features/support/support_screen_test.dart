@@ -1,10 +1,9 @@
-import 'dart:typed_data';
-
 import 'package:finance_ai/core/diagnostics/error_diagnostic.dart';
 import 'package:finance_ai/features/support/data/support_repository.dart';
 import 'package:finance_ai/features/support/domain/support_models.dart';
 import 'package:finance_ai/features/support/presentation/support_screen.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -102,8 +101,7 @@ void main() {
         find.widgetWithText(TextFormField, 'Mensaje'),
         '<script>texto seguro</script>',
       );
-      await tester.ensureVisible(find.byTooltip('Enviar mensaje'));
-      await tester.tap(find.byTooltip('Enviar mensaje'));
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
       await tester.pumpAndSettle();
       expect(repository.bodies, ['<script>texto seguro</script>']);
       expect(find.text('<script>texto seguro</script>'), findsOneWidget);

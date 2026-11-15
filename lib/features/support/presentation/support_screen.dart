@@ -1,9 +1,9 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:typed_data';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/diagnostics/error_diagnostic.dart';
@@ -493,18 +493,46 @@ class _SupportScreenState extends ConsumerState<SupportScreen> {
                                         icon: const Icon(Icons.attach_file),
                                       ),
                                       Expanded(
-                                        child: TextFormField(
-                                          controller: message,
-                                          maxLength: 4000,
-                                          minLines: 1,
-                                          maxLines: 4,
-                                          validator: requiredText,
-                                          decoration: const InputDecoration(
-                                            labelText: 'Mensaje',
-                                            counterText: '',
-                                            border: OutlineInputBorder(
-                                              borderRadius: BorderRadius.all(
-                                                Radius.circular(22),
+                                        child: Focus(
+                                          onKeyEvent: (_, event) {
+                                            final key = event.logicalKey;
+                                            if ((key !=
+                                                        LogicalKeyboardKey
+                                                            .enter &&
+                                                    key !=
+                                                        LogicalKeyboardKey
+                                                            .numpadEnter) ||
+                                                HardwareKeyboard
+                                                    .instance
+                                                    .isShiftPressed ||
+                                                !message
+                                                    .value
+                                                    .composing
+                                                    .isCollapsed) {
+                                              return KeyEventResult.ignored;
+                                            }
+                                            if (event is KeyDownEvent &&
+                                                !busy &&
+                                                message.text
+                                                    .trim()
+                                                    .isNotEmpty) {
+                                              unawaited(send());
+                                            }
+                                            return KeyEventResult.handled;
+                                          },
+                                          child: TextFormField(
+                                            controller: message,
+                                            maxLength: 4000,
+                                            minLines: 1,
+                                            maxLines: 4,
+                                            validator: requiredText,
+                                            decoration: const InputDecoration(
+                                              labelText: 'Mensaje',
+                                              counterText: '',
+                                              border: OutlineInputBorder(
+                                                borderRadius: BorderRadius.all(
+                                                  Radius.circular(22),
+                                                ),
                                               ),
                                             ),
                                           ),
