@@ -74,13 +74,13 @@ jobs:
             --update-env-vars "STAFF_API_HOST=$API_HOST" --port 8080 \
             --cpu 1 --memory 256Mi --min 0 --max 3 --max-instances 3 \
             --concurrency 40 --timeout 60s --cpu-throttling --no-cpu-boost \
-            --startup-probe 'httpGet.path=/healthz,httpGet.port=8080,periodSeconds=2,timeoutSeconds=1,failureThreshold=10' \
+            --startup-probe 'httpGet.path=/health,httpGet.port=8080,periodSeconds=2,timeoutSeconds=1,failureThreshold=10' \
             --quiet
       - name: Verify the deployed URL and browser
         run: |
           url=$(gcloud run services describe "$SERVICE" --project "$PROJECT" --region "$REGION" --format='value(status.url)')
           test "$url" = "$STAFF_ORIGIN"
-          curl --fail --silent --show-error --max-time 20 "$url/healthz"
+          test "$(curl --fail --silent --show-error --max-time 20 "$url/health")" = ok
           bash staff-web/deploy/verify-staff-api.sh "$url" "$url"
           node staff-web/deploy/verify-browser.mjs "$url"
           echo "Staff Web URL: $url" >> "$GITHUB_STEP_SUMMARY"
