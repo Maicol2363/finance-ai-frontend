@@ -1,17 +1,42 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useSupportPolling } from './useSupportPolling'
+import { SupportChatFile } from './SupportChatFile'
+import { SupportAttachmentInput } from './SupportAttachmentInput'
+import { encodeAttachment } from './encodeAttachment'
+import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
 import { SupportDiagnosticPanel } from './SupportDiagnosticPanel'
-import { supportTicketsApi, safeSupportDiagnostic, safeSupportMessage, type SupportConversation, type SupportDiagnostic, type SupportTicketDetail } from './supportTicketsApi'
+import { supportTicketsApi, safeSupportDiagnostic, safeSupportMessage, type AttachmentSummary, type SupportConversation, type SupportDiagnostic, type SupportTicketDetail, type SupportTicketsApiError } from './supportTicketsApi'
 
 export function SupportCasePanel({ id, onChange }: { id: number; onChange: (ticket: SupportTicketDetail) => void }) {
   const [data, setData] = useState<SupportConversation | null>(null)
   const [body, setBody] = useState('')
+  const [attachment, setAttachment] = useState<File | null>(null)
+  const [errorMessage, setErrorMessage] = useState('')
   const [summary, setSummary] = useState('')
   const [busy, setBusy] = useState(false)
   const [failure, setFailure] = useState<SupportDiagnostic | null>(null)
   const [notice, setNotice] = useState('')
+  const [transition, setTransition] = useState<'resolve' | 'escalate'>('resolve')
+  const scroll = useRef<HTMLDivElement>(null)
+  const scrollToLatest = useRef(true)
+  const mutationVersion = useRef(0)
+  function handleAttachmentValidation(error: SupportTicketsApiError | null) {
+    if (error) {
+      setFailure(safeSupportDiagnostic(error, 'message'))
+      setErrorMessage(safeSupportMessage(error, 'message'))
+    } else if (failure?.code === 'support_attachment_invalid') {
+      setFailure(null)
+      setErrorMessage('')
+    }
+  }
+  useEffect(() => {
+    if (scrollToLatest.current && scroll.current && data) {
+      scroll.current.scrollTop = scroll.current.scrollHeight
+      scrollToLatest.current = false
+    }
+  }, [data])
   async function load() {
     try { setData(await supportTicketsApi.conversation(id)); setFailure(null) }
-    catch (error) { setFailure(safeSupportDiagnostic(error, 'conversation')) }
+    catch (error) { setFailure(safeSupportDiagnostic(error, 'conversation')); setErrorMessage('No se pudo cargar la conversación.') }
   }
   useEffect(() => {
     const controller = new AbortController()
@@ -19,34 +44,128 @@ export function SupportCasePanel({ id, onChange }: { id: number; onChange: (tick
     supportTicketsApi.conversation(id, controller.signal).then((value) => {
       if (!controller.signal.aborted) setData(value)
     }).catch((error: unknown) => {
-      if (!controller.signal.aborted) setFailure(safeSupportDiagnostic(error, 'conversation'))
+      if (!controller.signal.aborted) { setFailure(safeSupportDiagnostic(error, 'conversation')); setErrorMessage('No se pudo cargar la conversación.') }
     })
     return () => controller.abort()
   }, [id])
-  async function action(kind: 'message' | 'escalate' | 'resolve', event: FormEvent) {
-    event.preventDefault(); setBusy(true); setFailure(null); setNotice('')
+  const pollConversation = useCallback(async (signal: AbortSignal) => {
+    if (busy) return
+    const version = mutationVersion.current
     try {
-      await supportTicketsApi.action(id, kind, kind === 'message' ? { body } : { summary })
-      setBody(''); setSummary(''); setNotice('Cambio guardado.'); const refreshed = await supportTicketsApi.conversation(id); setData(refreshed); onChange(refreshed.ticket)
-    } catch (error) { await load(); setFailure(safeSupportDiagnostic(error, kind)) }
+      const value = await supportTicketsApi.conversation(id, signal)
+      if (signal.aborted || version !== mutationVersion.current) return
+      const viewport = scroll.current
+      scrollToLatest.current = !viewport || viewport.scrollHeight - viewport.clientHeight - viewport.scrollTop < 80
+      setData(value)
+    } catch {
+      // Retain the open conversation and draft through a transient refresh failure.
+    }
+  }, [id, busy])
+  useSupportPolling(pollConversation)
+
+  async function action(kind: 'message' | 'escalate' | 'resolve', event: FormEvent) {
+    event.preventDefault(); mutationVersion.current += 1; setBusy(true); setFailure(null); setNotice('')
+    try {
+      await supportTicketsApi.action(id, kind, kind === 'message' ? { body, attachment: attachment ? await encodeAttachment(attachment) : undefined } : { summary })
+      if (kind === 'message') { setBody(''); setAttachment(null); scrollToLatest.current = true }
+       setSummary(''); setNotice('Cambio guardado.'); const refreshed = await supportTicketsApi.conversation(id); setData(refreshed); onChange(refreshed.ticket)
+    } catch (error) { await load(); setFailure(safeSupportDiagnostic(error, kind)); setErrorMessage(safeSupportMessage(error, kind)) }
     finally { setBusy(false) }
   }
+  async function download(file: AttachmentSummary) {
+    setBusy(true)
+    setFailure(null)
+    try {
+      const { content } = await supportTicketsApi.download(id, file.id)
+      const bytes = Uint8Array.from(atob(content), character => character.charCodeAt(0))
+      const url = URL.createObjectURL(new Blob([bytes], { type: 'application/octet-stream' }))
+      const link = document.createElement('a')
+      link.href = url
+      link.download = file.name
+      link.click()
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000)
+    } catch (error) {
+      setFailure(safeSupportDiagnostic(error, 'attachment'))
+      setErrorMessage(safeSupportMessage(error, 'attachment'))
+    } finally {
+      setBusy(false)
+    }
+  }
+  function filesFor(messageId: number | null) {
+    return data?.attachments?.filter(file => file.message_id === messageId).map(file =>
+      <SupportChatFile key={file.id} ticketId={id} file={file} busy={busy} onDownload={(value) => void download(value)} />
+    )
+  }
   return <div className="support-case">
-    <button className="secondary-button" disabled={busy} onClick={() => void load()} type="button">Actualizar conversación</button>
-    {failure && <><p role="alert">{safeSupportMessage(null, 'conversation')}</p><SupportDiagnosticPanel diagnostic={failure} id="support-case-diagnostic" /></>}
-    <p role="status">{notice}</p>
-    {!data && !failure && <p>Cargando conversación…</p>}
-    {data && <>
-      <h3>Cliente</h3><dl><dt>Identificador de cuenta</dt><dd>{data.customer.id}</dd><dt>Correo electrónico</dt><dd>{data.customer.email}</dd><dt>Estado de cuenta</dt><dd>{data.customer.is_active ? 'Activa' : 'Inactiva'}</dd></dl>
+    <div className="chat-toolbar">
       <h3>Conversación</h3>
-      {data.messages.length === 0 && <p>Aún no hay mensajes.</p>}
-      <ol>{data.messages.map((message) => <li key={message.id}><strong>Usuario #{message.author_user_id}</strong> · <time>{new Date(message.created_at).toLocaleString('es-CO')}</time><p className="ticket-description">{message.body}</p></li>)}</ol>
-      {data.ticket.resolution_summary && <><h3>Resolución</h3><p className="ticket-description">{data.ticket.resolution_summary}</p></>}
+      {failure?.operation === 'conversation' && <button className="secondary-button" disabled={busy} onClick={() => void load()} type="button">Reintentar</button>}
+    </div>
+    {failure && <div className="chat-error"><p role="alert">{errorMessage}</p><SupportDiagnosticPanel diagnostic={failure} id="support-case-diagnostic" /></div>}
+    <p className="chat-notice" role="status">{notice}</p>
+    {!data && !failure && <p className="chat-notice">Cargando conversación…</p>}
+    {data && <>
+      <details className="chat-info">
+        <summary>Cliente e historial</summary>
+        <dl className="ticket-detail-meta">
+          <div><dt>Identificador de cuenta</dt><dd>{data.customer.id}</dd></div>
+          <div><dt>Correo electrónico</dt><dd>{data.customer.email}</dd></div>
+          <div><dt>Estado de cuenta</dt><dd>{data.customer.is_active ? 'Activa' : 'Inactiva'}</dd></div>
+        </dl>
+        <ol>{data.history.map((item) => <li key={item.id}>
+          {({ ticket_created: 'Creado', ticket_claimed: 'Reclamado', message_sent: 'Mensaje enviado', ticket_escalated: 'Escalado', ticket_resolved: 'Resuelto' } as Record<string, string>)[item.event_type] ?? 'Actividad'}
+          {' · '}{new Date(item.created_at).toLocaleString('es-CO')}
+          {item.internal_reason && <p className="ticket-description">Motivo interno: {item.internal_reason}</p>}
+        </li>)}</ol>
+      </details>
+      <div className="chat-scroll" ref={scroll}>
+        {data.attachments?.some(file => file.message_id === null) && <div className="chat-initial">
+          <strong>Adjunto de la solicitud</strong>
+          {filesFor(null)}
+        </div>}
+        {data.messages.length === 0 && <p className="chat-notice">Aún no hay mensajes.</p>}
+        <ol className="chat-messages">
+          {data.messages.map((message) => {
+            const customer = message.author_user_id === data.customer.id
+            return <li key={message.id} className={customer ? 'chat-bubble' : 'chat-bubble chat-outgoing'}>
+              <strong>{customer ? 'Cliente' : 'Soporte'}</strong>
+              <p className="ticket-description">{message.body}</p>
+              {filesFor(message.id)}
+              <time dateTime={message.created_at}>{new Date(message.created_at).toLocaleString('es-CO', {dateStyle: 'short', timeStyle: 'short'})}</time>
+            </li>
+          })}
+        </ol>
+        {data.ticket.resolution_summary && <div className="chat-initial"><strong>Resolución</strong><p className="ticket-description">{data.ticket.resolution_summary}</p></div>}
+      </div>
       {data.ticket.status === 'in_progress' ? <>
-        <form onSubmit={(event) => void action('message', event)}><label>Mensaje al cliente<textarea required maxLength={4000} value={body} onChange={(event) => setBody(event.target.value)} /></label><button className="primary-button" disabled={busy} type="submit">Enviar mensaje</button></form>
-        <form onSubmit={(event) => void action('resolve', event)}><label>Resumen de resolución o motivo interno de escalamiento<textarea required maxLength={4000} value={summary} onChange={(event) => setSummary(event.target.value)} /></label><div className="ticket-actions"><button className="primary-button" disabled={busy} type="submit">Resolver ticket</button><button className="secondary-button" disabled={busy || !summary.trim()} onClick={(event) => void action('escalate', event)} type="button">Escalar ticket</button></div></form>
-      </> : <p>Este ticket está en modo de solo lectura.</p>}
-      <h3>Historial</h3><ol>{data.history.map((item) => <li key={item.id}>{({ ticket_created: 'Creado', ticket_claimed: 'Reclamado', message_sent: 'Mensaje enviado', ticket_escalated: 'Escalado', ticket_resolved: 'Resuelto' } as Record<string, string>)[item.event_type] ?? 'Actividad'} · Usuario #{item.actor_user_id} · {new Date(item.created_at).toLocaleString('es-CO')}{item.new_status && ` · ${item.previous_status ?? 'inicio'} → ${item.new_status}`}{item.new_assignee_user_id && ` · Agente #${item.new_assignee_user_id}`}{item.internal_reason && <p className="ticket-description">Motivo interno: {item.internal_reason}</p>}</li>)}</ol>
+        <form className="chat-compose" onSubmit={(event) => void action('message', event)}>
+          <SupportAttachmentInput compact busy={busy} file={attachment} onChange={setAttachment} onValidationError={handleAttachmentValidation} operation="message" />
+          <textarea aria-label="Mensaje al cliente" placeholder="Escribe un mensaje" rows={1} required maxLength={4000} value={body} onChange={(event) => setBody(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key !== 'Enter' || event.shiftKey || event.nativeEvent.isComposing) return
+              event.preventDefault()
+              if (!event.repeat && !busy && body.trim()) event.currentTarget.form?.requestSubmit()
+            }} />
+          <button className="primary-button chat-icon" aria-label="Enviar mensaje" title="Enviar mensaje" disabled={busy || !body.trim()} type="submit">
+            <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="m22 2-7 20-4-9-9-4 20-7ZM11 13 22 2"/></svg>
+          </button>
+        </form>
+        <details className="chat-info chat-operations">
+          <summary>Gestionar ticket</summary>
+          <form onSubmit={(event) => void action(transition, event)}>
+            <label>Acción<select value={transition} onChange={(event) => setTransition(event.target.value === 'escalate' ? 'escalate' : 'resolve')}>
+              <option value="resolve">Resolver</option>
+              <option value="escalate">Escalar</option>
+            </select></label>
+            <label>{transition === 'resolve' ? 'Resumen de resolución' : 'Motivo interno de escalamiento'}
+              <textarea required rows={2} maxLength={4000} value={summary} onChange={(event) => setSummary(event.target.value)} />
+            </label>
+            <button className="secondary-button" disabled={busy || !summary.trim()} type="submit">
+              {transition === 'resolve' ? 'Resolver ticket' : 'Escalar ticket'}
+            </button>
+          </form>
+        </details>
+      </> : <p className="chat-notice">Este ticket está en modo de solo lectura.</p>}
     </>}
   </div>
 }

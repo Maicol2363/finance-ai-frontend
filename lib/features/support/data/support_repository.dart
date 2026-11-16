@@ -1,3 +1,6 @@
+import 'dart:convert';
+import 'dart:typed_data';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/api/api_client.dart';
@@ -19,9 +22,11 @@ abstract interface class SupportRepository {
     required String subject,
     required String category,
     required String description,
+    Map<String, String>? attachment,
   });
   Future<SupportConversation> read(int id);
-  Future<void> send(int id, String body);
+  Future<void> send(int id, String body, {Map<String, String>? attachment});
+  Future<Uint8List> download(int id, int attachmentId);
 }
 
 class SupportFailure implements Exception {
@@ -52,6 +57,8 @@ class HttpSupportRepository implements SupportRepository {
         }
         const codes = {
           'support_ticket_not_found',
+          'support_attachment_invalid',
+          'request_too_large',
           'support_ticket_state_conflict',
           'request_invalid',
           'validation_error',
@@ -65,9 +72,13 @@ class HttpSupportRepository implements SupportRepository {
                 ? code
                 : 'unexpected_response',
             operation: operation,
-            userMessage: response.statusCode == 409
-                ? 'El estado del ticket cambió. Actualiza la conversación.'
-                : 'No se pudo completar la operación de soporte.',
+            userMessage: switch (code) {
+              'support_attachment_invalid' || 'request_too_large' =>
+                'Adjunta un archivo PNG, JPG o PDF de hasta 2 MB.',
+              'support_ticket_state_conflict' =>
+                'El estado del ticket cambió. Actualiza la conversación.',
+              _ => 'No se pudo completar la operación de soporte.',
+            },
             technicalReason: 'http_${response.statusCode}',
             correlationId: response.correlationId ?? 'unavailable',
           ),
@@ -115,12 +126,14 @@ class HttpSupportRepository implements SupportRepository {
     required String subject,
     required String category,
     required String description,
+    Map<String, String>? attachment,
   }) => _request(
     'support_create',
     (credential) => api.postJson('/api/v1/support/tickets', {
       'subject': subject,
       'category': category,
       'description': description,
+      'attachment': ?attachment,
     }, bearerCredential: credential),
     SupportTicket.fromJson,
   );
@@ -134,11 +147,22 @@ class HttpSupportRepository implements SupportRepository {
     SupportConversation.fromJson,
   );
   @override
-  Future<void> send(int id, String body) => _request<void>(
-    'support_send',
-    (credential) => api.postJson('/api/v1/support/tickets/$id/messages', {
-      'body': body,
-    }, bearerCredential: credential),
-    (_) {},
+  Future<void> send(int id, String body, {Map<String, String>? attachment}) =>
+      _request<void>(
+        'support_send',
+        (credential) => api.postJson('/api/v1/support/tickets/$id/messages', {
+          'body': body,
+          'attachment': ?attachment,
+        }, bearerCredential: credential),
+        (_) {},
+      );
+  @override
+  Future<Uint8List> download(int id, int attachmentId) => _request(
+    'support_download',
+    (credential) => api.getJson(
+      '/api/v1/support/tickets/$id/attachments/$attachmentId',
+      bearerCredential: credential,
+    ),
+    (json) => base64Decode(json['content'] as String),
   );
 }

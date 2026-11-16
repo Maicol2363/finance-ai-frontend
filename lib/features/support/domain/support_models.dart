@@ -1,3 +1,16 @@
+class SupportAttachment {
+  const SupportAttachment(this.id, this.messageId, this.name);
+  factory SupportAttachment.fromJson(Map<String, Object?> json) =>
+      SupportAttachment(
+        json['id'] as int,
+        json['message_id'] as int?,
+        json['name'] as String,
+      );
+  final int id;
+  final int? messageId;
+  final String name;
+}
+
 class SupportTicket {
   const SupportTicket({
     required this.id,
@@ -46,18 +59,25 @@ class SupportMessage {
 }
 
 class SupportConversation {
-  const SupportConversation({required this.ticket, required this.messages});
-  factory SupportConversation.fromJson(Map<String, Object?> json) =>
-      SupportConversation(
-        ticket: SupportTicket.fromJson(json['ticket'] as Map<String, Object?>),
-        messages: (json['messages'] as List<Object?>)
-            .map(
-              (item) => SupportMessage.fromJson(item as Map<String, Object?>),
-            )
-            .toList(growable: false),
-      );
+  const SupportConversation({
+    required this.ticket,
+    required this.messages,
+    this.attachments = const [],
+  });
+  factory SupportConversation.fromJson(
+    Map<String, Object?> json,
+  ) => SupportConversation(
+    ticket: SupportTicket.fromJson(json['ticket'] as Map<String, Object?>),
+    attachments: (json['attachments'] as List<Object?>? ?? const [])
+        .map((item) => SupportAttachment.fromJson(item as Map<String, Object?>))
+        .toList(growable: false),
+    messages: (json['messages'] as List<Object?>)
+        .map((item) => SupportMessage.fromJson(item as Map<String, Object?>))
+        .toList(growable: false),
+  );
   final SupportTicket ticket;
   final List<SupportMessage> messages;
+  final List<SupportAttachment> attachments;
 }
 
 const supportStatusLabels = {

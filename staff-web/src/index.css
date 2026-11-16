@@ -170,11 +170,9 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .support-error, .support-empty, .support-loading { padding: 18px; border: 1px solid var(--line); border-radius: 10px; color: var(--muted); background: var(--card); font-size: 13px; line-height: 1.6; }
 .support-error { display: flex; justify-content: space-between; gap: 12px; color: var(--discard-text); background: var(--error-soft); }
 .support-error button { border: 0; color: inherit; background: transparent; font: inherit; font-weight: 700; cursor: pointer; }
-.support-empty-list { padding: 18px; color: var(--muted); font-size: 13px; }
 .support-empty h2 { margin: 0 0 5px; color: var(--ink); font-size: 15px; }
 .support-empty p { margin: 0; }
-.support-content { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(280px, .75fr); align-items: start; gap: 16px; }
-.ticket-list { display: grid; gap: 10px; }
+.ticket-list { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 285px), 1fr)); }
 .ticket-card, .ticket-detail { min-width: 0; padding: 17px; border: 1px solid var(--line); border-radius: 12px; background: var(--card); }
 .ticket-card-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .ticket-id, .ticket-status { color: var(--muted); font-size: 10px; font-weight: 750; letter-spacing: .04em; }
@@ -188,7 +186,6 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .ticket-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
 .ticket-actions .primary-button { margin-top: 0; cursor: pointer; }
 .ticket-actions .secondary-button { min-height: auto; }
-.ticket-detail { position: sticky; top: 16px; }
 .ticket-detail > p:not(.eyebrow) { color: var(--muted); font-size: 12px; line-height: 1.6; }
 .ticket-detail h3 { margin: 20px 0 6px; color: var(--ink); font-size: 13px; }
 .ticket-description { white-space: pre-wrap; overflow-wrap: anywhere; }
@@ -199,8 +196,6 @@ button, a { -webkit-tap-highlight-color: transparent; }
   .area-card { min-height: 125px; }
   .welcome-art { margin-right: 4px; transform: scale(.78); }
   .page-footer { padding-inline: 30px; }
-  .support-content { grid-template-columns: 1fr; }
-  .ticket-detail { position: static; }
 }
 
 @media (max-width: 640px) {
@@ -403,3 +398,66 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .session-view { display: contents; }
 .session-view-held { visibility: hidden; }
 .session-hold-notice { position: fixed; inset: 0; z-index: 100; display: grid; place-items: center; background: var(--canvas); }
+.ticket-card { display: flex; flex-direction: column; gap: 12px; }
+.ticket-card h2 { margin: 0; }
+.ticket-card .ticket-actions { margin-top: auto; padding-top: 4px; }
+.ticket-card .ticket-actions:empty { display: none; }
+.ticket-status { white-space: nowrap; }
+dialog.ticket-detail {
+  position: fixed;
+  inset: 0;
+  width: min(720px, calc(100% - 32px));
+  max-height: calc(100dvh - 32px);
+  margin: auto;
+  padding: 24px;
+  color: var(--ink);
+  overflow: auto;
+}
+dialog.ticket-detail::backdrop { background: rgb(10 15 18 / 62%); }
+.ticket-context-heading { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; padding-bottom: 14px; border-bottom: 1px solid var(--line); }
+.ticket-context-heading h2 { margin: 0; }
+.ticket-detail .eyebrow { margin-top: 20px; }
+.ticket-detail .support-case { margin-top: 16px; }
+.ticket-detail .support-case [role=status]:empty { display: none; }
+.ticket-detail .support-case ol { display: grid; gap: 12px; }
+.ticket-detail .support-case li p { margin-block: 5px; }
+.support-attachment { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.support-attachment span, .support-file { overflow-wrap: anywhere; }
+.support-file { max-width: 100%; margin-block: 6px; text-align: start; }
+
+.chat-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+.ticket-detail .chat-toolbar h3 { margin: 0; font-size: 15px; }
+.chat-info { padding: 10px 0; border-block-end: 1px solid var(--line); color: var(--ink); }
+.chat-info summary { cursor: pointer; font-size: 13px; font-weight: 650; }
+.chat-info dl { margin-block: 10px; }
+.chat-scroll { margin-top: 10px; padding: 12px; background: var(--soft); border-radius: 14px; max-height: min(48dvh, 480px); overflow: auto; overscroll-behavior: contain; }
+.chat-initial { padding: 12px; border: 1px solid var(--line); background: var(--card); border-radius: 10px; font-size: 13px; }
+.chat-initial p { margin-block: 5px 0; }
+.chat-messages { display: grid; gap: 8px; list-style: none; padding: 0; margin: 12px 0; }
+.chat-bubble { justify-self: start; max-width: 84%; padding: 10px 12px; background: var(--card); border: 1px solid var(--line); border-radius: 4px 14px 14px; overflow-wrap: anywhere; }
+.chat-bubble.chat-outgoing { justify-self: end; background: var(--primary-soft); border-radius: 14px 4px 14px 14px; }
+.chat-bubble strong, .chat-bubble time { font-size: 11px; color: var(--muted); }
+.chat-bubble time { display: block; text-align: end; }
+.chat-bubble p { font-size: 14px; }
+.chat-file img { display: block; max-width: min(100%, 260px); max-height: 185px; object-fit: contain; border-radius: 8px; margin-top: 6px; }
+.chat-notice, .chat-error { margin: 8px 0; color: var(--muted); font-size: 13px; }
+.support-case .chat-compose { grid-template-columns: auto minmax(0, 1fr) auto; align-items: end; margin: 12px 0; gap: 8px; }
+.support-case .chat-compose textarea { min-height: 42px; max-height: 120px; border: 1px solid var(--line); border-radius: 18px; resize: vertical; }
+.admin-chat-compose { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; margin: 12px 0; gap: 8px; }
+.admin-chat-compose textarea { min-height: 42px; max-height: 120px; border: 1px solid var(--line); border-radius: 18px; resize: vertical; }
+.admin-chat-compose .admin-hint { grid-column: 1 / -1; margin: 0; }
+.chat-compose .chat-icon { display: grid; place-items: center; min-width: 42px; min-height: 42px; padding: 8px; margin: 0; border-radius: 50%; }
+.chat-compose .support-attachment { max-width: 120px; }
+.chat-operations { border: 0; }
+.chat-operations form { padding: 12px; background: var(--soft); border-radius: 10px; }
+.chat-operations form textarea { min-height: 58px; }
+.chat-ticket-intro { margin-block: 12px; }
+
+.topbar-actions .theme-toggle-button,
+.topbar-actions .sign-out-button {
+  min-height: 40px;
+  padding: 8px 12px;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.25;
+}

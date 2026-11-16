@@ -6,6 +6,11 @@ import { ThemeToggleButton } from '../../shared/theme/ThemeToggleButton'
 import { AuthDiagnosticPanel } from './AuthDiagnosticPanel'
 import { MfaStep } from './MfaStep'
 
+function supportDestination(value: unknown): string {
+  if (typeof value === 'string' && (value === '/support' || value.startsWith('/support?') || value.startsWith('/support/'))) return value
+  return '/support'
+}
+
 export function SignInPage() {
   const { state, login, retry, retryPendingLogout, startMfaEnrollment, verifyMfa, cancelMfa } = useStaffAuth()
   const location = useLocation()
@@ -35,7 +40,10 @@ export function SignInPage() {
   }
 
   if (state.status === 'authenticated') {
-    return <Navigate to={roleDestination(state.session.user.role, requestedPath)} replace />
+    const destination = state.session.user.role === 'support_agent'
+      ? supportDestination(requestedPath)
+      : roleDestination(state.session.user.role, requestedPath)
+    return <Navigate to={destination} replace />
   }
 
   const errorMessage = state.status === 'anonymous' || state.status === 'recoverable_error'
