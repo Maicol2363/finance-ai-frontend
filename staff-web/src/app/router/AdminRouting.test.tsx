@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { AppRouter } from './AppRouter'
@@ -30,6 +30,69 @@ function signedInAs(role: string | null) {
 function protectedRequests(prefix: string): string[] {
   return vi.mocked(fetch).mock.calls.map(([input]) => String(input)).filter((url) => url.includes(prefix))
 }
+
+describe('administrator workspace during session revalidation', () => {
+  beforeEach(() => {
+    sessionStorage.clear()
+  })
+  afterEach(() => vi.unstubAllGlobals())
+
+  it('hides the workspace while the session is re-confirmed, then shows it again with what was typed', async () => {
+    let sessionCalls = 0
+    let release: (() => void) | undefined
+    const gate = new Promise<void>((resolve) => { release = resolve })
+    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
+      if (String(input).endsWith('/staff/auth/session')) {
+        sessionCalls += 1
+        if (sessionCalls > 1) await gate
+        return jsonResponse(session('admin'))
+      }
+      return jsonResponse({ code: 'session_invalid' }, 401)
+    }))
+    window.history.pushState({}, '', '/admin/staff')
+    const user = userEvent.setup()
+    render(<AppRouter />)
+    const email = await screen.findByLabelText('Correo electrónico')
+    await user.type(email, 'nueva.persona@example.com')
+
+    // A returning tab (or the 30 s timer) re-confirms the session; the answer is still pending.
+    document.dispatchEvent(new Event('visibilitychange'))
+    expect(await screen.findByTestId('staff-auth-loading')).toBeInTheDocument()
+    // Hidden from people and assistive technology, and not interactive...
+    expect(screen.queryByRole('textbox', { name: 'Correo electrónico' })).not.toBeInTheDocument()
+    expect(email.closest('[aria-hidden="true"]')).not.toBeNull()
+    expect(email.closest('[inert]')).not.toBeNull()
+    // ...but not redirected away and not emptied: the workspace is only hidden.
+    expect(window.location.pathname).toBe('/admin/staff')
+
+    release?.()
+    await waitFor(() => expect(screen.queryByTestId('staff-auth-loading')).not.toBeInTheDocument())
+    expect(screen.getByLabelText('Correo electrónico')).toBe(email)
+    expect(email).toHaveValue('nueva.persona@example.com')
+    expect(window.location.pathname).toBe('/admin/staff')
+  })
+
+  it('removes the workspace for good when the re-confirmation is denied', async () => {
+    let sessionCalls = 0
+    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
+      if (String(input).endsWith('/staff/auth/session')) {
+        sessionCalls += 1
+        return sessionCalls === 1 ? jsonResponse(session('admin')) : jsonResponse({ code: 'staff_access_denied' }, 403)
+      }
+      return jsonResponse({ code: 'session_invalid' }, 401)
+    }))
+    window.history.pushState({}, '', '/admin/staff')
+    const user = userEvent.setup()
+    const { container } = render(<AppRouter />)
+    await user.type(await screen.findByLabelText('Correo electrónico'), 'secreto@example.com')
+
+    document.dispatchEvent(new Event('visibilitychange'))
+
+    await waitFor(() => expect(screen.getByTestId('staff-sign-in-page')).toBeInTheDocument())
+    expect(container.querySelector('input[value="secreto@example.com"]')).toBeNull()
+    expect(document.body.textContent).not.toContain('secreto@example.com')
+  })
+})
 
 describe('administrator routing', () => {
   beforeEach(() => {
