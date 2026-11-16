@@ -161,9 +161,9 @@ describe('staff authentication integration', () => {
     window.history.pushState({}, '', '/support')
     render(<AppRouter />)
 
-    expect(await screen.findByRole('heading', { name: 'Esta sección no corresponde a tu rol' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'No tienes permisos para acceder a estas funciones' })).toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: 'Atención al cliente' })).not.toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'Ir a mi espacio' })).toHaveAttribute('href', '/audit')
+    expect(screen.getByRole('link', { name: 'Volver a mi espacio de trabajo' })).toHaveAttribute('href', '/audit')
     expect(fetchMock.mock.calls.some(([input]) => String(input).includes('/staff/support/'))).toBe(false)
   })
 

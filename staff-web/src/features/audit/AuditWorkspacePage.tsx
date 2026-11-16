@@ -54,10 +54,6 @@ export function AuditWorkspacePage() {
       <div className="page-heading">
         <p className="eyebrow">AUDITOR DE SEGURIDAD</p>
         <h1 id="audit-title">Auditoría de seguridad</h1>
-        <p>
-          Consulta, investiga y resume eventos de seguridad registrados. Todas las vistas son de solo lectura: no hay
-          acciones administrativas, de cuentas, de tickets ni de modificación de evidencias.
-        </p>
       </div>
       <nav aria-label="Secciones de auditoría" className="audit-tabs">
         {SECTIONS.map((section) => (

@@ -4,7 +4,7 @@ import { auditApi, type AuditFilterQuery, type AuditPeriodQuery, type AuditSumma
 import { DistributionChart, TimelineChart } from './AuditCharts'
 import { AuditErrorPanel } from './AuditErrorPanel'
 import { AuditFilterForm } from './AuditFilterForm'
-import { formatInstant, outcomeLabel, readQuery, toSearchParams, zoneLabel } from './auditFormat'
+import { eventTypeLabel, formatInstant, outcomeLabel, readQuery, toSearchParams, zoneLabel } from './auditFormat'
 import { isAbort, useAuditFailure, type AuditFailure } from './useAuditRequest'
 
 export function AuditSummaryPage() {
@@ -123,7 +123,7 @@ export function AuditSummaryPage() {
               <DistributionChart
                 rows={summary.by_type.map((row) => ({
                   key: `${row.event_type}-${row.outcome}`,
-                  label: `${row.event_type} · ${outcomeLabel(row.outcome)}`,
+                  label: `${eventTypeLabel(row.event_type)} · ${outcomeLabel(row.outcome)}`,
                   count: row.count,
                   to: listLink(row.event_type, row.outcome),
                 }))}

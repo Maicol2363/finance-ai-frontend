@@ -1,10 +1,16 @@
-import { useId, useState, type FormEvent, type ReactNode } from 'react'
+import { useId, useMemo, useState, type FormEvent, type ReactNode } from 'react'
 import type { AuditFilterQuery, AuditPeriodQuery } from './auditApi'
 import { useAuditCatalog } from './auditCatalogContext'
 import {
   defaultPeriod,
+  describedBy,
+  eventTypeLabel,
+  FIELD_HINTS,
   isTimeZone,
   OUTCOME_LABELS,
+  PERIOD_PRESETS,
+  presetPeriod,
+  roleLabel,
   TARGET_TYPE_LABELS,
   validateFilters,
   validatePeriod,
@@ -22,16 +28,21 @@ interface AuditFilterFormProps {
 interface FieldProps {
   id: string
   label: string
+  hint: string
   error?: string
   children: ReactNode
 }
 
-/** Label, control and error stay separate so the accessible name is only the label. */
-function Field({ id, label, error, children }: FieldProps) {
+/**
+ * Label, control, help and error stay separate so the accessible name is only the label. The help
+ * is always announced with the control and shown under it while the field has focus.
+ */
+export function Field({ id, label, hint, error, children }: FieldProps) {
   return (
     <div className="audit-field">
       <label htmlFor={id}>{label}</label>
       {children}
+      <span className="audit-field-hint" id={`${id}-hint`}>{hint}</span>
       {error && <span className="audit-field-error" id={`${id}-error`}>{error}</span>}
     </div>
   )
@@ -50,6 +61,11 @@ export function AuditFilterForm({
   const [period, setPeriod] = useState<AuditPeriodQuery>(initialPeriod)
   const [filters, setFilters] = useState<AuditFilterQuery>(initialFilters)
   const [errors, setErrors] = useState<Record<string, string>>({})
+  const eventTypes = useMemo(
+    () => [...catalog.event_types].sort((a, b) => eventTypeLabel(a).localeCompare(eventTypeLabel(b), 'es')),
+    [catalog.event_types],
+  )
+  const presets = PERIOD_PRESETS.filter((preset) => preset.days <= catalog.max_query_days)
 
   function setFilter(key: keyof AuditFilterQuery, value: string): void {
     setFilters((current) => {
@@ -60,19 +76,29 @@ export function AuditFilterForm({
     })
   }
 
-  function submit(event: FormEvent<HTMLFormElement>): void {
-    event.preventDefault()
+  function submitWith(nextPeriod: AuditPeriodQuery): void {
     const cleaned: AuditFilterQuery = {}
     for (const [key, value] of Object.entries(filters) as Array<[keyof AuditFilterQuery, string | undefined]>) {
       const trimmed = value?.trim()
       if (trimmed) cleaned[key] = trimmed
     }
     const nextErrors = {
-      ...validatePeriod(period, catalog.max_query_days),
+      ...validatePeriod(nextPeriod, catalog.max_query_days),
       ...(showFilters ? validateFilters(cleaned) : {}),
     }
     setErrors(nextErrors)
-    if (Object.keys(nextErrors).length === 0) onSubmit(period, showFilters ? cleaned : {})
+    if (Object.keys(nextErrors).length === 0) onSubmit(nextPeriod, showFilters ? cleaned : {})
+  }
+
+  function submit(event: FormEvent<HTMLFormElement>): void {
+    event.preventDefault()
+    submitWith(period)
+  }
+
+  function applyPreset(days: number): void {
+    const next = presetPeriod(days, period.time_zone)
+    setPeriod(next)
+    submitWith(next)
   }
 
   function reset(): void {
@@ -86,15 +112,33 @@ export function AuditFilterForm({
   const id = (name: string) => `${prefix}-${name}`
   const aria = (name: string, field: string) => ({
     'aria-invalid': Boolean(errors[field]),
-    'aria-describedby': errors[field] ? `${id(name)}-error` : undefined,
+    'aria-describedby': describedBy(id(name), errors[field]),
+  })
+  const activePreset = presets.find((preset) => {
+    const candidate = presetPeriod(preset.days, period.time_zone)
+    return candidate.start_date === period.start_date && candidate.end_date === period.end_date
   })
 
   return (
     <form className="audit-filters" noValidate onSubmit={submit}>
       <fieldset>
         <legend>Periodo (fechas incluidas en la zona horaria elegida)</legend>
+        <div aria-label="Periodos rápidos" className="audit-presets" role="group">
+          {presets.map((preset) => (
+            <button
+              aria-pressed={activePreset?.days === preset.days}
+              className="audit-preset"
+              disabled={busy}
+              key={preset.days}
+              onClick={() => applyPreset(preset.days)}
+              type="button"
+            >
+              {preset.label}
+            </button>
+          ))}
+        </div>
         <div className="audit-field-grid">
-          <Field error={errors.start_date} id={id('start')} label="Desde">
+          <Field error={errors.start_date} hint={FIELD_HINTS.start_date} id={id('start')} label="Desde">
             <input
               {...aria('start', 'start_date')}
               id={id('start')}
@@ -104,7 +148,12 @@ export function AuditFilterForm({
               value={period.start_date}
             />
           </Field>
-          <Field error={errors.end_date} id={id('end')} label="Hasta">
+          <Field
+            error={errors.end_date}
+            hint={`${FIELD_HINTS.end_date} Máximo ${catalog.max_query_days} días por consulta.`}
+            id={id('end')}
+            label="Hasta"
+          >
             <input
               {...aria('end', 'end_date')}
               id={id('end')}
@@ -114,8 +163,9 @@ export function AuditFilterForm({
               value={period.end_date}
             />
           </Field>
-          <Field id={id('zone')} label="Zona horaria">
+          <Field hint={FIELD_HINTS.time_zone} id={id('zone')} label="Zona horaria">
             <select
+              aria-describedby={describedBy(id('zone'))}
               id={id('zone')}
               onChange={(event) => {
                 const zone = event.currentTarget.value
@@ -136,7 +186,7 @@ export function AuditFilterForm({
         <fieldset>
           <legend>Filtros</legend>
           <div className="audit-field-grid">
-            <Field error={errors.event_type} id={id('type')} label="Tipo de evento">
+            <Field error={errors.event_type} hint={FIELD_HINTS.event_type} id={id('type')} label="Tipo de evento">
               <select
                 {...aria('type', 'event_type')}
                 id={id('type')}
@@ -147,16 +197,36 @@ export function AuditFilterForm({
                 {filters.event_type && !catalog.event_types.includes(filters.event_type) && (
                   <option value={filters.event_type}>{filters.event_type}</option>
                 )}
-                {catalog.event_types.map((type) => <option key={type} value={type}>{type}</option>)}
+                {eventTypes.map((type) => (
+                  <option key={type} value={type}>{`${eventTypeLabel(type)} (${type})`}</option>
+                ))}
               </select>
             </Field>
-            <Field id={id('outcome')} label="Resultado">
-              <select id={id('outcome')} onChange={(event) => setFilter('outcome', event.currentTarget.value)} value={filters.outcome ?? ''}>
+            <Field hint={FIELD_HINTS.outcome} id={id('outcome')} label="Resultado">
+              <select
+                aria-describedby={describedBy(id('outcome'))}
+                id={id('outcome')}
+                onChange={(event) => setFilter('outcome', event.currentTarget.value)}
+                value={filters.outcome ?? ''}
+              >
                 <option value="">Todos</option>
                 {catalog.outcomes.map((outcome) => <option key={outcome} value={outcome}>{OUTCOME_LABELS[outcome] ?? outcome}</option>)}
               </select>
             </Field>
-            <Field error={errors.actor_id} id={id('actor')} label="Actor (id. de cuenta)">
+            {catalog.actor_roles.length > 0 && (
+              <Field error={errors.actor_role} hint={FIELD_HINTS.actor_role} id={id('role')} label="Rol del actor">
+                <select
+                  {...aria('role', 'actor_role')}
+                  id={id('role')}
+                  onChange={(event) => setFilter('actor_role', event.currentTarget.value)}
+                  value={filters.actor_role ?? ''}
+                >
+                  <option value="">Cualquiera</option>
+                  {catalog.actor_roles.map((role) => <option key={role} value={role}>{roleLabel(role)}</option>)}
+                </select>
+              </Field>
+            )}
+            <Field error={errors.actor_id} hint={FIELD_HINTS.actor_id} id={id('actor')} label="Actor (id. de cuenta)">
               <input
                 {...aria('actor', 'actor_id')}
                 autoComplete="off"
@@ -166,7 +236,7 @@ export function AuditFilterForm({
                 value={filters.actor_id ?? ''}
               />
             </Field>
-            <Field error={errors.target_type} id={id('target-type')} label="Tipo de objetivo">
+            <Field error={errors.target_type} hint={FIELD_HINTS.target_type} id={id('target-type')} label="Tipo de objetivo">
               <select
                 {...aria('target-type', 'target_type')}
                 id={id('target-type')}
@@ -177,7 +247,7 @@ export function AuditFilterForm({
                 {catalog.target_types.map((type) => <option key={type} value={type}>{TARGET_TYPE_LABELS[type] ?? type}</option>)}
               </select>
             </Field>
-            <Field error={errors.target_id} id={id('target')} label="Objetivo (identificador)">
+            <Field error={errors.target_id} hint={FIELD_HINTS.target_id} id={id('target')} label="Objetivo (identificador)">
               <input
                 {...aria('target', 'target_id')}
                 autoComplete="off"
@@ -186,7 +256,7 @@ export function AuditFilterForm({
                 value={filters.target_id ?? ''}
               />
             </Field>
-            <Field error={errors.correlation_id} id={id('correlation')} label="Correlación">
+            <Field error={errors.correlation_id} hint={FIELD_HINTS.correlation_id} id={id('correlation')} label="Correlación">
               <input
                 {...aria('correlation', 'correlation_id')}
                 autoComplete="off"
