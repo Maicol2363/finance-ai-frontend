@@ -600,13 +600,13 @@ export class StaffSessionCoordinator {
       this.clearTimer()
       return
     }
-    // Switching to an authenticator app must not discard the second-factor step.
-    if (this.state.status === 'mfa_required') return
     if (this.isLogoutPending()) {
       this.logoutPendingInMemory = true
       if (this.state.status !== 'logout_pending') this.setLogoutPendingState(true)
       return
     }
+    // Keep the form and its error in place when the user returns with their credentials.
+    if (this.state.status === 'anonymous' || this.state.status === 'authenticating' || this.state.status === 'mfa_required') return
     void this.restore()
   }
 

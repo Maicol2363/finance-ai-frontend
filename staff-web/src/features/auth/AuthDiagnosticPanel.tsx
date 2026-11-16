@@ -30,10 +30,8 @@ export function AuthDiagnosticPanel({ diagnostic }: { diagnostic: StaffAuthDiagn
   }
 
   return (
-    <section aria-labelledby="staff-auth-diagnostic-heading" className="diagnostic-panel" data-testid="staff-auth-diagnostic">
-      <h2 id="staff-auth-diagnostic-heading">Diagnóstico de autenticación</h2>
-      <p>Código del error: <code>{diagnostic.code}</code></p>
-      <p className="diagnostic-privacy">El informe contiene datos técnicos seguros para soporte y no incluye información de la cuenta.</p>
+    <details className="staff-auth-diagnostic" data-testid="staff-auth-diagnostic">
+      <summary>Detalles para soporte</summary>
       <pre aria-label="Contenido del informe de diagnóstico" className="diagnostic-report">{report}</pre>
       <button
         className="diagnostic-copy-button"
@@ -44,6 +42,6 @@ export function AuthDiagnosticPanel({ diagnostic }: { diagnostic: StaffAuthDiagn
         Copiar informe de diagnóstico
       </button>
       <p aria-live="polite" className="diagnostic-copy-status" role="status">{copyStatus}</p>
-    </section>
+    </details>
   )
 }

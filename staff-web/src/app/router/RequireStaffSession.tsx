@@ -36,5 +36,5 @@ export function RequireStaffSession({ children }: { children: ReactNode }) {
   }
 
   const statusMessage = state.status === 'authenticating' ? 'Iniciando sesión…' : 'Comprobando tu sesión del personal…'
-  return <div aria-live="polite" className="async-state" data-testid="staff-auth-loading" role="status">{statusMessage}</div>
+  return <div aria-live="polite" className="async-state staff-session-recheck" data-testid="staff-auth-loading" role="status">{statusMessage}</div>
 }

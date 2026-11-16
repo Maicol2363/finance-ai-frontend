@@ -83,6 +83,13 @@ describe('Security Auditor two-step sign-in', () => {
     await user.click(submit)
     expect(await screen.findByTestId('staff-mfa-message')).toHaveTextContent(/no es válido o ya se usó/)
     expect(codeInput).toHaveValue('')
+    const supportDetails = screen.getByTestId('staff-auth-diagnostic')
+    expect(supportDetails).not.toHaveAttribute('open')
+    await user.click(screen.getByText('Detalles para soporte'))
+    expect(supportDetails).toHaveAttribute('open')
+    const report = screen.getByLabelText('Contenido del informe de diagnóstico')
+    expect(report).toHaveTextContent('Operación: staff.auth.mfa_verify')
+    expect(report).not.toHaveTextContent(/000000|example-only-password|JBSWY3DP/)
 
     await user.type(codeInput, '123456')
     await user.click(screen.getByRole('button', { name: 'Verificar y entrar' }))
