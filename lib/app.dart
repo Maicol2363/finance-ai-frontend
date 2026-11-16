@@ -19,6 +19,7 @@ import 'features/expenses/application/expenses_controller.dart';
 import 'features/expenses/application/history_controller.dart';
 import 'features/income_sources/presentation/income_sources_controller.dart';
 import 'features/incomes/data/incomes_repository.dart';
+import 'features/notifications/application/notifications_controller.dart';
 import 'features/receipt_capture/application/receipt_capture_notifier.dart';
 import 'features/text_capture/application/text_capture_controller.dart';
 
@@ -55,6 +56,7 @@ class _FinanceAppState extends ConsumerState<FinanceApp> {
       ref.invalidate(incomesListProvider);
       ref.invalidate(incomeRevisionProvider);
       ref.invalidate(incomeSourcesControllerProvider);
+      ref.invalidate(notificationsControllerProvider);
       ref.invalidate(receiptCaptureNotifierProvider);
       ref.invalidate(textCaptureControllerProvider);
     }

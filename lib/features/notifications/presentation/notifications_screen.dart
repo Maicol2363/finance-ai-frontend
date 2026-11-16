@@ -214,7 +214,10 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
           key: const Key('notifications-resend'),
           onPressed: state.isBusy || remaining > 0
               ? null
-              : controller.startVerification,
+              : () {
+                  _codeController.clear(); // the old code stops working once a new one is sent
+                  controller.startVerification();
+                },
           child: Text(
             remaining > 0
                 ? 'Pedir otro código en $remaining s'

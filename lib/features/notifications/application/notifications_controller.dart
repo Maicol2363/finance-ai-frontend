@@ -31,7 +31,7 @@ class NotificationsController extends Notifier<NotificationsState> {
     );
     await _run(
       'load_notifications',
-      onFailure: () {
+      onFailure: (_) {
         state = state.copyWith(loadStatus: NotificationsLoadStatus.failure);
       },
       action: () async {
@@ -61,8 +61,8 @@ class NotificationsController extends Notifier<NotificationsState> {
     );
     await _run(
       'request_email_verification',
-      onFailure: () {
-        state = state.copyWith(verificationStep: _stepAfterFailure());
+      onFailure: (failure) {
+        state = state.copyWith(verificationStep: _stepAfterFailure(failure));
       },
       action: () async {
         final issued = await _repository.requestVerification();
@@ -97,9 +97,11 @@ class NotificationsController extends Notifier<NotificationsState> {
     var verified = false;
     await _run(
       'verify_email',
-      onFailure: () {
+      onFailure: (_) {
         state = state.copyWith(verificationStep: VerificationStep.codeSent);
       },
+      // A lost reply may hide a success: ask the server before showing the code field again.
+      refreshOnUncertainFailure: true,
       action: () async {
         final preferences = await _repository.verify(code);
         state = state.copyWith(
@@ -123,7 +125,7 @@ class NotificationsController extends Notifier<NotificationsState> {
     );
     await _run(
       'send_test_email',
-      onFailure: () {
+      onFailure: (_) {
         state = state.copyWith(isSendingTest: false);
       },
       action: () async {
@@ -149,7 +151,7 @@ class NotificationsController extends Notifier<NotificationsState> {
     );
     await _run(
       operation,
-      onFailure: () async {
+      onFailure: (_) {
         state = state.copyWith(isSaving: false);
       },
       action: () async {
@@ -164,21 +166,29 @@ class NotificationsController extends Notifier<NotificationsState> {
     );
   }
 
-  VerificationStep _stepAfterFailure() => state.verification == null
-      ? VerificationStep.idle
-      : VerificationStep.codeSent;
+  /// Where the flow goes after a failed code request. A code that was just sent (cooldown) or
+  /// whose reply was lost may already be in the inbox, so the field stays reachable.
+  VerificationStep _stepAfterFailure(NotificationFailure? failure) {
+    final codeMayBeOnItsWay =
+        failure != null &&
+        (failure.code == 'verification_cooldown' ||
+            failure.isMutationOutcomeUncertain);
+    return state.verification != null || codeMayBeOnItsWay
+        ? VerificationStep.codeSent
+        : VerificationStep.idle;
+  }
 
   /// Runs one action and turns every failure into a safe, copyable diagnostic.
   Future<void> _run(
     String operation, {
     required Future<void> Function() action,
-    required void Function() onFailure,
+    required void Function(NotificationFailure? failure) onFailure,
     bool refreshOnUncertainFailure = false,
   }) async {
     try {
       await action();
     } on InvalidSessionFailure catch (failure) {
-      onFailure();
+      onFailure(null);
       state = state.copyWith(
         diagnostic: ErrorDiagnostic.capture(
           code: failure.code,
@@ -189,7 +199,7 @@ class NotificationsController extends Notifier<NotificationsState> {
         ),
       );
     } on NotificationFailure catch (failure) {
-      onFailure();
+      onFailure(failure);
       var diagnostic = ErrorDiagnostic.capture(
         code: failure.code,
         operation: operation,
@@ -203,16 +213,27 @@ class NotificationsController extends Notifier<NotificationsState> {
             .add(Duration(seconds: failure.retryAfterSeconds!));
         state = state.copyWith(resendAvailableAt: until);
       }
-      if (refreshOnUncertainFailure && failure.isMutationOutcomeUncertain) {
+      final shouldReload =
+          (refreshOnUncertainFailure && failure.isMutationOutcomeUncertain) ||
+          failure.code == 'email_already_verified';
+      if (shouldReload) {
         try {
-          state = state.copyWith(preferences: await _repository.load());
+          final fresh = await _repository.load();
+          state = state.copyWith(preferences: fresh);
+          if (fresh.emailVerified) {
+            state = state.copyWith(
+              verificationStep: VerificationStep.idle,
+              clearVerification: true,
+              clearResend: true,
+            );
+          }
         } on Object {
           // Keep the original diagnostic; the person can reload manually.
         }
       }
       state = state.copyWith(diagnostic: diagnostic);
     } on Object {
-      onFailure();
+      onFailure(null);
       state = state.copyWith(
         diagnostic: ErrorDiagnostic.capture(
           code: 'unexpected_client_error',

@@ -162,7 +162,8 @@ void main() {
       await controller.startVerification();
 
       final state = container.read(notificationsControllerProvider);
-      expect(state.verificationStep, VerificationStep.idle);
+      // A code was just sent: the field stays reachable while the resend button waits.
+      expect(state.verificationStep, VerificationStep.codeSent);
       expect(state.resendAvailableAt, epoch.add(const Duration(seconds: 40)));
       expect(state.diagnostic?.code, 'verification_cooldown');
     },
@@ -259,4 +260,115 @@ void main() {
 
     expect(repository.calls.where((call) => call == 'test'), hasLength(1));
   });
+
+  test('a code that was just sent keeps the code field reachable', () async {
+    final (container, repository) = setup(
+      initial: preferences(verified: false, enabled: false),
+    );
+    final controller = container.read(notificationsControllerProvider.notifier);
+    await controller.load();
+    repository.failNext = const NotificationFailure(
+      code: 'verification_cooldown',
+      userMessage: 'Ya te enviamos un código.',
+      retryAfterSeconds: 40,
+    );
+
+    await controller.startVerification();
+
+    final state = container.read(notificationsControllerProvider);
+    expect(state.verificationStep, VerificationStep.codeSent);
+    expect(state.resendAvailableAt, epoch.add(const Duration(seconds: 40)));
+  });
+
+  test(
+    'a lost reply to the code request keeps the code field reachable',
+    () async {
+      final (container, repository) = setup(
+        initial: preferences(verified: false, enabled: false),
+      );
+      final controller = container.read(
+        notificationsControllerProvider.notifier,
+      );
+      await controller.load();
+      repository.failNext = const NotificationFailure(
+        code: 'network_unavailable',
+        userMessage: 'No pudimos confirmar si se envió el código.',
+        isMutationOutcomeUncertain: true,
+      );
+
+      await controller.startVerification();
+
+      expect(
+        container.read(notificationsControllerProvider).verificationStep,
+        VerificationStep.codeSent,
+      );
+    },
+  );
+
+  test('a plain failure to send the first code returns to the start', () async {
+    final (container, repository) = setup(
+      initial: preferences(verified: false, enabled: false),
+    );
+    final controller = container.read(notificationsControllerProvider.notifier);
+    await controller.load();
+    repository.failNext = const NotificationFailure(
+      code: 'email_delivery_failed',
+      userMessage: 'No pudimos enviar el correo ahora.',
+    );
+
+    await controller.startVerification();
+
+    expect(
+      container.read(notificationsControllerProvider).verificationStep,
+      VerificationStep.idle,
+    );
+  });
+
+  test('"already verified" refreshes the screen instead of looping', () async {
+    final (container, repository) = setup(
+      initial: preferences(verified: false, enabled: false),
+    );
+    final controller = container.read(notificationsControllerProvider.notifier);
+    await controller.load();
+    repository.current = preferences(verified: true, enabled: true);
+    repository.failNext = const NotificationFailure(
+      code: 'email_already_verified',
+      userMessage: 'Tu correo ya está verificado.',
+    );
+
+    await controller.startVerification();
+
+    final state = container.read(notificationsControllerProvider);
+    expect(state.preferences?.emailVerified, isTrue);
+    expect(state.verificationStep, VerificationStep.idle);
+    expect(state.diagnostic?.code, 'email_already_verified');
+  });
+
+  test(
+    'a lost reply to the verification shows the real server state',
+    () async {
+      final (container, repository) = setup(
+        initial: preferences(verified: false, enabled: false),
+      );
+      final controller = container.read(
+        notificationsControllerProvider.notifier,
+      );
+      await controller.load();
+      await controller.startVerification();
+      // The server accepted the code, but the answer never arrived.
+      repository.current = preferences(verified: true, enabled: true);
+      repository.failNext = const NotificationFailure(
+        code: 'network_unavailable',
+        userMessage: 'No pudimos confirmar el código.',
+        isMutationOutcomeUncertain: true,
+      );
+
+      expect(await controller.verify('123456'), isFalse);
+
+      final state = container.read(notificationsControllerProvider);
+      expect(state.preferences?.emailVerified, isTrue);
+      expect(state.verificationStep, VerificationStep.idle);
+      expect(state.verification, isNull);
+    },
+  );
 }
