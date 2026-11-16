@@ -28,6 +28,7 @@ export const TARGET_TYPE_LABELS: Readonly<Record<string, string>> = {
   account: 'Cuenta',
   audit_report: 'Informe de auditoría',
   protected_resource: 'Recurso protegido',
+  staff_invitation: 'Invitación del personal',
   staff_session: 'Sesión del personal',
   support_ticket: 'Ticket de soporte',
 }
