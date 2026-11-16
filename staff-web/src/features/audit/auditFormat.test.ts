@@ -9,6 +9,7 @@ import {
   safeAuditDiagnostic,
   safeAuditMessage,
   shiftDate,
+  TARGET_TYPE_LABELS,
   targetLabel,
   todayInZone,
   toSearchParams,
@@ -16,6 +17,7 @@ import {
   validatePeriod,
   zoneLabel,
 } from './auditFormat'
+import { catalog } from '../../test/auditFixtures'
 
 const limits = { maxDays: 90, maxReportEvents: 2000 }
 
@@ -79,8 +81,14 @@ describe('audit date handling', () => {
   it('describes targets and unknown values without inventing identities', () => {
     expect(targetLabel(null, null)).toBe('No registrado')
     expect(targetLabel('account', '15')).toBe('Cuenta · 15')
+    expect(targetLabel('staff_invitation', '3')).toBe('Invitación del personal · 3')
     expect(targetLabel('custom_type', null)).toBe('custom_type')
     expect(targetLabel(null, '7')).toBe('Tipo no registrado · 7')
+  })
+
+  it('has a Spanish label for every target type in the backend catalog', () => {
+    // The fixture mirrors AUDIT_TARGET_TYPES from the backend; a new type needs a label here too.
+    expect(catalog.target_types.filter((type) => !(type in TARGET_TYPE_LABELS))).toEqual([])
   })
 })
 

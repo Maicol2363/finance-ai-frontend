@@ -24,7 +24,7 @@ export const period = {
 export const catalog = {
   event_types: ['access.denied', 'auth.login_success', 'auth.mfa_failed', 'staff.login', 'staff.login_denied'],
   outcomes: ['success', 'denied', 'failure'],
-  target_types: ['account', 'audit_report', 'protected_resource', 'staff_session', 'support_ticket'],
+  target_types: ['account', 'audit_report', 'protected_resource', 'staff_invitation', 'staff_session', 'support_ticket'],
   time_zones: [
     { name: 'America/Bogota', label: 'America/Bogota (UTC-05:00)' },
     { name: 'UTC', label: 'UTC (UTC+00:00)' },
