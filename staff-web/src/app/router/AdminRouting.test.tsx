@@ -135,10 +135,10 @@ describe('administrator routing', () => {
     window.history.pushState({}, '', '/admin/tickets')
     render(<AppRouter />)
 
-    expect(await screen.findByTestId('staff-role-forbidden')).toHaveTextContent('Esta sección no corresponde a tu rol')
+    expect(await screen.findByTestId('staff-role-forbidden')).toHaveTextContent('No tienes permisos para acceder a estas funciones')
     expect(screen.queryByRole('heading', { name: 'Administración' })).not.toBeInTheDocument()
     expect(protectedRequests('/staff/admin/')).toEqual([])
-    expect(screen.getByRole('link', { name: 'Ir a mi espacio' })).toHaveAttribute('href', '/support')
+    expect(screen.getByRole('link', { name: 'Volver a mi espacio de trabajo' })).toHaveAttribute('href', '/support')
   })
 
   it('keeps an auditor out of the administration workspace', async () => {
@@ -155,8 +155,8 @@ describe('administrator routing', () => {
     window.history.pushState({}, '', '/support')
     render(<AppRouter />)
 
-    expect(await screen.findByTestId('staff-role-forbidden')).toHaveTextContent('Administrador')
-    expect(screen.getByRole('link', { name: 'Ir a mi espacio' })).toHaveAttribute('href', '/admin')
+    expect(await screen.findByTestId('staff-role-forbidden')).toHaveTextContent('No tienes permisos para acceder a estas funciones')
+    expect(screen.getByRole('link', { name: 'Volver a mi espacio de trabajo' })).toHaveAttribute('href', '/admin')
     expect(protectedRequests('/staff/support/')).toEqual([])
     expect(protectedRequests('/staff/audit/')).toEqual([])
   })

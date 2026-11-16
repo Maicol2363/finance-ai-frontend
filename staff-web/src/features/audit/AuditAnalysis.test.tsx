@@ -241,7 +241,7 @@ describe('Security Auditor investigation, summary and reports', () => {
     expect(href.searchParams.get('outcome')).toBe('success')
     expect(href.searchParams.get('actor_id')).toBe('9')
     expect(href.searchParams.get('start_date')).toBe('2026-11-01')
-    expect(screen.getByTestId('audit-distribution-chart')).toHaveTextContent('auth.mfa_failed · Fallo')
+    expect(screen.getByTestId('audit-distribution-chart')).toHaveTextContent('Verificación en dos pasos fallida · Fallo')
     expect(screen.getByTestId('audit-timeline-chart')).toBeInTheDocument()
     expect(screen.getByRole('table', { name: 'Eventos por día' })).toBeInTheDocument()
   })

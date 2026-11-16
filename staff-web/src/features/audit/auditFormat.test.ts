@@ -1,8 +1,17 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { AuditApiError, auditApi, buildQuery, parseEventPage, parseSummary } from './auditApi'
+import { AuditApiError, auditApi, buildQuery, parseCatalog, parseEventPage, parseSummary } from './auditApi'
 import {
+  contextKeyLabel,
+  contextValueLabel,
   defaultPeriod,
+  describedBy,
+  EVENT_TYPE_LABELS,
+  eventTypeLabel,
   formatInstant,
+  originLabel,
+  periodIncludesToday,
+  presetPeriod,
+  roleLabel,
   needsSessionCheck,
   periodDays,
   readQuery,
@@ -17,7 +26,7 @@ import {
   validatePeriod,
   zoneLabel,
 } from './auditFormat'
-import { catalog } from '../../test/auditFixtures'
+import { auditEvent, catalog, period } from '../../test/auditFixtures'
 
 const limits = { maxDays: 90, maxReportEvents: 2000 }
 
@@ -90,6 +99,41 @@ describe('audit date handling', () => {
     // The fixture mirrors AUDIT_TARGET_TYPES from the backend; a new type needs a label here too.
     expect(catalog.target_types.filter((type) => !(type in TARGET_TYPE_LABELS))).toEqual([])
   })
+
+  it('names events, roles and sign-in context readably and keeps unknown codes as recorded', () => {
+    // Mirrors KNOWN_EVENT_TYPES in the backend audit policy.
+    const known = [
+      'access.denied', 'account.reactivated', 'account.suspended', 'audit.report_exported', 'auth.login_failed',
+      'auth.login_success', 'auth.logout', 'auth.mfa_enrolled', 'auth.mfa_failed', 'auth.mfa_recovered',
+      'auth.mfa_replaced', 'auth.mfa_success', 'role.changed', 'session.revoked', 'staff.activated', 'staff.created',
+      'staff.login', 'staff.login_denied', 'staff.logout', 'staff.refresh', 'staff.session_revoked',
+      'support.customer_lookup', 'support.message_sent', 'support.ticket_claimed', 'support.ticket_created',
+      'support.ticket_resolved', 'support.ticket_returned', 'ticket.escalated',
+    ]
+    expect(known.filter((type) => !(type in EVENT_TYPE_LABELS))).toEqual([])
+    expect(eventTypeLabel('auth.login_failed')).toBe('Inicio de sesión fallido')
+    expect(eventTypeLabel('future.event')).toBe('future.event')
+    expect(catalog.actor_roles.map(roleLabel)).toEqual(['Usuario (cliente)', 'Agente de soporte', 'Administrador', 'Auditor de seguridad'])
+    expect(roleLabel(null)).toBe('No registrado')
+    expect(contextKeyLabel('channel')).toBe('Origen')
+    expect(contextValueLabel('reason', 'invalid_credentials')).toBe('Credenciales incorrectas')
+    expect(contextValueLabel('new_role', 'support_agent')).toBe('Agente de soporte')
+    expect(contextValueLabel('reason', 'something_new')).toBe('something_new')
+    expect(originLabel({ channel: 'customer_app', platform: 'windows' })).toBe('App de clientes · Windows')
+    expect(originLabel({ reason: 'x' })).toBeNull()
+  })
+
+  it('builds quick periods, knows when a period still grows and validates the role filter', () => {
+    const now = new Date('2026-11-16T15:00:00Z')
+    expect(presetPeriod(1, 'America/Bogota', now)).toEqual({ start_date: '2026-11-16', end_date: '2026-11-16', time_zone: 'America/Bogota' })
+    expect(presetPeriod(30, 'UTC', now).start_date).toBe('2026-10-18')
+    expect(periodIncludesToday({ start_date: '2026-11-01', end_date: '2026-11-16', time_zone: 'UTC' }, now)).toBe(true)
+    expect(periodIncludesToday({ start_date: '2026-11-01', end_date: '2026-11-15', time_zone: 'UTC' }, now)).toBe(false)
+    expect(validateFilters({ actor_role: 'admin' })).toEqual({})
+    expect(validateFilters({ actor_role: 'superuser' }).actor_role).toBeDefined()
+    expect(describedBy('f')).toBe('f-hint')
+    expect(describedBy('f', 'bad')).toBe('f-hint f-error')
+  })
 })
 
 describe('audit error handling', () => {
@@ -122,6 +166,24 @@ describe('audit error handling', () => {
   it('rejects malformed server payloads instead of rendering them', () => {
     expect(() => parseEventPage({ items: [{ event_id: 'not-a-uuid' }], next_cursor: null })).toThrow()
     expect(() => parseSummary({ coverage: 'complete' })).toThrow()
+  })
+
+  it('reads the recorded actor role, tolerating a backend that predates it', () => {
+    const page = (event: Record<string, unknown>) => ({
+      items: [event],
+      next_cursor: null,
+      read_boundary: '2026-11-14T20:00:00Z',
+      period: { ...period },
+    })
+    expect(parseEventPage(page(auditEvent({ actor_role: 'user' }))).items[0].actor_role).toBe('user')
+    const legacy: Record<string, unknown> = auditEvent()
+    delete legacy.actor_role
+    expect(parseEventPage(page(legacy)).items[0].actor_role).toBeNull()
+    expect(() => parseEventPage(page(auditEvent({ actor_role: 7 })))).toThrow()
+    const legacyCatalog: Record<string, unknown> = { ...catalog }
+    delete legacyCatalog.actor_roles
+    expect(parseCatalog(legacyCatalog).actor_roles).toEqual([])
+    expect(() => parseCatalog({ ...catalog, actor_roles: [1] })).toThrow()
   })
 
   it('turns transport failures and malformed JSON into safe errors', async () => {

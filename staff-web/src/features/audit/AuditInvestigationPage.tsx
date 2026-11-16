@@ -8,8 +8,8 @@ import {
 } from './auditApi'
 import { AuditErrorPanel } from './AuditErrorPanel'
 import { AuditEventTable } from './AuditEventTable'
-import { AuditFilterForm } from './AuditFilterForm'
-import { formatInstant, isAccountId, readQuery, toSearchParams, zoneLabel } from './auditFormat'
+import { AuditFilterForm, Field } from './AuditFilterForm'
+import { describedBy, FIELD_HINTS, formatInstant, isAccountId, readQuery, toSearchParams, zoneLabel } from './auditFormat'
 import { isAbort, useAuditFailure, type AuditFailure } from './useAuditRequest'
 
 const PAGE_SIZE = 50
@@ -103,18 +103,23 @@ export function AuditInvestigationPage() {
           afectada. La cuenta no necesita existir ni estar activa hoy.
         </p>
       </div>
-      <div className="audit-field audit-account-field">
-        <label htmlFor="audit-account-id">Identificador histórico de la cuenta</label>
-        <input
-          aria-describedby={accountError ? 'audit-account-id-error' : undefined}
-          aria-invalid={Boolean(accountError)}
-          autoComplete="off"
+      <div className="audit-account-field">
+        <Field
+          error={accountError || undefined}
+          hint={FIELD_HINTS.account_id}
           id="audit-account-id"
-          inputMode="numeric"
-          onChange={(event) => setAccountInput(event.currentTarget.value)}
-          value={accountInput}
-        />
-        {accountError && <span className="audit-field-error" id="audit-account-id-error">{accountError}</span>}
+          label="Identificador histórico de la cuenta"
+        >
+          <input
+            aria-describedby={describedBy('audit-account-id', accountError || undefined)}
+            aria-invalid={Boolean(accountError)}
+            autoComplete="off"
+            id="audit-account-id"
+            inputMode="numeric"
+            onChange={(event) => setAccountInput(event.currentTarget.value)}
+            value={accountInput}
+          />
+        </Field>
       </div>
       <AuditFilterForm
         busy={loading}
@@ -152,6 +157,7 @@ export function AuditInvestigationPage() {
             caption={`Cuenta ${page.account_id}: ${items.length} eventos, de más antiguo a más reciente, en ${zoneLabel(zone)}.`}
             detailSearch={`?${toSearchParams(period, {}).toString()}`}
             events={items}
+            pivotTo={(filters) => `/audit/events?${toSearchParams(period, filters).toString()}`}
             showMatch
             timeZone={zone}
           />

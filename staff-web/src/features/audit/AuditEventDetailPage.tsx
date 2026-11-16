@@ -3,10 +3,15 @@ import { Link, useParams, useSearchParams } from 'react-router'
 import { auditApi, type AuditEvent, type AuditPeriodQuery } from './auditApi'
 import { AuditErrorPanel } from './AuditErrorPanel'
 import {
+  contextKeyLabel,
+  contextValueLabel,
+  eventTypeLabel,
   formatInstant,
   isAccountId,
+  originLabel,
   outcomeLabel,
   readQuery,
+  roleLabel,
   shiftDate,
   TARGET_TYPE_LABELS,
   todayInZone,
@@ -72,9 +77,14 @@ export function AuditEventDetailPage() {
             <div><dt>Id. del evento</dt><dd><code>{event.event_id}</code></dd></div>
             <div><dt>Fecha y hora · {zoneLabel(zone)}</dt><dd>{formatInstant(event.occurred_at, zone)}</dd></div>
             <div><dt>Marca de tiempo UTC registrada</dt><dd><code>{event.occurred_at}</code></dd></div>
-            <div><dt>Tipo</dt><dd><code>{event.event_type}</code></dd></div>
+            <div><dt>Evento</dt><dd>{eventTypeLabel(event.event_type)} (<code>{event.event_type}</code>)</dd></div>
             <div><dt>Resultado</dt><dd>{outcomeLabel(event.outcome)} (<code>{event.outcome}</code>)</dd></div>
             <div><dt>Actor</dt><dd>{event.actor_id ?? <Unknown />}</dd></div>
+            <div>
+              <dt>Rol del actor al registrarse el evento</dt>
+              <dd>{event.actor_role ? roleLabel(event.actor_role) : <Unknown />}</dd>
+            </div>
+            {originLabel(event.context) && <div><dt>Origen</dt><dd>{originLabel(event.context)}</dd></div>}
             <div>
               <dt>Tipo de objetivo</dt>
               <dd>{event.target_type ? (TARGET_TYPE_LABELS[event.target_type] ?? event.target_type) : <Unknown />}</dd>
@@ -87,9 +97,15 @@ export function AuditEventDetailPage() {
             <p className="audit-hint">El evento no tiene contexto adicional permitido.</p>
           ) : (
             <dl className="audit-detail-list">
-              {Object.entries(event.context).map(([key, value]) => (
-                <div key={key}><dt><code>{key}</code></dt><dd>{value}</dd></div>
-              ))}
+              {Object.entries(event.context).map(([key, value]) => {
+                const readable = contextValueLabel(key, value)
+                return (
+                  <div key={key}>
+                    <dt>{contextKeyLabel(key)} <code>{key}</code></dt>
+                    <dd>{readable === value ? value : <>{readable} (<code>{value}</code>)</>}</dd>
+                  </div>
+                )
+              })}
             </dl>
           )}
           <h3>Consultas relacionadas</h3>

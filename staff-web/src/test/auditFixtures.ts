@@ -25,6 +25,7 @@ export const catalog = {
   event_types: ['access.denied', 'auth.login_success', 'auth.mfa_failed', 'staff.login', 'staff.login_denied'],
   outcomes: ['success', 'denied', 'failure'],
   target_types: ['account', 'audit_report', 'protected_resource', 'staff_invitation', 'staff_session', 'support_ticket'],
+  actor_roles: ['user', 'support_agent', 'admin', 'security_auditor'],
   time_zones: [
     { name: 'America/Bogota', label: 'America/Bogota (UTC-05:00)' },
     { name: 'UTC', label: 'UTC (UTC+00:00)' },
@@ -43,6 +44,7 @@ export function auditEvent(overrides: Record<string, unknown> = {}) {
     event_type: 'access.denied',
     outcome: 'denied',
     actor_id: '9',
+    actor_role: 'support_agent',
     target_type: 'protected_resource',
     target_id: 'security_audit',
     correlation_id: 'corr-1',

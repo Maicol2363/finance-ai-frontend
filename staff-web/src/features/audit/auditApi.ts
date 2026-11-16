@@ -22,12 +22,13 @@ export interface AuditFilterQuery {
   event_type?: string
   outcome?: string
   actor_id?: string
+  actor_role?: string
   target_type?: string
   target_id?: string
   correlation_id?: string
 }
 
-export const FILTER_KEYS = ['event_type', 'outcome', 'actor_id', 'target_type', 'target_id', 'correlation_id'] as const
+export const FILTER_KEYS = ['event_type', 'outcome', 'actor_id', 'actor_role', 'target_type', 'target_id', 'correlation_id'] as const
 
 export interface AuditPeriod {
   start_date: string
@@ -44,6 +45,8 @@ export interface AuditEvent {
   event_type: string
   outcome: string
   actor_id: string | null
+  /** Role the actor held when the event was recorded; null when not recorded. */
+  actor_role: string | null
   target_type: string | null
   target_id: string | null
   correlation_id: string | null
@@ -111,6 +114,7 @@ export interface AuditCatalog {
   event_types: string[]
   outcomes: string[]
   target_types: string[]
+  actor_roles: string[]
   time_zones: Array<{ name: AuditTimeZone; label: string }>
   default_time_zone: AuditTimeZone
   max_query_days: number
@@ -156,6 +160,7 @@ const SAFE_FIELD_NAMES = new Set([
   'event_type',
   'outcome',
   'actor_id',
+  'actor_role',
   'target_type',
   'target_id',
   'correlation_id',
@@ -251,12 +256,16 @@ export function parseAuditEvent(value: unknown): AuditEvent {
   ensure(typeof value.event_type === 'string' && typeof value.outcome === 'string')
   ensure(isNullableString(value.actor_id) && isNullableString(value.target_type))
   ensure(isNullableString(value.target_id) && isNullableString(value.correlation_id))
+  // Tolerates a backend that predates the recorded role: absent means not recorded.
+  const actorRole: unknown = value.actor_role === undefined ? null : value.actor_role
+  ensure(isNullableString(actorRole))
   return {
     event_id: value.event_id,
     occurred_at: value.occurred_at,
     event_type: value.event_type,
     outcome: value.outcome,
     actor_id: value.actor_id,
+    actor_role: actorRole,
     target_type: value.target_type,
     target_id: value.target_id,
     correlation_id: value.correlation_id,
@@ -345,10 +354,13 @@ export function parseCatalog(value: unknown): AuditCatalog {
   ensure(Array.isArray(value.time_zones) && isTimeZone(value.default_time_zone))
   ensure(isCount(value.max_query_days) && isCount(value.max_report_events) && isCount(value.max_page_size))
   ensure(Array.isArray(value.metrics))
+  const actorRoles: unknown = value.actor_roles === undefined ? [] : value.actor_roles
+  ensure(isStringList(actorRoles))
   return {
     event_types: value.event_types,
     outcomes: value.outcomes,
     target_types: value.target_types,
+    actor_roles: actorRoles,
     time_zones: value.time_zones.map((item) => {
       ensure(isRecord(item) && isTimeZone(item.name) && typeof item.label === 'string')
       return { name: item.name, label: item.label }

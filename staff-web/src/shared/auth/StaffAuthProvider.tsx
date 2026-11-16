@@ -31,8 +31,9 @@ export function StaffAuthProvider({ children }: StaffAuthProviderProps) {
     }
   }, [coordinator])
 
-  const value = useMemo<StaffAuthContextValue>(() => ({
-    state,
+  // The actions depend only on the coordinator, so their identities survive every state change
+  // (including the periodic re-confirmation); effects that list them do not re-run or refetch.
+  const actions = useMemo<Omit<StaffAuthContextValue, 'state' | 'session'>>(() => ({
     login: (email, password) => coordinator.login(email, password),
     logout: () => coordinator.logout(),
     retry: () => coordinator.retry(),
@@ -41,8 +42,13 @@ export function StaffAuthProvider({ children }: StaffAuthProviderProps) {
     verifyMfa: (code) => coordinator.verifyMfa(code),
     cancelMfa: () => coordinator.cancelMfa(),
     resetMfa: (email, password, proof) => coordinator.resetMfa(email, password, proof),
+  }), [coordinator])
+
+  const value = useMemo<StaffAuthContextValue>(() => ({
+    ...actions,
+    state,
     session: state.status === 'authenticated' ? state.session : state.status === 'restoring' || state.status === 'refreshing' ? heldSession : null,
-  }), [coordinator, state, heldSession])
+  }), [actions, state, heldSession])
 
   return <StaffAuthContext.Provider value={value}>{children}</StaffAuthContext.Provider>
 }

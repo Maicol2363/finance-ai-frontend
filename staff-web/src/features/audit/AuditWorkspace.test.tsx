@@ -101,8 +101,8 @@ describe('Security Auditor workspace', () => {
     window.history.pushState({}, '', '/audit/events')
     render(<AppRouter />)
 
-    expect(await screen.findByRole('heading', { name: 'Esta sección no corresponde a tu rol' })).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'Ir a mi espacio' })).toHaveAttribute('href', '/support')
+    expect(await screen.findByRole('heading', { name: 'No tienes permisos para acceder a estas funciones' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Volver a mi espacio de trabajo' })).toHaveAttribute('href', '/support')
     expect(requestedPaths(fetchMock).some((path) => path.includes('/staff/audit/'))).toBe(false)
   })
 

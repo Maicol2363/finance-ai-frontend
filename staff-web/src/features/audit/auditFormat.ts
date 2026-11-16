@@ -33,6 +33,108 @@ export const TARGET_TYPE_LABELS: Readonly<Record<string, string>> = {
   support_ticket: 'Ticket de soporte',
 }
 
+/** The four fixed roles, as recorded on each event at the time it happened. */
+export const ROLE_LABELS: Readonly<Record<string, string>> = {
+  user: 'Usuario (cliente)',
+  support_agent: 'Agente de soporte',
+  admin: 'Administrador',
+  security_auditor: 'Auditor de seguridad',
+}
+
+/** Readable names; the exact event code is always shown next to them. */
+export const EVENT_TYPE_LABELS: Readonly<Record<string, string>> = {
+  'access.denied': 'Acceso denegado',
+  'account.reactivated': 'Cuenta reactivada',
+  'account.suspended': 'Cuenta suspendida',
+  'audit.report_exported': 'Informe de auditoría exportado',
+  'auth.login_failed': 'Inicio de sesión fallido',
+  'auth.login_success': 'Inicio de sesión exitoso',
+  'auth.logout': 'Cierre de sesión',
+  'auth.mfa_enrolled': 'Autenticador configurado',
+  'auth.mfa_failed': 'Verificación en dos pasos fallida',
+  'auth.mfa_recovered': 'Acceso recuperado con código de recuperación',
+  'auth.mfa_replaced': 'Autenticador reemplazado',
+  'auth.mfa_success': 'Verificación en dos pasos correcta',
+  'role.changed': 'Cambio de rol',
+  'session.revoked': 'Sesión revocada',
+  'staff.activated': 'Cuenta del personal activada',
+  'staff.created': 'Invitación al personal creada',
+  'staff.login': 'Inicio de sesión del personal',
+  'staff.login_denied': 'Inicio de sesión del personal rechazado',
+  'staff.logout': 'Cierre de sesión del personal',
+  'staff.refresh': 'Sesión del personal renovada',
+  'staff.session_revoked': 'Sesión del personal revocada',
+  'support.customer_lookup': 'Consulta de cliente por soporte',
+  'support.message_sent': 'Mensaje de soporte enviado',
+  'support.ticket_claimed': 'Ticket tomado por soporte',
+  'support.ticket_created': 'Ticket creado',
+  'support.ticket_resolved': 'Ticket resuelto',
+  'support.ticket_returned': 'Ticket devuelto a soporte',
+  'ticket.escalated': 'Ticket escalado',
+}
+
+const CONTEXT_KEY_LABELS: Readonly<Record<string, string>> = {
+  reason: 'Motivo',
+  resource: 'Recurso',
+  channel: 'Origen',
+  platform: 'Plataforma',
+  previous_role: 'Rol anterior',
+  new_role: 'Rol nuevo',
+  report_id: 'Id. del informe',
+  period_start: 'Inicio del periodo',
+  period_end: 'Fin del periodo',
+  time_zone: 'Zona horaria',
+  event_count: 'Eventos incluidos',
+  filter_event_type: 'Filtro: tipo de evento',
+  filter_outcome: 'Filtro: resultado',
+  filter_actor_id: 'Filtro: actor',
+  filter_actor_role: 'Filtro: rol del actor',
+  filter_target_type: 'Filtro: tipo de objetivo',
+  filter_target_id: 'Filtro: objetivo',
+  filter_correlation_id: 'Filtro: correlación',
+}
+
+const CONTEXT_VALUE_LABELS: Readonly<Record<string, string>> = {
+  customer_app: 'App de clientes',
+  android: 'Android',
+  windows: 'Windows',
+  invalid_credentials: 'Credenciales incorrectas',
+  account_inactive: 'Cuenta inactiva',
+  role_not_permitted: 'Rol sin permiso',
+  invalid_code: 'Código incorrecto',
+  ineligible: 'Cuenta no habilitada',
+}
+
+/** Short help shown under each field while it has focus. */
+export const FIELD_HINTS = {
+  start_date: 'Primer día incluido en la búsqueda, en la zona horaria elegida.',
+  end_date: 'Último día incluido completo, hasta las 23:59:59.',
+  time_zone: 'Define cómo se muestran las horas y dónde empieza cada día. Los eventos se guardan en UTC.',
+  event_type: 'La acción registrada, por ejemplo un inicio de sesión fallido o un acceso denegado.',
+  outcome:
+    'Éxito: la acción se completó. Denegado: se bloqueó por permisos o por el estado de la cuenta. Fallo: no se completó por un dato incorrecto o un error.',
+  actor_role:
+    'Rol que tenía quien hizo la acción en el momento del evento. Los eventos sin rol registrado no aparecen al usar este filtro.',
+  actor_id: 'Número de la cuenta que hizo la acción. Lo ves en la columna Actor o en el detalle de un evento.',
+  target_type: 'Clase de elemento afectado por la acción: una cuenta, una sesión, un ticket, un informe…',
+  target_id: 'Identificador del elemento afectado. Elige antes el tipo de objetivo.',
+  correlation_id:
+    'Código que comparten todos los eventos de una misma solicitud u operación. Sirve para ver juntos los pasos de, por ejemplo, un mismo inicio de sesión.',
+  account_id: 'Número de la cuenta a investigar. Se buscan los eventos donde actuó o donde fue afectada.',
+} as const
+
+/** Ids of a field's help text and, when present, its error, for the control's aria-describedby. */
+export function describedBy(id: string, error?: string): string {
+  return error ? `${id}-hint ${id}-error` : `${id}-hint`
+}
+
+export const PERIOD_PRESETS: ReadonlyArray<{ days: number; label: string }> = [
+  { days: 1, label: 'Hoy' },
+  { days: 7, label: 'Últimos 7 días' },
+  { days: 30, label: 'Últimos 30 días' },
+  { days: 90, label: 'Últimos 90 días' },
+]
+
 export const MATCH_LABELS: Readonly<Record<AuditMatch, string>> = {
   actor: 'Actor',
   target: 'Cuenta afectada',
@@ -46,6 +148,7 @@ export const FIELD_LABELS: Readonly<Record<string, string>> = {
   event_type: 'tipo de evento',
   outcome: 'resultado',
   actor_id: 'actor',
+  actor_role: 'rol del actor',
   target_type: 'tipo de objetivo',
   target_id: 'objetivo',
   correlation_id: 'correlación',
@@ -83,8 +186,18 @@ export function periodDays(start: string, end: string): number {
 }
 
 export function defaultPeriod(zone: AuditTimeZone = DEFAULT_TIME_ZONE, now = new Date()): AuditPeriodQuery {
+  return presetPeriod(7, zone, now)
+}
+
+/** The last `days` calendar days ending today in the reporting zone (1 = today only). */
+export function presetPeriod(days: number, zone: AuditTimeZone = DEFAULT_TIME_ZONE, now = new Date()): AuditPeriodQuery {
   const end = todayInZone(zone, now)
-  return { start_date: shiftDate(end, -6), end_date: end, time_zone: zone }
+  return { start_date: shiftDate(end, -(days - 1)), end_date: end, time_zone: zone }
+}
+
+/** Whether the period still grows: events recorded from now on can fall inside it. */
+export function periodIncludesToday(period: AuditPeriodQuery, now = new Date()): boolean {
+  return period.end_date >= todayInZone(period.time_zone, now)
 }
 
 export function formatInstant(iso: string, zone: string): string {
@@ -106,6 +219,32 @@ export function zoneLabel(zone: string): string {
 
 export function outcomeLabel(outcome: string): string {
   return OUTCOME_LABELS[outcome] ?? outcome
+}
+
+export function roleLabel(role: string | null): string {
+  if (!role) return UNKNOWN_VALUE
+  return ROLE_LABELS[role] ?? role
+}
+
+export function eventTypeLabel(eventType: string): string {
+  return EVENT_TYPE_LABELS[eventType] ?? eventType
+}
+
+export function contextKeyLabel(key: string): string {
+  return CONTEXT_KEY_LABELS[key] ?? key
+}
+
+/** A readable value for known codes and roles; anything else is shown exactly as recorded. */
+export function contextValueLabel(key: string, value: string): string {
+  if (key === 'previous_role' || key === 'new_role' || key === 'filter_actor_role') return ROLE_LABELS[value] ?? value
+  return CONTEXT_VALUE_LABELS[value] ?? value
+}
+
+/** Where a sign-in came from, e.g. "App de clientes · Android"; null when not recorded. */
+export function originLabel(context: Record<string, string>): string | null {
+  if (!context.channel) return null
+  const channel = contextValueLabel('channel', context.channel)
+  return context.platform ? `${channel} · ${contextValueLabel('platform', context.platform)}` : channel
 }
 
 export function targetLabel(type: string | null, id: string | null): string {
@@ -143,6 +282,7 @@ export function validateFilters(filters: AuditFilterQuery): Record<string, strin
   const errors: Record<string, string> = {}
   if (filters.event_type && !EVENT_TYPE.test(filters.event_type)) errors.event_type = 'Selecciona un tipo de evento válido.'
   if (filters.actor_id && !ACTOR_ID.test(filters.actor_id)) errors.actor_id = 'El actor es un identificador numérico de cuenta.'
+  if (filters.actor_role && !(filters.actor_role in ROLE_LABELS)) errors.actor_role = 'Selecciona uno de los cuatro roles.'
   if (filters.target_id && !TARGET_ID.test(filters.target_id)) errors.target_id = 'El objetivo contiene caracteres no permitidos.'
   if (filters.target_id && !filters.target_type) errors.target_type = 'Selecciona el tipo de objetivo para este identificador.'
   if (filters.correlation_id && !CORRELATION_ID.test(filters.correlation_id)) {

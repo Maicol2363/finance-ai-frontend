@@ -260,6 +260,20 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .audit-field input:focus, .audit-field select:focus { border-color: var(--primary); outline: 3px solid color-mix(in srgb, var(--primary) 24%, transparent); }
 .audit-field input[aria-invalid="true"], .audit-field select[aria-invalid="true"] { border-color: var(--discard); }
 .audit-field-error { color: var(--discard-text); font-size: 11px; line-height: 1.4; }
+/* Field help: always announced through aria-describedby, shown while the field has focus. */
+.audit-field-hint { display: none; color: var(--muted); font-size: 11px; line-height: 1.45; }
+.audit-field:focus-within .audit-field-hint { display: block; }
+.audit-presets { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+.audit-preset { min-height: 32px; padding: 6px 11px; border: 1px solid var(--line); border-radius: 999px; color: var(--ink); background: var(--card); font: inherit; font-size: 12px; font-weight: 650; cursor: pointer; }
+.audit-preset[aria-pressed="true"] { border-color: var(--primary); color: var(--primary); background: color-mix(in srgb, var(--primary) 10%, var(--card)); }
+.audit-preset:focus-visible { outline: 3px solid color-mix(in srgb, var(--primary) 30%, transparent); outline-offset: 1px; }
+.audit-preset:disabled { cursor: default; opacity: .6; }
+.audit-toolbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
+.audit-new-events { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 10px 14px; border: 1px solid color-mix(in srgb, var(--primary) 40%, var(--line)); border-radius: 10px; color: var(--ink); background: color-mix(in srgb, var(--primary) 8%, var(--card)); font-size: 13px; }
+.audit-cell-main { display: block; }
+.audit-cell-sub { display: block; margin-top: 2px; color: var(--muted); font-size: 11px; }
+.audit-table td code.audit-cell-sub { font-size: 10.5px; }
+.audit-code-link code { color: inherit; }
 .audit-account-field { max-width: 320px; }
 .audit-hint { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.6; }
 .audit-form-actions { display: flex; flex-wrap: wrap; gap: 8px; }
