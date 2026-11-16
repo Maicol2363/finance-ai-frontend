@@ -1,21 +1,23 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import { Navigate, useLocation } from 'react-router'
+import { Link, Navigate, useLocation } from 'react-router'
+import { roleDestination } from '../../shared/auth/roleHome'
 import { useStaffAuth } from '../../shared/auth/useStaffAuth'
 import { ThemeToggleButton } from '../../shared/theme/ThemeToggleButton'
 import { AuthDiagnosticPanel } from './AuthDiagnosticPanel'
+import { MfaStep } from './MfaStep'
 
 function supportDestination(value: unknown): string {
-  if (typeof value === 'string' && (value === '/support' || value.startsWith('/support/'))) return value
+  if (typeof value === 'string' && (value === '/support' || value.startsWith('/support?') || value.startsWith('/support/'))) return value
   return '/support'
 }
 
 export function SignInPage() {
-  const { state, login, retry, retryPendingLogout } = useStaffAuth()
+  const { state, login, retry, retryPendingLogout, startMfaEnrollment, verifyMfa, cancelMfa } = useStaffAuth()
   const location = useLocation()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [secondsRemaining, setSecondsRemaining] = useState(0)
-  const destination = supportDestination((location.state as { from?: unknown } | null)?.from)
+  const requestedPath = (location.state as { from?: unknown } | null)?.from
 
   const retryAfterSeconds = state.status === 'recoverable_error' ? state.retryAfterSeconds : undefined
   useEffect(() => {
@@ -37,7 +39,12 @@ export function SignInPage() {
     setPassword('')
   }
 
-  if (state.status === 'authenticated') return <Navigate to={destination} replace />
+  if (state.status === 'authenticated') {
+    const destination = state.session.user.role === 'support_agent'
+      ? supportDestination(requestedPath)
+      : roleDestination(state.session.user.role, requestedPath)
+    return <Navigate to={destination} replace />
+  }
 
   const errorMessage = state.status === 'anonymous' || state.status === 'recoverable_error'
     ? state.message
@@ -67,14 +74,16 @@ export function SignInPage() {
               <button data-testid="staff-logout-retry-button" onClick={() => void retryPendingLogout()} type="button">Reintentar cierre de sesión</button>
             </div>
           </section>
+        ) : state.status === 'mfa_required' ? (
+          <MfaStep cancelMfa={cancelMfa} startMfaEnrollment={startMfaEnrollment} state={state} verifyMfa={verifyMfa} />
         ) : state.status === 'restoring' || state.status === 'refreshing' ? (
           <div aria-live="polite" className="async-state" data-testid="staff-auth-loading" role="status">Comprobando tu sesión del personal…</div>
         ) : (
           <section className="auth-page" data-testid="staff-sign-in-page">
             <div className="auth-card">
-              <span className="eyebrow">ACCESO PARA AGENTES DE SOPORTE</span>
-              <h1 id="staff-sign-in-heading">Iniciar sesión en el portal de soporte</h1>
-              <p className="auth-intro">Usa tu cuenta del personal para continuar al espacio de Soporte.</p>
+              <span className="eyebrow">ACCESO DEL PERSONAL</span>
+              <h1 id="staff-sign-in-heading">Iniciar sesión en el portal del personal</h1>
+              <p className="auth-intro">Usa tu cuenta del personal. Los administradores y los auditores de seguridad completan además la verificación en dos pasos.</p>
               {errorMessage && (
                 <p aria-live="polite" className="auth-message" data-testid="staff-auth-message" role="alert">
                   {errorMessage}
@@ -124,6 +133,7 @@ export function SignInPage() {
                       : 'Iniciar sesión'}
                 </button>
               </form>
+              <Link className="text-link" data-testid="staff-recover-link" to="/recover">¿Perdiste tu autenticador? Recupera el acceso</Link>
             </div>
           </section>
         )}

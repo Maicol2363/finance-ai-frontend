@@ -9,10 +9,6 @@ on:
       - ".github/workflows/staff-web-ci.yml"
   push:
     branches: [develop, main]
-    paths:
-      - "staff-web/**"
-      - "AGENTS.md"
-      - ".github/workflows/staff-web-ci.yml"
 
 permissions:
   contents: read

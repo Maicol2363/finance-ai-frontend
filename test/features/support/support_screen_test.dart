@@ -3,10 +3,14 @@ import 'package:finance_ai/features/support/data/support_repository.dart';
 import 'package:finance_ai/features/support/domain/support_models.dart';
 import 'package:finance_ai/features/support/presentation/support_screen.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 class FakeSupportRepository implements SupportRepository {
+  @override
+  Future<Uint8List> download(int id, int attachmentId) async => Uint8List(0);
+
   String status = 'open';
   bool denied = false;
   final bodies = <String>[];
@@ -41,6 +45,7 @@ class FakeSupportRepository implements SupportRepository {
     required String subject,
     required String category,
     required String description,
+    Map<String, String>? attachment,
   }) async {
     commands.add('$subject|$category|$description');
     return ticket;
@@ -61,7 +66,11 @@ class FakeSupportRepository implements SupportRepository {
         .toList(),
   );
   @override
-  Future<void> send(int id, String body) async {
+  Future<void> send(
+    int id,
+    String body, {
+    Map<String, String>? attachment,
+  }) async {
     bodies.add(body);
   }
 }
@@ -92,17 +101,16 @@ void main() {
         find.widgetWithText(TextFormField, 'Mensaje'),
         '<script>texto seguro</script>',
       );
-      await tester.ensureVisible(find.text('Enviar mensaje'));
-      await tester.tap(find.text('Enviar mensaje'));
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
       await tester.pumpAndSettle();
       expect(repository.bodies, ['<script>texto seguro</script>']);
       expect(find.text('<script>texto seguro</script>'), findsOneWidget);
       repository.status = 'resolved';
-      await tester.tap(find.byTooltip('Actualizar'));
+      await tester.pump(const Duration(seconds: 5));
       await tester.pumpAndSettle();
       await tester.ensureVisible(find.text('Consulta atendida'));
       expect(find.text('Consulta atendida'), findsOneWidget);
-      expect(find.text('Enviar mensaje'), findsNothing);
+      expect(find.byTooltip('Enviar mensaje'), findsNothing);
     },
   );
   testWidgets('creates a request with required fields', (tester) async {
@@ -122,7 +130,9 @@ void main() {
       find.widgetWithText(TextFormField, 'Descripción'),
       'Ayuda con la app',
     );
+    await tester.pumpAndSettle();
     await tester.ensureVisible(find.text('Crear ticket'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Crear ticket'));
     await tester.pumpAndSettle();
     expect(repository.commands, ['Consulta|general|Ayuda con la app']);

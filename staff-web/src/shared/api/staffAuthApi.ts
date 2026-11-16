@@ -2,9 +2,21 @@ const STAFF_AUTH_PATH = '/api/v1/staff/auth'
 const STAFF_REQUEST_TIMEOUT_MS = 15_000
 const SAFE_PROBLEM_CODES = new Set([
   'access_expired',
+  'activation_invalid',
+  'activation_password_invalid',
+  'audit_unavailable',
   'authentication_required',
   'internal_error',
   'invalid_credentials',
+  'mfa_already_enrolled',
+  'mfa_challenge_invalid',
+  'mfa_code_invalid',
+  'mfa_enrollment_required',
+  'mfa_rate_limited',
+  'mfa_recovery_invalid',
+  'mfa_unavailable',
+  'password_confirmation_invalid',
+  'request_invalid',
   'request_too_large',
   'route_not_found',
   'service_unavailable',
@@ -17,19 +29,63 @@ const SAFE_PROBLEM_CODES = new Set([
   'validation_error',
 ])
 
+/** The roles that may hold a staff portal session. Admin and auditor sessions are MFA-verified. */
+export type StaffRole = 'support_agent' | 'security_auditor' | 'admin'
+const STAFF_ROLES: ReadonlySet<string> = new Set<StaffRole>(['support_agent', 'security_auditor', 'admin'])
+
 export interface StaffSessionView {
   user: {
     id: number
     email: string
-    role: 'support_agent'
+    role: StaffRole
   }
   access_expires_at: string
   renewable_expires_at: string
   absolute_expires_at: string
 }
 
-type MutationPath = 'login' | 'refresh' | 'logout'
-export type StaffAuthOperation = MutationPath | 'session'
+/** Password accepted; the account must complete TOTP before it has any staff authority. */
+export interface StaffMfaChallengeView {
+  status: 'mfa_required'
+  enrollment_required: boolean
+  challenge_expires_at: string
+}
+
+/** Shown once inside the enrollment step; never stored by the browser. */
+export interface StaffMfaEnrollmentView {
+  issuer: string
+  account_name: string
+  secret: string
+  otpauth_uri: string
+  qr_svg_data_url: string
+}
+
+export type StaffLoginResult = StaffSessionView | StaffMfaChallengeView
+
+export type StaffAuthOperation =
+  | 'login'
+  | 'session'
+  | 'refresh'
+  | 'logout'
+  | 'mfa_enrollment'
+  | 'mfa_verify'
+  | 'mfa_cancel'
+  | 'mfa_reset'
+  | 'mfa_recovery_codes'
+  | 'activate'
+
+export const STAFF_AUTH_OPERATION_PATHS: Readonly<Record<StaffAuthOperation, string>> = {
+  login: 'login',
+  session: 'session',
+  refresh: 'refresh',
+  logout: 'logout',
+  mfa_enrollment: 'mfa/enrollment',
+  mfa_verify: 'mfa/verify',
+  mfa_cancel: 'mfa/cancel',
+  mfa_reset: 'mfa/reset',
+  mfa_recovery_codes: 'mfa/recovery-codes',
+  activate: 'activate',
+}
 
 export class StaffAuthApiError extends Error {
   readonly status: number
@@ -67,13 +123,17 @@ function isValidDateTime(value: unknown): value is string {
   )
 }
 
+export function isStaffRole(value: unknown): value is StaffRole {
+  return typeof value === 'string' && STAFF_ROLES.has(value)
+}
+
 export function parseStaffSessionView(value: unknown): StaffSessionView {
   if (!isRecord(value) || !isRecord(value.user)) {
     throw new StaffAuthApiError(0, 'invalid_response')
   }
 
   const { user } = value
-  if (user.role !== 'support_agent') {
+  if (!isStaffRole(user.role)) {
     throw new StaffAuthApiError(403, 'staff_access_denied')
   }
   if (
@@ -91,12 +151,79 @@ export function parseStaffSessionView(value: unknown): StaffSessionView {
     user: {
       id: Number(user.id),
       email: user.email,
-      role: 'support_agent',
+      role: user.role,
     },
     access_expires_at: value.access_expires_at,
     renewable_expires_at: value.renewable_expires_at,
     absolute_expires_at: value.absolute_expires_at,
   }
+}
+
+export function parseStaffMfaChallenge(value: unknown): StaffMfaChallengeView {
+  if (
+    !isRecord(value) ||
+    value.status !== 'mfa_required' ||
+    typeof value.enrollment_required !== 'boolean' ||
+    !isValidDateTime(value.challenge_expires_at)
+  ) {
+    throw new StaffAuthApiError(0, 'invalid_response')
+  }
+  return {
+    status: 'mfa_required',
+    enrollment_required: value.enrollment_required,
+    challenge_expires_at: value.challenge_expires_at,
+  }
+}
+
+const QR_DATA_URL_PREFIX = 'data:image/svg+xml;base64,'
+
+export function parseStaffMfaEnrollment(value: unknown): StaffMfaEnrollmentView {
+  if (
+    !isRecord(value) ||
+    typeof value.issuer !== 'string' ||
+    typeof value.account_name !== 'string' ||
+    typeof value.secret !== 'string' ||
+    !/^[A-Z2-7]{16,128}$/.test(value.secret) ||
+    typeof value.otpauth_uri !== 'string' ||
+    !value.otpauth_uri.startsWith('otpauth://totp/') ||
+    typeof value.qr_svg_data_url !== 'string' ||
+    !value.qr_svg_data_url.startsWith(QR_DATA_URL_PREFIX) ||
+    !/^[A-Za-z0-9+/]+=*$/.test(value.qr_svg_data_url.slice(QR_DATA_URL_PREFIX.length))
+  ) {
+    throw new StaffAuthApiError(0, 'invalid_response')
+  }
+  return {
+    issuer: value.issuer,
+    account_name: value.account_name,
+    secret: value.secret,
+    otpauth_uri: value.otpauth_uri,
+    qr_svg_data_url: value.qr_svg_data_url,
+  }
+}
+
+const RECOVERY_CODE_PATTERN = /^[A-Z2-7]{4}(?:-[A-Z2-7]{4}){3}$/
+
+/** Single-use recovery codes are shown once; the browser never stores them. */
+export function parseRecoveryCodes(value: unknown): string[] {
+  if (!isRecord(value) || !Array.isArray(value.recovery_codes)) {
+    throw new StaffAuthApiError(0, 'invalid_response')
+  }
+  const codes = value.recovery_codes
+  if (
+    codes.length < 1 ||
+    codes.length > 20 ||
+    !codes.every((code) => typeof code === 'string' && RECOVERY_CODE_PATTERN.test(code))
+  ) {
+    throw new StaffAuthApiError(0, 'invalid_response')
+  }
+  return codes as string[]
+}
+
+/** Exactly one proof of identity, besides the password, for an authenticator reset. */
+export type MfaResetProof = { recoveryCode: string } | { code: string }
+
+export function isMfaChallenge(result: StaffLoginResult): result is StaffMfaChallengeView {
+  return 'status' in result && result.status === 'mfa_required'
 }
 
 function parseRetryAfter(value: string | null): number | null {
@@ -121,13 +248,13 @@ async function readProblemCode(response: Response): Promise<string> {
 }
 
 async function request<T>(
-  path: StaffAuthOperation,
+  operation: StaffAuthOperation,
   body: unknown,
   readResponse: (response: Response) => Promise<T>,
 ): Promise<T> {
   const controller = new AbortController()
   const timeoutId = setTimeout(() => controller.abort(), STAFF_REQUEST_TIMEOUT_MS)
-  const isMutation = path !== 'session'
+  const isMutation = operation !== 'session'
   const headers = new Headers({
     Accept: 'application/json',
     'X-Staff-Request': '1',
@@ -135,7 +262,7 @@ async function request<T>(
   if (isMutation) headers.set('Content-Type', 'application/json')
 
   try {
-    const response = await fetch(`${STAFF_AUTH_PATH}/${path}`, {
+    const response = await fetch(`${STAFF_AUTH_PATH}/${STAFF_AUTH_OPERATION_PATHS[operation]}`, {
       method: isMutation ? 'POST' : 'GET',
       body: isMutation ? JSON.stringify(body ?? {}) : undefined,
       cache: 'no-store',
@@ -149,33 +276,47 @@ async function request<T>(
         await readProblemCode(response),
         response.headers.get('X-Correlation-ID'),
         parseRetryAfter(response.headers.get('Retry-After')),
-        path,
+        operation,
       )
     }
     return await readResponse(response)
   } catch (error) {
-    if (controller.signal.aborted) throw new StaffAuthApiError(0, 'request_timeout', null, null, path)
+    if (controller.signal.aborted) throw new StaffAuthApiError(0, 'request_timeout', null, null, operation)
     if (error instanceof StaffAuthApiError) {
-      throw new StaffAuthApiError(error.status, error.code, error.correlationId, error.retryAfterSeconds, path)
+      throw new StaffAuthApiError(error.status, error.code, error.correlationId, error.retryAfterSeconds, operation)
     }
-    throw new StaffAuthApiError(0, 'network_error', null, null, path)
+    throw new StaffAuthApiError(0, 'network_error', null, null, operation)
   } finally {
     clearTimeout(timeoutId)
   }
 }
 
-async function readSession(response: Response): Promise<StaffSessionView> {
+async function readJson<T>(response: Response, parse: (value: unknown) => T): Promise<T> {
   try {
-    return parseStaffSessionView(await response.json())
+    return parse(await response.json())
   } catch (error) {
     if (error instanceof StaffAuthApiError) throw error
     throw new StaffAuthApiError(0, 'invalid_response', response.headers.get('X-Correlation-ID'))
   }
 }
 
+async function readSession(response: Response): Promise<StaffSessionView> {
+  return readJson(response, parseStaffSessionView)
+}
+
+async function readLogin(response: Response): Promise<StaffLoginResult> {
+  if (response.status === 202) return readJson(response, parseStaffMfaChallenge)
+  return readSession(response)
+}
+
+async function readNoContent(response: Response): Promise<void> {
+  if (response.status !== 204) throw new StaffAuthApiError(0, 'invalid_response')
+}
+
 export const staffAuthApi = {
-  async login(email: string, password: string): Promise<StaffSessionView> {
-    return request('login', { email, password }, readSession)
+  /** Support Agents receive a session; MFA roles receive a second-factor challenge (HTTP 202). */
+  async login(email: string, password: string): Promise<StaffLoginResult> {
+    return request('login', { email, password }, readLogin)
   },
 
   async session(): Promise<StaffSessionView> {
@@ -187,9 +328,41 @@ export const staffAuthApi = {
   },
 
   async logout(): Promise<void> {
-    return request('logout', {}, async (response) => {
-      if (response.status !== 204) throw new StaffAuthApiError(0, 'invalid_response')
-    })
+    return request('logout', {}, readNoContent)
+  },
+
+  async startMfaEnrollment(): Promise<StaffMfaEnrollmentView> {
+    return request('mfa_enrollment', {}, (response) => readJson(response, parseStaffMfaEnrollment))
+  },
+
+  async verifyMfa(code: string): Promise<StaffSessionView> {
+    return request('mfa_verify', { code }, readSession)
+  },
+
+  async cancelMfa(): Promise<void> {
+    return request('mfa_cancel', {}, readNoContent)
+  },
+
+  /** Lost-device recovery or voluntary replacement; success opens a new enrollment challenge. */
+  async resetMfa(email: string, password: string, proof: MfaResetProof): Promise<StaffMfaChallengeView> {
+    const body = 'recoveryCode' in proof
+      ? { email, password, recovery_code: proof.recoveryCode }
+      : { email, password, code: proof.code }
+    return request('mfa_reset', body, (response) => readJson(response, parseStaffMfaChallenge))
+  },
+
+  /** Replaces the single-use recovery codes after re-confirming the password. */
+  async issueRecoveryCodes(password: string): Promise<string[]> {
+    return request('mfa_recovery_codes', { password }, (response) => readJson(response, parseRecoveryCodes))
+  },
+
+  /** Public: consumes an invitation token and creates the invited staff account. */
+  async activate(token: string, password: string, passwordConfirmation: string): Promise<void> {
+    return request(
+      'activate',
+      { token, password, password_confirmation: passwordConfirmation },
+      readNoContent,
+    )
   },
 }
 

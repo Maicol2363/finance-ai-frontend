@@ -10,6 +10,28 @@ const conversation = { ticket, customer: { id: 9, email: 'customer@example.test'
 function json(value: unknown, status = 200) { return new Response(JSON.stringify(value), { status, headers: { 'Content-Type': 'application/json' } }) }
 afterEach(() => { vi.restoreAllMocks() })
 
+const invalidAttachments = [
+  { kind: 'empty', name: 'private-empty.png', content: '' },
+  { kind: 'oversized', name: 'private-large.pdf', content: 'x'.repeat(2 * 1024 * 1024 + 1) },
+  { kind: 'unsupported', name: 'private-document.exe', content: 'private-file-content' },
+] as const
+
+function chooseInvalidAttachment(name: string, content: string) {
+  const input = document.querySelector<HTMLInputElement>('input[type="file"]')
+  if (!input) throw new Error('Attachment input is missing')
+  fireEvent.change(input, { target: { files: [new File([content], name)] } })
+}
+
+async function expectSafeAttachmentDiagnostic(operation: 'create' | 'message', name: string, content: string) {
+  const report = (await screen.findByLabelText('Contenido del informe de diagnóstico de soporte')).textContent ?? ''
+  expect(report).toContain('Código del error: support_attachment_invalid')
+  expect(report).toContain(`Operación: staff.support.${operation}`)
+  expect(report).toContain('Motivo: attachment_rejected')
+  expect(report).not.toContain(name)
+  if (content) expect(report).not.toContain(content)
+  expect(screen.getByRole('button', { name: 'Copiar informe de diagnóstico' })).toBeInTheDocument()
+}
+
 describe('support workflow', () => {
   it('verifies exact identity before creating and clears verification when the identifier changes', async () => {
     const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(json(conversation.customer)).mockResolvedValueOnce(json(ticket, 201))
@@ -27,6 +49,19 @@ describe('support workflow', () => {
     expect(JSON.parse(fetchMock.mock.calls[1]?.[1]?.body as string)).toEqual({ customer_identifier: 'customer@example.test', subject: 'Consulta de prueba', category: 'general', description: 'Descripción de prueba' })
     expect(screen.queryByLabelText('Asunto')).not.toBeInTheDocument()
   })
+  it.each(invalidAttachments)('shows a copyable safe diagnostic for a $kind attachment on ticket creation', async ({ name, content }) => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(json(conversation.customer))
+    render(<SupportCreateForm onCreated={vi.fn()} />)
+    const user = userEvent.setup()
+    await user.click(screen.getByText('Crear ticket para un cliente'))
+    await user.type(screen.getByLabelText('Correo exacto o identificador de cuenta'), 'customer@example.test')
+    await user.click(screen.getByRole('button', { name: 'Verificar cliente' }))
+    await screen.findByLabelText('Asunto')
+
+    chooseInvalidAttachment(name, content)
+
+    await expectSafeAttachmentDiagnostic('create', name, content)
+  })
   it('renders messages as literal text, sends a session-owned message, and refreshes the server result', async () => {
     const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(json(conversation)).mockResolvedValueOnce(new Response(null, { status: 204 })).mockResolvedValueOnce(json(conversation))
     const onChange = vi.fn()
@@ -35,10 +70,21 @@ describe('support workflow', () => {
     expect(document.querySelector('.support-case script')).toBeNull()
     const user = userEvent.setup()
     await user.type(screen.getByLabelText('Mensaje al cliente'), 'Respuesta')
-    await user.click(screen.getByRole('button', { name: 'Enviar mensaje' }))
+    await user.keyboard('{Shift>}{Enter}{/Shift}Segunda línea')
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    await user.keyboard('{Enter}')
     await waitFor(() => expect(onChange).toHaveBeenCalledWith(ticket))
-    expect(JSON.parse(fetchMock.mock.calls[1]?.[1]?.body as string)).toEqual({ body: 'Respuesta' })
+    expect(JSON.parse(fetchMock.mock.calls[1]?.[1]?.body as string)).toEqual({ body: 'Respuesta\nSegunda línea' })
     expect(await screen.findByText('Cambio guardado.')).toBeInTheDocument()
+  })
+  it.each(invalidAttachments)('shows a copyable safe diagnostic for a $kind attachment on a reply', async ({ name, content }) => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(json(conversation))
+    render(<SupportCasePanel id={7} onChange={vi.fn()} />)
+    await screen.findByLabelText('Mensaje al cliente')
+
+    chooseInvalidAttachment(name, content)
+
+    await expectSafeAttachmentDiagnostic('message', name, content)
   })
   it.each(['resolved', 'escalated'])('makes %s cases read-only and preserves the visible conversation', async (status) => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(json({ ...conversation, ticket: { ...ticket, status, resolution_summary: status === 'resolved' ? 'Solucionado' : null } }))
@@ -51,7 +97,10 @@ describe('support workflow', () => {
   it.each(['Resolver ticket', 'Escalar ticket'])('requires a summary and submits %s', async (label) => {
     const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(json(conversation)).mockResolvedValueOnce(new Response(null, { status: 204 })).mockResolvedValueOnce(json({ ...conversation, ticket: { ...ticket, status: 'resolved', resolution_summary: 'Resultado' } }))
     render(<SupportCasePanel id={7} onChange={vi.fn()} />)
-    const field = await screen.findByLabelText('Resumen de resolución o motivo interno de escalamiento')
+    await userEvent.click(await screen.findByText('Gestionar ticket'))
+    const escalate = label === 'Escalar ticket'
+    if (escalate) await userEvent.selectOptions(screen.getByLabelText('Acción'), 'escalate')
+    const field = await screen.findByLabelText(escalate ? 'Motivo interno de escalamiento' : 'Resumen de resolución')
     fireEvent.change(field, { target: { value: 'Resultado' } })
     await userEvent.click(screen.getByRole('button', { name: label }))
     expect(await screen.findByText('Resultado')).toBeInTheDocument()

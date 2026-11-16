@@ -181,7 +181,7 @@ test('hides protected content while visible-tab session revalidation is unresolv
   await expect(page.getByRole('heading', { name: 'Atención al cliente' })).toBeVisible()
 })
 
-test('rejects an admin role returned by the session service', async ({ page }) => {
+test('rejects a non-staff role returned by the session service', async ({ page }) => {
   await page.route('**/api/v1/staff/auth/**', async (route) => {
     if (route.request().url().endsWith('/session')) {
       await respondProblem(route, 401, 'session_invalid')
@@ -192,13 +192,13 @@ test('rejects an admin role returned by the session service', async ({ page }) =
       contentType: 'application/json',
       body: JSON.stringify({
         ...supportAgentSession,
-        user: { ...supportAgentSession.user, role: 'admin' },
+        user: { ...supportAgentSession.user, role: 'user' },
       }),
     })
   })
 
   await page.goto('/login')
-  await page.getByLabel('Correo electrónico').fill('admin@example.test')
+  await page.getByLabel('Correo electrónico').fill('customer@example.test')
   await page.getByLabel('Contraseña').fill('not-persisted-password')
   await page.getByRole('button', { name: 'Iniciar sesión' }).click()
 
@@ -308,6 +308,13 @@ test('shows a copyable login diagnostic without credentials or response details'
   await page.getByRole('button', { name: 'Iniciar sesión' }).click()
 
   const report = page.getByLabel('Contenido del informe de diagnóstico')
+  const message = page.getByTestId('staff-auth-message')
+  await expect(message).toHaveText('No se pudo verificar el correo electrónico o la contraseña.')
+  await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')))
+  await expect(message).toBeVisible()
+  await expect(report).toBeHidden()
+  await page.getByText('Detalles para soporte', { exact: true }).click()
+  await expect(report).toBeVisible()
   await expect(report).toContainText('Código del error: invalid_credentials')
   await expect(report).toContainText('Operación: staff.auth.login')
   await expect(report).toContainText('Ubicación de la API: /api/v1/staff/auth/login')

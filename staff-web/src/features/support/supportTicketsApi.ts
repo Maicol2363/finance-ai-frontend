@@ -1,7 +1,7 @@
 const TICKETS_PATH = '/api/v1/staff/support/tickets'
 
 export type TicketStatus = 'open' | 'in_progress' | 'escalated' | 'resolved'
-export type SupportOperation = 'queue' | 'detail' | 'claim' | 'lookup' | 'create' | 'conversation' | 'message' | 'escalate' | 'resolve'
+export type SupportOperation = 'queue' | 'detail' | 'claim' | 'lookup' | 'create' | 'conversation' | 'message' | 'escalate' | 'resolve' | 'attachment'
 
 export interface SupportTicket {
   id: number
@@ -31,6 +31,7 @@ const SAFE_PROBLEM_CODES = new Set([
   'support_ticket_claim_conflict',
   'support_ticket_state_conflict',
   'support_ticket_not_found',
+  'support_attachment_invalid',
   'unknown_error',
   'unsupported_media_type',
   'validation_error',
@@ -122,6 +123,7 @@ const SAFE_DIAGNOSTIC_REASONS: Record<string, string> = {
   support_ticket_claim_conflict: 'claim_conflict',
   support_ticket_state_conflict: 'ticket_state_conflict',
   support_ticket_not_found: 'ticket_unavailable',
+  support_attachment_invalid: 'attachment_rejected',
   unknown_error: 'unknown_error',
   unsupported_media_type: 'unsupported_request_format',
   validation_error: 'request_validation_failed',
@@ -129,6 +131,7 @@ const SAFE_DIAGNOSTIC_REASONS: Record<string, string> = {
 }
 
 function supportApiLocation(operation: SupportOperation): string {
+  if (operation === 'attachment') return `${TICKETS_PATH}/{ticket_id}/attachments/{attachment_id}`
   if (operation === 'lookup') return `${TICKETS_PATH}/customer-lookup`
   if (operation === 'conversation') return `${TICKETS_PATH}/{ticket_id}/conversation`
   if (operation === 'message') return `${TICKETS_PATH}/{ticket_id}/messages`
@@ -161,6 +164,8 @@ export function safeSupportMessage(error: unknown, operation: SupportOperation):
     return 'El servicio todavía no ofrece esta operación. Comparte el informe de diagnóstico con soporte.'
   }
   if (error instanceof SupportTicketsApiError && error.status === 409) return 'El estado del ticket cambió. Actualiza antes de continuar.'
+  if (error instanceof SupportTicketsApiError && (error.code === 'support_attachment_invalid' || error.code === 'request_too_large')) return 'Elige un PNG, JPG o PDF de hasta 2 MB.'
+  if (operation === 'attachment') return 'No se pudo descargar el archivo.'
   if (operation === 'queue') return 'No se pudo cargar la cola. Comprueba tu sesión e inténtalo de nuevo.'
   if (operation === 'lookup') return `${TICKETS_PATH}/customer-lookup`
   if (operation === 'conversation') return `${TICKETS_PATH}/{ticket_id}/conversation`
@@ -171,7 +176,11 @@ export function safeSupportMessage(error: unknown, operation: SupportOperation):
 }
 
 export interface SupportCustomer { id: number; email: string; is_active: boolean }
+export interface AttachmentInput { name: string; content: string }
+export interface AttachmentSummary { id: number; message_id: number | null; name: string; size: number }
+
 export interface SupportConversation {
+  attachments?: AttachmentSummary[]
   ticket: SupportTicketDetail & { resolution_summary: string | null }
   customer: SupportCustomer
   messages: Array<{ id: number; author_user_id: number; body: string; created_at: string }>
@@ -182,13 +191,16 @@ export const supportTicketsApi = {
   lookup(identifier: string): Promise<SupportCustomer> {
     return request('lookup', '/customer-lookup', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ identifier }) })
   },
-  create(data: { customer_identifier: string; subject: string; category: string; description: string }): Promise<SupportTicket> {
+  create(data: { customer_identifier: string; subject: string; category: string; description: string; attachment?: AttachmentInput }): Promise<SupportTicket> {
     return request('create', '', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) })
+  },
+  download(ticketId: number, attachmentId: number, signal?: AbortSignal): Promise<{ content: string }> {
+    return request('attachment', `/${ticketId}/attachments/${attachmentId}`, { method: 'GET', signal })
   },
   conversation(id: number, signal?: AbortSignal): Promise<SupportConversation> {
     return request('conversation', `/${id}/conversation`, { method: 'GET', signal })
   },
-  action(id: number, kind: 'message' | 'escalate' | 'resolve', data: { body: string } | { summary: string }): Promise<void> {
+  action(id: number, kind: 'message' | 'escalate' | 'resolve', data: { body: string; attachment?: AttachmentInput } | { summary: string }): Promise<void> {
     return request(kind, `/${id}/${kind === 'message' ? 'messages' : kind}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) })
   },
   list(status: TicketStatus | 'all', signal?: AbortSignal): Promise<SupportTicket[]> {

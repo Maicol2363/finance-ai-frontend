@@ -47,6 +47,23 @@ describe('StaffAuthProvider', () => {
 
   afterEach(() => vi.unstubAllGlobals())
 
+  it('keeps the last confirmed session while it is re-confirmed and forgets it on a denial', async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(jsonResponse(validSession))
+    renderProvider()
+    await waitFor(() => expect(screen.getByTestId('auth-status')).toHaveTextContent('authenticated'))
+
+    let finishRevalidation: ((response: Response) => void) | undefined
+    vi.mocked(fetch).mockImplementationOnce(() => new Promise<Response>((resolve) => { finishRevalidation = resolve }))
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }))
+    await waitFor(() => expect(screen.getByTestId('auth-status')).toHaveTextContent('restoring'))
+    // The protected view is hidden by the gate, but the role gates below it still see who it is.
+    expect(screen.getByTestId('auth-session')).toHaveTextContent('agent@example.test')
+
+    finishRevalidation?.(deniedResponse())
+    await waitFor(() => expect(screen.getByTestId('auth-status')).toHaveTextContent('anonymous'))
+    expect(screen.getByTestId('auth-session')).toHaveTextContent('none')
+  })
+
   it('keeps the session view empty while startup restoration is unresolved', async () => {
     let finishRequest: ((response: Response) => void) | undefined
     vi.mocked(fetch).mockImplementation(() => new Promise<Response>((resolve) => { finishRequest = resolve }))
@@ -74,10 +91,10 @@ describe('StaffAuthProvider', () => {
     expect(new Headers(init?.headers).has('Authorization')).toBe(false)
   })
 
-  it('fails closed when restoration returns a privileged role', async () => {
+  it('fails closed when restoration returns a non-staff role', async () => {
     vi.mocked(fetch).mockResolvedValueOnce(jsonResponse({
       ...validSession,
-      user: { ...validSession.user, role: 'admin' },
+      user: { ...validSession.user, role: 'user' },
     }))
 
     renderProvider()

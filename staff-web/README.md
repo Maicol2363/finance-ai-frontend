@@ -1,6 +1,6 @@
 # FinanciAI Staff Web
 
-React, TypeScript and Vite application for the internal Support Agent, Administrator and Security Auditor workspaces. It is a separate app under the Flutter repository and does not replace or change the Android/Windows client.
+React, TypeScript and Vite application for the internal Support Agent and Security Auditor workspaces (the Administrator workspace is still a placeholder). It is a separate app under the Flutter repository and does not replace or change the Android/Windows client.
 
 ## Local setup
 
@@ -31,4 +31,6 @@ npm run build
 
 The staff portal uses the approved cookie-backed browser-session contract. Staff auth requests use relative `/api/v1/staff/auth/...` paths with `credentials: include`; the browser always addresses the staff site itself. In development, Vite proxies `/api` to `VITE_FINANCE_AI_API_BASE_URL`. In production, the staff site's HTTPS ingress or reverse proxy must route `/api/` to the backend on the server side and preserve the request path, browser `Origin`, `X-Staff-Request`, `X-Correlation-ID`, cookies, and `Set-Cookie` attributes. Keep the staff UI and API under one browser origin; do not enable credentialed cross-origin CORS. Authentication and authorization remain enforced by the backend. The web app does not persist credentials or log request data.
 
-The lockfile currently includes only the core React, Router, Vite, TypeScript, Tailwind and test tooling. Add server-state caching, form/validation packages, or charting only when an approved story uses them; no dashboard, business form, or Auditor chart is implemented in this scaffold.
+Security Auditors sign in with password plus an authenticator code: the backend answers the password step with HTTP 202 and a short-lived HttpOnly challenge, the portal shows the one-time QR enrollment when needed and then verifies the code. The Auditor workspace (`/audit`) lists and filters security events, opens sanitized details, investigates historical account identifiers, summarizes activity with accessible CSS charts and downloads backend-generated PDF reports. Every page is read-only and each role only sees its own workspace; the backend authorizes every request.
+
+The lockfile includes only the core React, Router, Vite, TypeScript, Tailwind and test tooling; the Auditor charts and the QR code need no extra packages (the QR is rendered by the backend). See `finance-ai-backend/docs/SECURITY-AUDITOR-MVP.md` for the isolated local demo.

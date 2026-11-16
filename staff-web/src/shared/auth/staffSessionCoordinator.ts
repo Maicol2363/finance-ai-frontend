@@ -1,7 +1,12 @@
 import {
+  isMfaChallenge,
+  STAFF_AUTH_OPERATION_PATHS,
   StaffAuthApiError,
   staffAuthApi,
+  type MfaResetProof,
   type StaffAuthOperation,
+  type StaffMfaChallengeView,
+  type StaffMfaEnrollmentView,
   type StaffSessionView,
 } from '../api/staffAuthApi'
 
@@ -12,11 +17,23 @@ const REVALIDATION_INTERVAL_MS = 30_000
 const DIAGNOSTIC_API_PATH = '/api/v1/staff/auth'
 const SAFE_DIAGNOSTIC_CODES = new Set([
   'access_expired',
+  'activation_invalid',
+  'activation_password_invalid',
+  'audit_unavailable',
   'authentication_required',
   'internal_error',
   'invalid_credentials',
   'invalid_response',
   'logout_unconfirmed',
+  'mfa_already_enrolled',
+  'mfa_challenge_invalid',
+  'mfa_code_invalid',
+  'mfa_enrollment_required',
+  'mfa_rate_limited',
+  'mfa_recovery_invalid',
+  'mfa_unavailable',
+  'password_confirmation_invalid',
+  'request_invalid',
   'network_error',
   'request_timeout',
   'request_too_large',
@@ -34,11 +51,23 @@ const SAFE_DIAGNOSTIC_CODES = new Set([
 ])
 const SAFE_DIAGNOSTIC_REASONS: Record<string, string> = {
   access_expired: 'access_expired',
+  activation_invalid: 'activation_link_rejected',
+  activation_password_invalid: 'activation_password_rejected',
+  audit_unavailable: 'security_evidence_unavailable',
   authentication_required: 'authentication_required',
   internal_error: 'server_error',
   invalid_credentials: 'credentials_rejected',
   invalid_response: 'invalid_server_response',
   logout_unconfirmed: 'logout_unconfirmed',
+  mfa_already_enrolled: 'mfa_already_enrolled',
+  mfa_challenge_invalid: 'mfa_challenge_invalid',
+  mfa_code_invalid: 'mfa_code_rejected',
+  mfa_enrollment_required: 'mfa_enrollment_required',
+  mfa_rate_limited: 'mfa_rate_limited',
+  mfa_recovery_invalid: 'mfa_recovery_rejected',
+  mfa_unavailable: 'mfa_unavailable',
+  password_confirmation_invalid: 'password_confirmation_rejected',
+  request_invalid: 'request_validation_failed',
   network_error: 'network_unavailable',
   request_timeout: 'request_timed_out',
   request_too_large: 'request_rejected',
@@ -66,7 +95,10 @@ export interface StaffAuthDiagnostic {
   reason: string
 }
 
-type SessionApi = Pick<typeof staffAuthApi, 'login' | 'session' | 'refresh' | 'logout'>
+// MFA operations default to the real client so callers that only exercise password
+// sessions can provide the four session methods.
+type SessionApi = Pick<typeof staffAuthApi, 'login' | 'session' | 'refresh' | 'logout'> &
+  Partial<Pick<typeof staffAuthApi, 'startMfaEnrollment' | 'verifyMfa' | 'cancelMfa' | 'resetMfa'>>
 type AuthMessage = { type: 'clear-protected-view' }
 
 export type StaffAuthState =
@@ -77,9 +109,28 @@ export type StaffAuthState =
   | { status: 'refreshing' }
   | { status: 'recoverable_error'; message: string; retryAfterSeconds?: number; diagnostic?: StaffAuthDiagnostic }
   | { status: 'logout_pending'; message: string; diagnostic?: StaffAuthDiagnostic }
+  | {
+      status: 'mfa_required'
+      challenge: StaffMfaChallengeView
+      pending: boolean
+      message?: string
+      retryAfterSeconds?: number
+      diagnostic?: StaffAuthDiagnostic
+    }
 
 function isStaffAuthOperation(value: unknown): value is StaffAuthOperation {
-  return value === 'login' || value === 'session' || value === 'refresh' || value === 'logout'
+  return typeof value === 'string' && Object.hasOwn(STAFF_AUTH_OPERATION_PATHS, value)
+}
+
+/** Errors after which the second-factor step cannot continue: the person signs in again. */
+function endsMfaStep(error: unknown): boolean {
+  return (
+    error instanceof StaffAuthApiError &&
+    (error.code === 'mfa_challenge_invalid' ||
+      error.code === 'staff_access_denied' ||
+      error.code === 'staff_session_exists' ||
+      error.code === 'session_invalid')
+  )
 }
 
 export function safeStaffAuthDiagnostic(
@@ -104,15 +155,24 @@ export function safeStaffAuthDiagnostic(
     operation,
     occurredAtUtc: validTime.toISOString(),
     platform: 'web',
-    apiLocation: `${DIAGNOSTIC_API_PATH}/${operation}`,
+    apiLocation: `${DIAGNOSTIC_API_PATH}/${STAFF_AUTH_OPERATION_PATHS[operation]}`,
     correlationId,
     reason: SAFE_DIAGNOSTIC_REASONS[code] ?? SAFE_DIAGNOSTIC_REASONS.unclassified_error,
   }
 }
 
+const MFA_MESSAGES: Record<string, string> = {
+  mfa_code_invalid: 'El código no es válido o ya se usó. Espera el siguiente código de tu aplicación e inténtalo de nuevo.',
+  mfa_challenge_invalid: 'La verificación expiró o ya no es válida. Inicia sesión de nuevo con tu correo y contraseña.',
+  mfa_enrollment_required: 'Primero configura tu aplicación de autenticación con el código QR.',
+  mfa_already_enrolled: 'Tu autenticador ya está configurado. Ingresa el código que muestra.',
+  mfa_unavailable: 'La verificación en dos pasos no está disponible en este momento. Inténtalo más tarde.',
+  mfa_recovery_invalid: 'No se pudo verificar la recuperación. Revisa tu correo, tu contraseña y el código, o pide a un administrador que restablezca tu autenticador.',
+}
+
 export function safeStaffAuthMessage(
   error: unknown,
-  context: 'login' | 'session' | 'logout',
+  context: 'login' | 'session' | 'logout' | 'mfa',
 ): string {
   if (!(error instanceof StaffAuthApiError)) {
     return 'Ocurrió un error. Inténtalo de nuevo.'
@@ -120,6 +180,8 @@ export function safeStaffAuthMessage(
   if (context === 'login' && error.code === 'invalid_credentials') {
     return 'No se pudo verificar el correo electrónico o la contraseña.'
   }
+  const mfaMessage = MFA_MESSAGES[error.code]
+  if (mfaMessage) return mfaMessage
   if (error.code === 'staff_session_exists') {
     return 'Ya hay una sesión del personal activa. Ciérrala allí y vuelve a intentarlo.'
   }
@@ -262,8 +324,13 @@ export class StaffSessionCoordinator {
     this.session = null
     this.setState({ status: 'authenticating' })
     try {
-      const session = await this.api.login(email, password)
-      if (generation === this.authGeneration) this.setAuthenticated(session)
+      const result = await this.api.login(email, password)
+      if (generation !== this.authGeneration) return
+      if (isMfaChallenge(result)) {
+        this.setState({ status: 'mfa_required', challenge: result, pending: false })
+        return
+      }
+      this.setAuthenticated(result)
     } catch (error) {
       if (generation !== this.authGeneration) return
       if (isDefinitiveDenial(error) || (error instanceof StaffAuthApiError && error.status === 401)) {
@@ -280,6 +347,101 @@ export class StaffSessionCoordinator {
         diagnostic: safeStaffAuthDiagnostic(error, 'login'),
       })
     }
+  }
+
+  /** Creates the pending authenticator. The secret is returned to the caller, never kept in state. */
+  async startMfaEnrollment(): Promise<StaffMfaEnrollmentView | null> {
+    const state = this.state
+    if (state.status !== 'mfa_required' || state.pending) return null
+    const generation = this.authGeneration
+    this.setState({ status: 'mfa_required', challenge: state.challenge, pending: true })
+    try {
+      const enrollment = await (this.api.startMfaEnrollment ?? staffAuthApi.startMfaEnrollment)()
+      if (generation !== this.authGeneration) return null
+      this.setState({ status: 'mfa_required', challenge: state.challenge, pending: false })
+      return enrollment
+    } catch (error) {
+      if (generation === this.authGeneration) this.handleMfaError(error, state.challenge, 'mfa_enrollment')
+      return null
+    }
+  }
+
+  async verifyMfa(code: string): Promise<void> {
+    const state = this.state
+    if (state.status !== 'mfa_required' || state.pending) return
+    const generation = this.authGeneration
+    this.setState({ status: 'mfa_required', challenge: state.challenge, pending: true })
+    try {
+      const session = await (this.api.verifyMfa ?? staffAuthApi.verifyMfa)(code)
+      if (generation === this.authGeneration) this.setAuthenticated(session)
+    } catch (error) {
+      if (generation === this.authGeneration) this.handleMfaError(error, state.challenge, 'mfa_verify')
+    }
+  }
+
+  /**
+   * Lost-device recovery or authenticator replacement. Success revokes every session of the
+   * account server-side and opens a fresh enrollment challenge, so the second-factor step
+   * continues with enrollment; the credentials are never kept in state.
+   */
+  async resetMfa(email: string, password: string, proof: MfaResetProof): Promise<void> {
+    if (this.isLogoutPending()) {
+      this.logoutPendingInMemory = true
+      this.setLogoutPendingState(true)
+      return
+    }
+    const generation = ++this.authGeneration
+    this.restorePromise = null
+    this.clearTimer()
+    this.session = null
+    this.setState({ status: 'authenticating' })
+    try {
+      const challenge = await (this.api.resetMfa ?? staffAuthApi.resetMfa)(email, password, proof)
+      if (generation !== this.authGeneration) return
+      this.setState({ status: 'mfa_required', challenge, pending: false })
+    } catch (error) {
+      if (generation !== this.authGeneration) return
+      const message = safeStaffAuthMessage(error, 'mfa')
+      const diagnostic = safeStaffAuthDiagnostic(error, 'mfa_reset')
+      this.setState(
+        error instanceof StaffAuthApiError && error.status === 429 && error.retryAfterSeconds
+          ? { status: 'recoverable_error', message, diagnostic, retryAfterSeconds: error.retryAfterSeconds }
+          : { status: 'anonymous', message, diagnostic },
+      )
+    }
+  }
+
+  async cancelMfa(): Promise<void> {
+    if (this.state.status !== 'mfa_required') return
+    this.authGeneration += 1
+    this.setState({ status: 'anonymous' })
+    try {
+      await (this.api.cancelMfa ?? staffAuthApi.cancelMfa)()
+    } catch {
+      // The challenge expires on its own and grants no authority; nothing else to undo.
+    }
+  }
+
+  private handleMfaError(
+    error: unknown,
+    challenge: StaffMfaChallengeView,
+    operation: 'mfa_enrollment' | 'mfa_verify',
+  ): void {
+    const message = safeStaffAuthMessage(error, 'mfa')
+    const diagnostic = safeStaffAuthDiagnostic(error, operation)
+    if (endsMfaStep(error)) {
+      this.setState({ status: 'anonymous', message, diagnostic })
+      return
+    }
+    const retryAfterSeconds = error instanceof StaffAuthApiError ? error.retryAfterSeconds : null
+    this.setState({
+      status: 'mfa_required',
+      challenge,
+      pending: false,
+      message,
+      diagnostic,
+      ...(retryAfterSeconds ? { retryAfterSeconds } : {}),
+    })
   }
 
   async restore(): Promise<void> {
@@ -485,6 +647,8 @@ export class StaffSessionCoordinator {
       if (this.state.status !== 'logout_pending') this.setLogoutPendingState(true)
       return
     }
+    // Keep the form and its error in place when the user returns with their credentials.
+    if (this.state.status === 'anonymous' || this.state.status === 'authenticating' || this.state.status === 'mfa_required') return
     void this.restore()
   }
 
