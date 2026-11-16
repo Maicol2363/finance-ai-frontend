@@ -60,6 +60,10 @@ describe('SecurityPage recovery codes (SEC-01)', () => {
 
     expect(await screen.findByRole('alert')).toHaveTextContent('La contraseña no es correcta.')
     expect(screen.queryByTestId('admin-recovery-codes')).not.toBeInTheDocument()
+    const report = screen.getByTestId('staff-auth-diagnostic')
+    expect(report).toHaveTextContent('Operación: staff.auth.mfa_recovery_codes')
+    expect(report).toHaveTextContent('Código del error: password_confirmation_invalid')
+    expect(report).not.toHaveTextContent('wrong')
   })
 
   it('rejects a malformed server response instead of rendering it', async () => {

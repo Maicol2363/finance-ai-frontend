@@ -23,6 +23,23 @@ export type AdminOperation =
   | 'resolve'
   | 'return'
 
+/** Sanitized endpoint templates for diagnostic reports: never a real id or query value. */
+export const ADMIN_API_LOCATIONS: Readonly<Record<AdminOperation, string>> = {
+  lookup: '/api/v1/staff/admin/accounts/lookup',
+  account: '/api/v1/staff/admin/accounts/{id}',
+  suspend: '/api/v1/staff/admin/accounts/{id}/suspend',
+  reactivate: '/api/v1/staff/admin/accounts/{id}/reactivate',
+  invite: '/api/v1/staff/admin/staff/invitations',
+  staff: '/api/v1/staff/admin/staff/{id}',
+  role: '/api/v1/staff/admin/staff/{id}/role',
+  queue: '/api/v1/staff/admin/tickets/escalated',
+  case: '/api/v1/staff/admin/tickets/{id}',
+  claim: '/api/v1/staff/admin/tickets/{id}/claim',
+  reply: '/api/v1/staff/admin/tickets/{id}/messages',
+  resolve: '/api/v1/staff/admin/tickets/{id}/resolve',
+  return: '/api/v1/staff/admin/tickets/{id}/return',
+}
+
 const SAFE_PROBLEM_CODES = new Set([
   'access_expired',
   'account_not_found',

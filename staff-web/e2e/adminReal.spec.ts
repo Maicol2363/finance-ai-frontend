@@ -13,12 +13,14 @@ import {
 /**
  * Real-stack journeys for the Administrator role. Opt-in: needs the isolated demo database
  * seeded by backend scripts/seed_admin_demo.py and the API running on 127.0.0.1:8000 with
- * 127.0.0.1:4173 as an allowed origin. No authentication or authorization is stubbed.
+ * the portal origin (127.0.0.1:4173, or ADMIN_PORTAL_URL) as an allowed origin. No authentication or
+ * authorization is stubbed.
  *
  *   ADMIN_DEMO_CREDENTIALS=<path to admin-credentials.txt> npm run test:e2e -- adminReal
  */
 const CREDENTIALS_FILE = process.env.ADMIN_DEMO_CREDENTIALS
-const PORTAL = 'http://127.0.0.1:4173'
+// The portal origin: 4173 by default; set ADMIN_PORTAL_URL when that port is taken. The API must allow it in CORS.
+const PORTAL = process.env.ADMIN_PORTAL_URL ?? 'http://127.0.0.1:4173'
 const API = 'http://127.0.0.1:8000/api/v1'
 const ADMIN_API = `${PORTAL}/api/v1/staff/admin`
 const BOUNDARY = { Origin: PORTAL, 'X-Staff-Request': '1', 'Content-Type': 'application/json' }

@@ -1,4 +1,4 @@
-import type { AccountStatus } from './adminApi'
+import { ADMIN_API_LOCATIONS, type AccountStatus, type AdminDiagnostic } from './adminApi'
 
 const ROLE_LABELS: Readonly<Record<string, string>> = {
   user: 'Cliente',
@@ -17,6 +17,7 @@ const EVENT_LABELS: Readonly<Record<string, string>> = {
   ticket_claimed: 'Reclamado por soporte',
   ticket_escalated: 'Escalado a administración',
   ticket_admin_claimed: 'Caso reclamado por un administrador',
+  ticket_admin_released: 'Caso liberado al suspender a su administrador',
   message_sent: 'Mensaje enviado',
   ticket_returned: 'Devuelto a soporte',
   ticket_resolved: 'Resuelto',
@@ -54,4 +55,19 @@ export function looksLikeEmail(value: string): boolean {
 /** The token travels in the URL fragment so it is never sent to a server or written to logs. */
 export function activationLink(token: string): string {
   return `${window.location.origin}/activate#token=${token}`
+}
+
+/** Allow-listed fields only: no emails, typed reasons, conversation text, cookies or tokens. */
+export function formatAdminReport(diagnostic: AdminDiagnostic): string {
+  return [
+    'Informe de diagnóstico de administración de FinanciAI',
+    `Código del error: ${diagnostic.code}`,
+    `Operación: staff.admin.${diagnostic.operation}`,
+    `Hora UTC: ${diagnostic.occurredAtUtc}`,
+    'Plataforma: web',
+    `Ubicación de la API: ${ADMIN_API_LOCATIONS[diagnostic.operation]}`,
+    `Estado HTTP: ${diagnostic.status > 0 ? diagnostic.status : 'sin_respuesta'}`,
+    `Id. de solicitud/correlación: ${diagnostic.correlationId ?? 'no_disponible'}`,
+    'Privacidad: el informe excluye credenciales, correos, motivos escritos, texto de conversaciones, cookies, tokens y respuestas del servidor.',
+  ].join('\n')
 }

@@ -226,6 +226,29 @@ describe('AccountsPage (ADM-01, ADM-02)', () => {
     expect(screen.getByTestId('admin-account-result')).toHaveTextContent('Suspendida')
   })
 
+  it('does not start a new lookup while a change is pending, so a late result cannot replace another account', async () => {
+    let finish: ((response: Response) => void) | undefined
+    vi.mocked(fetch).mockResolvedValueOnce(jsonResponse(base)).mockImplementationOnce(
+      () => new Promise<Response>((resolve) => { finish = resolve }),
+    )
+    const user = userEvent.setup()
+    render(<AccountsPage />)
+    await search(user, 'customer@example.com')
+    await user.click(await screen.findByRole('button', { name: 'Suspender cuenta' }))
+    await user.type(screen.getByLabelText(/Motivo de la suspensión/), 'motivo')
+    await user.click(screen.getByRole('checkbox'))
+    await user.click(screen.getByRole('button', { name: 'Confirmar suspensión' }))
+    expect(await screen.findByRole('button', { name: 'Aplicando…' })).toBeDisabled()
+
+    expect(screen.getByRole('button', { name: 'Buscar cuenta' })).toBeDisabled()
+    await user.type(screen.getByLabelText('Correo electrónico exacto'), 'otra@example.com{Enter}')
+    expect(fetch).toHaveBeenCalledTimes(2)
+
+    finish?.(jsonResponse({ ...base, status: 'suspended', suspension: null }))
+    await waitFor(() => expect(screen.getByTestId('admin-account-result')).toHaveTextContent('Suspendida'))
+    expect(screen.getByRole('button', { name: 'Buscar cuenta' })).toBeEnabled()
+  })
+
   it('does not send a second suspension while one is in flight', async () => {
     let finish: ((response: Response) => void) | undefined
     vi.mocked(fetch).mockResolvedValueOnce(jsonResponse(base)).mockImplementationOnce(

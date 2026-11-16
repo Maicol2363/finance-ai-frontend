@@ -142,5 +142,40 @@ describe('ActivatePage (ADM-03)', () => {
     await user.click(screen.getByRole('button', { name: 'Activar cuenta' }))
 
     expect(await screen.findByTestId('staff-activate-message')).toHaveTextContent('45 segundos')
+    const report = screen.getByTestId('staff-auth-diagnostic')
+    expect(report).toHaveTextContent('Operación: staff.auth.activate')
+    expect(report).not.toHaveTextContent(PASSWORD)
+    expect(report).not.toHaveTextContent(TOKEN)
+  })
+
+  it('also attaches the report to the generic invalid-link page, without the token', async () => {
+    vi.mocked(fetch).mockResolvedValue(problem('activation_invalid', 400, { 'X-Correlation-ID': 'c-act' }))
+    const user = userEvent.setup()
+    renderPage()
+    await user.type(await screen.findByLabelText('Contraseña nueva'), PASSWORD)
+    await user.type(screen.getByLabelText('Confirma la contraseña'), PASSWORD)
+    await user.click(screen.getByRole('button', { name: 'Activar cuenta' }))
+
+    expect(await screen.findByTestId('staff-activate-invalid')).toBeInTheDocument()
+    const report = screen.getByTestId('staff-auth-diagnostic')
+    expect(report).toHaveTextContent('Código del error: activation_invalid')
+    expect(report).toHaveTextContent('Id. de solicitud/correlación: c-act')
+    expect(report).not.toHaveTextContent(TOKEN)
+  })
+
+  it('shows every token-dependent failure as the same generic message', async () => {
+    const messages: string[] = []
+    for (const code of ['activation_invalid', 'activation_invalid']) {
+      vi.mocked(fetch).mockResolvedValueOnce(problem(code, 400))
+      const user = userEvent.setup()
+      const view = renderPage()
+      await user.type(await screen.findByLabelText('Contraseña nueva'), PASSWORD)
+      await user.type(screen.getByLabelText('Confirma la contraseña'), PASSWORD)
+      await user.click(screen.getByRole('button', { name: 'Activar cuenta' }))
+      messages.push((await screen.findByTestId('staff-activate-invalid')).textContent ?? '')
+      view.unmount()
+      window.history.pushState({}, '', `/activate#token=${TOKEN}`)
+    }
+    expect(new Set(messages).size).toBe(1)
   })
 })

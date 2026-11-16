@@ -1,5 +1,7 @@
 import { useEffect, useId, useState, type FormEvent } from 'react'
 import { StaffAuthApiError, staffAuthApi } from '../../shared/api/staffAuthApi'
+import { safeStaffAuthDiagnostic, type StaffAuthDiagnostic } from '../../shared/auth/staffSessionCoordinator'
+import { AuthDiagnosticPanel } from '../auth/AuthDiagnosticPanel'
 
 /**
  * SEC-01: single-use recovery codes for a lost authenticator. Codes are shown once, live only
@@ -11,6 +13,7 @@ export function SecurityPage() {
   const [codes, setCodes] = useState<string[] | null>(null)
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState('')
+  const [diagnostic, setDiagnostic] = useState<StaffAuthDiagnostic | null>(null)
   const [copyStatus, setCopyStatus] = useState('')
   const id = useId()
 
@@ -21,11 +24,13 @@ export function SecurityPage() {
     if (busy || password.length === 0) return
     setBusy(true)
     setMessage('')
+    setDiagnostic(null)
     setCopyStatus('')
     try {
       setCodes(await staffAuthApi.issueRecoveryCodes(password))
     } catch (error) {
       setCodes(null)
+      setDiagnostic(safeStaffAuthDiagnostic(error, 'mfa_recovery_codes'))
       if (error instanceof StaffAuthApiError && error.code === 'password_confirmation_invalid') {
         setMessage('La contraseña no es correcta.')
       } else if (error instanceof StaffAuthApiError && error.status === 403) {
@@ -75,6 +80,7 @@ export function SecurityPage() {
         </button>
       </form>
       {message && <p className="admin-field-error" role="alert">{message}</p>}
+      {diagnostic && <AuthDiagnosticPanel diagnostic={diagnostic} />}
       {codes && (
         <div className="admin-secret" data-testid="admin-recovery-codes" role="status">
           <h3>Tus códigos de recuperación</h3>

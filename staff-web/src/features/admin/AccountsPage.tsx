@@ -1,4 +1,4 @@
-import { useId, useState, type FormEvent } from 'react'
+import { useEffect, useId, useRef, useState, type FormEvent } from 'react'
 import { useStaffAuth } from '../../shared/auth/useStaffAuth'
 import { adminApi, type AdminAccount } from './adminApi'
 import { AdminFailureNotice, type AdminFailure } from './AdminFailureNotice'
@@ -26,6 +26,9 @@ export function AccountsPage() {
   const [confirmed, setConfirmed] = useState(false)
   const [busy, setBusy] = useState(false)
   const fieldId = useId()
+  // The account on screen right now, so a late response can never replace a different one.
+  const shownAccountId = useRef<number | null>(null)
+  useEffect(() => { shownAccountId.current = account?.id ?? null }, [account])
 
   function resetPanel(): void {
     setPanel(null)
@@ -35,7 +38,7 @@ export function AccountsPage() {
 
   async function search(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault()
-    if (searching) return
+    if (searching || busy) return
     setFieldError('')
     setNotice('')
     setFailure(null)
@@ -79,13 +82,15 @@ export function AccountsPage() {
       const updated = panel === 'suspend'
         ? await adminApi.suspend(account.id, reason.trim())
         : await adminApi.reactivate(account.id)
-      setAccount(updated)
-      setNotice(
-        panel === 'suspend'
-          ? 'Cuenta suspendida. Sus sesiones se cerraron y no podrá usar la aplicación hasta que la reactives.'
-          : 'Cuenta reactivada. La persona deberá iniciar sesión de nuevo; las sesiones anteriores no se restauran.',
-      )
-      resetPanel()
+      if (shownAccountId.current === updated.id) {
+        setAccount(updated)
+        setNotice(
+          panel === 'suspend'
+            ? 'Cuenta suspendida. Sus sesiones se cerraron y no podrá usar la aplicación hasta que la reactives.'
+            : 'Cuenta reactivada. La persona deberá iniciar sesión de nuevo; las sesiones anteriores no se restauran.',
+        )
+        resetPanel()
+      }
     } catch (error) {
       setFailure(toFailure(error, panel === 'suspend' ? 'suspend' : 'reactivate'))
     } finally {
@@ -123,7 +128,7 @@ export function AccountsPage() {
           />
           {fieldError && <p className="admin-field-error" id={`${fieldId}-error`} role="alert">{fieldError}</p>}
         </div>
-        <button className="primary-button" disabled={searching} type="submit">{searching ? 'Buscando…' : 'Buscar cuenta'}</button>
+        <button className="primary-button" disabled={searching || busy} type="submit">{searching ? 'Buscando…' : 'Buscar cuenta'}</button>
       </form>
 
       <p aria-live="polite" className="admin-notice" data-testid="admin-accounts-notice">{notice}</p>

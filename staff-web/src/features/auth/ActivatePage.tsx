@@ -1,6 +1,8 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { Link } from 'react-router'
 import { StaffAuthApiError, staffAuthApi } from '../../shared/api/staffAuthApi'
+import { safeStaffAuthDiagnostic, type StaffAuthDiagnostic } from '../../shared/auth/staffSessionCoordinator'
+import { AuthDiagnosticPanel } from './AuthDiagnosticPanel'
 import { ThemeToggleButton } from '../../shared/theme/ThemeToggleButton'
 import { readActivationToken } from './activationToken'
 
@@ -33,6 +35,7 @@ export function ActivatePage() {
   const [confirmation, setConfirmation] = useState('')
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState('')
+  const [diagnostic, setDiagnostic] = useState<StaffAuthDiagnostic | null>(null)
   const [done, setDone] = useState(false)
 
   useEffect(() => {
@@ -45,6 +48,7 @@ export function ActivatePage() {
         setToken(next)
         setDone(false)
         setMessage('')
+        setDiagnostic(null)
       }
     }
     consume()
@@ -65,12 +69,14 @@ export function ActivatePage() {
     }
     setBusy(true)
     setMessage('')
+    setDiagnostic(null)
     try {
       await staffAuthApi.activate(token, password, confirmation)
       setToken(null)
       setDone(true)
     } catch (error) {
       setMessage(activationMessage(error))
+      setDiagnostic(safeStaffAuthDiagnostic(error, 'activate'))
       if (error instanceof StaffAuthApiError && error.code === 'activation_invalid') setToken(null)
     } finally {
       setPassword('')
@@ -106,6 +112,7 @@ export function ActivatePage() {
                 <p aria-live="polite" className="auth-message" data-testid="staff-activate-invalid" role="alert">
                   {message || 'Este enlace de activación no es válido o ya se usó. Pide a un administrador una invitación nueva.'}
                 </p>
+                {diagnostic && <AuthDiagnosticPanel diagnostic={diagnostic} />}
                 <Link className="text-link" to="/login">Volver al inicio de sesión</Link>
               </>
             ) : (
@@ -114,6 +121,7 @@ export function ActivatePage() {
                   Define la contraseña de tu cuenta. Nadie más la conoce: los administradores no pueden verla.
                 </p>
                 {message && <p aria-live="polite" className="auth-message" data-testid="staff-activate-message" role="alert">{message}</p>}
+                {diagnostic && <AuthDiagnosticPanel diagnostic={diagnostic} />}
                 <form aria-labelledby="activate-heading" onSubmit={(event) => void submit(event)}>
                   <div className="auth-field">
                     <label htmlFor="activate-password">Contraseña nueva</label>

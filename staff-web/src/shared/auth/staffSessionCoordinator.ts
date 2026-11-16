@@ -469,16 +469,14 @@ export class StaffSessionCoordinator {
     }
     const generation = this.authGeneration
     const hadConfirmedSession = this.session !== null
-    // Background revalidation of a confirmed session is silent: replacing the authenticated
-    // state would unmount the workspace and discard open forms and one-time secrets.
-    if (!hadConfirmedSession) this.setState({ status: 'restoring' })
+    this.setState({ status: 'restoring' })
     try {
       const session = await this.api.session()
       if (generation === this.authGeneration && !this.isLogoutPending()) this.setAuthenticated(session)
     } catch (error) {
       if (generation !== this.authGeneration || this.isLogoutPending()) return
       if (shouldRefresh(error)) {
-        if (!hadConfirmedSession) this.setState({ status: 'refreshing' })
+        this.setState({ status: 'refreshing' })
         try {
           const session = await this.coordinateRefresh()
           if (generation === this.authGeneration && !this.isLogoutPending()) this.setAuthenticated(session)

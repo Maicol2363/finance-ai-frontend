@@ -380,3 +380,8 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .admin-codes code { font-size: 13px; letter-spacing: .04em; }
 .admin-thread { display: grid; gap: 10px; margin: 0; padding-left: 18px; color: var(--ink); font-size: 12px; }
 .admin-thread p { margin: 4px 0 0; }
+
+/* An authenticated view that is being re-confirmed stays mounted (so open forms survive) but is hidden. */
+.session-view { display: contents; }
+.session-view-held { visibility: hidden; }
+.session-hold-notice { position: fixed; inset: 0; z-index: 100; display: grid; place-items: center; background: var(--canvas); }
