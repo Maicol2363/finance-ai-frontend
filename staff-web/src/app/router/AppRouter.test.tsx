@@ -132,10 +132,10 @@ describe('staff portal authentication routes', () => {
     expect(await screen.findByRole('button', { name: 'Iniciando sesión…' })).toBeDisabled()
   })
 
-  it('does not open the protected route when the server returns a different staff role', async () => {
+  it('does not open the protected route when the server returns a non-staff role', async () => {
     vi.mocked(fetch).mockImplementation(async (input: RequestInfo | URL) => {
       if (String(input).endsWith('/session')) return deniedResponse()
-      return jsonResponse({ ...validSession, user: { ...validSession.user, role: 'admin' } })
+      return jsonResponse({ ...validSession, user: { ...validSession.user, role: 'user' } })
     })
     window.history.pushState({}, '', '/login')
     const user = userEvent.setup()
@@ -150,11 +150,11 @@ describe('staff portal authentication routes', () => {
     expect(screen.getByRole('alert')).toHaveTextContent(/ya no está disponible/i)
   })
 
-  it('does not route admin or audit paths to staff features', async () => {
+  it('does not open the administration workspace without a session', async () => {
     window.history.pushState({}, '', '/admin')
     render(<AppRouter />)
 
-    expect(await screen.findByRole('heading', { name: 'No encontramos esta página' })).toBeInTheDocument()
-    expect(screen.queryByRole('heading', { name: 'Administration' })).not.toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Iniciar sesión en el portal del personal' })).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Administración' })).not.toBeInTheDocument()
   })
 })

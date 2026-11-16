@@ -6,9 +6,12 @@ export function StaffLayout() {
   const { state, logout } = useStaffAuth()
   const authenticated = state.status === 'authenticated'
   const identity = authenticated ? state.session.user.email : null
-  const footer = authenticated && state.session.user.role === 'security_auditor'
+  const role = authenticated ? state.session.user.role : null
+  const footer = role === 'security_auditor'
     ? 'El acceso a Auditoría se confirma en cada solicitud con el rol, la cuenta activa y la verificación en dos pasos.'
-    : 'El acceso a Soporte se confirma con el servicio de sesiones del personal.'
+    : role === 'admin'
+      ? 'El acceso a Administración se confirma en cada solicitud con el rol, la cuenta activa y la verificación en dos pasos.'
+      : 'El acceso a Soporte se confirma con el servicio de sesiones del personal.'
 
   return (
     <div className="portal-shell">

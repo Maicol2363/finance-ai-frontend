@@ -18,12 +18,13 @@
   --income: #23835F;
   --income-soft: #E4F3EC;
   --ink: #202B28;
-  --muted: #687773;
+  --muted: #5C6A66;
   --line: #E1E8E5;
   --confirm: #21845B;
   --discard: #D9534F;
+  --discard-text: #B42318;
   --error-soft: #FFEFEE;
-  --nav: #687773;
+  --nav: #5C6A66;
   --soft: #F0F4F2;
   --soft-2: #FAFBFA;
   --row-line: #F0F3F2;
@@ -49,6 +50,7 @@
   --line: #303A40;
   --confirm: #69B992;
   --discard: #E36B64;
+  --discard-text: #E36B64;
   --error-soft: #351D20;
   --nav: #ADB8B4;
   --soft: #293238;
@@ -144,7 +146,7 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .auth-field input:focus { border-color: var(--primary); outline: 3px solid color-mix(in srgb, var(--primary) 24%, transparent); }
 .auth-submit { width: 100%; justify-content: center; margin-top: 5px; border: 0; cursor: pointer; font: inherit; }
 .auth-submit:disabled { cursor: wait; opacity: .7; }
-.auth-message { margin: 0 0 13px; padding: 10px 12px; border: 1px solid var(--discard); border-radius: 8px; color: var(--discard); background: var(--error-soft); font-size: 12px; line-height: 1.5; }
+.auth-message { margin: 0 0 13px; padding: 10px 12px; border: 1px solid var(--discard); border-radius: 8px; color: var(--discard-text); background: var(--error-soft); font-size: 12px; line-height: 1.5; }
 .text-button { padding: 0; border: 0; color: var(--primary); background: transparent; font: inherit; font-size: 12px; font-weight: 700; cursor: pointer; }
 .auth-status-panel { padding: 22px; border: 1px solid var(--line); border-radius: 12px; background: var(--card); }
 .auth-status-panel h1 { margin: 0 0 8px; color: var(--ink); font-size: 21px; }
@@ -166,7 +168,7 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .filter-button:disabled, .secondary-button:disabled, .primary-button:disabled { cursor: wait; opacity: .65; }
 .support-notice { min-height: 1.4em; margin: 0; color: var(--primary-dark); font-size: 12px; }
 .support-error, .support-empty, .support-loading { padding: 18px; border: 1px solid var(--line); border-radius: 10px; color: var(--muted); background: var(--card); font-size: 13px; line-height: 1.6; }
-.support-error { display: flex; justify-content: space-between; gap: 12px; color: var(--discard); background: var(--error-soft); }
+.support-error { display: flex; justify-content: space-between; gap: 12px; color: var(--discard-text); background: var(--error-soft); }
 .support-error button { border: 0; color: inherit; background: transparent; font: inherit; font-weight: 700; cursor: pointer; }
 .support-empty-list { padding: 18px; color: var(--muted); font-size: 13px; }
 .support-empty h2 { margin: 0 0 5px; color: var(--ink); font-size: 15px; }
@@ -257,13 +259,13 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .audit-field input, .audit-field select { min-height: 40px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; color: var(--ink); background: var(--card); font: inherit; font-size: 13px; }
 .audit-field input:focus, .audit-field select:focus { border-color: var(--primary); outline: 3px solid color-mix(in srgb, var(--primary) 24%, transparent); }
 .audit-field input[aria-invalid="true"], .audit-field select[aria-invalid="true"] { border-color: var(--discard); }
-.audit-field-error { color: var(--discard); font-size: 11px; line-height: 1.4; }
+.audit-field-error { color: var(--discard-text); font-size: 11px; line-height: 1.4; }
 .audit-account-field { max-width: 320px; }
 .audit-hint { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.6; }
 .audit-form-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .audit-form-actions .primary-button { margin-top: 0; cursor: pointer; }
 .audit-error { display: grid; gap: 10px; padding: 14px 16px; border: 1px solid var(--discard); border-radius: 10px; background: var(--error-soft); }
-.audit-error-message { margin: 0; color: var(--discard); font-size: 13px; font-weight: 600; line-height: 1.5; }
+.audit-error-message { margin: 0; color: var(--discard-text); font-size: 13px; font-weight: 600; line-height: 1.5; }
 .audit-error .secondary-button { justify-self: start; }
 .audit-diagnostic summary { color: var(--muted); font-size: 12px; cursor: pointer; }
 .audit-empty { padding: 16px 18px; border: 1px dashed var(--line); border-radius: 10px; color: var(--muted); background: var(--card); font-size: 13px; line-height: 1.6; }
@@ -279,7 +281,7 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .audit-outcome { display: inline-block; padding: 3px 8px; border-radius: 999px; font-size: 11px; font-weight: 700; white-space: nowrap; }
 .outcome-success { color: var(--primary-dark); background: var(--primary-soft); }
 .outcome-denied { color: var(--warn-fg); background: var(--warn-bg); }
-.outcome-failure { color: var(--discard); background: var(--error-soft); }
+.outcome-failure { color: var(--discard-text); background: var(--error-soft); }
 .audit-unknown { color: var(--muted); font-style: italic; }
 .audit-detail { display: grid; gap: 10px; padding: 18px; border: 1px solid var(--line); border-radius: 12px; background: var(--card); }
 .audit-detail h3 { margin: 8px 0 0; color: var(--ink); font-size: 14px; }
@@ -335,3 +337,55 @@ button, a { -webkit-tap-highlight-color: transparent; }
   .audit-bar-track { grid-column: 1 / -1; grid-row: 2; }
   .audit-tab { padding: 8px 10px; }
 }
+
+/* Administrator workspace (ADM-01..ADM-05) */
+.admin-workspace { display: grid; gap: 16px; }
+.admin-section { display: grid; gap: 14px; }
+.admin-section h2 { margin: 0; color: var(--ink); font-size: 17px; }
+.admin-intro, .admin-hint { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.6; }
+.admin-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.admin-card { display: grid; gap: 12px; min-width: 0; padding: 18px; border: 1px solid var(--line); border-radius: 12px; background: var(--card); }
+.admin-card h3 { margin: 0; color: var(--ink); font-size: 15px; overflow-wrap: anywhere; }
+.admin-nested { background: var(--soft-2); }
+.admin-form { display: grid; align-items: start; gap: 12px; max-width: 460px; }
+.admin-form .primary-button, .admin-form .secondary-button { justify-self: start; margin-top: 0; cursor: pointer; }
+.admin-field { display: grid; align-content: start; gap: 6px; }
+.admin-field label, .admin-radio-group legend { color: var(--ink); font-size: 12px; font-weight: 700; }
+.admin-field input, .admin-field select, .admin-field textarea { width: 100%; min-height: 40px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; color: var(--ink); background: var(--card); font: inherit; font-size: 13px; }
+.admin-field textarea { resize: vertical; }
+.admin-field input:focus, .admin-field select:focus, .admin-field textarea:focus { border-color: var(--primary); outline: 3px solid color-mix(in srgb, var(--primary) 24%, transparent); }
+.admin-field input[aria-invalid="true"] { border-color: var(--discard); }
+.admin-field-error { margin: 0; color: var(--discard-text); font-size: 12px; font-weight: 600; }
+.admin-radio-group { display: flex; flex-wrap: wrap; gap: 6px 18px; margin: 0; padding: 0; border: 0; }
+.admin-radio-group label { color: var(--ink); font-size: 13px; font-weight: 500; }
+.admin-check { display: block; color: var(--ink); font-size: 12px; line-height: 1.6; }
+.admin-definition { display: flex; flex-wrap: wrap; gap: 8px 24px; margin: 0; }
+.admin-definition div { display: grid; gap: 4px; }
+.admin-definition dt { color: var(--muted); font-size: 10px; font-weight: 700; letter-spacing: .04em; }
+.admin-definition dd { margin: 0; color: var(--ink); font-size: 13px; overflow-wrap: anywhere; }
+.admin-badge { display: inline-block; padding: 3px 8px; border: 1px solid var(--line); border-radius: 999px; color: var(--muted); background: var(--soft); font-size: 10px; font-weight: 750; }
+.admin-badge.status-active { color: var(--primary-dark); background: var(--primary-soft); }
+.admin-badge.status-suspended { color: var(--discard-text); background: var(--error-soft); }
+.admin-suspension { padding: 12px; border-radius: 8px; background: var(--error-soft); }
+.admin-suspension h4, .admin-confirm h4 { margin: 0 0 6px; color: var(--ink); font-size: 13px; }
+.admin-suspension p { margin: 0 0 4px; font-size: 12px; }
+.admin-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.admin-actions .primary-button { margin-top: 0; cursor: pointer; }
+.admin-danger { border-color: var(--discard); color: var(--discard-text); }
+.admin-confirm { display: grid; gap: 12px; padding: 14px; border: 1px solid var(--line); border-radius: 10px; background: var(--soft-2); }
+.admin-notice { min-height: 1.4em; margin: 0; color: var(--primary-dark); font-size: 12px; }
+.admin-error { display: grid; gap: 4px; padding: 12px 14px; border: 1px solid var(--discard); border-radius: 10px; background: var(--error-soft); }
+.admin-error-message { margin: 0; color: var(--discard-text); font-size: 13px; font-weight: 600; }
+.admin-error-reference { margin: 0; color: var(--muted); font-size: 11px; }
+.admin-secret { display: grid; gap: 10px; padding: 14px; border: 1px dashed var(--primary); border-radius: 10px; background: var(--primary-soft); }
+.admin-secret h3 { margin: 0; font-size: 14px; }
+.admin-secret input { width: 100%; min-height: 38px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; color: var(--ink); background: var(--card); font: inherit; font-size: 12px; }
+.admin-codes { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 6px 18px; margin: 0; padding-left: 20px; }
+.admin-codes code { font-size: 13px; letter-spacing: .04em; }
+.admin-thread { display: grid; gap: 10px; margin: 0; padding-left: 18px; color: var(--ink); font-size: 12px; }
+.admin-thread p { margin: 4px 0 0; }
+
+/* An authenticated view that is being re-confirmed stays mounted (so open forms survive) but is hidden. */
+.session-view { display: contents; }
+.session-view-held { visibility: hidden; }
+.session-hold-notice { position: fixed; inset: 0; z-index: 100; display: grid; place-items: center; background: var(--canvas); }

@@ -4,6 +4,7 @@ import type { StaffRole } from '../api/staffAuthApi'
 export const ROLE_HOME: Readonly<Record<StaffRole, string>> = {
   support_agent: '/support',
   security_auditor: '/audit',
+  admin: '/admin',
 }
 
 /** Honour a requested return path only when it stays inside the role's own workspace. */

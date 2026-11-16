@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import { Navigate, useLocation } from 'react-router'
+import { Link, Navigate, useLocation } from 'react-router'
 import { roleDestination } from '../../shared/auth/roleHome'
 import { useStaffAuth } from '../../shared/auth/useStaffAuth'
 import { ThemeToggleButton } from '../../shared/theme/ThemeToggleButton'
@@ -75,7 +75,7 @@ export function SignInPage() {
             <div className="auth-card">
               <span className="eyebrow">ACCESO DEL PERSONAL</span>
               <h1 id="staff-sign-in-heading">Iniciar sesión en el portal del personal</h1>
-              <p className="auth-intro">Usa tu cuenta del personal. Los auditores de seguridad completan además la verificación en dos pasos.</p>
+              <p className="auth-intro">Usa tu cuenta del personal. Los administradores y los auditores de seguridad completan además la verificación en dos pasos.</p>
               {errorMessage && (
                 <p aria-live="polite" className="auth-message" data-testid="staff-auth-message" role="alert">
                   {errorMessage}
@@ -125,6 +125,7 @@ export function SignInPage() {
                       : 'Iniciar sesión'}
                 </button>
               </form>
+              <Link className="text-link" data-testid="staff-recover-link" to="/recover">¿Perdiste tu autenticador? Recupera el acceso</Link>
             </div>
           </section>
         )}

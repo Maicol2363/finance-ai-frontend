@@ -30,6 +30,7 @@ function contextValue(state: StaffAuthState): StaffAuthContextValue {
     startMfaEnrollment: vi.fn().mockResolvedValue(null),
     verifyMfa: vi.fn().mockResolvedValue(undefined),
     cancelMfa: vi.fn().mockResolvedValue(undefined),
+    resetMfa: vi.fn().mockResolvedValue(undefined),
   }
 }
 
