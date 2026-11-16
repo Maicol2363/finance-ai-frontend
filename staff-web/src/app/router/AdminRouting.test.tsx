@@ -106,7 +106,7 @@ describe('administrator routing', () => {
     render(<AppRouter />)
 
     expect(await screen.findByRole('heading', { name: 'Administración' })).toBeInTheDocument()
-    expect(window.location.pathname).toBe('/admin/accounts')
+    await waitFor(() => expect(window.location.pathname).toBe('/admin/accounts'))
     const nav = screen.getByRole('navigation', { name: 'Secciones de administración' })
     expect(nav).toHaveTextContent('Cuentas')
     expect(nav).toHaveTextContent('Personal')
