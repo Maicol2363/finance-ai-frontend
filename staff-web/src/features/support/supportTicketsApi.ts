@@ -123,6 +123,7 @@ const SAFE_DIAGNOSTIC_REASONS: Record<string, string> = {
   support_ticket_claim_conflict: 'claim_conflict',
   support_ticket_state_conflict: 'ticket_state_conflict',
   support_ticket_not_found: 'ticket_unavailable',
+  support_attachment_invalid: 'attachment_rejected',
   unknown_error: 'unknown_error',
   unsupported_media_type: 'unsupported_request_format',
   validation_error: 'request_validation_failed',

@@ -2,7 +2,7 @@ import { SupportAttachmentInput } from './SupportAttachmentInput'
 import { encodeAttachment } from './encodeAttachment'
 import { useState, type FormEvent } from 'react'
 import { SupportDiagnosticPanel } from './SupportDiagnosticPanel'
-import { supportTicketsApi, safeSupportDiagnostic, safeSupportMessage, type SupportCustomer, type SupportDiagnostic } from './supportTicketsApi'
+import { supportTicketsApi, safeSupportDiagnostic, safeSupportMessage, type SupportCustomer, type SupportDiagnostic, type SupportTicketsApiError } from './supportTicketsApi'
 
 export function SupportCreateForm({ onCreated }: { onCreated: () => void }) {
   const [identifier, setIdentifier] = useState('')
@@ -15,6 +15,15 @@ export function SupportCreateForm({ onCreated }: { onCreated: () => void }) {
   const [busy, setBusy] = useState(false)
   const [failure, setFailure] = useState<SupportDiagnostic | null>(null)
   const [notice, setNotice] = useState('')
+  function handleAttachmentValidation(error: SupportTicketsApiError | null) {
+    if (error) {
+      setFailure(safeSupportDiagnostic(error, 'create'))
+      setErrorMessage(safeSupportMessage(error, 'create'))
+    } else if (failure?.code === 'support_attachment_invalid') {
+      setFailure(null)
+      setErrorMessage('')
+    }
+  }
   async function lookup(event: FormEvent) {
     event.preventDefault(); setBusy(true); setFailure(null); setCustomer(null); setNotice('')
     try { setCustomer(await supportTicketsApi.lookup(identifier)) }
@@ -34,7 +43,7 @@ export function SupportCreateForm({ onCreated }: { onCreated: () => void }) {
     {customer && <><p>Cuenta #{customer.id} · {customer.email} · {customer.is_active ? 'Activa' : 'Inactiva'}</p><form onSubmit={(event) => void create(event)}>
       <label>Asunto<input required maxLength={160} value={subject} onChange={(event) => setSubject(event.target.value)} /></label>
       <label>Categoría<select value={category} onChange={(event) => setCategory(event.target.value)}><option value="general">General</option><option value="account">Cuenta</option><option value="technical">Problema técnico</option><option value="other">Otro</option></select></label>
-      <label>Descripción<textarea required maxLength={4000} value={description} onChange={(event) => setDescription(event.target.value)} /></label><SupportAttachmentInput busy={busy} file={attachment} onChange={setAttachment} /><button className="primary-button" disabled={busy} type="submit">Crear ticket</button>
+      <label>Descripción<textarea required maxLength={4000} value={description} onChange={(event) => setDescription(event.target.value)} /></label><SupportAttachmentInput busy={busy} file={attachment} onChange={setAttachment} onValidationError={handleAttachmentValidation} operation="create" /><button className="primary-button" disabled={busy} type="submit">Crear ticket</button>
     </form></>}
     {failure && <><p role="alert">{errorMessage}</p><SupportDiagnosticPanel diagnostic={failure} id="support-create-diagnostic" /></>}
     <p role="status">{notice}</p>

@@ -4,7 +4,7 @@ import { SupportAttachmentInput } from './SupportAttachmentInput'
 import { encodeAttachment } from './encodeAttachment'
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
 import { SupportDiagnosticPanel } from './SupportDiagnosticPanel'
-import { supportTicketsApi, safeSupportDiagnostic, safeSupportMessage, type AttachmentSummary, type SupportConversation, type SupportDiagnostic, type SupportTicketDetail } from './supportTicketsApi'
+import { supportTicketsApi, safeSupportDiagnostic, safeSupportMessage, type AttachmentSummary, type SupportConversation, type SupportDiagnostic, type SupportTicketDetail, type SupportTicketsApiError } from './supportTicketsApi'
 
 export function SupportCasePanel({ id, onChange }: { id: number; onChange: (ticket: SupportTicketDetail) => void }) {
   const [data, setData] = useState<SupportConversation | null>(null)
@@ -19,6 +19,15 @@ export function SupportCasePanel({ id, onChange }: { id: number; onChange: (tick
   const scroll = useRef<HTMLDivElement>(null)
   const scrollToLatest = useRef(true)
   const mutationVersion = useRef(0)
+  function handleAttachmentValidation(error: SupportTicketsApiError | null) {
+    if (error) {
+      setFailure(safeSupportDiagnostic(error, 'message'))
+      setErrorMessage(safeSupportMessage(error, 'message'))
+    } else if (failure?.code === 'support_attachment_invalid') {
+      setFailure(null)
+      setErrorMessage('')
+    }
+  }
   useEffect(() => {
     if (scrollToLatest.current && scroll.current && data) {
       scroll.current.scrollTop = scroll.current.scrollHeight
@@ -130,7 +139,7 @@ export function SupportCasePanel({ id, onChange }: { id: number; onChange: (tick
       </div>
       {data.ticket.status === 'in_progress' ? <>
         <form className="chat-compose" onSubmit={(event) => void action('message', event)}>
-          <SupportAttachmentInput compact busy={busy} file={attachment} onChange={setAttachment} />
+          <SupportAttachmentInput compact busy={busy} file={attachment} onChange={setAttachment} onValidationError={handleAttachmentValidation} operation="message" />
           <textarea aria-label="Mensaje al cliente" placeholder="Escribe un mensaje" rows={1} required maxLength={4000} value={body} onChange={(event) => setBody(event.target.value)}
             onKeyDown={(event) => {
               if (event.key !== 'Enter' || event.shiftKey || event.nativeEvent.isComposing) return
