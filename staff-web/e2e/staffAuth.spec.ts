@@ -308,6 +308,13 @@ test('shows a copyable login diagnostic without credentials or response details'
   await page.getByRole('button', { name: 'Iniciar sesión' }).click()
 
   const report = page.getByLabel('Contenido del informe de diagnóstico')
+  const message = page.getByTestId('staff-auth-message')
+  await expect(message).toHaveText('No se pudo verificar el correo electrónico o la contraseña.')
+  await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')))
+  await expect(message).toBeVisible()
+  await expect(report).toBeHidden()
+  await page.getByText('Detalles para soporte', { exact: true }).click()
+  await expect(report).toBeVisible()
   await expect(report).toContainText('Código del error: invalid_credentials')
   await expect(report).toContainText('Operación: staff.auth.login')
   await expect(report).toContainText('Ubicación de la API: /api/v1/staff/auth/login')

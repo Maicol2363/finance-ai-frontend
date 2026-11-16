@@ -1,0 +1,86 @@
+name: Deploy Staff Web to Cloud Run
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: staff-web-cloud-run
+  cancel-in-progress: false
+
+env:
+  PROJECT: finance-ai-api
+  REGION: southamerica-east1
+  SERVICE: finance-staff-web
+
+jobs:
+  deploy:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    environment: staff-web-production
+    env:
+      STAFF_RUNTIME_SERVICE_ACCOUNT: ${{ vars.STAFF_RUNTIME_SERVICE_ACCOUNT }}
+
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version-file: staff-web/.nvmrc
+          cache: npm
+          cache-dependency-path: staff-web/package-lock.json
+      - name: Lint, type-check, test and build
+        working-directory: staff-web
+        run: |
+          npm ci
+          npm run lint
+          npm run typecheck
+          npm test
+          npm run build
+          npx playwright install --with-deps chromium
+      - name: Build the Staff Web image
+        run: |
+          image="$REGION-docker.pkg.dev/$PROJECT/finance-ai/staff-web:$GITHUB_SHA"
+          docker build --platform linux/amd64 \
+            --label "org.opencontainers.image.revision=$GITHUB_SHA" \
+            --tag "$image" staff-web
+          echo "IMAGE=$image" >> "$GITHUB_ENV"
+      - uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3
+        with:
+          workload_identity_provider: ${{ vars.STAFF_WIF_PROVIDER }}
+          service_account: ${{ vars.STAFF_DEPLOY_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db # v3
+      - name: Check Staff API compatibility before publishing
+        run: |
+          api=$(gcloud run services describe finance-api --project "$PROJECT" --region "$REGION" --format='value(status.url)')
+          origin=$(gcloud run services describe "$SERVICE" --project "$PROJECT" --region "$REGION" --format='value(status.url)')
+          bash staff-web/deploy/verify-staff-api.sh "$api" "$origin"
+          echo "API_HOST=${api#https://}" >> "$GITHUB_ENV"
+          echo "STAFF_ORIGIN=$origin" >> "$GITHUB_ENV"
+      - name: Publish the image and deploy its digest
+        run: |
+          : "${STAFF_RUNTIME_SERVICE_ACCOUNT:?Configure STAFF_RUNTIME_SERVICE_ACCOUNT first}"
+          gcloud auth configure-docker "$REGION-docker.pkg.dev" --quiet
+          docker push "$IMAGE"
+          digest=$(gcloud artifacts docker images describe "$IMAGE" --project "$PROJECT" --format='value(image_summary.digest)')
+          [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]
+          gcloud run deploy "$SERVICE" --project "$PROJECT" --region "$REGION" \
+            --image "${IMAGE%:*}@$digest" --service-account "$STAFF_RUNTIME_SERVICE_ACCOUNT" \
+            --update-env-vars "STAFF_API_HOST=$API_HOST" --port 8080 \
+            --cpu 1 --memory 256Mi --min 0 --max 3 --max-instances 3 \
+            --concurrency 40 --timeout 60s --cpu-throttling --no-cpu-boost \
+            --startup-probe 'httpGet.path=/health,httpGet.port=8080,periodSeconds=2,timeoutSeconds=1,failureThreshold=10' \
+            --quiet
+      - name: Verify the deployed URL and browser
+        run: |
+          url=$(gcloud run services describe "$SERVICE" --project "$PROJECT" --region "$REGION" --format='value(status.url)')
+          test "$url" = "$STAFF_ORIGIN"
+          test "$(curl --fail --silent --show-error --max-time 20 "$url/health")" = ok
+          bash staff-web/deploy/verify-staff-api.sh "$url" "$url"
+          node staff-web/deploy/verify-browser.mjs "$url"
+          echo "Staff Web URL: $url" >> "$GITHUB_STEP_SUMMARY"

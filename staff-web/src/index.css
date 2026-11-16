@@ -126,6 +126,10 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .diagnostic-copy-button { padding: 9px 12px; border: 1px solid var(--line); border-radius: 7px; color: var(--primary); background: var(--card); font: inherit; font-size: 12px; font-weight: 700; cursor: pointer; }
 .diagnostic-copy-button:hover { background: var(--primary-soft); }
 .diagnostic-copy-status { min-height: 1.5em; }
+.staff-auth-diagnostic { margin: 12px 0; }
+.staff-auth-diagnostic summary { color: var(--primary); cursor: pointer; font-size: 13px; }
+.staff-session-recheck { visibility: hidden; animation: reveal-staff-session 0s 400ms forwards; }
+@keyframes reveal-staff-session { to { visibility: visible; } }
 .sign-out-button { cursor: pointer; font: inherit; }
 .auth-screen { min-height: 100vh; }
 .auth-topbar { display: flex; min-height: 78px; align-items: center; justify-content: space-between; gap: 16px; padding: 12px clamp(22px, 4vw, 58px); border-bottom: 1px solid var(--line); background: var(--header); }
