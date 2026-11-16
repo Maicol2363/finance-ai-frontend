@@ -94,18 +94,20 @@ export function EscalationCasePanel({ adminId, data, onChanged, onClaim, onFinis
       <h4>Descripción</h4>
       <p className="ticket-description">{data.ticket.description}</p>
 
-      <h4>Conversación visible para el cliente</h4>
-      {data.messages.length === 0 ? <p className="admin-hint">Aún no hay mensajes.</p> : (
-        <ol className="admin-thread" data-testid="admin-messages">
+      <h4>Conversación</h4>
+      <div aria-label="Conversación visible para el cliente" className="chat-scroll">
+        {data.messages.length === 0 ? <p className="chat-notice">Aún no hay mensajes.</p> : (
+        <ol className="chat-messages" data-testid="admin-messages">
           {data.messages.map((message) => (
-            <li key={message.id}>
+            <li className={message.author_user_id === data.customer.id ? 'chat-bubble' : 'chat-bubble chat-outgoing'} key={message.id}>
               <strong>{author(data, adminId, message.author_user_id)}</strong>
-              <span className="admin-hint"> · {formatDateTime(message.created_at)}</span>
-              <p className="ticket-description">{message.body}</p>
+              <p>{message.body}</p>
+              <time dateTime={message.created_at}>{formatDateTime(message.created_at)}</time>
             </li>
           ))}
         </ol>
-      )}
+        )}
+      </div>
 
       <h4>Historial del caso</h4>
       <ol className="admin-thread" data-testid="admin-history">
@@ -142,22 +144,49 @@ export function EscalationCasePanel({ adminId, data, onChanged, onClaim, onFinis
       {owned && action !== null && (
         <form
           aria-label={action === 'reply' ? 'Responder' : action === 'resolve' ? 'Resolver' : 'Devolver'}
-          className="admin-confirm"
+          className={action === 'reply' ? 'chat-compose admin-chat-compose' : 'admin-confirm'}
           onSubmit={(event) => void submit(event)}
         >
-          <div className="admin-field">
-            <label htmlFor="admin-case-text">
-              {action === 'reply' && 'Mensaje para el cliente'}
-              {action === 'resolve' && 'Resumen de resolución (obligatorio)'}
-              {action === 'return' && 'Motivo de devolución (obligatorio)'}
-            </label>
-            <textarea id="admin-case-text" maxLength={4000} onChange={(event) => setText(event.currentTarget.value)} required rows={4} value={text} />
-            <p className="admin-hint">
-              {action === 'reply' && 'El cliente verá este mensaje en la conversación. No es una nota privada.'}
-              {action === 'resolve' && 'El cliente verá este resumen cuando abra su caso.'}
-              {action === 'return' && 'Solo lo verá el personal autorizado; el cliente no lo ve.'}
-            </p>
-          </div>
+          {action === 'reply' ? (
+            <>
+              <label className="visually-hidden" htmlFor="admin-case-text">Mensaje para el cliente</label>
+              <textarea
+                id="admin-case-text"
+                maxLength={4000}
+                onChange={(event) => setText(event.currentTarget.value)}
+                onKeyDown={(event) => {
+                  if (event.key !== 'Enter' || event.shiftKey || event.nativeEvent.isComposing) return
+                  event.preventDefault()
+                  if (!event.repeat && !busy && text.trim()) event.currentTarget.form?.requestSubmit()
+                }}
+                placeholder="Escribe un mensaje"
+                required
+                rows={1}
+                value={text}
+              />
+              <button
+                aria-label="Enviar respuesta"
+                className="primary-button chat-icon"
+                disabled={busy || !text.trim()}
+                title="Enviar respuesta"
+                type="submit"
+              >
+                <svg aria-hidden="true" fill="none" height="20" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" viewBox="0 0 24 24" width="20"><path d="m22 2-7 20-4-9-9-4 20-7ZM11 13 22 2" /></svg>
+              </button>
+              <p className="admin-hint">El cliente verá este mensaje en la conversación. No es una nota privada.</p>
+              <button className="text-button" disabled={busy} onClick={() => choose(null)} type="button">Cancelar</button>
+            </>
+          ) : (
+            <div className="admin-field">
+              <label htmlFor="admin-case-text">
+                {action === 'resolve' ? 'Resumen de resolución (obligatorio)' : 'Motivo de devolución (obligatorio)'}
+              </label>
+              <textarea id="admin-case-text" maxLength={4000} onChange={(event) => setText(event.currentTarget.value)} required rows={4} value={text} />
+              <p className="admin-hint">
+                {action === 'resolve' ? 'El cliente verá este resumen cuando abra su caso.' : 'Solo lo verá el personal autorizado; el cliente no lo ve.'}
+              </p>
+            </div>
+          )}
           {action !== 'reply' && (
             <label className="admin-check">
               <input checked={confirmed} onChange={(event) => setConfirmed(event.currentTarget.checked)} type="checkbox" />
@@ -166,16 +195,14 @@ export function EscalationCasePanel({ adminId, data, onChanged, onClaim, onFinis
                 : ' Confirmo que devuelvo el caso a soporte.'}
             </label>
           )}
-          <div className="admin-actions">
-            <button
-              className="primary-button"
-              disabled={busy || text.trim().length === 0 || (action !== 'reply' && !confirmed)}
-              type="submit"
-            >
-              {busy ? 'Enviando…' : action === 'reply' ? 'Enviar respuesta' : action === 'resolve' ? 'Resolver caso' : 'Devolver caso'}
-            </button>
-            <button className="text-button" disabled={busy} onClick={() => choose(null)} type="button">Cancelar</button>
-          </div>
+          {action !== 'reply' && (
+            <div className="admin-actions">
+              <button className="primary-button" disabled={busy || text.trim().length === 0 || !confirmed} type="submit">
+                {busy ? 'Enviando…' : action === 'resolve' ? 'Resolver caso' : 'Devolver caso'}
+              </button>
+              <button className="text-button" disabled={busy} onClick={() => choose(null)} type="button">Cancelar</button>
+            </div>
+          )}
         </form>
       )}
       {failure && <AdminFailureNotice failure={failure} />}

@@ -203,10 +203,12 @@ describe('EscalationsPage (ADM-05)', () => {
     await user.type(screen.getByLabelText('Mensaje para el cliente'), '   ')
     expect(send).toBeDisabled()
     await user.type(screen.getByLabelText('Mensaje para el cliente'), '  Estamos revisando  ')
-    await user.click(send)
+    await user.keyboard('{Enter}')
 
     await waitFor(() => expect(screen.getByTestId('admin-messages')).toHaveTextContent('Estamos revisando'))
     expect(screen.getByTestId('admin-messages')).toHaveTextContent('Tú (administrador)')
+    expect(screen.getByText('Hola, ayuda').closest('li')).toHaveClass('chat-bubble')
+    expect(screen.getByText('Estamos revisando').closest('li')).toHaveClass('chat-bubble', 'chat-outgoing')
     expect(bodies('/tickets/3/messages')).toEqual([{ body: 'Estamos revisando' }])
   })
 
