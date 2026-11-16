@@ -1,6 +1,10 @@
 name: Deploy Staff Web to Cloud Run
 
 on:
+  workflow_run:
+    workflows: ["Staff web CI"]
+    types: [completed]
+    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -15,19 +19,26 @@ env:
   PROJECT: finance-ai-api
   REGION: southamerica-east1
   SERVICE: finance-staff-web
+  SOURCE_SHA: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
 
 jobs:
   deploy:
-    if: github.ref == 'refs/heads/main'
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      (github.event_name == 'workflow_dispatch' ||
+       (github.event.workflow_run.event == 'push' &&
+        github.event.workflow_run.conclusion == 'success' &&
+        github.event.workflow_run.head_repository.id == github.event.repository.id))
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     environment: staff-web-production
     env:
-      STAFF_RUNTIME_SERVICE_ACCOUNT: ${{ vars.STAFF_RUNTIME_SERVICE_ACCOUNT }}
+      STAFF_RUNTIME_SERVICE_ACCOUNT: finance-staff-web-runtime@finance-ai-api.iam.gserviceaccount.com
 
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
+          ref: ${{ env.SOURCE_SHA }}
           persist-credentials: false
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
@@ -45,40 +56,57 @@ jobs:
           npx playwright install --with-deps chromium
       - name: Build the Staff Web image
         run: |
-          image="$REGION-docker.pkg.dev/$PROJECT/finance-ai/staff-web:$GITHUB_SHA"
+          image="$REGION-docker.pkg.dev/$PROJECT/finance-ai/staff-web:$SOURCE_SHA"
           docker build --platform linux/amd64 \
-            --label "org.opencontainers.image.revision=$GITHUB_SHA" \
+            --label "org.opencontainers.image.revision=$SOURCE_SHA" \
             --tag "$image" staff-web
           echo "IMAGE=$image" >> "$GITHUB_ENV"
       - uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3
         with:
-          workload_identity_provider: ${{ vars.STAFF_WIF_PROVIDER }}
-          service_account: ${{ vars.STAFF_DEPLOY_SERVICE_ACCOUNT }}
+          workload_identity_provider: projects/1006444199777/locations/global/workloadIdentityPools/github-staff-web/providers/github
+          service_account: finance-staff-web-deploy@finance-ai-api.iam.gserviceaccount.com
       - uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db # v3
       - name: Check Staff API compatibility before publishing
         run: |
-          api=$(gcloud run services describe finance-api --project "$PROJECT" --region "$REGION" --format='value(status.url)')
-          origin=$(gcloud run services describe "$SERVICE" --project "$PROJECT" --region "$REGION" --format='value(status.url)')
-          bash staff-web/deploy/verify-staff-api.sh "$api" "$origin"
-          echo "API_HOST=${api#https://}" >> "$GITHUB_ENV"
+          service=$(gcloud run services describe "$SERVICE" --project "$PROJECT" --region "$REGION" --format=json)
+          origin=$(jq -er '.status.url' <<< "$service")
+          host=$(jq -er '.spec.template.spec.containers[0].env[] | select(.name == "STAFF_API_HOST") | .value' <<< "$service")
+          [[ "$host" =~ ^[a-z0-9.-]+\.run\.app$ ]]
+          bash staff-web/deploy/verify-staff-api.sh "https://$host" "$origin"
           echo "STAFF_ORIGIN=$origin" >> "$GITHUB_ENV"
       - name: Publish the image and deploy its digest
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          : "${STAFF_RUNTIME_SERVICE_ACCOUNT:?Configure STAFF_RUNTIME_SERVICE_ACCOUNT first}"
+          main_sha=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq '.object.sha')
+          [[ "$SOURCE_SHA" == "$main_sha" ]]
           gcloud auth configure-docker "$REGION-docker.pkg.dev" --quiet
           docker push "$IMAGE"
           digest=$(gcloud artifacts docker images describe "$IMAGE" --project "$PROJECT" --format='value(image_summary.digest)')
           [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]
-          gcloud run deploy "$SERVICE" --project "$PROJECT" --region "$REGION" \
-            --image "${IMAGE%:*}@$digest" --service-account "$STAFF_RUNTIME_SERVICE_ACCOUNT" \
-            --update-env-vars "STAFF_API_HOST=$API_HOST" --port 8080 \
-            --cpu 1 --memory 256Mi --min 0 --max 3 --max-instances 3 \
-            --concurrency 40 --timeout 60s --cpu-throttling --no-cpu-boost \
-            --startup-probe 'httpGet.path=/health,httpGet.port=8080,periodSeconds=2,timeoutSeconds=1,failureThreshold=10' \
-            --quiet
+          deployed_image="${IMAGE%:*}@$digest"
+          echo "DEPLOYED_IMAGE=$deployed_image" >> "$GITHUB_ENV"
+          gcloud run services update "$SERVICE" --project "$PROJECT" --region "$REGION" \
+            --image "$deployed_image" --service-account "$STAFF_RUNTIME_SERVICE_ACCOUNT" --async --quiet
       - name: Verify the deployed URL and browser
         run: |
-          url=$(gcloud run services describe "$SERVICE" --project "$PROJECT" --region "$REGION" --format='value(status.url)')
+          for attempt in {1..36}; do
+            service=$(gcloud run services describe "$SERVICE" --project "$PROJECT" --region "$REGION" --format=json)
+            if jq -e --arg image "$DEPLOYED_IMAGE" '
+              .metadata.generation == .status.observedGeneration and
+              .spec.template.spec.containers[0].image == $image and
+              .status.latestCreatedRevisionName == .status.latestReadyRevisionName and
+              any(.status.conditions[]; .type == "Ready" and .status == "True")
+            ' <<< "$service" >/dev/null; then
+              break
+            fi
+            if (( attempt == 36 )); then
+              echo "::error::The new Staff Web revision did not become ready."
+              exit 1
+            fi
+            sleep 5
+          done
+          url=$(jq -er '.status.url' <<< "$service")
           test "$url" = "$STAFF_ORIGIN"
           test "$(curl --fail --silent --show-error --max-time 20 "$url/health")" = ok
           bash staff-web/deploy/verify-staff-api.sh "$url" "$url"
