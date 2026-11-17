@@ -1,7 +1,9 @@
 name: Release Android integration
 
 on:
-  pull_request:
+  workflow_run:
+    workflows: ["Frontend CI"]
+    types: [completed]
     branches: [main]
   workflow_dispatch:
     inputs:
@@ -15,17 +17,13 @@ permissions:
   contents: read
 
 concurrency:
-  group: release-android-integration-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  group: release-android-integration-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
   android-release-integration:
     name: Android release journeys against disposable API
-    if: >-
-      github.event_name == 'workflow_dispatch' ||
-      (github.event.pull_request.base.ref == 'main' &&
-       github.event.pull_request.head.ref == 'develop' &&
-       github.event.pull_request.head.repo.full_name == github.repository)
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     steps:
@@ -35,7 +33,7 @@ jobs:
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           repository: Maicol2363/finance-ai-backend
-          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.backend_ref || 'main' }}
+          ref: ${{ inputs.backend_ref }}
           path: finance-ai-backend
           persist-credentials: false
 
@@ -88,3 +86,96 @@ jobs:
         if: always()
         continue-on-error: true
         run: docker compose -f finance-ai-backend/compose.yaml down --volumes --remove-orphans
+
+  publish-android:
+    name: Signed release APK and existing QR file
+    if: >-
+      github.event_name == 'workflow_run' &&
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.head_branch == 'main' &&
+      github.event.workflow_run.head_repository.id == github.event.repository.id
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    environment: android-release
+    env:
+      SOURCE_SHA: ${{ github.event.workflow_run.head_sha }}
+      FINANCE_AI_API_BASE_URL: ${{ vars.ANDROID_RELEASE_API_BASE_URL }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: ${{ env.SOURCE_SHA }}
+          persist-credentials: false
+      - name: Check release prerequisites and restore the existing signing key
+        env:
+          ANDROID_DEBUG_KEYSTORE_BASE64: ${{ secrets.ANDROID_DEBUG_KEYSTORE_BASE64 }}
+          DRIVE_AUTHORIZED_USER_JSON: ${{ secrets.DRIVE_AUTHORIZED_USER_JSON }}
+        run: |
+          python - <<'PYCODE'
+          import base64, json, os
+          from pathlib import Path
+          from urllib.parse import urlparse
+          required = ['ANDROID_DEBUG_KEYSTORE_BASE64', 'DRIVE_AUTHORIZED_USER_JSON', 'FINANCE_AI_API_BASE_URL']
+          missing = [name for name in required if not os.environ.get(name)]
+          if missing:
+              raise SystemExit('Missing android-release configuration: ' + ', '.join(missing))
+          url = urlparse(os.environ['FINANCE_AI_API_BASE_URL'])
+          if url.scheme != 'https' or not url.hostname or url.username or url.password or url.query or url.fragment:
+              raise SystemExit('ANDROID_RELEASE_API_BASE_URL must be the existing public HTTPS API URL')
+          try:
+              auth = json.loads(os.environ['DRIVE_AUTHORIZED_USER_JSON'])
+              assert all(auth.get(key) for key in ['client_id', 'client_secret', 'refresh_token'])
+              key = base64.b64decode(os.environ['ANDROID_DEBUG_KEYSTORE_BASE64'], validate=True)
+          except Exception:
+              raise SystemExit('Invalid release credential format (values omitted)') from None
+          destination = Path.home() / '.android' / 'debug.keystore'
+          destination.parent.mkdir(parents=True, exist_ok=True)
+          destination.write_bytes(key)
+          destination.chmod(0o600)
+          PYCODE
+      - name: Install checksum-verified Flutter 3.47.2
+        run: |
+          archive="$RUNNER_TEMP/flutter.tar.xz"
+          curl --fail --silent --show-error --location \
+            https://storage.googleapis.com/flutter_infra_release/releases/stable/linux/flutter_linux_3.47.2-stable.tar.xz --output "$archive"
+          echo "447878859d01ca9bfdb99a85f245af07ed8a15fedcd9d189c4749e8e92d1f185  $archive" | sha256sum --check
+          tar --extract --xz --file "$archive" --directory "$RUNNER_TEMP"
+          rm --force "$archive"
+          echo "$RUNNER_TEMP/flutter/bin" >> "$GITHUB_PATH"
+      - name: Build the release using the project version and signing configuration
+        run: |
+          flutter config --no-analytics
+          flutter pub get --enforce-lockfile
+          rm -rf "${ANDROID_HOME:?}/emulator" "$ANDROID_HOME/system-images"
+          flutter build apk --release --no-pub --split-per-abi --target-platform android-arm64 \
+            --dart-define="FINANCE_AI_API_BASE_URL=$FINANCE_AI_API_BASE_URL"
+      - name: Verify signature, version and signing continuity with the current QR APK
+        run: |
+          apk=build/app/outputs/flutter-apk/app-arm64-v8a-release.apk
+          build_tools=$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)
+          "$build_tools/apksigner" verify --verbose --print-certs "$apk" > "$RUNNER_TEMP/new-signature.txt"
+          python .github/scripts/publish-android-drive.py "$RUNNER_TEMP/previous.apk" --download-only
+          "$build_tools/apksigner" verify --print-certs "$RUNNER_TEMP/previous.apk" > "$RUNNER_TEMP/old-signature.txt"
+          diff <(grep 'certificate SHA-256 digest:' "$RUNNER_TEMP/old-signature.txt") <(grep 'certificate SHA-256 digest:' "$RUNNER_TEMP/new-signature.txt")
+          "$build_tools/aapt" dump badging "$apk" | sed -n '1p' > build/app/outputs/flutter-apk/version.txt
+          cat build/app/outputs/flutter-apk/version.txt
+          sha256sum "$apk" > build/app/outputs/flutter-apk/SHA256SUMS
+      - name: Update the existing Drive file and compare the anonymous QR download
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DRIVE_AUTHORIZED_USER_JSON: ${{ secrets.DRIVE_AUTHORIZED_USER_JSON }}
+        run: |
+          main_sha=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq '.object.sha')
+          test "$SOURCE_SHA" = "$main_sha"
+          python .github/scripts/publish-android-drive.py build/app/outputs/flutter-apk/app-arm64-v8a-release.apk --commit "$SOURCE_SHA" | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: Keep signed APK and release evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: android-release-${{ env.SOURCE_SHA }}
+          path: |
+            build/app/outputs/flutter-apk/app-arm64-v8a-release.apk
+            build/app/outputs/flutter-apk/*.json
+            build/app/outputs/flutter-apk/*.txt
+            build/app/outputs/flutter-apk/SHA256SUMS
+          if-no-files-found: ignore
