@@ -43,3 +43,28 @@ PostgreSQL desechable: otros clientes, agentes sin asignación y otros agentes
 asignados a otros tickets reciben denegación. El dueño y el agente asignado
 pueden consultar el archivo. La regresión del navegador verifica que una
 respuesta 404 no ofrece miniatura/visor y conserva la descarga con sus permisos.
+
+## Resultado de validación y alcance de promoción
+
+- Flutter: formato de 227 archivos sin cambios, análisis sin incidencias, 647
+  pruebas aprobadas, una omitida existente; cobertura 85,94 % (12479/14520 líneas).
+- Staff Web: lint, typecheck y build correctos; 269 pruebas Vitest aprobadas;
+  cobertura configurada 95,09 % líneas / 86,48 % ramas; npm audit sin incidencias.
+- Playwright general: 14 aprobadas, 11 opt-in omitidas. Además, ejecución opt-in
+  real con API y PostgreSQL desechables: conversación, adjunto inicial heredado,
+  imagen de mensaje, visor y comparación de bytes descargados aprobados.
+- Regresiones CSP escritorio/toque: aprobadas, incluidos error HTTP, imagen
+  corrupta, foco tras cierre y descarga. La CSP original hace fallar la regresión.
+- Backend de `develop`: 18 pruebas unitarias/API relevantes y una prueba real de
+  autorización de adjuntos en PostgreSQL aprobadas. No se modificó el backend.
+- Publicación Drive: tres pruebas offline aprobadas; actionlint de los workflows
+  correcto. La publicación real depende de los requisitos de android-release.
+
+La base de trabajo es `develop` en `2d21e55e0977dbe0f485e892fafd7ddbd1e4a20a`.
+Se integró `main` en `22ebbad` en la rama de corrección para resolver el conflicto
+previsto de `release-android-integration.yml` y conservar sus cambios: integración
+con emulador manual, CI en push a main y build Android sin dispositivo. A la fecha
+de revisión no había commits exclusivos de develop pendientes de promoción.
+El alcance previsto hacia main comprende la corrección web/Flutter, sus pruebas,
+la versión `0.8.1+10`, el workflow/script de publicación del mismo ID y esta
+documentación; no incluye cambios de backend, datos ni permisos de Drive.

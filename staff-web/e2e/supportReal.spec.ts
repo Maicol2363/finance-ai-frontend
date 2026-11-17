@@ -17,7 +17,7 @@ test('real customer-agent conversation, resolution, escalation and denial', asyn
   const subject = `E2E soporte ${Date.now()}`
   const file = { name: 'evidencia.pdf', mimeType: 'application/pdf', buffer: Buffer.from('%PDF-1.7\nQA') }
   const image = {
-    name: 'captura.png',
+    name: 'tmp_legacy.png',
     content: 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGMQqo0BAAGQAOzY5F2BAAAAAElFTkSuQmCC',
   }
   const created = await request.post(`${api}/support/tickets`, { headers: customerHeaders, data: { subject, category: 'general', description: 'Descripción sintética', attachment: image } })
@@ -43,12 +43,28 @@ test('real customer-agent conversation, resolution, escalation and denial', asyn
   const preview = context.getByRole('img', { name: image.name })
   await expect(preview).toBeVisible()
   await expect.poll(() => preview.evaluate((element: HTMLImageElement) => element.naturalWidth)).toBe(1)
+  await context.getByRole('button', { name: `Abrir imagen ${image.name}` }).click()
+  const viewer = page.getByRole('dialog', { name: `Imagen ${image.name}`, exact: true })
+  await expect(viewer).toBeVisible()
+  await page.keyboard.press('Escape')
+  await expect(viewer).not.toBeVisible()
+  await expect(context.getByRole('button', { name: `Abrir imagen ${image.name}` })).toBeFocused()
   const download = page.waitForEvent('download')
-  await context.getByRole('button', { name: 'Descargar captura.png' }).click()
-  expect((await download).suggestedFilename()).toBe(image.name)
-  const response = await request.post(`${api}/support/tickets/${ticket.id}/messages`, { headers: customerHeaders, data: { body: 'Mensaje real del cliente <script>literal</script>' } })
+  await context.getByRole('button', { name: `Descargar ${image.name}` }).click()
+  const saved = await download
+  expect(saved.suggestedFilename()).toBe(image.name)
+  const stream = await saved.createReadStream()
+  const chunks: Buffer[] = []
+  for await (const chunk of stream!) chunks.push(Buffer.from(chunk))
+  expect(Buffer.concat(chunks)).toEqual(Buffer.from(image.content, 'base64'))
+  const response = await request.post(`${api}/support/tickets/${ticket.id}/messages`, { headers: customerHeaders, data: { body: 'Mensaje real del cliente <script>literal</script>', attachment: { ...image, name: 'mensaje.png' } } })
   expect(response.status()).toBe(204)
   await expect(context.getByText('Mensaje real del cliente <script>literal</script>', { exact: true })).toBeVisible({ timeout: 12000 })
+  const messageImage = context.getByRole('img', { name: 'mensaje.png', exact: true })
+  await expect.poll(() => messageImage.evaluate((element: HTMLImageElement) => element.naturalWidth)).toBe(1)
+  await context.getByRole('button', { name: 'Abrir imagen mensaje.png' }).click()
+  await page.getByRole('dialog', { name: 'Imagen mensaje.png', exact: true }).getByRole('button', { name: 'Cerrar imagen' }).click()
+  await expect(context).toBeVisible()
   await page.getByLabel('Mensaje al cliente').fill('Respuesta real del agente')
   const recheck = page.waitForResponse(response => response.url().endsWith('/staff/auth/session'))
   await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')))
@@ -72,7 +88,7 @@ test('real customer-agent conversation, resolution, escalation and denial', asyn
   expect(view.ticket.status).toBe('resolved')
   expect(view.ticket.resolution_summary).toBe('Resolución real de prueba')
   expect(view.messages).toHaveLength(2)
-  expect(view.attachments.map((attachment: { name: string }) => attachment.name)).toEqual(['captura.png', 'respuesta.pdf'])
+  expect(view.attachments.map((attachment: { name: string }) => attachment.name)).toEqual([image.name, 'mensaje.png', 'respuesta.pdf'])
   expect((await request.post(`${api}/support/tickets/${ticket.id}/messages`, { headers: customerHeaders, data: { body: 'Respuesta tardía' } })).status()).toBe(409)
   expect((await request.get(`${api}/support/tickets/${ticket.id}`)).status()).toBe(401)
 

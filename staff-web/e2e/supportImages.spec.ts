@@ -16,12 +16,12 @@ for (const mobile of [false, true]) {
       })
       await page.route('**/api/v1/staff/auth/session', route => route.fulfill({ json: { user: { id: 73, email: 'support@example.test', role: 'support_agent' }, access_expires_at: '2026-11-18T00:00:00Z', renewable_expires_at: '2026-11-19T00:00:00Z', absolute_expires_at: '2026-11-20T00:00:00Z' } }))
       const ticket = { id: 2, subject: 'No me sirve la AI', status: 'in_progress', assigned_staff_user_id: 73, category: 'technical', description: 'Solicitud con imagen', created_at: '2026-11-17T00:00:00Z' }
-      let denied = false
+      let result: 'ok' | 'denied' | 'corrupt' = 'ok'
       await page.route('**/api/v1/staff/support/tickets**', async route => {
         expect(route.request().headers()['x-staff-request']).toBe('1')
         const path = new URL(route.request().url()).pathname
         if (path.includes('/attachments/')) {
-          await route.fulfill(denied ? { status: 404, json: { code: 'support_ticket_not_found' } } : { json: { content: png } })
+          await route.fulfill(result === 'denied' ? { status: 404, json: { code: 'support_ticket_not_found' } } : { json: { content: result === 'corrupt' ? btoa('not a PNG') : png } })
         } else if (path.endsWith('/conversation')) {
           await route.fulfill({ json: { ticket, customer: { id: 42, is_active: true }, history: [], messages: [{ id: 8, author_user_id: 42, body: 'Respuesta con imagen', created_at: ticket.created_at }], attachments: [
             { id: 1, message_id: null, name: 'tmp_123.png', size: 69 },
@@ -40,6 +40,9 @@ for (const mobile of [false, true]) {
         else { await trigger.focus(); await page.keyboard.press('Enter') }
         const viewer = page.getByRole('dialog', { name: `Imagen ${name}`, exact: true })
         await expect(viewer).toBeVisible()
+        if (!mobile) {
+          await expect(viewer.getByRole('button', { name: 'Cerrar imagen' })).toBeFocused()
+        }
         if (mobile) await viewer.getByRole('button', { name: 'Cerrar imagen' }).tap()
         else await page.keyboard.press('Escape')
         await expect(viewer).not.toBeVisible()
@@ -53,14 +56,27 @@ for (const mobile of [false, true]) {
       }
       const download = page.waitForEvent('download')
       await context.getByRole('button', { name: 'Descargar tmp_123.png' }).click()
-      expect((await download).suggestedFilename()).toBe('tmp_123.png')
+      const saved = await download
+      expect(saved.suggestedFilename()).toBe('tmp_123.png')
+      const stream = await saved.createReadStream()
+      const chunks: Buffer[] = []
+      for await (const chunk of stream!) chunks.push(Buffer.from(chunk))
+      expect(Buffer.concat(chunks)).toEqual(Buffer.from(png, 'base64'))
       await expect(context.getByRole('button', { name: 'Descargar documento.pdf' })).toBeVisible()
       await expect(context.getByRole('button', { name: 'Abrir imagen documento.pdf' })).toHaveCount(0)
-      denied = true
+      result = 'denied'
       await page.reload()
       await expect(context.getByRole('alert').first()).toContainText('No se pudo mostrar la vista previa')
       await expect(context.getByRole('button', { name: /Abrir imagen/ })).toHaveCount(0)
       await expect(context.getByRole('button', { name: 'Descargar tmp_123.png' })).toBeEnabled()
+      const report = context.getByRole('region', { name: 'Diagnóstico de soporte' }).first()
+      await expect(report).toContainText('support_ticket_not_found')
+      await expect(report.locator('pre')).not.toContainText('tmp_123')
+      result = 'corrupt'
+      await page.reload()
+      await expect(context.getByRole('alert').first()).toContainText('No se pudo mostrar la vista previa')
+      await expect(context.getByRole('button', { name: /Abrir imagen/ })).toHaveCount(0)
+      await expect(context.locator('pre').first()).toContainText('invalid_response')
     })
   })
 }
