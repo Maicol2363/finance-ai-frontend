@@ -731,6 +731,43 @@ class _ChatAttachmentState extends State<_ChatAttachment> {
     }
   }
 
+  Widget previewFailure([Object? error]) {
+    final failure = error is SupportFailure
+        ? error.diagnostic
+        : ErrorDiagnostic.capture(
+            code: 'support_preview_failed',
+            operation: 'support_attachment',
+            userMessage: 'No se pudo mostrar la vista previa. Puedes descargar el archivo.',
+            technicalReason: 'image_preview_failed',
+          );
+    return ErrorDiagnosticPanel(diagnostic: failure);
+  }
+
+  Future<void> openImage(Uint8List bytes) => showDialog<void>(
+    context: context,
+    builder: (context) => Dialog(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          TextButton(
+            autofocus: true,
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cerrar imagen'),
+          ),
+          Flexible(
+            child: InteractiveViewer(
+              child: Image.memory(
+                bytes,
+                semanticLabel: widget.attachment.name,
+                errorBuilder: (_, _, _) => previewFailure(),
+              ),
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+
   @override
   Widget build(BuildContext context) => Column(
     crossAxisAlignment: CrossAxisAlignment.start,
@@ -744,19 +781,23 @@ class _ChatAttachmentState extends State<_ChatAttachment> {
                 padding: const EdgeInsets.only(top: 8),
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(10),
-                  child: Image.memory(
-                    bytes,
-                    width: 240,
-                    height: 160,
-                    fit: BoxFit.contain,
-                    semanticLabel: widget.attachment.name,
-                    cacheWidth: 480,
-                    errorBuilder: (_, _, _) => const SizedBox.shrink(),
+                  child: TextButton(
+                    onPressed: () => openImage(bytes),
+                    child: Image.memory(
+                      bytes,
+                      width: 240,
+                      height: 160,
+                      fit: BoxFit.contain,
+                      semanticLabel: 'Abrir imagen ${widget.attachment.name}',
+                      cacheWidth: 480,
+                      errorBuilder: (_, _, _) => previewFailure(),
+                    ),
                   ),
                 ),
               );
             }
-            return const SizedBox.shrink();
+            if (snapshot.hasError) return previewFailure(snapshot.error);
+            return const Text('Cargando vista previa…');
           },
         ),
       TextButton.icon(

@@ -7,6 +7,8 @@ on:
       - "staff-web/**"
       - "AGENTS.md"
       - ".github/workflows/staff-web-ci.yml"
+      - ".github/scripts/*android*"
+      - ".github/workflows/release-android-integration.yml"
   push:
     branches: [develop, main]
 
@@ -39,6 +41,8 @@ jobs:
           npm test
           npm run test:coverage
           npm run build
+      - name: Test Drive release publication contract
+        run: python ../.github/scripts/test_publish_android_drive.py
       - name: Install Chromium for browser tests
         run: npx playwright install --with-deps chromium
       - name: Run staff authentication browser tests
