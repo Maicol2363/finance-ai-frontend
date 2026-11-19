@@ -11,6 +11,7 @@ import '../../features/auth/session/application/auth_session_state.dart';
 import '../../features/auth/session/presentation/session_bootstrap_screen.dart';
 import '../../features/budgets/presentation/budget_form_screen.dart';
 import '../../features/budgets/presentation/budgets_screen.dart';
+import '../../features/notifications/presentation/notifications_screen.dart';
 import '../../features/categories/presentation/categories_screen.dart';
 import '../../features/categories/presentation/category_form_screen.dart';
 import '../../features/dashboard/presentation/dashboard_screen.dart';
@@ -38,6 +39,7 @@ const _authenticatedRoots = <String>[
   '/support',
   '/accounts',
   '/budgets',
+  '/notifications',
   '/categories',
   '/expenses',
   '/history',
@@ -150,6 +152,12 @@ GoRouter createAppRouter({
         path: '/chat',
         name: 'chat',
         builder: (context, state) => const _ManagementRoot(child: HomeScreen()),
+      ),
+      GoRoute(
+        path: '/notifications',
+        name: 'notifications',
+        builder: (context, state) =>
+            const _ManagementRoot(child: NotificationsScreen()),
       ),
       GoRoute(
         path: '/budgets',

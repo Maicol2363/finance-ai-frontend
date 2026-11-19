@@ -75,6 +75,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 onTap: () => context.push('/budgets'),
               ),
               SettingsRow(
+                rowKey: const Key('settings-notifications-row'),
+                label: 'Notificaciones',
+                subtitle: 'Avisos por correo',
+                onTap: () => context.push('/notifications'),
+              ),
+              SettingsRow(
                 rowKey: const Key('settings-accounts-row'),
                 label: 'Cuentas y saldos',
                 subtitle: _countLabel(
